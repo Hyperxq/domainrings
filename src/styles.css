@@ -390,7 +390,10 @@ label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
 .section-head .icon { width: 14px; height: 14px; color: var(--muted); transition: transform 150ms ease; }
 .fold[open] > .section-head .icon { transform: rotate(90deg); }
 .section-head .count { color: var(--muted); font-size: 12px; }
-.section-add { position: absolute; top: 12px; right: 2px; }
+.section-actions { position: absolute; top: 12px; right: 2px; display: flex; gap: 2px; }
+.section-actions .text-button.small { height: 26px; padding: 0 8px; font-size: 12px; }
+.port-group { display: grid; gap: 6px; }
+.port-group h3 { margin: 4px 2px 0; color: var(--muted); font-size: 12px; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) {
   .section-head .icon { transition: none; }
 }

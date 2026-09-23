@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { flushSync } from 'react-dom'
 import { KINDS } from '../model/kinds'
 import {
   defaultWall,
@@ -73,12 +74,13 @@ interface FoldProps {
   id: string
   title: string
   count?: number
-  add?: { label: string; onAdd: () => void }
+  /** Buttons over the summary row's right end, such as the section's "+". */
+  actions?: ReactNode
   children: ReactNode
 }
 
 /** A collapsible editor section, open by default; each one remembers whether it was left open. */
-function Fold({ id, title, count, add, children }: FoldProps) {
+function Fold({ id, title, count, actions, children }: FoldProps) {
   const [open, setOpen] = useState(() => readSections()[id] ?? true)
   const settle = (next: boolean) => {
     setOpen(next)
@@ -92,11 +94,7 @@ function Fold({ id, title, count, add, children }: FoldProps) {
   return (
     <section className="section" aria-labelledby={headingId}>
       {/* Outside the summary: a button nested in it would be interactive content inside a toggle. */}
-      {add && (
-        <button type="button" className="icon-button small section-add" aria-label={add.label} title={add.label} onClick={add.onAdd}>
-          <Icon name="plus" />
-        </button>
-      )}
+      {actions && <span className="section-actions">{actions}</span>}
       {/* The click settles synchronously; toggle only catches opens from outside, such as revealInEditor. */}
       <details className="fold" open={open} onToggle={(e) => e.currentTarget.open !== open && settle(e.currentTarget.open)}>
         <summary
@@ -123,14 +121,21 @@ interface SectionProps<K extends CollectionKey> {
   noun: string
   empty: string
   fields?: (item: Item<K>, update: (patch: Patch<K>) => void) => ReactNode
+  /** Replaces the single "+". */
+  actions?: ReactNode
+  /** Cards listed under subheadings instead of one list. */
+  groups?: { key: string; title: string; items: Item<K>[] }[]
 }
 
-function Section<K extends CollectionKey>({ collection, items, title, noun, empty, fields }: SectionProps<K>) {
-  return (
-    <Fold id={collection} title={title} count={items.length} add={{ label: `Add ${noun}`, onAdd: () => addItem(collection) }}>
-      {items.length ? (
+function Section<K extends CollectionKey>({ collection, items, title, noun, empty, fields, actions, groups }: SectionProps<K>) {
+  const add = (
+    <button type="button" className="icon-button small" aria-label={`Add ${noun}`} title={`Add ${noun}`} onClick={() => addItem(collection)}>
+      <Icon name="plus" />
+    </button>
+  )
+  const cards = (list: Item<K>[]) => (
         <ul className="items">
-          {items.map((item) => {
+          {list.map((item) => {
             const update = (patch: Patch<K>) => updateItem(collection, item.id, patch)
             return (
               <li key={item.id} className="item" data-item-id={item.id}>
@@ -147,11 +152,37 @@ function Section<K extends CollectionKey>({ collection, items, title, noun, empt
             )
           })}
         </ul>
-      ) : (
+  )
+  return (
+    <Fold id={collection} title={title} count={items.length} actions={actions ?? add}>
+      {!items.length ? (
         <p className="empty">{empty}</p>
+      ) : groups ? (
+        groups.map((g) => (
+          <div key={g.key} className="port-group">
+            <h3>
+              {g.title} · {g.items.length}
+            </h3>
+            {cards(g.items)}
+          </div>
+        ))
+      ) : (
+        cards(items)
       )}
     </Fold>
   )
+}
+
+const article = (word: string) => (/^[aeiou]/i.test(word) ? 'an' : 'a')
+const capitalise = (text: string) => text[0].toUpperCase() + text.slice(1)
+
+/** A new port lands on its side's default wall, with the caret already in its name. */
+function addPort(side: Side) {
+  let id = ''
+  flushSync(() => {
+    id = addItem('ports', { side, wall: defaultWall(side) })
+  })
+  revealInEditor(id, true)
 }
 
 /** Entities and aggregates that can hold `id` without creating a cycle: never itself or its descendants. */
@@ -260,6 +291,19 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
           items={d.ports}
           title="Ports"
           noun="port"
+          actions={SideSchema.options.map((side) => (
+            <button
+              key={side}
+              type="button"
+              className="text-button small"
+              aria-label={`Add ${article(sideLabel[side])} ${sideLabel[side]}`}
+              title={`Add ${article(sideLabel[side])} ${sideLabel[side]}`}
+              onClick={() => addPort(side)}
+            >
+              + {sideLabel[side].split(' ')[0]}
+            </button>
+          ))}
+          groups={SideSchema.options.map((side) => ({ key: side, title: `${capitalise(sideLabel[side])}s`, items: d.ports.filter((p) => p.side === side) }))}
           empty="No ports yet. Add one per boundary the use cases expose or need."
           fields={(item, update) => (
             <>
