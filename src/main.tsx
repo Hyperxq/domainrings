@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { autosave, browserStorage } from './model/persistence'
-import { useDiagramStore } from './model/store'
+import { boot, useMapStore } from './model/store'
 import { paletteCss } from './ui/palette'
 import './styles.css'
 
@@ -17,7 +17,7 @@ try {
 } catch {
   // Blocked storage falls back to the system theme.
 }
-if (storage) autosave(useDiagramStore, storage)
+if (storage) autosave(useMapStore, storage, boot.recovery)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

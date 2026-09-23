@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import type { MapLayout } from '../layout/map'
 import type { Shape } from '../model/kinds'
 import { bandPath } from './band'
 import type { LayoutEdge, LayoutModel, LayoutNode, LayoutRing, LayoutText, Point } from '../layout/layout'
@@ -187,8 +188,46 @@ function SvgLegend({ legend, bounds }: { legend: LegendModel; bounds: Box }) {
   )
 }
 
-interface DiagramProps {
+function Defs({ rings }: { rings: LayoutRing[] }) {
+  return (
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path className="arrow-head" d="M0 0L10 5L0 10z" />
+      </marker>
+      {rings.map((ring) => (
+        // The glow colour follows each ring's stroke; flood-color comes from CSS per role.
+        <filter key={ring.role} id={`glow-${ring.role}`} x="-10%" y="-10%" width="120%" height="120%">
+          <feDropShadow className={`glow-${ring.role}`} dx="0" dy="0" stdDeviation="6" floodOpacity="0.35" />
+        </filter>
+      ))}
+    </defs>
+  )
+}
+
+interface HexagonBodyProps {
   model: LayoutModel
+  showGuides: boolean
+  selected: string | null
+  /** In link mode, the refs the selection can be linked to. */
+  linkTargets: ReadonlySet<string>
+}
+
+/** One hexagon's rings, edges and nodes — everything but the shared `<defs>` and the once-per-map legend. */
+function HexagonBody({ model, showGuides, selected, linkTargets }: HexagonBodyProps) {
+  return (
+    <>
+      {model.rings.map((ring, i) => <Ring key={ring.key} ring={ring} shape={model.shape} inner={model.rings[i + 1]} />)}
+      {showGuides && model.guides.map((g, k) => <line key={k} className="guide" x1={g.from.x} y1={g.from.y} x2={g.to.x} y2={g.to.y} />)}
+      {model.edges.map((edge) => <Edge key={edge.key} edge={edge} />)}
+      {model.nodes.map((node) => <Node key={node.key} node={node} selected={node.ref === selected} target={linkTargets.has(node.ref)} />)}
+      {model.edges.map((edge) => <EdgeLabel key={edge.key} edge={edge} />)}
+      {model.texts.map((text) => <Heading key={text.key} text={text} />)}
+    </>
+  )
+}
+
+interface MapDiagramProps {
+  map: MapLayout
   legend: LegendModel
   showGuides: boolean
   selected: string | null
@@ -196,27 +235,30 @@ interface DiagramProps {
   linkTargets: ReadonlySet<string>
 }
 
-export function Diagram({ model, legend, showGuides, selected, linkTargets }: DiagramProps) {
+const shiftedBounds = (hex: MapLayout['hexagons'][number]): Box => ({
+  x: hex.model.bounds.x + hex.centre.x,
+  y: hex.model.bounds.y + hex.centre.y,
+  width: hex.model.bounds.width,
+  height: hex.model.bounds.height,
+})
+
+/** Composes every hexagon of a map into one SVG: one `<defs>`, one `<g data-hex>` per hexagon, the map's links
+ * drawn above them, an optional map title, and the legend once — under the map's first hexagon. */
+export function MapDiagram({ map, legend, showGuides, selected, linkTargets }: MapDiagramProps) {
+  const first = map.hexagons[0]
   return (
     <>
-      <defs>
-        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path className="arrow-head" d="M0 0L10 5L0 10z" />
-        </marker>
-        {model.rings.map((ring) => (
-          // The glow colour follows each ring's stroke; flood-color comes from CSS per role.
-          <filter key={ring.role} id={`glow-${ring.role}`} x="-10%" y="-10%" width="120%" height="120%">
-            <feDropShadow className={`glow-${ring.role}`} dx="0" dy="0" stdDeviation="6" floodOpacity="0.35" />
-          </filter>
-        ))}
-      </defs>
-      {model.rings.map((ring, i) => <Ring key={ring.key} ring={ring} shape={model.shape} inner={model.rings[i + 1]} />)}
-      {showGuides && model.guides.map((g, k) => <line key={k} className="guide" x1={g.from.x} y1={g.from.y} x2={g.to.x} y2={g.to.y} />)}
-      {model.edges.map((edge) => <Edge key={edge.key} edge={edge} />)}
-      {model.nodes.map((node) => <Node key={node.key} node={node} selected={node.ref === selected} target={linkTargets.has(node.ref)} />)}
-      {model.edges.map((edge) => <EdgeLabel key={edge.key} edge={edge} />)}
-      {model.texts.map((text) => <Heading key={text.key} text={text} />)}
-      <SvgLegend legend={legend} bounds={model.bounds} />
+      <Defs rings={first.model.rings} />
+      {map.hexagons.map((hex) => (
+        <g key={hex.id} data-hex={hex.id} transform={`translate(${hex.centre.x} ${hex.centre.y})`}>
+          <HexagonBody model={hex.model} showGuides={showGuides} selected={selected} linkTargets={linkTargets} />
+        </g>
+      ))}
+      {map.links.map((link) => (
+        <line key={link.id} data-map-link="" aria-hidden="true" x1={link.points[0].x} y1={link.points[0].y} x2={link.points[1].x} y2={link.points[1].y} />
+      ))}
+      {map.title && <text data-map-title="" className="diagram-title" x={map.title.x} y={map.title.y} fontSize={TITLE.size}>{map.title.text}</text>}
+      <SvgLegend legend={legend} bounds={shiftedBounds(first)} />
     </>
   )
 }

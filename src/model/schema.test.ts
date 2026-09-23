@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { DiagramSchema } from './schema'
+import { DiagramSchema, linkEndProblem, MapSchema } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
+import { toMap } from './hexa'
 
 const issuePaths = (input: unknown) => {
   const result = DiagramSchema.safeParse(input)
@@ -96,6 +97,51 @@ describe('DiagramSchema', () => {
       expect(issuePaths(withPorts([{ id: 'a', name: 'a', side: 'driving', wall: 'ne' }]))).toEqual(['ports.0.wall'])
       expect(issuePaths(withPorts([{ id: 'a', name: 'a', side: 'driven', wall: 'north' }]))).toEqual(['ports.0.wall'])
     })
+  })
+})
+
+const TWO_HEXAGON_MAP = {
+  version: 2 as const,
+  kind: 'hexagonal' as const,
+  title: 'Two hexagons',
+  contexts: [{ id: 'c1' }],
+  hexagons: [
+    { id: 'h1', contextId: 'c1', cell: { q: 0, r: 0 }, title: 'A', domain: [], useCases: [], ports: [{ id: 'p-out', name: 'out', side: 'driven' as const }], adapters: [], actors: [], externals: [] },
+    { id: 'h2', contextId: 'c1', cell: { q: 1, r: 0 }, title: 'B', domain: [], useCases: [], ports: [{ id: 'p-in', name: 'in', side: 'driving' as const }], adapters: [], actors: [], externals: [] },
+  ],
+  links: [{ id: 'l1', from: { hexagonId: 'h1', portId: 'p-out' }, to: { hexagonId: 'h2', portId: 'p-in' } }],
+}
+
+describe('MapSchema', () => {
+  it('accepts a migrated single-hexagon map', () => {
+    expect(MapSchema.safeParse(toMap(EXAMPLE_DIAGRAM)).success).toBe(true)
+  })
+
+  it('accepts a hand-built two-hexagon map with one valid link', () => {
+    const result = MapSchema.safeParse(TWO_HEXAGON_MAP)
+    expect(result.success).toBe(true)
+  })
+})
+
+describe('linkEndProblem', () => {
+  const map = MapSchema.parse(TWO_HEXAGON_MAP)
+
+  it('finds no problem with a valid driven-to-driving pair', () => {
+    expect(linkEndProblem(map, { hexagonId: 'h1', portId: 'p-out' }, 'from')).toBeUndefined()
+    expect(linkEndProblem(map, { hexagonId: 'h2', portId: 'p-in' }, 'to')).toBeUndefined()
+  })
+
+  it('reports an unknown hexagon', () => {
+    expect(linkEndProblem(map, { hexagonId: 'nope', portId: 'p-out' }, 'from')).toMatch(/Unknown hexagon/)
+  })
+
+  it('reports an unknown port', () => {
+    expect(linkEndProblem(map, { hexagonId: 'h1', portId: 'nope' }, 'from')).toMatch(/Unknown port/)
+  })
+
+  it('reports the wrong side for the role', () => {
+    expect(linkEndProblem(map, { hexagonId: 'h2', portId: 'p-in' }, 'from')).toMatch(/driven port/)
+    expect(linkEndProblem(map, { hexagonId: 'h1', portId: 'p-out' }, 'to')).toMatch(/driving port/)
   })
 })
 

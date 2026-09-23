@@ -13,10 +13,11 @@ import {
   type Wall,
 } from '../model/schema'
 import { parentCandidates } from '../model/links'
-import { useDiagramStore, type Item } from '../model/store'
+import { diagramOf } from '../model/map'
+import { useMapStore, type Item } from '../model/store'
 import { Icon } from './Icon'
 
-const { addItem, updateItem, removeItem, setMeta } = useDiagramStore.getState()
+const { addItem, updateItem, removeItem, setMeta } = useMapStore.getState()
 
 type Patch<K extends CollectionKey> = Partial<Omit<Item<K>, 'id'>>
 
@@ -115,6 +116,7 @@ function Fold({ id, title, count, actions, children }: FoldProps) {
 }
 
 interface SectionProps<K extends CollectionKey> {
+  hexId: string
   collection: K
   items: Item<K>[]
   title: string
@@ -127,20 +129,20 @@ interface SectionProps<K extends CollectionKey> {
   groups?: { key: string; title: string; items: Item<K>[] }[]
 }
 
-function Section<K extends CollectionKey>({ collection, items, title, noun, empty, fields, actions, groups }: SectionProps<K>) {
+function Section<K extends CollectionKey>({ hexId, collection, items, title, noun, empty, fields, actions, groups }: SectionProps<K>) {
   const add = (
-    <button type="button" className="icon-button small" aria-label={`Add ${noun}`} title={`Add ${noun}`} onClick={() => addItem(collection)}>
+    <button type="button" className="icon-button small" aria-label={`Add ${noun}`} title={`Add ${noun}`} onClick={() => addItem(hexId, collection)}>
       <Icon name="plus" />
     </button>
   )
   const cards = (list: Item<K>[]) => (
         <ul className="items">
           {list.map((item) => {
-            const update = (patch: Patch<K>) => updateItem(collection, item.id, patch)
+            const update = (patch: Patch<K>) => updateItem(hexId, collection, item.id, patch)
             return (
               <li key={item.id} className="item" data-item-id={item.id}>
                 <input className="name" aria-label={`${noun} name`} value={item.name} onChange={(e) => update({ name: e.target.value } as Patch<K>)} />
-                <button type="button" className="icon-button small remove" aria-label={`Remove ${noun} ${item.name}`} title={`Remove ${noun}`} onClick={() => removeItem(collection, item.id)}>
+                <button type="button" className="icon-button small remove" aria-label={`Remove ${noun} ${item.name}`} title={`Remove ${noun}`} onClick={() => removeItem(hexId, collection, item.id)}>
                   <Icon name="close" />
                 </button>
                 {fields?.(item, update)}
@@ -177,10 +179,10 @@ const article = (word: string) => (/^[aeiou]/i.test(word) ? 'an' : 'a')
 const capitalise = (text: string) => text[0].toUpperCase() + text.slice(1)
 
 /** A new port lands on its side's default wall, with the caret already in its name. */
-function addPort(side: Side) {
+function addPort(hexId: string, side: Side) {
   let id = ''
   flushSync(() => {
-    id = addItem('ports', { side, wall: defaultWall(side) })
+    id = addItem(hexId, 'ports', { side, wall: defaultWall(side) })
   })
   revealInEditor(id, true)
 }
@@ -191,7 +193,9 @@ function adaptersBySide(d: Diagram) {
 }
 
 export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void }) {
-  const d = useDiagramStore((s) => s.diagram)
+  const map = useMapStore((s) => s.map)
+  const hexId = useMapStore((s) => s.focus)
+  const d = diagramOf(map, hexId)
   const labels = KINDS[d.kind].labels
   const adaptersOn = adaptersBySide(d)
   const sideLabel: Record<Side, string> = { driving: labels.drivingPort, driven: labels.drivenPort }
@@ -209,18 +213,18 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
         <Fold id="diagram" title="Diagram">
           <label className="field">
             <span>Title</span>
-            <input value={d.title} onChange={(e) => setMeta({ title: e.target.value })} />
+            <input value={d.title} onChange={(e) => setMeta(hexId, { title: e.target.value })} />
           </label>
           <label className="field">
             <span>Subtitle</span>
-            <input value={d.subtitle ?? ''} onChange={(e) => setMeta({ subtitle: e.target.value || undefined })} />
+            <input value={d.subtitle ?? ''} onChange={(e) => setMeta(hexId, { subtitle: e.target.value || undefined })} />
           </label>
           <label className="field" data-item-id="composition">
             <span>Composition root</span>
             <input
               value={d.composition?.name ?? ''}
               placeholder="e.g. composition.ts"
-              onChange={(e) => setMeta({ composition: e.target.value ? { ...d.composition, name: e.target.value } : undefined })}
+              onChange={(e) => setMeta(hexId, { composition: e.target.value ? { ...d.composition, name: e.target.value } : undefined })}
             />
           </label>
         </Fold>
@@ -230,7 +234,7 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
             {KINDS[d.kind].rings.map((ring) => {
               const override = d.layers?.[ring.role]
               const setLayer = (patch: { title?: string; subtitle?: string }) =>
-                setMeta({ layers: { ...d.layers, [ring.role]: { ...override, ...patch } } as Diagram['layers'] })
+                setMeta(hexId, { layers: { ...d.layers, [ring.role]: { ...override, ...patch } } as Diagram['layers'] })
               return (
                 <li key={ring.role}>
                   <fieldset className="item layer" data-item-id={`layer:${ring.role}`}>
@@ -251,6 +255,7 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
         </Fold>
 
         <Section
+          hexId={hexId}
           collection="domain"
           items={d.domain}
           title="Domain"
@@ -270,6 +275,7 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
         />
 
         <Section
+          hexId={hexId}
           collection="useCases"
           items={d.useCases}
           title="Use cases"
@@ -289,6 +295,7 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
         />
 
         <Section
+          hexId={hexId}
           collection="ports"
           items={d.ports}
           title="Ports"
@@ -300,7 +307,7 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
               className="text-button small"
               aria-label={`Add ${article(sideLabel[side])} ${sideLabel[side]}`}
               title={`Add ${article(sideLabel[side])} ${sideLabel[side]}`}
-              onClick={() => addPort(side)}
+              onClick={() => addPort(hexId, side)}
             >
               + {sideLabel[side].split(' ')[0]}
             </button>
@@ -332,6 +339,7 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
         />
 
         <Section
+          hexId={hexId}
           collection="adapters"
           items={d.adapters}
           title="Adapters"
@@ -343,6 +351,7 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
         />
 
         <Section
+          hexId={hexId}
           collection="actors"
           items={d.actors}
           title="Actors"
@@ -354,6 +363,7 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
         />
 
         <Section
+          hexId={hexId}
           collection="externals"
           items={d.externals}
           title="External systems"

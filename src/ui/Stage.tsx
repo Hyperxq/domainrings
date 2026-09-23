@@ -1,18 +1,21 @@
 import { useEffect, useRef, useState, type Ref } from 'react'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
-import type { LayoutMode, LayoutModel, LayoutNode, Point } from '../layout/layout'
+import type { LayoutMode, LayoutNode, Point } from '../layout/layout'
 import type { LegendModel } from '../layout/legend'
+import type { MapLayout } from '../layout/map'
 import { collectionOf, linkTargets, type LinkTarget } from '../model/links'
 import type { CollectionKey, Diagram as DiagramModel, DomainType } from '../model/schema'
-import { useDiagramStore } from '../model/store'
-import { Diagram } from '../render/Diagram'
+import { useMapStore } from '../model/store'
+import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
 import { Icon } from './Icon'
 import { typing } from './keys'
 import { fitTo, islandInset, panBy, zoomAt, type Viewport } from './viewport'
 
 interface StageProps {
-  model: LayoutModel
+  model: MapLayout
+  /** The hexagon `diagram` is the view of; every point insertion/editing works in belongs to it. */
+  hexId: string
   diagram: DiagramModel
   mode: LayoutMode
   /** Off: hovering still reveals the "+" buttons, but nothing dims, glows or retitles. */
@@ -37,7 +40,7 @@ interface StageProps {
 
 const GRID = 20
 const PAN_SLOP = 3
-const { addItem, updateItem, removeItem } = useDiagramStore.getState()
+const { addItem, updateItem, removeItem } = useMapStore.getState()
 const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
   domain: 'domainItem',
   useCases: 'useCase',
@@ -54,7 +57,9 @@ const keyOnCanvas = (target: EventTarget | null) =>
 const layerOf = (target: Element) =>
   target.closest('[data-band]')?.getAttribute('data-band') ?? target.closest('[data-layer]')?.getAttribute('data-layer') ?? null
 
-export function Stage({ model, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete, linking, onLinking, onLink }: StageProps) {
+export function Stage({ model, hexId, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete, linking, onLinking, onLink }: StageProps) {
+  const hex = model.hexagons.find((h) => h.id === hexId)!
+  const hexModel = hex.model
   const mainRef = useRef<HTMLElement>(null)
   const drag = useRef<{ x: number; y: number; panning: boolean } | null>(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
@@ -148,7 +153,12 @@ export function Stage({ model, diagram, mode, highlight, legend, revision, title
     }
   }, [fullscreen])
 
-  const toScreen = (p: Point) => ({ x: (p.x - viewport.x) * viewport.scale, y: (p.y - viewport.y) * viewport.scale })
+  // Insertion points, selection and editing all work in the current hexagon's own (untranslated) coordinates;
+  // toScreen adds its centre once, so every overlay lands at the hexagon's place on the map (ADR-04).
+  const toScreen = (p: Point) => ({
+    x: (p.x + hex.centre.x - viewport.x) * viewport.scale,
+    y: (p.y + hex.centre.y - viewport.y) * viewport.scale,
+  })
   const targets = linking ? linkTargets(diagram, linking) : []
   const nameOf = (ref: string) => {
     const collection = collectionOf(diagram, ref)
@@ -156,17 +166,17 @@ export function Stage({ model, diagram, mode, highlight, legend, revision, title
     return items.find((i) => i.id === ref)?.name ?? ''
   }
   // The "Link to…" chip hangs off the selection's top-right corner, for a selection that has something to link to.
-  const linkable = selected && !linking && linkTargets(diagram, selected).length ? model.nodes.find((n) => n.ref === selected) : undefined
+  const linkable = selected && !linking && linkTargets(diagram, selected).length ? hexModel.nodes.find((n) => n.ref === selected) : undefined
   const chipAt = (n: LayoutNode) => {
     const a = ((n.rotation ?? 0) * Math.PI) / 180
     const [c, s] = [Math.abs(Math.cos(a)), Math.abs(Math.sin(a))]
     const corner = toScreen({ x: n.x + (n.width / 2) * c + (n.height / 2) * s, y: n.y - (n.width / 2) * s - (n.height / 2) * c })
     return { left: corner.x, top: corner.y }
   }
-  const visiblePoints = hovered ? insertionPoints(model, diagram, mode).filter((p) => p.layer === hovered) : []
+  const visiblePoints = hovered ? insertionPoints(hexModel, diagram, mode).filter((p) => p.layer === hovered) : []
   const pick = (point: InsertionPoint, choice?: DomainType) => {
     const { collection, patch } = insertionItem(point.action, choice)
-    const id = addItem(collection, patch)
+    const id = addItem(hexId, collection, patch)
     setEditing({ id, collection, name: patch.name, at: point.at })
   }
   const revealFrom = (target: Element) => {
@@ -174,7 +184,7 @@ export function Stage({ model, diagram, mode, highlight, legend, revision, title
     if (ref) onReveal(ref, true)
   }
   // The inline name field sits over the new element once it is laid out, over its "+" until then.
-  const editingNode = editing && model.nodes.find((n) => n.ref === editing.id && n.kind === NODE_KIND[editing.collection])
+  const editingNode = editing && hexModel.nodes.find((n) => n.ref === editing.id && n.kind === NODE_KIND[editing.collection])
 
   const width = size.width / viewport.scale
   const height = size.height / viewport.scale
@@ -250,7 +260,7 @@ export function Stage({ model, diagram, mode, highlight, legend, revision, title
         onKeyDown={(e) => e.key === 'Enter' && revealFrom(e.target as Element)}
         viewBox={size.width ? `${viewport.x} ${viewport.y} ${width} ${height}` : undefined}
       >
-        <Diagram model={model} legend={legend} showGuides={showGuides} selected={selected} linkTargets={new Set(targets.map((t) => t.targetRef))} />
+        <MapDiagram map={model} legend={legend} showGuides={showGuides} selected={selected} linkTargets={new Set(targets.map((t) => t.targetRef))} />
       </svg>
 
       <Affordances points={visiblePoints} toScreen={toScreen} onPick={pick} onLayer={setHovered} />
@@ -265,12 +275,12 @@ export function Stage({ model, diagram, mode, highlight, legend, revision, title
           at={toScreen(editingNode ? { x: editingNode.x, y: editingNode.y } : editing.at)}
           initial={editing.name}
           onCommit={(name) => {
-            updateItem(editing.collection, editing.id, { name })
+            updateItem(hexId, editing.collection, editing.id, { name })
             setEditing(null)
             onReveal(editing.id, false)
           }}
           onCancel={() => {
-            removeItem(editing.collection, editing.id)
+            removeItem(hexId, editing.collection, editing.id)
             setEditing(null)
           }}
         />

@@ -51,7 +51,7 @@ export type Linkable = { id: string; parentId?: string; useCaseId?: string; port
 
 export const PARENT_TYPES: ReadonlySet<string> = new Set(['entity', 'aggregate'])
 
-function checkIntegrity(d: z.infer<typeof DiagramObject>, ctx: z.RefinementCtx) {
+function checkIntegrity(d: Pick<z.infer<typeof DiagramObject>, CollectionKey>, ctx: z.RefinementCtx) {
   for (const key of COLLECTIONS) {
     const seen = new Set<string>()
     d[key].forEach((item, i) => {
@@ -101,10 +101,106 @@ function checkIntegrity(d: z.infer<typeof DiagramObject>, ctx: z.RefinementCtx) 
 // Zod 4 refuses to .extend() a refined object, so the refinement is applied to each variant.
 export const DiagramSchema = DiagramObject.superRefine(checkIntegrity)
 export const APP = 'domainrings'
+export const VERSION = 2
 // Files saved before the rename still open; parseHexa drops the marker, so they re-export under the current name.
-export const HexaFileSchema = DiagramObject.extend({ app: z.enum([APP, 'archviz']) }).superRefine(checkIntegrity)
+// Frozen: the file format a v1 build wrote and still reads. Never change this schema — a data-bearing addition
+// belongs on the v2 map instead.
+export const HexaFileV1Schema = DiagramObject.extend({ app: z.enum([APP, 'archviz']) }).superRefine(checkIntegrity)
 
 export type Diagram = z.infer<typeof DiagramSchema>
+
+// --- v2: a map holds one or more hexagons, each keeping the v1 shape (minus version/kind, which move to the map). ---
+
+const CellSchema = z.object({ q: z.int(), r: z.int() })
+const ContextSchema = z.object({ id, name: z.string().optional() })
+const HexagonObject = DiagramObject.omit({ version: true, kind: true }).extend({ id, contextId: id, cell: CellSchema })
+export const LinkPatternSchema = z.enum(['acl', 'ohs-pl', 'customer-supplier', 'conformist', 'shared-kernel'])
+const LinkEndSchema = z.object({ hexagonId: id, portId: id, adapterId: id.optional() })
+const LinkSchema = z.object({ id, from: LinkEndSchema, to: LinkEndSchema, pattern: LinkPatternSchema.optional() })
+
+const MapObject = z.object({
+  version: z.literal(VERSION),
+  kind: KindSchema,
+  title: z.string(),
+  contexts: z.array(ContextSchema).min(1),
+  hexagons: z.array(HexagonObject.superRefine(checkIntegrity)).min(1),
+  links: z.array(LinkSchema),
+})
+
+export type LinkEnd = z.infer<typeof LinkEndSchema>
+export type Link = z.infer<typeof LinkSchema>
+type MapShape = z.infer<typeof MapObject>
+
+/** Why an end cannot stand: unknown hexagon, unknown port, wrong side for its role, adapter missing or not on that port. */
+export function linkEndProblem(map: MapShape, end: LinkEnd, role: 'from' | 'to'): string | undefined {
+  const hexagon = map.hexagons.find((h) => h.id === end.hexagonId)
+  if (!hexagon) return `Unknown hexagon id "${end.hexagonId}"`
+  const port = hexagon.ports.find((p) => p.id === end.portId)
+  if (!port) return `Unknown port id "${end.portId}" on hexagon "${end.hexagonId}"`
+  const wantSide: Side = role === 'from' ? 'driven' : 'driving'
+  if (port.side !== wantSide) return `The ${role} end of a link must be a ${wantSide} port`
+  if (end.adapterId !== undefined) {
+    const adapter = hexagon.adapters.find((a) => a.id === end.adapterId)
+    if (!adapter) return `Unknown adapter id "${end.adapterId}" on hexagon "${end.hexagonId}"`
+    if (adapter.portId !== end.portId) return `Adapter "${end.adapterId}" is not attached to port "${end.portId}"`
+  }
+  return undefined
+}
+
+function checkMap(m: MapShape, ctx: z.RefinementCtx) {
+  const seenContexts = new Set<string>()
+  m.contexts.forEach((c, i) => {
+    if (seenContexts.has(c.id)) ctx.addIssue({ code: 'custom', message: `Duplicate context id "${c.id}"`, path: ['contexts', i, 'id'] })
+    seenContexts.add(c.id)
+  })
+  const seenHexagons = new Set<string>()
+  m.hexagons.forEach((h, i) => {
+    if (seenHexagons.has(h.id)) ctx.addIssue({ code: 'custom', message: `Duplicate hexagon id "${h.id}"`, path: ['hexagons', i, 'id'] })
+    seenHexagons.add(h.id)
+  })
+  const seenCells = new Set<string>()
+  m.hexagons.forEach((h, i) => {
+    const key = `${h.cell.q},${h.cell.r}`
+    if (seenCells.has(key)) ctx.addIssue({ code: 'custom', message: `Two hexagons share cell (${h.cell.q}, ${h.cell.r})`, path: ['hexagons', i, 'cell'] })
+    seenCells.add(key)
+  })
+  m.hexagons.forEach((h, i) => {
+    if (!seenContexts.has(h.contextId)) ctx.addIssue({ code: 'custom', message: `Unknown context id "${h.contextId}"`, path: ['hexagons', i, 'contextId'] })
+  })
+  if (m.hexagons.length > 1 && m.kind !== 'hexagonal') {
+    ctx.addIssue({ code: 'custom', message: 'A map with more than one hexagon must be hexagonal', path: ['kind'] })
+  }
+  const seenLinks = new Set<string>()
+  const seenPairs = new Set<string>()
+  m.links.forEach((l, i) => {
+    if (seenLinks.has(l.id)) ctx.addIssue({ code: 'custom', message: `Duplicate link id "${l.id}"`, path: ['links', i, 'id'] })
+    seenLinks.add(l.id)
+    const fromProblem = linkEndProblem(m, l.from, 'from')
+    if (fromProblem) ctx.addIssue({ code: 'custom', message: fromProblem, path: ['links', i, 'from'] })
+    const toProblem = linkEndProblem(m, l.to, 'to')
+    if (toProblem) ctx.addIssue({ code: 'custom', message: toProblem, path: ['links', i, 'to'] })
+    if (fromProblem || toProblem) return
+    if (l.from.hexagonId === l.to.hexagonId) {
+      ctx.addIssue({ code: 'custom', message: 'A link cannot join a hexagon to itself', path: ['links', i] })
+    }
+    const pairKey = `${l.from.hexagonId}:${l.from.portId}>${l.to.hexagonId}:${l.to.portId}`
+    if (seenPairs.has(pairKey)) ctx.addIssue({ code: 'custom', message: 'Duplicate link between the same two ports', path: ['links', i] })
+    seenPairs.add(pairKey)
+    if (l.pattern) {
+      const fromHexagon = m.hexagons.find((h) => h.id === l.from.hexagonId)!
+      const toHexagon = m.hexagons.find((h) => h.id === l.to.hexagonId)!
+      if (fromHexagon.contextId === toHexagon.contextId) {
+        ctx.addIssue({ code: 'custom', message: 'A pattern only applies to a link crossing contexts', path: ['links', i, 'pattern'] })
+      }
+    }
+  })
+}
+
+export const MapSchema = MapObject.superRefine(checkMap)
+export const HexaFileV2Schema = MapObject.extend({ app: z.literal(APP) }).superRefine(checkMap)
+export type HexaMap = z.infer<typeof MapSchema>
+export type Hexagon = HexaMap['hexagons'][number]
+export type Context = HexaMap['contexts'][number]
 export type ArchitectureKind = z.infer<typeof KindSchema>
 export type DomainType = z.infer<typeof DomainTypeSchema>
 export type Side = z.infer<typeof SideSchema>

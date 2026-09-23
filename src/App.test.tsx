@@ -2,7 +2,11 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { App } from './App'
 import { EXAMPLE_DIAGRAM } from './model/example'
-import { useDiagramStore } from './model/store'
+import { toMap } from './model/hexa'
+import { diagramOf } from './model/map'
+import { useMapStore } from './model/store'
+
+const currentDiagram = () => diagramOf(useMapStore.getState().map, useMapStore.getState().focus)
 
 const scrollIntoView = vi.fn()
 
@@ -17,7 +21,7 @@ beforeAll(() => {
   Element.prototype.scrollIntoView = scrollIntoView
 })
 beforeEach(() => {
-  useDiagramStore.getState().replace(EXAMPLE_DIAGRAM)
+  useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM))
   scrollIntoView.mockClear()
 })
 afterEach(cleanup)
@@ -97,21 +101,21 @@ describe('selection and delete on the canvas', () => {
     fireEvent.click(onCanvas(container, port.id))
     fireEvent.keyDown(onCanvas(container, port.id), { key: 'Delete' })
 
-    const after = useDiagramStore.getState().diagram
+    const after = currentDiagram()
     expect(after.ports.some((p) => p.id === port.id)).toBe(false)
     expect(after.adapters.some((a) => a.portId === port.id)).toBe(false)
     expect(selected(container)).toEqual([])
     expect(screen.getByRole('status').textContent).toContain(`Deleted ${port.name}`)
 
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
-    expect(useDiagramStore.getState().diagram).toEqual(EXAMPLE_DIAGRAM)
+    expect(currentDiagram()).toEqual(EXAMPLE_DIAGRAM)
   })
 
   it('deletes with Backspace too', () => {
     const { container } = render(<App />)
     fireEvent.click(onCanvas(container, useCase.id))
     fireEvent.keyDown(document.body, { key: 'Backspace' })
-    expect(useDiagramStore.getState().diagram.useCases.some((u) => u.id === useCase.id)).toBe(false)
+    expect(currentDiagram().useCases.some((u) => u.id === useCase.id)).toBe(false)
   })
 
   it('never deletes while typing in an editor field', () => {
@@ -121,7 +125,7 @@ describe('selection and delete on the canvas', () => {
     input.focus()
     fireEvent.keyDown(input, { key: 'Backspace' })
     fireEvent.keyDown(input, { key: 'Delete' })
-    expect(useDiagramStore.getState().diagram).toEqual(EXAMPLE_DIAGRAM)
+    expect(currentDiagram()).toEqual(EXAMPLE_DIAGRAM)
   })
 
   it('does nothing on a layer band', () => {
@@ -130,7 +134,7 @@ describe('selection and delete on the canvas', () => {
     fireEvent.click(band)
     band.focus()
     fireEvent.keyDown(band, { key: 'Delete' })
-    expect(useDiagramStore.getState().diagram).toEqual(EXAMPLE_DIAGRAM)
+    expect(currentDiagram()).toEqual(EXAMPLE_DIAGRAM)
     expect(screen.queryByRole('status')).toBeNull()
   })
 
@@ -153,7 +157,7 @@ describe('undo toast', () => {
     fireEvent.click(onCanvas(container, useCase.id))
     fireEvent.keyDown(document.body, { key: 'Delete' })
   }
-  const hasUseCase = () => useDiagramStore.getState().diagram.useCases.some((u) => u.id === useCase.id)
+  const hasUseCase = () => currentDiagram().useCases.some((u) => u.id === useCase.id)
   const toast = () => screen.queryByRole('status')
 
   beforeEach(() => vi.useFakeTimers())
@@ -281,7 +285,7 @@ describe('legend island', () => {
   })
 
   it('never shows an empty section', () => {
-    useDiagramStore.getState().replace({ ...EXAMPLE_DIAGRAM, domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] })
+    useMapStore.getState().replace(toMap({ ...EXAMPLE_DIAGRAM, domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }))
     render(<App />)
     fireEvent.click(legendButton())
     expect(headings()).toEqual(['Colour · layer', 'Stroke · role'])
@@ -336,12 +340,12 @@ describe('linking on the canvas', () => {
     const { container } = render(<App />)
     startWithL(container)
     fireEvent.click(onCanvas(container, others[0].id))
-    expect(useDiagramStore.getState().diagram.adapters.find((a) => a.id === adapter.id)!.portId).toBe(others[0].id)
+    expect(currentDiagram().adapters.find((a) => a.id === adapter.id)!.portId).toBe(others[0].id)
     expect(linking(container)).toBe(false)
     expect(onCanvas(container, adapter.id).hasAttribute('data-selected')).toBe(true)
     expect(screen.getByRole('status').textContent).toContain(`Linked ${adapter.name} → ${others[0].name}`)
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
-    expect(useDiagramStore.getState().diagram).toEqual(EXAMPLE_DIAGRAM)
+    expect(currentDiagram()).toEqual(EXAMPLE_DIAGRAM)
   })
 
   it('cancels on Esc without changing anything', () => {
@@ -350,7 +354,7 @@ describe('linking on the canvas', () => {
     fireEvent.keyDown(document.body, { key: 'Escape' })
     expect(linking(container)).toBe(false)
     expect(targets(container)).toEqual([])
-    expect(useDiagramStore.getState().diagram).toEqual(EXAMPLE_DIAGRAM)
+    expect(currentDiagram()).toEqual(EXAMPLE_DIAGRAM)
   })
 
   it('cancels on a click on anything that is not a target', () => {
@@ -358,7 +362,7 @@ describe('linking on the canvas', () => {
     startWithL(container)
     fireEvent.click(onCanvas(container, EXAMPLE_DIAGRAM.useCases[0].id))
     expect(linking(container)).toBe(false)
-    expect(useDiagramStore.getState().diagram).toEqual(EXAMPLE_DIAGRAM)
+    expect(currentDiagram()).toEqual(EXAMPLE_DIAGRAM)
   })
 
   it('ignores L while typing in a field', () => {

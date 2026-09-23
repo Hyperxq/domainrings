@@ -2,10 +2,12 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createRef } from 'react'
 import { Stage } from './Stage'
-import { layoutDiagram } from '../layout/layout'
+import { layoutMap } from '../layout/map'
 import { legendFor } from '../layout/legend'
 import { EXAMPLE_DIAGRAM } from '../model/example'
-import { useDiagramStore } from '../model/store'
+import { toMap } from '../model/hexa'
+import { diagramOf } from '../model/map'
+import { useMapStore } from '../model/store'
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class {
@@ -14,16 +16,19 @@ beforeAll(() => {
     disconnect() {}
   } as unknown as typeof ResizeObserver
 })
-beforeEach(() => useDiagramStore.getState().replace(EXAMPLE_DIAGRAM))
+beforeEach(() => useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM)))
 afterEach(cleanup)
 
 /** The stage as the app wires it: laid out from the live store. */
 function Harness({ highlight = true }: { highlight?: boolean }) {
-  const diagram = useDiagramStore((s) => s.diagram)
+  const map = useMapStore((s) => s.map)
+  const hexId = useMapStore((s) => s.focus)
+  const diagram = diagramOf(map, hexId)
   const svgRef = createRef<SVGSVGElement>()
   return (
     <Stage
-      model={layoutDiagram(diagram)}
+      model={layoutMap(map)}
+      hexId={hexId}
       diagram={diagram}
       mode="detailed"
       legend={legendFor(diagram)}
@@ -100,7 +105,7 @@ describe('Stage "+" affordances', () => {
     expect(input.value).toBe('NewUseCase')
     fireEvent.change(input, { target: { value: 'ShipOrder' } })
     fireEvent.keyDown(input, { key: 'Enter' })
-    expect(useDiagramStore.getState().diagram.useCases.map((u) => u.name)).toEqual(['SubmitChatFeedback', 'ShipOrder'])
+    expect(diagramOf(useMapStore.getState().map, useMapStore.getState().focus).useCases.map((u) => u.name)).toEqual(['SubmitChatFeedback', 'ShipOrder'])
     expect(screen.queryByRole('textbox', { name: 'Name' })).toBeNull()
   })
 
@@ -108,9 +113,9 @@ describe('Stage "+" affordances', () => {
     const { container } = render(<Harness />)
     hover(container, 'application')
     act(() => fireEvent.click(screen.getByRole('button', { name: 'Add a driven port on the south-east wall' })))
-    expect(useDiagramStore.getState().diagram.ports.at(-1)).toMatchObject({ name: 'NewPort', side: 'driven', wall: 'se' })
+    expect(diagramOf(useMapStore.getState().map, useMapStore.getState().focus).ports.at(-1)).toMatchObject({ name: 'NewPort', side: 'driven', wall: 'se' })
     fireEvent.keyDown(screen.getByRole('textbox', { name: 'Name' }), { key: 'Escape' })
-    expect(useDiagramStore.getState().diagram.ports).toEqual(EXAMPLE_DIAGRAM.ports)
+    expect(diagramOf(useMapStore.getState().map, useMapStore.getState().focus).ports).toEqual(EXAMPLE_DIAGRAM.ports)
   })
 
   it('asks which domain type to add, then links a child to its aggregate', () => {
@@ -119,7 +124,7 @@ describe('Stage "+" affordances', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add an item inside Feedback' }))
     act(() => fireEvent.click(screen.getByRole('menuitem', { name: '○ value object' })))
     fireEvent.keyDown(screen.getByRole('textbox', { name: 'Name' }), { key: 'Enter' })
-    expect(useDiagramStore.getState().diagram.domain.at(-1)).toMatchObject({ name: 'NewValueObject', type: 'valueObject', parentId: 'd-feedback' })
+    expect(diagramOf(useMapStore.getState().map, useMapStore.getState().focus).domain.at(-1)).toMatchObject({ name: 'NewValueObject', type: 'valueObject', parentId: 'd-feedback' })
   })
 
   it('removes an element whose name was cleared when the input loses focus', () => {
@@ -129,7 +134,7 @@ describe('Stage "+" affordances', () => {
     const input = screen.getByRole('textbox', { name: 'Name' })
     fireEvent.change(input, { target: { value: '   ' } })
     fireEvent.blur(input)
-    expect(useDiagramStore.getState().diagram.useCases).toEqual(EXAMPLE_DIAGRAM.useCases)
+    expect(diagramOf(useMapStore.getState().map, useMapStore.getState().focus).useCases).toEqual(EXAMPLE_DIAGRAM.useCases)
   })
 })
 

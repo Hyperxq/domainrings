@@ -2,13 +2,17 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { Editor, revealInEditor } from './Editor'
 import { EXAMPLE_DIAGRAM } from '../model/example'
-import { useDiagramStore } from '../model/store'
+import { toMap } from '../model/hexa'
+import { diagramOf } from '../model/map'
+import { useMapStore } from '../model/store'
+
+const currentDiagram = () => diagramOf(useMapStore.getState().map, useMapStore.getState().focus)
 
 const SECTIONS_KEY = 'domainrings:editor-sections'
 
 beforeEach(() => {
   localStorage.clear()
-  useDiagramStore.getState().replace(EXAMPLE_DIAGRAM)
+  useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM))
 })
 afterEach(cleanup)
 
@@ -41,7 +45,7 @@ describe('collapsible editor sections', () => {
     const { container } = renderEditor()
     fireEvent.click(screen.getByRole('button', { name: 'Add a driving port' }))
     expect(section(container, 'Ports').open).toBe(true)
-    expect(useDiagramStore.getState().diagram.ports).toHaveLength(EXAMPLE_DIAGRAM.ports.length + 1)
+    expect(currentDiagram().ports).toHaveLength(EXAMPLE_DIAGRAM.ports.length + 1)
   })
 
   it('opens a collapsed section before revealing a card in it', () => {
@@ -63,7 +67,7 @@ describe('ports: side chosen at creation, cards grouped by side', () => {
     return h.closest('.port-group')!
   }
   const namesIn = (el: Element) => [...el.querySelectorAll<HTMLInputElement>('input.name')].map((i) => i.value)
-  const portsOf = (side: 'driving' | 'driven') => useDiagramStore.getState().diagram.ports.filter((p) => p.side === side)
+  const portsOf = (side: 'driving' | 'driven') => currentDiagram().ports.filter((p) => p.side === side)
 
   it.each([
     ['Add a driving port', 'driving', 'w'],
@@ -71,7 +75,7 @@ describe('ports: side chosen at creation, cards grouped by side', () => {
   ] as const)('%s creates a %s port on its default wall and puts the caret in its name', (label, side, wall) => {
     const { container } = renderEditor()
     fireEvent.click(screen.getByRole('button', { name: label }))
-    const created = useDiagramStore.getState().diagram.ports.at(-1)!
+    const created = currentDiagram().ports.at(-1)!
     expect(created).toMatchObject({ side, wall })
     const input = document.activeElement as HTMLInputElement
     expect(container.querySelector(`[data-item-id="${created.id}"]`)!.contains(input)).toBe(true)
@@ -83,7 +87,7 @@ describe('ports: side chosen at creation, cards grouped by side', () => {
     expect(screen.getByRole('button', { name: 'Add a driving port' }).textContent).toBe('+ driving')
     expect(screen.getByRole('button', { name: 'Add a driven port' }).textContent).toBe('+ driven')
     cleanup()
-    useDiagramStore.getState().replace({ ...EXAMPLE_DIAGRAM, kind: 'clean' })
+    useMapStore.getState().replace(toMap({ ...EXAMPLE_DIAGRAM, kind: 'clean' }))
     const { container } = renderEditor()
     expect(screen.getByRole('button', { name: 'Add an input port' }).textContent).toBe('+ input')
     expect(screen.getByRole('button', { name: 'Add an output port' }).textContent).toBe('+ output')
@@ -98,12 +102,12 @@ describe('ports: side chosen at creation, cards grouped by side', () => {
   })
 
   it('moves a card to the other group when its side changes, dropping its wall', () => {
-    useDiagramStore.getState().updateItem('ports', port.id, { wall: port.side === 'driving' ? 'nw' : 'ne' })
+    useMapStore.getState().updateItem(useMapStore.getState().focus, 'ports', port.id, { wall: port.side === 'driving' ? 'nw' : 'ne' })
     const { container } = renderEditor()
     const other = port.side === 'driving' ? 'driven' : 'driving'
     const select = container.querySelector(`[data-item-id="${port.id}"] select`) as HTMLSelectElement
     fireEvent.change(select, { target: { value: other } })
-    expect(useDiagramStore.getState().diagram.ports.find((p) => p.id === port.id)).toMatchObject({ side: other, wall: undefined })
+    expect(currentDiagram().ports.find((p) => p.id === port.id)).toMatchObject({ side: other, wall: undefined })
     expect(namesIn(group(container, other === 'driving' ? 'Driving ports' : 'Driven ports'))).toContain(port.name)
     expect(namesIn(group(container, other === 'driving' ? 'Driven ports' : 'Driving ports'))).not.toContain(port.name)
   })
@@ -111,7 +115,7 @@ describe('ports: side chosen at creation, cards grouped by side', () => {
 
 describe('use case placement', () => {
   const uc = EXAMPLE_DIAGRAM.useCases[0]
-  const placementOf = () => useDiagramStore.getState().diagram.useCases.find((u) => u.id === uc.id)!.placement
+  const placementOf = () => currentDiagram().useCases.find((u) => u.id === uc.id)!.placement
 
   it('offers the stack under the title or any wall, in hexagons only', () => {
     const { container } = renderEditor()
@@ -122,7 +126,7 @@ describe('use case placement', () => {
     fireEvent.change(select, { target: { value: 'top' } })
     expect(placementOf()).toBeUndefined()
     cleanup()
-    useDiagramStore.getState().replace({ ...EXAMPLE_DIAGRAM, kind: 'clean' })
+    useMapStore.getState().replace(toMap({ ...EXAMPLE_DIAGRAM, kind: 'clean' }))
     expect(renderEditor().container.querySelector(`[data-item-id="${uc.id}"] select[aria-label="Placement"]`)).toBeNull()
   })
 })

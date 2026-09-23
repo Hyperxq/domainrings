@@ -1,40 +1,50 @@
 import type { StoreApi } from 'zustand/vanilla'
-import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, SEED_VERSION } from './example'
-import { parseHexa, toHexa } from './hexa'
-import { APP, type Diagram } from './schema'
+import { EXAMPLE_DIAGRAM } from './example'
+import { parseHexa, toHexa, toMap } from './hexa'
+import type { HexaMap } from './schema'
 
-export const STORAGE_KEY = 'domainrings:diagram'
+export const MAP_KEY = 'domainrings:map'
+/** Read-only: what the previous, single-hexagon version wrote. The full v1/legacy fallback chain lands in the next slice. */
+export const V1_KEY = 'domainrings:diagram'
 
-/** The stored envelope is the .hexa file plus the seed version it was written under. */
-const serialise = (diagram: Diagram) => JSON.stringify({ app: APP, seedVersion: SEED_VERSION, ...diagram }, null, 2)
+export type Recovery = 'none' | 'kept' | 'not-kept'
 
-export function loadDiagram(storage: Pick<Storage, 'getItem'> | undefined): Diagram {
+export interface LoadResult {
+  map: HexaMap
+  recovery: Recovery
+  unreadableText?: string
+}
+
+/**
+ * S-000: reads this version's own slot, or falls back to the built-in example. The v1/legacy fallback chain
+ * (AUTO-01) and the unreadable-copy recovery path (AUTO-03) are a later slice's job — `recovery` stays 'none'
+ * here so the type is honest without faking behaviour this slice does not implement yet.
+ */
+export function loadMap(storage: Pick<Storage, 'getItem'> | undefined): LoadResult {
   try {
-    const text = storage?.getItem(STORAGE_KEY)
+    const text = storage?.getItem(MAP_KEY)
     const result = text ? parseHexa(text) : undefined
-    if (!result?.ok) return EXAMPLE_DIAGRAM
-    // An autosave from an older seed version that still equals that seed byte for byte was never edited.
-    const stale =
-      JSON.parse(text!).seedVersion !== SEED_VERSION &&
-      RETIRED_SEEDS.some((seed) => toHexa(seed) === toHexa(result.diagram))
-    return stale ? EXAMPLE_DIAGRAM : result.diagram
+    if (result?.ok) return { map: result.map, recovery: 'none' }
   } catch {
-    return EXAMPLE_DIAGRAM
+    // Falls through to the example below.
   }
+  return { map: toMap(EXAMPLE_DIAGRAM), recovery: 'none' }
 }
 
 export function autosave(
-  store: StoreApi<{ diagram: Diagram }>,
+  store: StoreApi<{ map: HexaMap }>,
   storage: Pick<Storage, 'setItem'>,
+  recovery: Recovery,
   delay = 400,
 ): () => void {
+  if (recovery === 'not-kept') return () => {}
   let timer: ReturnType<typeof setTimeout> | undefined
   const unsubscribe = store.subscribe((next, prev) => {
-    if (next.diagram === prev.diagram) return
+    if (next.map === prev.map) return
     clearTimeout(timer)
     timer = setTimeout(() => {
       try {
-        storage.setItem(STORAGE_KEY, serialise(store.getState().diagram))
+        storage.setItem(MAP_KEY, toHexa(store.getState().map))
       } catch {
         // Quota or privacy-mode failures only cost the autosave, never the session.
       }
@@ -58,7 +68,7 @@ function migrateLegacyKeys(storage: Storage) {
   }
 }
 
-// The store reads the diagram at import time, so the migration lives in the one gateway every reader goes through.
+// The store reads the map at import time, so the migration lives in the one gateway every reader goes through.
 export function browserStorage(): Storage | undefined {
   let storage: Storage
   try {
