@@ -93,7 +93,7 @@ function EdgeLabel({ edge }: { edge: LayoutEdge }) {
   )
 }
 
-function Node({ node, selected }: { node: LayoutNode; selected: boolean }) {
+function Node({ node, selected, target }: { node: LayoutNode; selected: boolean; target: boolean }) {
   const left = node.x - node.width / 2
   const top = node.y - node.height / 2
   const centered = node.align === 'center'
@@ -108,6 +108,7 @@ function Node({ node, selected }: { node: LayoutNode; selected: boolean }) {
       data-layer={node.layer}
       data-ref={node.ref}
       data-selected={selected ? '' : undefined}
+      data-link-target={target ? '' : undefined}
       tabIndex={0}
       role="button"
       aria-label={`Edit ${node.lines.map((l) => l.text).join(' ')}`}
@@ -186,7 +187,16 @@ function SvgLegend({ legend, bounds }: { legend: LegendModel; bounds: Box }) {
   )
 }
 
-export function Diagram({ model, legend, showGuides, selected }: { model: LayoutModel; legend: LegendModel; showGuides: boolean; selected: string | null }) {
+interface DiagramProps {
+  model: LayoutModel
+  legend: LegendModel
+  showGuides: boolean
+  selected: string | null
+  /** In link mode, the refs the selection can be linked to. */
+  linkTargets: ReadonlySet<string>
+}
+
+export function Diagram({ model, legend, showGuides, selected, linkTargets }: DiagramProps) {
   return (
     <>
       <defs>
@@ -203,7 +213,7 @@ export function Diagram({ model, legend, showGuides, selected }: { model: Layout
       {model.rings.map((ring, i) => <Ring key={ring.key} ring={ring} shape={model.shape} inner={model.rings[i + 1]} />)}
       {showGuides && model.guides.map((g, k) => <line key={k} className="guide" x1={g.from.x} y1={g.from.y} x2={g.to.x} y2={g.to.y} />)}
       {model.edges.map((edge) => <Edge key={edge.key} edge={edge} />)}
-      {model.nodes.map((node) => <Node key={node.key} node={node} selected={node.ref === selected} />)}
+      {model.nodes.map((node) => <Node key={node.key} node={node} selected={node.ref === selected} target={linkTargets.has(node.ref)} />)}
       {model.edges.map((edge) => <EdgeLabel key={edge.key} edge={edge} />)}
       {model.texts.map((text) => <Heading key={text.key} text={text} />)}
       <SvgLegend legend={legend} bounds={model.bounds} />

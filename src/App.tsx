@@ -4,7 +4,8 @@ import { layoutDiagram, type LayoutMode } from './layout/layout'
 import { legendFor, legendSize } from './layout/legend'
 import { EXAMPLES } from './model/example'
 import { parseHexa, toHexa } from './model/hexa'
-import { COLLECTIONS, type Diagram } from './model/schema'
+import { collectionOf, type LinkTarget } from './model/links'
+import type { Diagram } from './model/schema'
 import { useDiagramStore } from './model/store'
 import { Editor, revealInEditor } from './ui/Editor'
 import { download, exportBounds, fileSlug, pngBlob, svgMarkup } from './ui/exporters'
@@ -32,7 +33,7 @@ const OVERVIEW_KEY = 'domainrings:overview'
 const GUIDES_KEY = 'domainrings:guides'
 const HIGHLIGHT_KEY = 'domainrings:highlight'
 const LEGEND_OPEN_KEY = 'domainrings:legend-open'
-const { replace, setMeta, removeItem } = useDiagramStore.getState()
+const { replace, setMeta, removeItem, updateItem } = useDiagramStore.getState()
 
 function currentTheme(): Theme {
   const explicit = document.documentElement.dataset.theme
@@ -67,13 +68,40 @@ export function App() {
     replace(next)
   }
 
+  const nameOf = (ref: string) => {
+    const collection = collectionOf(diagram, ref)
+    const items: { id: string; name: string }[] = collection ? diagram[collection] : []
+    return items.find((i) => i.id === ref)?.name ?? ''
+  }
+
   const deleteItem = (ref: string) => {
-    const collection = COLLECTIONS.find((k) => diagram[k].some((i) => i.id === ref))
+    const collection = collectionOf(diagram, ref)
     if (!collection) return false
-    const items: { id: string; name: string }[] = diagram[collection]
-    show({ tone: 'status', message: `Deleted ${items.find((i) => i.id === ref)!.name}.`, undo: diagram })
+    show({ tone: 'status', message: `Deleted ${nameOf(ref)}.`, undo: diagram })
     removeItem(collection, ref)
     return true
+  }
+
+  // Link mode: the element being linked. It ends when that element goes, or the whole diagram is swapped.
+  const [linking, setLinking] = useState<string | null>(null)
+  const [linkRevision, setLinkRevision] = useState(revision)
+  if (revision !== linkRevision) {
+    setLinkRevision(revision)
+    setLinking(null)
+  }
+  if (linking && !collectionOf(diagram, linking)) setLinking(null)
+  const startLinking = (ref: string | null) => {
+    // The hint replaces any status toast; an error stays until it is read.
+    if (ref) setNotice((n) => (n?.tone === 'error' ? n : null))
+    setLinking(ref)
+  }
+  const link = (source: string, { targetRef, patch }: LinkTarget) => {
+    const collection = collectionOf(diagram, source)!
+    show({ tone: 'status', message: `Linked ${nameOf(source)} → ${nameOf(targetRef)}.`, undo: diagram })
+    // The same store action the editor's link dropdowns use. linkTargets only returns fields of the source's own
+    // collection, which the store's per-collection typing cannot see through a union.
+    updateItem(collection, source, patch as never)
+    setLinking(null)
   }
 
   const importFile = async (file: File) => {
@@ -151,8 +179,9 @@ export function App() {
           setLegendInExport(include)
         }}
       />
-      <Stage model={model} diagram={diagram} mode={mode} highlight={highlight} legend={legend} revision={revision} title={diagram.title} svgRef={svgRef} panelOpen={editorOpen} legendOpen={legendOpen} showGuides={guides} onReveal={reveal} onDelete={deleteItem} />
-      {notice?.tone === 'status' && (
+      <Stage model={model} diagram={diagram} mode={mode} highlight={highlight} legend={legend} revision={revision} title={diagram.title} svgRef={svgRef} panelOpen={editorOpen} legendOpen={legendOpen} showGuides={guides} onReveal={reveal} onDelete={deleteItem} linking={linking} onLinking={startLinking} onLink={link} />
+      {linking && <Toast key={`link:${linking}`} sticky message={`Choose a target for ${nameOf(linking)} · Esc to cancel`} onClose={() => setLinking(null)} />}
+      {!linking && notice?.tone === 'status' && (
         <Toast
           key={notice.id}
           message={notice.message}

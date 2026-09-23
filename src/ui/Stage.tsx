@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type Ref } from 'react'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
 import type { LayoutMode, LayoutModel, LayoutNode, Point } from '../layout/layout'
 import type { LegendModel } from '../layout/legend'
+import { collectionOf, linkTargets, type LinkTarget } from '../model/links'
 import type { CollectionKey, Diagram as DiagramModel, DomainType } from '../model/schema'
 import { useDiagramStore } from '../model/store'
 import { Diagram } from '../render/Diagram'
@@ -28,6 +29,10 @@ interface StageProps {
   onReveal: (ref: string, focus: boolean) => void
   /** Removes the element `ref` names; false when it is not a model item (a note, the composition root). */
   onDelete: (ref: string) => boolean
+  /** The element being linked while in link mode, null otherwise. */
+  linking: string | null
+  onLinking: (ref: string | null) => void
+  onLink: (source: string, target: LinkTarget) => void
 }
 
 const GRID = 20
@@ -49,7 +54,7 @@ const keyOnCanvas = (target: EventTarget | null) =>
 const layerOf = (target: Element) =>
   target.closest('[data-band]')?.getAttribute('data-band') ?? target.closest('[data-layer]')?.getAttribute('data-layer') ?? null
 
-export function Stage({ model, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete }: StageProps) {
+export function Stage({ model, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete, linking, onLinking, onLink }: StageProps) {
   const mainRef = useRef<HTMLElement>(null)
   const drag = useRef<{ x: number; y: number; panning: boolean } | null>(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
@@ -100,18 +105,33 @@ export function Stage({ model, diagram, mode, highlight, legend, revision, title
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      // Esc first leaves link mode, keeping the selection; a second Esc clears it.
+      if (e.key === 'Escape' && linking) onLinking(null)
+      else if (e.key === 'Escape') {
         setHovered(null)
         setSelected(null)
       }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selected && keyOnCanvas(e.target)) {
+      if (!selected || linking || !keyOnCanvas(e.target)) return
+      if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault()
         if (onDelete(selected)) setSelected(null)
+      }
+      if (e.key.toLowerCase() === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && linkTargets(diagram, selected).length) {
+        e.preventDefault()
+        onLinking(selected)
       }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [selected, onDelete])
+  }, [selected, onDelete, linking, onLinking, diagram])
+
+  useEffect(() => {
+    if (!linking) return
+    // Link mode ends on any press outside the canvas (the hint's own close button ends it too).
+    const away = (e: PointerEvent) => !(e.target as Element).closest?.('svg.canvas, .toast') && onLinking(null)
+    document.addEventListener('pointerdown', away)
+    return () => document.removeEventListener('pointerdown', away)
+  }, [linking, onLinking])
 
   useEffect(() => {
     if (!fullscreen) return
@@ -129,6 +149,20 @@ export function Stage({ model, diagram, mode, highlight, legend, revision, title
   }, [fullscreen])
 
   const toScreen = (p: Point) => ({ x: (p.x - viewport.x) * viewport.scale, y: (p.y - viewport.y) * viewport.scale })
+  const targets = linking ? linkTargets(diagram, linking) : []
+  const nameOf = (ref: string) => {
+    const collection = collectionOf(diagram, ref)
+    const items: { id: string; name: string }[] = collection ? diagram[collection] : []
+    return items.find((i) => i.id === ref)?.name ?? ''
+  }
+  // The "Link to…" chip hangs off the selection's top-right corner, for a selection that has something to link to.
+  const linkable = selected && !linking && linkTargets(diagram, selected).length ? model.nodes.find((n) => n.ref === selected) : undefined
+  const chipAt = (n: LayoutNode) => {
+    const a = ((n.rotation ?? 0) * Math.PI) / 180
+    const [c, s] = [Math.abs(Math.cos(a)), Math.abs(Math.sin(a))]
+    const corner = toScreen({ x: n.x + (n.width / 2) * c + (n.height / 2) * s, y: n.y - (n.width / 2) * s - (n.height / 2) * c })
+    return { left: corner.x, top: corner.y }
+  }
   const visiblePoints = hovered ? insertionPoints(model, diagram, mode).filter((p) => p.layer === hovered) : []
   const pick = (point: InsertionPoint, choice?: DomainType) => {
     const { collection, patch } = insertionItem(point.action, choice)
@@ -200,7 +234,15 @@ export function Stage({ model, diagram, mode, highlight, legend, revision, title
         onPointerLeave={(e) => !(e.relatedTarget as Element | null)?.closest?.('[data-plus]') && setHovered(null)}
         onFocus={(e) => setHovered(layerOf(e.target as Element))}
         onBlur={(e) => !(e.relatedTarget as Element | null)?.closest?.('[data-plus]') && setHovered(null)}
-        onClick={(e) => !panned.current && setSelected((e.target as Element).closest('.node')?.getAttribute('data-ref') ?? null)}
+        data-link-mode={linking ? '' : undefined}
+        onClick={(e) => {
+          if (panned.current) return
+          const ref = (e.target as Element).closest('.node')?.getAttribute('data-ref') ?? null
+          if (!linking) return setSelected(ref)
+          const hit = targets.find((t) => t.targetRef === ref)
+          if (hit) onLink(linking, hit)
+          else onLinking(null)
+        }}
         onDoubleClick={(e) => {
           e.preventDefault()
           revealFrom(e.target as Element)
@@ -208,10 +250,15 @@ export function Stage({ model, diagram, mode, highlight, legend, revision, title
         onKeyDown={(e) => e.key === 'Enter' && revealFrom(e.target as Element)}
         viewBox={size.width ? `${viewport.x} ${viewport.y} ${width} ${height}` : undefined}
       >
-        <Diagram model={model} legend={legend} showGuides={showGuides} selected={selected} />
+        <Diagram model={model} legend={legend} showGuides={showGuides} selected={selected} linkTargets={new Set(targets.map((t) => t.targetRef))} />
       </svg>
 
       <Affordances points={visiblePoints} toScreen={toScreen} onPick={pick} onLayer={setHovered} />
+      {linkable && (
+        <button type="button" className="link-chip" data-plus="" style={chipAt(linkable)} aria-label={`Link ${nameOf(linkable.ref)} to…`} onClick={() => onLinking(linkable.ref)}>
+          Link to…
+        </button>
+      )}
       {editing && (
         <InlineName
           key={editing.id}

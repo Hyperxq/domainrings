@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fitTo, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, panBy, toDiagram, zoomAt } from './viewport'
+import { EDITOR_CHIP_BOTTOM, fitTo, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, panBy, toDiagram, zoomAt } from './viewport'
 
 describe('viewport', () => {
   const v = { x: -100, y: -50, scale: 2 }
@@ -43,6 +43,15 @@ describe('viewport', () => {
     const fit = fitTo(bounds, size.width, size.height, open)
     expect(toDiagram(fit, { x: size.width - open.right, y: 0 }).x).toBeGreaterThanOrEqual(bounds.x + bounds.width - 1e-9)
     expect(fitTo(bounds, size.width, size.height, closed)).not.toEqual(fit)
+  })
+
+  it('keeps the fit below the collapsed editor chip, so it never covers the diagram title', () => {
+    const size = { width: 1440, height: 900 }
+    const inset = islandInset(size, false, false)
+    expect(inset.top).toBeGreaterThanOrEqual(EDITOR_CHIP_BOTTOM)
+    const bounds = { x: -700, y: -300, width: 1400, height: 600 }
+    const fit = fitTo(bounds, size.width, size.height, inset)
+    expect(toDiagram(fit, { x: 0, y: EDITOR_CHIP_BOTTOM }).y).toBeLessThanOrEqual(bounds.y + 1e-9)
   })
 
   it('fits inside the area left free by floating panels', () => {

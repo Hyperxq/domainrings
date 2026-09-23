@@ -34,6 +34,9 @@ function Harness({ highlight = true }: { highlight?: boolean }) {
       legendOpen={false}
       onReveal={() => {}}
       onDelete={() => false}
+      linking={null}
+      onLinking={() => {}}
+      onLink={() => {}}
       showGuides
       highlight={highlight}
     />

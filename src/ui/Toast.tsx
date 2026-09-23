@@ -7,12 +7,14 @@ const LEAVE_MS = 150
 
 interface ToastProps {
   message: string
+  /** Stays until closed: for a hint that lasts as long as the mode it explains. */
+  sticky?: boolean
   onUndo?: () => void
   onClose: () => void
 }
 
 /** A one-row status with Undo. It leaves by itself after 6 s, but never while the pointer or focus is on it. */
-export function Toast({ message, onUndo, onClose }: ToastProps) {
+export function Toast({ message, sticky, onUndo, onClose }: ToastProps) {
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
   const [leaving, setLeaving] = useState(false)
@@ -23,14 +25,14 @@ export function Toast({ message, onUndo, onClose }: ToastProps) {
       const timer = setTimeout(onClose, LEAVE_MS)
       return () => clearTimeout(timer)
     }
-    if (hovered || focused) return
+    if (hovered || focused || sticky) return
     const start = Date.now()
     const timer = setTimeout(() => setLeaving(true), remaining.current)
     return () => {
       clearTimeout(timer)
       remaining.current -= Date.now() - start
     }
-  }, [hovered, focused, leaving, onClose])
+  }, [hovered, focused, leaving, sticky, onClose])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

@@ -5,7 +5,6 @@ import {
   defaultWall,
   DomainTypeSchema,
   DRIVING_WALLS,
-  PARENT_TYPES,
   SideSchema,
   WallSchema,
   type CollectionKey,
@@ -13,6 +12,7 @@ import {
   type Side,
   type Wall,
 } from '../model/schema'
+import { parentCandidates } from '../model/links'
 import { useDiagramStore, type Item } from '../model/store'
 import { Icon } from './Icon'
 
@@ -185,21 +185,6 @@ function addPort(side: Side) {
   revealInEditor(id, true)
 }
 
-/** Entities and aggregates that can hold `id` without creating a cycle: never itself or its descendants. */
-function parentOptions(domain: Diagram['domain'], id: string) {
-  const below = new Set([id])
-  for (let grew = true; grew; ) {
-    grew = false
-    for (const i of domain) {
-      if (i.parentId && below.has(i.parentId) && !below.has(i.id)) {
-        below.add(i.id)
-        grew = true
-      }
-    }
-  }
-  return domain.filter((i) => PARENT_TYPES.has(i.type) && !below.has(i.id))
-}
-
 function adaptersBySide(d: Diagram) {
   const portSide = new Map(d.ports.map((p) => [p.id, p.side]))
   return (side: Side) => d.adapters.filter((a) => (a.portId ? portSide.get(a.portId) === side : true))
@@ -279,7 +264,7 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
                   {DomainTypeSchema.options.map((t) => <option key={t} value={t}>{DOMAIN_TYPE_LABEL[t]}</option>)}
                 </select>
               </label>
-              <LinkSelect label="Belongs to" value={item.parentId} options={parentOptions(d.domain, item.id)} onChange={(parentId) => update({ parentId })} />
+              <LinkSelect label="Belongs to" value={item.parentId} options={parentCandidates(d.domain, item.id)} onChange={(parentId) => update({ parentId })} />
             </>
           )}
         />

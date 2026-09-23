@@ -296,3 +296,77 @@ describe('legend island', () => {
     localStorage.removeItem('domainrings:overview')
   })
 })
+
+describe('linking on the canvas', () => {
+  const adapter = EXAMPLE_DIAGRAM.adapters.find((a) => EXAMPLE_DIAGRAM.ports.find((p) => p.id === a.portId)?.side === 'driven')!
+  const current = EXAMPLE_DIAGRAM.ports.find((p) => p.id === adapter.portId)!
+  const others = EXAMPLE_DIAGRAM.ports.filter((p) => p.side === 'driven' && p.id !== current.id)
+  const svgOf = (container: HTMLElement) => container.querySelector('svg.canvas')!
+  const targets = (container: HTMLElement) => [...new Set([...container.querySelectorAll('svg.canvas [data-link-target]')].map((n) => n.getAttribute('data-ref')))]
+  const linking = (container: HTMLElement) => svgOf(container).hasAttribute('data-link-mode')
+  const startWithL = (container: HTMLElement) => {
+    fireEvent.click(onCanvas(container, adapter.id))
+    fireEvent.keyDown(document.body, { key: 'l' })
+  }
+
+  it('offers a "Link to…" chip for a selection that can link, and none for a use case', () => {
+    const { container } = render(<App />)
+    fireEvent.click(onCanvas(container, adapter.id))
+    expect(screen.getByRole('button', { name: `Link ${adapter.name} to…` })).toBeTruthy()
+    fireEvent.click(onCanvas(container, EXAMPLE_DIAGRAM.useCases[0].id))
+    expect(screen.queryByRole('button', { name: /^Link .* to…$/ })).toBeNull()
+  })
+
+  it('enters link mode with L: only the valid targets are marked, and a hint says what to do', () => {
+    const { container } = render(<App />)
+    startWithL(container)
+    expect(linking(container)).toBe(true)
+    expect(targets(container).sort()).toEqual(others.map((p) => p.id).sort())
+    expect(screen.getByRole('status').textContent).toContain(`Choose a target for ${adapter.name} · Esc to cancel`)
+  })
+
+  it('enters link mode from the chip too', () => {
+    const { container } = render(<App />)
+    fireEvent.click(onCanvas(container, adapter.id))
+    fireEvent.click(screen.getByRole('button', { name: `Link ${adapter.name} to…` }))
+    expect(linking(container)).toBe(true)
+  })
+
+  it('links on a click on a target, keeps the source selected, and Undo puts the old link back', () => {
+    const { container } = render(<App />)
+    startWithL(container)
+    fireEvent.click(onCanvas(container, others[0].id))
+    expect(useDiagramStore.getState().diagram.adapters.find((a) => a.id === adapter.id)!.portId).toBe(others[0].id)
+    expect(linking(container)).toBe(false)
+    expect(onCanvas(container, adapter.id).hasAttribute('data-selected')).toBe(true)
+    expect(screen.getByRole('status').textContent).toContain(`Linked ${adapter.name} → ${others[0].name}`)
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useDiagramStore.getState().diagram).toEqual(EXAMPLE_DIAGRAM)
+  })
+
+  it('cancels on Esc without changing anything', () => {
+    const { container } = render(<App />)
+    startWithL(container)
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(linking(container)).toBe(false)
+    expect(targets(container)).toEqual([])
+    expect(useDiagramStore.getState().diagram).toEqual(EXAMPLE_DIAGRAM)
+  })
+
+  it('cancels on a click on anything that is not a target', () => {
+    const { container } = render(<App />)
+    startWithL(container)
+    fireEvent.click(onCanvas(container, EXAMPLE_DIAGRAM.useCases[0].id))
+    expect(linking(container)).toBe(false)
+    expect(useDiagramStore.getState().diagram).toEqual(EXAMPLE_DIAGRAM)
+  })
+
+  it('ignores L while typing in a field', () => {
+    const { container } = render(<App />)
+    fireEvent.click(onCanvas(container, adapter.id))
+    const input = container.querySelector<HTMLInputElement>('.editor input')!
+    input.focus()
+    fireEvent.keyDown(input, { key: 'l' })
+    expect(linking(container)).toBe(false)
+  })
+})
