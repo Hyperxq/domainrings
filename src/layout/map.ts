@@ -37,6 +37,14 @@ function unionBox(boxes: Box[]): Box {
   return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
 }
 
+/** A hexagon's own (untranslated) bounds, shifted onto the map by its `centre` (ADR-04). */
+export const hexagonBounds = (hex: Pick<MapHexagonLayout, 'model' | 'centre'>): Box => ({
+  x: hex.model.bounds.x + hex.centre.x,
+  y: hex.model.bounds.y + hex.centre.y,
+  width: hex.model.bounds.width,
+  height: hex.model.bounds.height,
+})
+
 /** The centre of a port's `kind:'port'` layout node, shifted from hexagon-local space onto the map. */
 function portPoint(model: LayoutModel, portId: string, centre: Point): Point {
   const node = model.nodes.find((n) => n.kind === 'port' && n.ref === portId)
@@ -68,8 +76,7 @@ export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout 
       portPoint(modelOf.get(link.to.hexagonId)!, link.to.portId, centreOf.get(link.to.hexagonId)!),
     ],
   }))
-  const shiftedBounds = hexagons.map((h) => ({ x: h.model.bounds.x + h.centre.x, y: h.model.bounds.y + h.centre.y, width: h.model.bounds.width, height: h.model.bounds.height }))
-  let bounds = unionBox(shiftedBounds)
+  let bounds = unionBox(hexagons.map(hexagonBounds))
   let title: LayoutText | undefined
   if (map.hexagons.length > 1) {
     title = { key: 'map-title', text: map.title, x: bounds.x, y: bounds.y - MAP_TITLE_GAP, style: 'title' }

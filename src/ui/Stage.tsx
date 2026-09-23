@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type Ref } from 'react'
+import { flushSync } from 'react-dom'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
 import type { LayoutMode, LayoutNode, Point } from '../layout/layout'
 import type { LegendModel } from '../layout/legend'
-import type { MapLayout } from '../layout/map'
+import { hexagonBounds, type MapLayout } from '../layout/map'
 import { collectionOf, linkTargets, type LinkTarget } from '../model/links'
 import type { CollectionKey, Diagram as DiagramModel, DomainType } from '../model/schema'
 import { useMapStore } from '../model/store'
@@ -10,7 +11,7 @@ import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
 import { Icon } from './Icon'
 import { typing } from './keys'
-import { fitTo, islandInset, panBy, zoomAt, type Viewport } from './viewport'
+import { fitMap, islandInset, panBy, zoomAt, type Viewport } from './viewport'
 
 interface StageProps {
   model: MapLayout
@@ -40,7 +41,7 @@ interface StageProps {
 
 const GRID = 20
 const PAN_SLOP = 3
-const { addItem, updateItem, removeItem } = useMapStore.getState()
+const { addItem, updateItem, removeItem, setFocus } = useMapStore.getState()
 const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
   domain: 'domainItem',
   useCases: 'useCase',
@@ -71,8 +72,10 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
   const [selected, setSelected] = useState<string | null>(null)
   // A press that became a pan ends in a click too; it must not change the selection.
   const panned = useRef(false)
-  const [editing, setEditing] = useState<{ id: string; collection: CollectionKey; name: string; at: Point } | null>(null)
+  // hexId records which hexagon the edit started on, so a commit that lands after the current hexagon switches still targets it (ADR-05).
+  const [editing, setEditing] = useState<{ id: string; collection: CollectionKey; name: string; at: Point; hexId: string } | null>(null)
   const [fullscreen, setFullscreen] = useState(false)
+  const [announcement, setAnnouncement] = useState('')
   // A new diagram, or the legend opening or closing, refits.
   const fitKey = `${revision}:${legendOpen}`
   const [seenFitKey, setSeenFitKey] = useState(fitKey)
@@ -81,7 +84,8 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
     setView(null)
   }
 
-  const viewport = view ?? fitTo(model.bounds, size.width || model.bounds.width, size.height || model.bounds.height, islandInset(size, panelOpen, legendOpen))
+  const viewport =
+    view ?? fitMap(model.bounds, hexagonBounds(hex), size.width || model.bounds.width, size.height || model.bounds.height, islandInset(size, panelOpen, legendOpen))
   const centre = { x: size.width / 2, y: size.height / 2 }
 
   useEffect(() => {
@@ -153,6 +157,31 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
     }
   }, [fullscreen])
 
+  const titleOf = (id: string) => model.hexagons.find((h) => h.id === id)?.model.texts.find((t) => t.key === 'title')?.text || 'Untitled hexagon'
+
+  /** Clears selection, ends link mode, and commits any inline name being typed — the settle-on-switch contract (FOCUS-04). */
+  const settleFocusSwitch = () => {
+    setSelected(null)
+    onLinking(null)
+    // InlineName commits on blur with whatever the user has typed so far; forcing it here (rather than waiting for
+    // native focus-follows-click) makes the commit deterministic instead of depending on browser/jsdom focus timing.
+    const active = document.activeElement
+    if (active instanceof HTMLInputElement && active.classList.contains('inline-name')) active.blur()
+  }
+
+  /** Makes `id` the current hexagon: settles in-progress work, freezes the view so an oversized-map refit can never
+   * follow the switch (ADR-04/CANVAS-04), then — for a keyboard-driven switch — moves focus to the new current
+   * hexagon's first tabbable element and announces the change (FOCUS-05). */
+  const focusHexagon = (id: string, opts: { moveKeyboardFocus?: boolean } = {}) => {
+    settleFocusSwitch()
+    setView(viewport)
+    flushSync(() => setFocus(id))
+    if (opts.moveKeyboardFocus) {
+      setAnnouncement(`${titleOf(id)} is now the current hexagon`)
+      mainRef.current?.querySelector<HTMLElement | SVGElement>(`[data-hex="${id}"] [tabindex]`)?.focus()
+    }
+  }
+
   // Insertion points, selection and editing all work in the current hexagon's own (untranslated) coordinates;
   // toScreen adds its centre once, so every overlay lands at the hexagon's place on the map (ADR-04).
   const toScreen = (p: Point) => ({
@@ -177,7 +206,7 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
   const pick = (point: InsertionPoint, choice?: DomainType) => {
     const { collection, patch } = insertionItem(point.action, choice)
     const id = addItem(hexId, collection, patch)
-    setEditing({ id, collection, name: patch.name, at: point.at })
+    setEditing({ id, collection, name: patch.name, at: point.at, hexId })
   }
   const revealFrom = (target: Element) => {
     const ref = target.closest('[data-ref]')?.getAttribute('data-ref')
@@ -236,10 +265,11 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
         className="canvas"
         role="figure"
         aria-label={title || 'Architecture diagram'}
-        data-hover={highlight ? (hovered ?? undefined) : undefined}
         onPointerOver={(e) => {
           if (drag.current?.panning) return
-          setHovered(layerOf(e.target as Element))
+          const target = e.target as Element
+          if (target.closest('[data-hex]')?.getAttribute('data-hex') !== hexId) return setHovered(null)
+          setHovered(layerOf(target))
         }}
         onPointerLeave={(e) => !(e.relatedTarget as Element | null)?.closest?.('[data-plus]') && setHovered(null)}
         onFocus={(e) => setHovered(layerOf(e.target as Element))}
@@ -247,7 +277,10 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
         data-link-mode={linking ? '' : undefined}
         onClick={(e) => {
           if (panned.current) return
-          const ref = (e.target as Element).closest('.node')?.getAttribute('data-ref') ?? null
+          const target = e.target as Element
+          const clickedHexId = target.closest('[data-hex]')?.getAttribute('data-hex') ?? null
+          if (clickedHexId && clickedHexId !== hexId) return focusHexagon(clickedHexId)
+          const ref = target.closest('.node')?.getAttribute('data-ref') ?? null
           if (!linking) return setSelected(ref)
           const hit = targets.find((t) => t.targetRef === ref)
           if (hit) onLink(linking, hit)
@@ -255,13 +288,41 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
         }}
         onDoubleClick={(e) => {
           e.preventDefault()
-          revealFrom(e.target as Element)
+          const target = e.target as Element
+          const clickedHexId = target.closest('[data-hex]')?.getAttribute('data-hex') ?? null
+          if (clickedHexId && clickedHexId !== hexId) {
+            focusHexagon(clickedHexId)
+            onReveal('hexagon', true)
+            return
+          }
+          revealFrom(target)
         }}
-        onKeyDown={(e) => e.key === 'Enter' && revealFrom(e.target as Element)}
+        onKeyDown={(e) => {
+          const target = e.target as Element
+          const groupId = target.closest('[data-hex]')?.getAttribute('data-hex')
+          if ((e.key === 'Enter' || e.key === ' ') && groupId && groupId !== hexId) {
+            e.preventDefault()
+            return focusHexagon(groupId, { moveKeyboardFocus: true })
+          }
+          if (e.key === 'Enter') revealFrom(target)
+        }}
         viewBox={size.width ? `${viewport.x} ${viewport.y} ${width} ${height}` : undefined}
       >
-        <MapDiagram map={model} legend={legend} showGuides={showGuides} selected={selected} linkTargets={new Set(targets.map((t) => t.targetRef))} />
+        <MapDiagram
+          map={model}
+          legend={legend}
+          showGuides={showGuides}
+          focus={hexId}
+          selected={selected}
+          linkTargets={new Set(targets.map((t) => t.targetRef))}
+          hovered={highlight ? hovered : null}
+        />
       </svg>
+      {announcement && (
+        <p className="visually-hidden" role="status" aria-live="polite">
+          {announcement}
+        </p>
+      )}
 
       <Affordances points={visiblePoints} toScreen={toScreen} onPick={pick} onLayer={setHovered} />
       {linkable && (
@@ -275,12 +336,12 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
           at={toScreen(editingNode ? { x: editingNode.x, y: editingNode.y } : editing.at)}
           initial={editing.name}
           onCommit={(name) => {
-            updateItem(hexId, editing.collection, editing.id, { name })
+            updateItem(editing.hexId, editing.collection, editing.id, { name })
             setEditing(null)
             onReveal(editing.id, false)
           }}
           onCancel={() => {
-            removeItem(hexId, editing.collection, editing.id)
+            removeItem(editing.hexId, editing.collection, editing.id)
             setEditing(null)
           }}
         />

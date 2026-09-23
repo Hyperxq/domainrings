@@ -45,7 +45,8 @@
 .canvas .node-domainItem .inline-tag,
 .canvas .node-aggregate .line-tag { fill: var(--domain-ink); fill-opacity: 0.7; }
 
-/* Layer hover: data-hover on the svg names the layer; it brightens, glows and titles in ink, the rest dims. */
+/* Layer hover: data-hover on the CURRENT hexagon's group names the layer, scoping the effect to it (CANVAS-03) —
+   it brightens, glows and titles in ink, the rest dims. */
 .ring, .node, .edge, .guide, .edge-label, .ring-label, .ring-subtitle, .domain-title, .box {
   transition: opacity 180ms ease-out, fill 180ms ease-out, stroke-width 180ms ease-out, filter 180ms ease-out;
 }
@@ -54,35 +55,39 @@
 }
 .exporting, .exporting * { transition: none !important; }
 .ring:focus-visible { outline: none; }
-svg[data-hover] .edge,
-svg[data-hover] .edge-label,
-svg[data-hover] .guide,
-svg[data-hover] .node:not([data-layer]) { opacity: 0.55; }
-svg[data-hover='outer'] [data-layer]:not([data-layer='outer']) { opacity: 0.55; }
-svg[data-hover='outer'] .ring[data-band='outer'] { fill: var(--card-hover); stroke-width: 2.2; filter: url(#glow-outer); }
-svg[data-hover='outer'] .ring-label[data-layer='outer'] { fill: var(--ink); }
-svg[data-hover='outer'] .node[data-layer='outer'] .box { stroke-width: 2; filter: brightness(1.2); }
+[data-hex][data-hover] .edge,
+[data-hex][data-hover] .edge-label,
+[data-hex][data-hover] .guide,
+[data-hex][data-hover] .node:not([data-layer]) { opacity: 0.55; }
+[data-hex][data-hover='outer'] [data-layer]:not([data-layer='outer']) { opacity: 0.55; }
+[data-hex][data-hover='outer'] .ring[data-band='outer'] { fill: var(--card-hover); stroke-width: 2.2; filter: url(#glow-outer); }
+[data-hex][data-hover='outer'] .ring-label[data-layer='outer'] { fill: var(--ink); }
+[data-hex][data-hover='outer'] .node[data-layer='outer'] .box { stroke-width: 2; filter: brightness(1.2); }
 .glow-outer { flood-color: var(--line); }
-svg[data-hover='adapters'] [data-layer]:not([data-layer='adapters']) { opacity: 0.55; }
-svg[data-hover='adapters'] .ring[data-band='adapters'] { fill: var(--slate-soft-hover); stroke-width: 2.2; filter: url(#glow-adapters); }
-svg[data-hover='adapters'] .ring-label[data-layer='adapters'] { fill: var(--ink); }
-svg[data-hover='adapters'] .node[data-layer='adapters'] .box { stroke-width: 2; filter: brightness(1.2); }
+[data-hex][data-hover='adapters'] [data-layer]:not([data-layer='adapters']) { opacity: 0.55; }
+[data-hex][data-hover='adapters'] .ring[data-band='adapters'] { fill: var(--slate-soft-hover); stroke-width: 2.2; filter: url(#glow-adapters); }
+[data-hex][data-hover='adapters'] .ring-label[data-layer='adapters'] { fill: var(--ink); }
+[data-hex][data-hover='adapters'] .node[data-layer='adapters'] .box { stroke-width: 2; filter: brightness(1.2); }
 .glow-adapters { flood-color: var(--slate); }
-svg[data-hover='application'] [data-layer]:not([data-layer='application']) { opacity: 0.55; }
-svg[data-hover='application'] .ring[data-band='application'] { fill: var(--teal-soft-hover); stroke-width: 2.2; filter: url(#glow-application); }
-svg[data-hover='application'] .ring-label[data-layer='application'] { fill: var(--ink); }
-svg[data-hover='application'] .node[data-layer='application'] .box { stroke-width: 2; filter: brightness(1.2); }
+[data-hex][data-hover='application'] [data-layer]:not([data-layer='application']) { opacity: 0.55; }
+[data-hex][data-hover='application'] .ring[data-band='application'] { fill: var(--teal-soft-hover); stroke-width: 2.2; filter: url(#glow-application); }
+[data-hex][data-hover='application'] .ring-label[data-layer='application'] { fill: var(--ink); }
+[data-hex][data-hover='application'] .node[data-layer='application'] .box { stroke-width: 2; filter: brightness(1.2); }
 .glow-application { flood-color: var(--teal); }
-svg[data-hover='domainServices'] [data-layer]:not([data-layer='domainServices']) { opacity: 0.55; }
-svg[data-hover='domainServices'] .ring[data-band='domainServices'] { fill: var(--teal-soft-hover); stroke-width: 2.2; filter: url(#glow-domainServices); }
-svg[data-hover='domainServices'] .ring-label[data-layer='domainServices'] { fill: var(--ink); }
-svg[data-hover='domainServices'] .node[data-layer='domainServices'] .box { stroke-width: 2; filter: brightness(1.2); }
+[data-hex][data-hover='domainServices'] [data-layer]:not([data-layer='domainServices']) { opacity: 0.55; }
+[data-hex][data-hover='domainServices'] .ring[data-band='domainServices'] { fill: var(--teal-soft-hover); stroke-width: 2.2; filter: url(#glow-domainServices); }
+[data-hex][data-hover='domainServices'] .ring-label[data-layer='domainServices'] { fill: var(--ink); }
+[data-hex][data-hover='domainServices'] .node[data-layer='domainServices'] .box { stroke-width: 2; filter: brightness(1.2); }
 .glow-domainServices { flood-color: var(--teal); }
-svg[data-hover='domain'] [data-layer]:not([data-layer='domain']) { opacity: 0.55; }
-svg[data-hover='domain'] .ring[data-band='domain'] { fill: var(--teal-deep-hover); stroke-width: 2.2; filter: url(#glow-domain); }
-svg[data-hover='domain'] .ring-label[data-layer='domain'] { fill: var(--ink); }
-svg[data-hover='domain'] .node[data-layer='domain'] .box { stroke-width: 2; filter: brightness(1.2); }
+[data-hex][data-hover='domain'] [data-layer]:not([data-layer='domain']) { opacity: 0.55; }
+[data-hex][data-hover='domain'] .ring[data-band='domain'] { fill: var(--teal-deep-hover); stroke-width: 2.2; filter: url(#glow-domain); }
+[data-hex][data-hover='domain'] .ring-label[data-layer='domain'] { fill: var(--ink); }
+[data-hex][data-hover='domain'] .node[data-layer='domain'] .box { stroke-width: 2; filter: brightness(1.2); }
 .glow-domain { flood-color: var(--teal-deep); }
+
+/* Current-hexagon cue and non-current hexagon affordance (FOCUS-01, CANVAS-03). */
+.hex-cue { fill: none; stroke: var(--teal); stroke-width: 2px; vector-effect: non-scaling-stroke; pointer-events: none; }
+[data-hex][role='button'] { cursor: pointer; }
 
 /* On-canvas "+" affordances and the inline name field, laid over the stage in screen coordinates. */
 .affordances { position: absolute; inset: 0; pointer-events: none; }

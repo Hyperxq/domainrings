@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EDITOR_CHIP_BOTTOM, fitTo, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, panBy, toDiagram, zoomAt } from './viewport'
+import { EDITOR_CHIP_BOTTOM, fitMap, fitTo, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, MIN_FIT_SCALE, panBy, toDiagram, zoomAt } from './viewport'
 
 describe('viewport', () => {
   const v = { x: -100, y: -50, scale: 2 }
@@ -52,6 +52,26 @@ describe('viewport', () => {
     const bounds = { x: -700, y: -300, width: 1400, height: 600 }
     const fit = fitTo(bounds, size.width, size.height, inset)
     expect(toDiagram(fit, { x: 0, y: EDITOR_CHIP_BOTTOM }).y).toBeLessThanOrEqual(bounds.y + 1e-9)
+  })
+
+  it('fits the whole map when it fits at a usable scale (CANVAS-04.1)', () => {
+    const mapBounds = { x: -400, y: -300, width: 800, height: 600 }
+    const currentBounds = { x: -400, y: -300, width: 200, height: 200 }
+    expect(fitMap(mapBounds, currentBounds, 1000, 800)).toEqual(fitTo(mapBounds, 1000, 800))
+  })
+
+  it('falls back to the current hexagon when the whole map would fit below the usable scale (CANVAS-04.2)', () => {
+    const mapBounds = { x: -5000, y: -100, width: 10000, height: 200 }
+    const currentBounds = { x: -100, y: -100, width: 200, height: 200 }
+    const fit = fitMap(mapBounds, currentBounds, 1000, 800)
+    expect(fitTo(mapBounds, 1000, 800).scale).toBeLessThan(MIN_FIT_SCALE)
+    expect(fit).toEqual(fitTo(currentBounds, 1000, 800))
+    const topLeft = toDiagram(fit, { x: 0, y: 0 })
+    const bottomRight = toDiagram(fit, { x: 1000, y: 800 })
+    expect(topLeft.x).toBeLessThanOrEqual(currentBounds.x)
+    expect(topLeft.y).toBeLessThanOrEqual(currentBounds.y)
+    expect(bottomRight.x).toBeGreaterThanOrEqual(currentBounds.x + currentBounds.width)
+    expect(bottomRight.y).toBeGreaterThanOrEqual(currentBounds.y + currentBounds.height)
   })
 
   it('fits inside the area left free by floating panels', () => {

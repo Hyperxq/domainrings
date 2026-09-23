@@ -10,12 +10,20 @@ import type { HexaMap } from '../model/schema'
 
 const NO_TARGETS = new Set<string>()
 
-function renderSvg(map: HexaMap) {
+function renderSvg(map: HexaMap, extra: { focus?: string; selected?: string | null; linkTargets?: ReadonlySet<string>; hovered?: string | null } = {}) {
   const model = layoutMap(map)
   const legend = legendFor(diagramOf(map, map.hexagons[0].id))
   const { container } = render(
     <svg>
-      <MapDiagram map={model} legend={legend} showGuides={false} selected={null} linkTargets={NO_TARGETS} />
+      <MapDiagram
+        map={model}
+        legend={legend}
+        showGuides={false}
+        focus={extra.focus ?? map.hexagons[0].id}
+        selected={extra.selected ?? null}
+        linkTargets={extra.linkTargets ?? NO_TARGETS}
+        hovered={extra.hovered ?? null}
+      />
     </svg>,
   )
   return { container, model }
@@ -35,6 +43,7 @@ describe('MapDiagram — one hexagon (MIG-05.2 equivalence)', () => {
     expect(container.querySelectorAll('[data-hex]')).toHaveLength(1)
     expect(container.querySelectorAll('[data-map-title]')).toHaveLength(0)
     expect(container.querySelectorAll('[data-map-link]')).toHaveLength(0)
+    expect(container.querySelectorAll('[data-cue]')).toHaveLength(0)
   })
 })
 
@@ -81,5 +90,71 @@ describe('MapDiagram — two hexagons (CANVAS-01, CANVAS-02)', () => {
     })
     expect(pairs).toEqual(['h1:p-out', 'h2:p-in'])
     expect(new Set(pairs).size).toBe(pairs.length)
+  })
+})
+
+/** Both hexagons carry a port with the SAME id, to prove scoping is by group, not by ref (EDIT-01.2). */
+function sharedIdMap(): HexaMap {
+  const base = twoHexagonMap()
+  return { ...base, links: [], hexagons: base.hexagons.map((h) => ({ ...h, ports: [{ id: 'p-shared', name: h.id === 'h1' ? 'out' : 'in', side: h.id === 'h1' ? 'driven' : 'driving' }] })) }
+}
+
+describe('MapDiagram — current-hexagon scoping (FOCUS-01, CANVAS-03, EDIT-01)', () => {
+  it('marks exactly the current group aria-current, with a group role and its own title as the label', () => {
+    const { container } = renderSvg(twoHexagonMap(), { focus: 'h2' })
+    const current = [...container.querySelectorAll('[aria-current="true"]')]
+    expect(current).toHaveLength(1)
+    expect(current[0].getAttribute('data-hex')).toBe('h2')
+    expect(current[0].getAttribute('role')).toBe('group')
+    expect(current[0].getAttribute('aria-label')).toBe('Slice B')
+  })
+
+  it('makes the non-current group a single button-like control naming what clicking it does', () => {
+    const { container } = renderSvg(twoHexagonMap(), { focus: 'h2' })
+    const nonCurrent = container.querySelector('[data-hex="h1"]')!
+    expect(nonCurrent.getAttribute('role')).toBe('button')
+    expect(nonCurrent.getAttribute('tabindex')).toBe('0')
+    expect(nonCurrent.getAttribute('aria-label')).toBe('Make Slice A the current hexagon')
+    expect(nonCurrent.querySelector('title')?.textContent).toBe('Slice A')
+  })
+
+  it('draws exactly one cue, inside the current group, only when the map has more than one hexagon', () => {
+    const { container } = renderSvg(twoHexagonMap(), { focus: 'h2' })
+    const cues = container.querySelectorAll('[data-cue]')
+    expect(cues).toHaveLength(1)
+    expect(cues[0].closest('[data-hex]')!.getAttribute('data-hex')).toBe('h2')
+  })
+
+  it('scopes selection and link targets to the current group, even when another hexagon shares the item id', () => {
+    const { container } = renderSvg(sharedIdMap(), { focus: 'h1', selected: 'p-shared', linkTargets: new Set(['p-shared']) })
+    const selected = container.querySelectorAll('.node-port[data-selected]')
+    const targets = container.querySelectorAll('.node-port[data-link-target]')
+    expect(selected).toHaveLength(1)
+    expect(selected[0].closest('[data-hex]')!.getAttribute('data-hex')).toBe('h1')
+    expect(targets).toHaveLength(1)
+    expect(targets[0].closest('[data-hex]')!.getAttribute('data-hex')).toBe('h1')
+  })
+
+  it('scopes the hover attribute to the current group only', () => {
+    const { container } = renderSvg(twoHexagonMap(), { focus: 'h2', hovered: 'outer' })
+    const current = container.querySelector('[data-hex="h2"]')!
+    const other = container.querySelector('[data-hex="h1"]')!
+    expect(current.getAttribute('data-hover')).toBe('outer')
+    expect(other.hasAttribute('data-hover')).toBe(false)
+  })
+
+  it('strips tabIndex and role from every node and ring inside a non-current group', () => {
+    const { container } = renderSvg(twoHexagonMap(), { focus: 'h2' })
+    const nonCurrentInner = container.querySelectorAll('[data-hex="h1"] .node, [data-hex="h1"] .ring')
+    expect(nonCurrentInner.length).toBeGreaterThan(0)
+    for (const el of nonCurrentInner) {
+      expect(el.hasAttribute('tabindex')).toBe(false)
+      expect(el.hasAttribute('role')).toBe(false)
+    }
+    const currentInner = container.querySelectorAll('[data-hex="h2"] .node, [data-hex="h2"] .ring')
+    expect(currentInner.length).toBeGreaterThan(0)
+    for (const el of currentInner) {
+      expect(el.getAttribute('tabindex')).toBe('0')
+    }
   })
 })

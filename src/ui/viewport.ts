@@ -50,6 +50,15 @@ export function fitTo(bounds: Box, width: number, height: number, inset: Inset =
   }
 }
 
+/** Below this scale the whole map reads as illegible clutter; fitting the current hexagon instead keeps it usable (CANVAS-04). */
+export const MIN_FIT_SCALE = 0.5
+
+/** Fits the whole map; falls back to fitting the current hexagon when that would shrink it past MIN_FIT_SCALE. */
+export function fitMap(mapBounds: Box, currentBounds: Box, width: number, height: number, inset: Inset = NO_INSET): Viewport {
+  const whole = fitTo(mapBounds, width, height, inset)
+  return whole.scale >= MIN_FIT_SCALE ? whole : fitTo(currentBounds, width, height, inset)
+}
+
 /** The open legend island's width (styles.css `.legend[data-open]`). */
 export const LEGEND_ISLAND_WIDTH = 260
 /** Bottom edge of the collapsed editor chip: 72px from the top, a 32px button in 6px padding and a 1px border. */

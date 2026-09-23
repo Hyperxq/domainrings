@@ -211,7 +211,7 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
 
       <div id="editor-body" className="editor-body" hidden={!open}>
         <Fold id="diagram" title="Diagram">
-          <label className="field">
+          <label className="field" data-item-id="hexagon">
             <span>Title</span>
             <input value={d.title} onChange={(e) => setMeta(hexId, { title: e.target.value })} />
           </label>

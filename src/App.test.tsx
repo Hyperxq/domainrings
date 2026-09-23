@@ -4,6 +4,7 @@ import { App } from './App'
 import { EXAMPLE_DIAGRAM } from './model/example'
 import { toMap } from './model/hexa'
 import { diagramOf } from './model/map'
+import type { HexaMap } from './model/schema'
 import { useMapStore } from './model/store'
 
 const currentDiagram = () => diagramOf(useMapStore.getState().map, useMapStore.getState().focus)
@@ -375,6 +376,46 @@ describe('linking on the canvas', () => {
     input.focus()
     fireEvent.keyDown(input, { key: 'l' })
     expect(linking(container)).toBe(false)
+  })
+})
+
+describe('current hexagon (FOCUS-03, FOCUS-06)', () => {
+  const twoHexMap = (): HexaMap => {
+    const base = toMap(EXAMPLE_DIAGRAM)
+    const h1 = base.hexagons[0]
+    return { ...base, links: [], hexagons: [{ ...h1, cell: { q: 0, r: 0 } }, { ...h1, id: 'h2', cell: { q: 1, r: 0 }, title: 'Second slice' }] }
+  }
+  const hexGroup = (container: HTMLElement, hexId: string) => container.querySelector(`[data-hex="${hexId}"]`)!
+
+  it('double-clicking a non-current hexagon focuses it and puts the caret in its Hexagon title field (FOCUS-03.1)', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<App />)
+
+    fireEvent.doubleClick(hexGroup(container, 'h2'))
+
+    expect(useMapStore.getState().focus).toBe('h2')
+    const input = document.activeElement as HTMLInputElement
+    expect(card(container, 'hexagon').contains(input)).toBe(true)
+    expect(input.value).toBe('Second slice')
+  })
+
+  it('undo restores both the map and whichever hexagon was current at edit time (FOCUS-06.1)', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<App />)
+    const beforeEdit = useMapStore.getState().map
+    const useCase = EXAMPLE_DIAGRAM.useCases[0]
+
+    fireEvent.click(onCanvas(container, useCase.id))
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+    expect(diagramOf(useMapStore.getState().map, 'h1').useCases.some((u) => u.id === useCase.id)).toBe(false)
+
+    fireEvent.click(hexGroup(container, 'h2'))
+    expect(useMapStore.getState().focus).toBe('h2')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useMapStore.getState().map).toBe(beforeEdit)
+    expect(useMapStore.getState().focus).toBe('h1')
   })
 })
 

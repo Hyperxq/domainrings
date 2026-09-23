@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { MapLayout } from '../layout/map'
+import { hexagonBounds, type MapLayout } from '../layout/map'
 import type { Shape } from '../model/kinds'
 import { bandPath } from './band'
 import type { LayoutEdge, LayoutModel, LayoutNode, LayoutRing, LayoutText, Point } from '../layout/layout'
@@ -12,7 +12,7 @@ const BOX_PAD_X = 12
 // The domain block is plain text on the solid domain ring.
 const FRAMELESS = new Set<LayoutNode['kind']>(['domainItem', 'note', 'portDecl', 'portLabel'])
 
-function Ring({ ring, shape, inner }: { ring: LayoutRing; shape: Shape; inner?: LayoutRing }) {
+function Ring({ ring, shape, inner, interactive }: { ring: LayoutRing; shape: Shape; inner?: LayoutRing; interactive: boolean }) {
   const innermost = !inner
   const className = `ring ring-${ring.role}`
   const ref = `layer:${ring.role}`
@@ -25,9 +25,9 @@ function Ring({ ring, shape, inner }: { ring: LayoutRing; shape: Shape; inner?: 
         data-band={ring.role}
         data-layer={ring.role}
         data-ref={ref}
-        tabIndex={0}
-        role="group"
-        aria-label={ring.title}
+        tabIndex={interactive ? 0 : undefined}
+        role={interactive ? 'group' : undefined}
+        aria-label={interactive ? ring.title : undefined}
       />
       <text
         className={innermost ? 'domain-title' : 'ring-label'}
@@ -94,7 +94,7 @@ function EdgeLabel({ edge }: { edge: LayoutEdge }) {
   )
 }
 
-function Node({ node, selected, target }: { node: LayoutNode; selected: boolean; target: boolean }) {
+function Node({ node, selected, target, interactive }: { node: LayoutNode; selected: boolean; target: boolean; interactive: boolean }) {
   const left = node.x - node.width / 2
   const top = node.y - node.height / 2
   const centered = node.align === 'center'
@@ -110,9 +110,9 @@ function Node({ node, selected, target }: { node: LayoutNode; selected: boolean;
       data-ref={node.ref}
       data-selected={selected ? '' : undefined}
       data-link-target={target ? '' : undefined}
-      tabIndex={0}
-      role="button"
-      aria-label={`Edit ${node.lines.map((l) => l.text).join(' ')}`}
+      tabIndex={interactive ? 0 : undefined}
+      role={interactive ? 'button' : undefined}
+      aria-label={interactive ? `Edit ${node.lines.map((l) => l.text).join(' ')}` : undefined}
       transform={node.rotation ? `rotate(${node.rotation} ${node.x} ${node.y})` : undefined}
     >
       {node.kind === 'aggregate' ? (
@@ -210,55 +210,83 @@ interface HexagonBodyProps {
   selected: string | null
   /** In link mode, the refs the selection can be linked to. */
   linkTargets: ReadonlySet<string>
+  /** False for a non-current hexagon in a multi-hexagon map: its rings and nodes carry no tabIndex/role of their own — the wrapping group is the one control (ADR-05). */
+  interactive: boolean
 }
 
 /** One hexagon's rings, edges and nodes — everything but the shared `<defs>` and the once-per-map legend. */
-function HexagonBody({ model, showGuides, selected, linkTargets }: HexagonBodyProps) {
+function HexagonBody({ model, showGuides, selected, linkTargets, interactive }: HexagonBodyProps) {
   return (
     <>
-      {model.rings.map((ring, i) => <Ring key={ring.key} ring={ring} shape={model.shape} inner={model.rings[i + 1]} />)}
+      {model.rings.map((ring, i) => <Ring key={ring.key} ring={ring} shape={model.shape} inner={model.rings[i + 1]} interactive={interactive} />)}
       {showGuides && model.guides.map((g, k) => <line key={k} className="guide" x1={g.from.x} y1={g.from.y} x2={g.to.x} y2={g.to.y} />)}
       {model.edges.map((edge) => <Edge key={edge.key} edge={edge} />)}
-      {model.nodes.map((node) => <Node key={node.key} node={node} selected={node.ref === selected} target={linkTargets.has(node.ref)} />)}
+      {model.nodes.map((node) => <Node key={node.key} node={node} selected={node.ref === selected} target={linkTargets.has(node.ref)} interactive={interactive} />)}
       {model.edges.map((edge) => <EdgeLabel key={edge.key} edge={edge} />)}
       {model.texts.map((text) => <Heading key={text.key} text={text} />)}
     </>
   )
 }
 
+/** The current hexagon's own outer silhouette, scaled outward slightly, as the visible "this one is current" cue (FOCUS-01). */
+function HexCue({ model }: { model: LayoutModel }) {
+  return <path className="hex-cue" data-cue="" aria-hidden="true" transform="scale(1.06)" d={bandPath(model.shape, model.rings[0])} />
+}
+
+const NO_TARGETS = new Set<string>()
+const titleOf = (model: LayoutModel) => model.texts.find((t) => t.key === 'title')?.text || 'Untitled hexagon'
+
 interface MapDiagramProps {
   map: MapLayout
   legend: LegendModel
   showGuides: boolean
+  /** The current hexagon's id — the only one rendered as editable; every other hexagon is one click-to-focus control. */
+  focus: string
   selected: string | null
   /** In link mode, the refs the selection can be linked to. */
   linkTargets: ReadonlySet<string>
+  /** The hovered layer, scoped to the current hexagon only (CANVAS-03). */
+  hovered: string | null
 }
-
-const shiftedBounds = (hex: MapLayout['hexagons'][number]): Box => ({
-  x: hex.model.bounds.x + hex.centre.x,
-  y: hex.model.bounds.y + hex.centre.y,
-  width: hex.model.bounds.width,
-  height: hex.model.bounds.height,
-})
 
 /** Composes every hexagon of a map into one SVG: one `<defs>`, one `<g data-hex>` per hexagon, the map's links
  * drawn above them, an optional map title, and the legend once — under the map's first hexagon. */
-export function MapDiagram({ map, legend, showGuides, selected, linkTargets }: MapDiagramProps) {
+export function MapDiagram({ map, legend, showGuides, focus, selected, linkTargets, hovered }: MapDiagramProps) {
   const first = map.hexagons[0]
   return (
     <>
       <Defs rings={first.model.rings} />
-      {map.hexagons.map((hex) => (
-        <g key={hex.id} data-hex={hex.id} transform={`translate(${hex.centre.x} ${hex.centre.y})`}>
-          <HexagonBody model={hex.model} showGuides={showGuides} selected={selected} linkTargets={linkTargets} />
-        </g>
-      ))}
+      {map.hexagons.map((hex) => {
+        const isCurrent = hex.id === focus
+        const title = titleOf(hex.model)
+        return (
+          <g
+            key={hex.id}
+            data-hex={hex.id}
+            transform={`translate(${hex.centre.x} ${hex.centre.y})`}
+            aria-current={isCurrent ? 'true' : undefined}
+            role={isCurrent ? 'group' : 'button'}
+            tabIndex={isCurrent ? undefined : 0}
+            aria-label={isCurrent ? title : `Make ${title} the current hexagon`}
+            data-hover={isCurrent && hovered ? hovered : undefined}
+          >
+            {!isCurrent && <title>{title}</title>}
+            <HexagonBody
+              model={hex.model}
+              showGuides={showGuides}
+              selected={isCurrent ? selected : null}
+              linkTargets={isCurrent ? linkTargets : NO_TARGETS}
+              interactive={isCurrent}
+            />
+            {isCurrent && map.hexagons.length > 1 && <HexCue model={hex.model} />}
+          </g>
+        )
+      })}
       {map.links.map((link) => (
         <line key={link.id} data-map-link="" aria-hidden="true" x1={link.points[0].x} y1={link.points[0].y} x2={link.points[1].x} y2={link.points[1].y} />
       ))}
       {map.title && <text data-map-title="" className="diagram-title" x={map.title.x} y={map.title.y} fontSize={TITLE.size}>{map.title.text}</text>}
-      <SvgLegend legend={legend} bounds={shiftedBounds(first)} />
+      <SvgLegend legend={legend} bounds={hexagonBounds(first)} />
     </>
   )
 }
