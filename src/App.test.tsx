@@ -252,6 +252,16 @@ describe('toolbar', () => {
     expect([...group.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['.hexa', 'SVG', 'PNG'])
     expect(group.querySelector('svg')).toBeNull()
   })
+
+  it('links to the source repository in a new tab', () => {
+    render(<App />)
+    const link = screen.getByRole('link', { name: 'View the source on GitHub' })
+    expect(link.getAttribute('href')).toBe('https://github.com/Hyperxq/domainrings')
+    expect(link.getAttribute('target')).toBe('_blank')
+    expect(link.getAttribute('rel')).toBe('noreferrer')
+    expect(link.closest('.toolbar')).not.toBeNull()
+    expect(link.querySelector('svg')).not.toBeNull()
+  })
 })
 
 describe('legend island', () => {
