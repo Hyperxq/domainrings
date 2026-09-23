@@ -1,0 +1,117 @@
+import type { Box } from '../layout/layout'
+import { LEGEND_GAP } from '../layout/legend'
+
+const FONT_CSS =
+  'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600&display=swap'
+
+// Resolved from the live DOM so the file carries the current theme without the app's stylesheet.
+const INLINED = [
+  'fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray',
+  'stroke-linecap', 'stroke-linejoin', 'opacity', 'font-family', 'font-size', 'font-style',
+  'font-weight', 'letter-spacing', 'text-anchor', 'dominant-baseline', 'paint-order',
+] as const
+
+const readAsDataUrl = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
+
+/** Inlines the Latin IBM Plex faces so the file renders the same without network access. */
+async function fontFaces(): Promise<string> {
+  try {
+    const css = await (await fetch(FONT_CSS)).text()
+    const latin = css.split('@font-face').filter((block) => /unicode-range:\s*U\+0000-00FF/.test(block))
+    const faces = await Promise.all(
+      latin.map(async (block) => {
+        const url = block.match(/url\((https:[^)]+)\)/)?.[1]
+        if (!url) return ''
+        const data = await readAsDataUrl(await (await fetch(url)).blob())
+        return `@font-face${block.slice(0, block.indexOf('}') + 1).replace(url, data)}`
+      }),
+    )
+    return faces.join('')
+  } catch {
+    return ''
+  }
+}
+
+export interface ExportOptions {
+  /** Draw the legend block under the diagram's bottom-right corner. */
+  legend: boolean
+  legendHeight: number
+}
+
+/** The exported frame: the diagram bounds, grown downward to make room for the legend when it is included. */
+export const exportBounds = (bounds: Box, options: ExportOptions): Box =>
+  options.legend ? { ...bounds, height: bounds.height + options.legendHeight + LEGEND_GAP } : bounds
+
+export async function svgMarkup(svg: SVGSVGElement, bounds: Box, title: string, options: ExportOptions): Promise<string> {
+  // Exports ignore hover: drop it and freeze transitions so computed styles are the resting ones, not mid-fade.
+  const hover = svg.getAttribute('data-hover')
+  svg.removeAttribute('data-hover')
+  svg.classList.add('exporting')
+  getComputedStyle(svg).opacity
+  const clone = svg.cloneNode(true) as SVGSVGElement
+  const live = svg.querySelectorAll('*')
+  clone.querySelectorAll('*').forEach((el, i) => {
+    const computed = getComputedStyle(live[i])
+    for (const prop of INLINED) el.setAttribute(prop, computed.getPropertyValue(prop))
+    el.removeAttribute('class')
+  })
+
+  svg.classList.remove('exporting')
+  if (hover) svg.setAttribute('data-hover', hover)
+
+  // The live canvas hides the legend group; its classes are stripped below, so what stays in the clone shows.
+  if (!options.legend) clone.querySelector('[data-legend]')?.remove()
+
+  const ns = 'http://www.w3.org/2000/svg'
+  const { x, y, width, height } = exportBounds(bounds, options)
+  for (const attr of ['class', 'style', 'role', 'aria-label']) clone.removeAttribute(attr)
+  clone.setAttribute('xmlns', ns)
+  clone.setAttribute('viewBox', `${x} ${y} ${width} ${height}`)
+  clone.setAttribute('width', String(Math.ceil(width)))
+  clone.setAttribute('height', String(Math.ceil(height)))
+
+  const background = document.createElementNS(ns, 'rect')
+  for (const [k, v] of Object.entries({ x, y, width, height })) background.setAttribute(k, String(v))
+  background.setAttribute('fill', getComputedStyle(svg).getPropertyValue('--bg').trim() || '#F3F4F1')
+  const style = document.createElementNS(ns, 'style')
+  style.textContent = await fontFaces()
+  // The standalone file names itself; the live canvas uses aria-label so no native tooltip shows over it.
+  const name = document.createElementNS(ns, 'title')
+  name.textContent = title || 'Architecture diagram'
+  clone.prepend(name, style, background)
+
+  return new XMLSerializer().serializeToString(clone)
+}
+
+export async function pngBlob(markup: string, bounds: Box, pixelRatio = 2): Promise<Blob> {
+  const image = new Image()
+  // A data URL (not a blob URL) keeps the canvas untainted in every engine.
+  image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`
+  await image.decode()
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.ceil(bounds.width * pixelRatio)
+  canvas.height = Math.ceil(bounds.height * pixelRatio)
+  canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height)
+  return new Promise((resolve, reject) =>
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('The browser could not encode the PNG.'))), 'image/png'),
+  )
+}
+
+export function download(content: Blob | string, filename: string, type = 'application/octet-stream') {
+  const blob = typeof content === 'string' ? new Blob([content], { type }) : content
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+export const fileSlug = (title: string) =>
+  title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'architecture'
