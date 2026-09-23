@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { App } from './App'
 import { EXAMPLE_DIAGRAM } from './model/example'
 import { useDiagramStore } from './model/store'
@@ -144,5 +144,112 @@ describe('selection and delete on the canvas', () => {
     fireEvent.pointerUp(main, { clientX: 140, clientY: 100 })
     fireEvent.click(node)
     expect(selected(container)).toEqual([])
+  })
+})
+
+describe('undo toast', () => {
+  const useCase = EXAMPLE_DIAGRAM.useCases[0]
+  const deleteUseCase = (container: HTMLElement) => {
+    fireEvent.click(onCanvas(container, useCase.id))
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+  }
+  const hasUseCase = () => useDiagramStore.getState().diagram.useCases.some((u) => u.id === useCase.id)
+  const toast = () => screen.queryByRole('status')
+
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('appears as a compact status row with Undo and a close button, and leaves after 6 s', () => {
+    const { container } = render(<App />)
+    deleteUseCase(container)
+    const row = toast()!
+    expect(row.getAttribute('aria-live')).toBe('polite')
+    expect(row.classList.contains('toast')).toBe(true)
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeTruthy()
+
+    act(() => vi.advanceTimersByTime(5900))
+    expect(toast()).not.toBeNull()
+    act(() => vi.advanceTimersByTime(100))
+    act(() => vi.advanceTimersByTime(150))
+    expect(toast()).toBeNull()
+  })
+
+  it('pauses while hovered and resumes where it left off', () => {
+    const { container } = render(<App />)
+    deleteUseCase(container)
+    act(() => vi.advanceTimersByTime(4000))
+    fireEvent.pointerEnter(toast()!)
+    act(() => vi.advanceTimersByTime(10000))
+    expect(toast()).not.toBeNull()
+    fireEvent.pointerLeave(toast()!)
+    act(() => vi.advanceTimersByTime(1900))
+    expect(toast()).not.toBeNull()
+    act(() => vi.advanceTimersByTime(100))
+    act(() => vi.advanceTimersByTime(150))
+    expect(toast()).toBeNull()
+  })
+
+  it('restarts the countdown for a new notice', () => {
+    const { container } = render(<App />)
+    deleteUseCase(container)
+    act(() => vi.advanceTimersByTime(5000))
+    fireEvent.click(onCanvas(container, EXAMPLE_DIAGRAM.adapters[0].id))
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+    act(() => vi.advanceTimersByTime(5000))
+    expect(toast()!.textContent).toContain(EXAMPLE_DIAGRAM.adapters[0].name)
+  })
+
+  it('closes on Esc', () => {
+    const { container } = render(<App />)
+    deleteUseCase(container)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    act(() => vi.advanceTimersByTime(150))
+    expect(toast()).toBeNull()
+  })
+
+  it.each([{ metaKey: true }, { ctrlKey: true }])('undoes with %o+Z while the toast is up', (modifier) => {
+    const { container } = render(<App />)
+    deleteUseCase(container)
+    expect(hasUseCase()).toBe(false)
+    fireEvent.keyDown(document.body, { key: 'z', ...modifier })
+    expect(hasUseCase()).toBe(true)
+    expect(toast()).toBeNull()
+  })
+
+  it('leaves Cmd+Z to the field while typing in an input', () => {
+    const { container } = render(<App />)
+    deleteUseCase(container)
+    const input = container.querySelector<HTMLInputElement>('.editor input')!
+    input.focus()
+    fireEvent.keyDown(input, { key: 'z', metaKey: true })
+    expect(hasUseCase()).toBe(false)
+    expect(toast()).not.toBeNull()
+  })
+
+  it('keeps an error notice in the fuller layout, without a countdown', async () => {
+    render(<App />)
+    const file = new File(['{ nope'], 'broken.hexa', { type: 'application/json' })
+    fireEvent.change(screen.getByLabelText('Import a .hexa file'), { target: { files: [file] } })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    const alert = screen.getByRole('alert')
+    expect(alert.classList.contains('toast')).toBe(false)
+    act(() => vi.advanceTimersByTime(20000))
+    expect(screen.getByRole('alert')).toBe(alert)
+  })
+})
+
+describe('toolbar', () => {
+  it('labels New, Example and Import with text, and groups the export formats under one Export label', () => {
+    render(<App />)
+    for (const [name, text] of [['New diagram', 'New'], ['Load an example', 'Example'], ['Import a .hexa file', 'Import']]) {
+      const control = screen.getByLabelText(name)
+      expect(control.closest('.icon-button, .tool')!.textContent).toContain(text)
+    }
+    const group = screen.getByRole('group', { name: 'Export' })
+    expect([...group.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['.hexa', 'SVG', 'PNG'])
+    expect(group.querySelector('svg')).toBeNull()
   })
 })

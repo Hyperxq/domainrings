@@ -12,11 +12,14 @@ import { Icon } from './ui/Icon'
 import { Legend } from './ui/Legend'
 import { readPref, writePref } from './ui/prefs'
 import { Stage } from './ui/Stage'
+import { Toast } from './ui/Toast'
 import { Toolbar } from './ui/Toolbar'
 
 type Theme = 'light' | 'dark'
 
 interface Notice {
+  /** A new notice restarts the toast's countdown even when its text repeats. */
+  id: number
   tone: 'status' | 'error'
   message: string
   details?: string[]
@@ -52,11 +55,13 @@ export function App() {
   }
   const [theme, setTheme] = useState(currentTheme)
   const [notice, setNotice] = useState<Notice | null>(null)
+  const noticeSeq = useRef(0)
+  const show = (next: Omit<Notice, 'id'>) => setNotice({ ...next, id: ++noticeSeq.current })
   const [legendInExport, setLegendInExport] = useState(() => readPref(LEGEND_EXPORT_KEY, true))
   const legend = legendFor(diagram)
 
   const swap = (next: Diagram, message: string) => {
-    setNotice({ tone: 'status', message, undo: diagram })
+    show({ tone: 'status', message, undo: diagram })
     replace(next)
   }
 
@@ -64,7 +69,7 @@ export function App() {
     const collection = COLLECTIONS.find((k) => diagram[k].some((i) => i.id === ref))
     if (!collection) return false
     const items: { id: string; name: string }[] = diagram[collection]
-    setNotice({ tone: 'status', message: `Deleted ${items.find((i) => i.id === ref)!.name}.`, undo: diagram })
+    show({ tone: 'status', message: `Deleted ${items.find((i) => i.id === ref)!.name}.`, undo: diagram })
     removeItem(collection, ref)
     return true
   }
@@ -72,7 +77,7 @@ export function App() {
   const importFile = async (file: File) => {
     const result = parseHexa(await file.text())
     if (result.ok) swap(result.diagram, `Opened ${file.name}.`)
-    else setNotice({ tone: 'error', message: `${file.name} could not be opened. Fix these problems and try again:`, details: result.errors })
+    else show({ tone: 'error', message: `${file.name} could not be opened. Fix these problems and try again:`, details: result.errors })
   }
 
   const exportAs = async (format: 'hexa' | 'svg' | 'png') => {
@@ -85,7 +90,7 @@ export function App() {
       if (format === 'svg') download(markup, `${name}.svg`, 'image/svg+xml')
       else download(await pngBlob(markup, exportBounds(model.bounds, options)), `${name}.png`)
     } catch (error) {
-      setNotice({ tone: 'error', message: `Export failed: ${(error as Error).message}` })
+      show({ tone: 'error', message: `Export failed: ${(error as Error).message}` })
     }
   }
 
@@ -140,8 +145,22 @@ export function App() {
         }}
       />
       <Stage model={model} diagram={diagram} mode={mode} highlight={highlight} legend={legend} revision={revision} title={diagram.title} svgRef={svgRef} panelOpen={editorOpen} showGuides={guides} onReveal={reveal} onDelete={deleteItem} />
-      {notice && (
-        <section className={`island notice notice-${notice.tone}`} role={notice.tone === 'error' ? 'alert' : 'status'}>
+      {notice?.tone === 'status' && (
+        <Toast
+          key={notice.id}
+          message={notice.message}
+          onUndo={
+            notice.undo &&
+            (() => {
+              replace(notice.undo!)
+              setNotice(null)
+            })
+          }
+          onClose={() => setNotice(null)}
+        />
+      )}
+      {notice?.tone === 'error' && (
+        <section className="island notice notice-error" role="alert">
           <p>{notice.message}</p>
           {notice.details && (
             <ul>
@@ -149,18 +168,6 @@ export function App() {
             </ul>
           )}
           <div className="notice-actions">
-            {notice.undo && (
-              <button
-                type="button"
-                className="text-button"
-                onClick={() => {
-                  replace(notice.undo!)
-                  setNotice(null)
-                }}
-              >
-                Undo
-              </button>
-            )}
             <button type="button" className="icon-button small" aria-label="Dismiss" onClick={() => setNotice(null)}>
               <Icon name="close" />
             </button>

@@ -7,6 +7,7 @@ import { useDiagramStore } from '../model/store'
 import { Diagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
 import { Icon } from './Icon'
+import { typing } from './keys'
 import { fitTo, islandInset, panBy, zoomAt, type Viewport } from './viewport'
 
 interface StageProps {
@@ -40,7 +41,7 @@ const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
 }
 /** Delete and Backspace act on the canvas selection only when no field has the keyboard. */
 const keyOnCanvas = (target: EventTarget | null) =>
-  target instanceof Element && !target.closest('input, textarea, select, [contenteditable]') && (target === document.body || !!target.closest('main.stage'))
+  target instanceof Element && !typing(target) && (target === document.body || !!target.closest('main.stage'))
 
 /** The layer an element belongs to: its band, or the ring it is drawn in. */
 const layerOf = (target: Element) =>

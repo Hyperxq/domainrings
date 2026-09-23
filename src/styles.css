@@ -273,7 +273,26 @@ body {
 .icon-button:hover,
 .text-button:hover,
 .zoom-level:hover { background: var(--hover); }
-label.icon-button:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
+label.icon-button:focus-within,
+label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
+/* Toolbar actions carry a short word next to the icon; phones keep only the icon. */
+.tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 32px;
+  padding: 0 10px 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tool:hover { background: var(--hover); }
 /* The native select covers the icon, so keyboard, touch and screen readers get a real list of examples. */
 .example-picker { position: relative; }
 .example-picker select { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
@@ -319,8 +338,12 @@ label.icon-button:focus-within { outline: 2px solid var(--teal); outline-offset:
 
 .divider { flex: none; width: 1px; height: 20px; margin: 0 4px; background: var(--line); }
 
-.export { display: inline-flex; align-items: center; gap: 2px; padding-left: 6px; color: var(--muted); }
-.export .text-button { color: var(--ink); }
+.export { display: inline-flex; align-items: center; gap: 6px; flex: none; padding-left: 4px; }
+.export-label { color: var(--muted); font-size: 13px; }
+/* One bordered pill, so the three formats read as one Export control. */
+.segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.segmented .text-button { height: 28px; border-radius: 0; color: var(--ink); font-size: 13px; }
+.segmented .text-button + .text-button { border-left: 1px solid var(--line); }
 
 .editor {
   top: 72px;
@@ -446,6 +469,29 @@ textarea { width: 100%; resize: vertical; margin-top: 4px; }
 }
 .notice-actions { display: flex; justify-content: flex-end; align-items: center; gap: 4px; }
 
+.toast {
+  left: 50%;
+  bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 4px 4px 4px 14px;
+  font-size: 13px;
+  transform: translateX(-50%);
+  animation: toast-in 150ms ease-out;
+  transition: opacity 150ms ease-in, transform 150ms ease-in;
+}
+.toast p { flex: 1; min-width: 0; margin: 0 8px 0 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.toast .text-button { font-size: 13px; color: var(--teal); }
+.toast.is-leaving { opacity: 0; transform: translate(-50%, 8px); }
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; transition: none; }
+}
+
 .legend {
   right: 12px;
   bottom: 12px;
@@ -477,5 +523,8 @@ span.swatch-external { background: var(--slate-soft); border-color: var(--slate)
   .editor { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 45dvh; }
   .zoom { top: 60px; right: 8px; bottom: auto; left: auto; }
   .notice { top: 108px; right: 8px; }
+  .toast { top: 108px; bottom: auto; }
+  .tool { padding: 0 8px; }
+  .tool-text { display: none; }
   .legend { top: 108px; bottom: auto; right: 8px; }
 }

@@ -56,11 +56,13 @@ export function Toolbar({ kind, theme, onKind, onNew, onExample, onImport, onExp
 
       <span className="divider" aria-hidden="true" />
 
-      <button type="button" className="icon-button" aria-label="New diagram" title="New diagram" onClick={onNew}>
+      <button type="button" className="tool" aria-label="New diagram" title="New diagram" onClick={onNew}>
         <Icon name="new" />
+        <span className="tool-text">New</span>
       </button>
-      <label className="icon-button example-picker" title="Load an example">
+      <label className="tool example-picker" title="Load an example">
         <Icon name="example" />
+        <span className="tool-text">Example</span>
         <select
           aria-label="Load an example"
           value=""
@@ -77,28 +79,33 @@ export function Toolbar({ kind, theme, onKind, onNew, onExample, onImport, onExp
           ))}
         </select>
       </label>
-      <label className="icon-button" title="Open a .hexa file">
+      <label className="tool" title="Import a .hexa file">
         <input
           type="file"
           accept=".hexa,application/json"
           className="visually-hidden"
-          aria-label="Open a .hexa file"
+          aria-label="Import a .hexa file"
           onChange={(e) => {
             const file = e.currentTarget.files?.[0]
             if (file) onImport(file)
             e.currentTarget.value = ''
           }}
         />
-        <Icon name="open" />
+        <Icon name="upload" />
+        <span className="tool-text">Import</span>
       </label>
 
       <span className="divider" aria-hidden="true" />
 
-      <span className="export" role="group" aria-label="Export">
-        <Icon name="download" />
-        <button type="button" className="text-button" aria-label="Save as .hexa file" onClick={() => onExport('hexa')}>.hexa</button>
-        <button type="button" className="text-button" aria-label="Export as SVG" onClick={() => onExport('svg')}>SVG</button>
-        <button type="button" className="text-button" aria-label="Export as PNG" onClick={() => onExport('png')}>PNG</button>
+      <span className="export">
+        <span id="export-label" className="export-label">
+          Export
+        </span>
+        <span className="segmented" role="group" aria-labelledby="export-label">
+          <button type="button" className="text-button" aria-label="Save as .hexa file" onClick={() => onExport('hexa')}>.hexa</button>
+          <button type="button" className="text-button" aria-label="Export as SVG" onClick={() => onExport('svg')}>SVG</button>
+          <button type="button" className="text-button" aria-label="Export as PNG" onClick={() => onExport('png')}>PNG</button>
+        </span>
       </span>
 
       <span className="divider" aria-hidden="true" />
