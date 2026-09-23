@@ -2,7 +2,39 @@
   "name": "domainrings",
   "private": true,
   "version": "0.1.0",
+  "description": "Sketch hexagonal, clean and onion architectures from a structured model. Fill in domain items, use cases, ports and adapters; the diagram lays itself out as crisp SVG.",
+  "keywords": [
+    "architecture",
+    "diagram",
+    "hexagonal-architecture",
+    "ports-and-adapters",
+    "clean-architecture",
+    "onion-architecture",
+    "domain-driven-design",
+    "bounded-context",
+    "context-map",
+    "svg",
+    "visualizer",
+    "react",
+    "vite"
+  ],
+  "homepage": "https://hyperxq.github.io/domainrings/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hyperxq/domainrings.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Hyperxq/domainrings/issues"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Daniel Ramirez",
+    "url": "https://github.com/Hyperxq"
+  },
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",

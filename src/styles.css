@@ -277,6 +277,7 @@ body {
   cursor: pointer;
 }
 .icon-button { width: 32px; padding: 0; flex: none; }
+a.icon-button { color: inherit; text-decoration: none; }
 .icon-button.small { width: 26px; height: 26px; }
 .text-button { padding: 0 8px; font-weight: 600; font-size: 12px; }
 .icon-button:hover,

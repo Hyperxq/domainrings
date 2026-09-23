@@ -4,6 +4,8 @@ import { KINDS } from '../model/kinds'
 import { KindSchema, type ArchitectureKind } from '../model/schema'
 import { Icon } from './Icon'
 
+const REPOSITORY_URL = 'https://github.com/Hyperxq/domainrings'
+
 interface ToolbarProps {
   kind: ArchitectureKind
   theme: 'light' | 'dark'
@@ -119,6 +121,9 @@ export function Toolbar({ kind, theme, onKind, onNew, onExample, onImport, onExp
       >
         <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
       </button>
+      <a className="icon-button" href={REPOSITORY_URL} target="_blank" rel="noreferrer" aria-label="View the source on GitHub" title="Source on GitHub">
+        <Icon name="code" />
+      </a>
     </header>
   )
 }
