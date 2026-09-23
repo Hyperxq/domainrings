@@ -32,6 +32,7 @@ function Harness({ highlight = true }: { highlight?: boolean }) {
       svgRef={svgRef}
       panelOpen={false}
       onReveal={() => {}}
+      onDelete={() => false}
       showGuides
       highlight={highlight}
     />

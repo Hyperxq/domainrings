@@ -4,7 +4,7 @@ import { layoutDiagram, type LayoutMode } from './layout/layout'
 import { legendFor, legendSize } from './layout/legend'
 import { EXAMPLES } from './model/example'
 import { parseHexa, toHexa } from './model/hexa'
-import type { Diagram } from './model/schema'
+import { COLLECTIONS, type Diagram } from './model/schema'
 import { useDiagramStore } from './model/store'
 import { Editor, revealInEditor } from './ui/Editor'
 import { download, exportBounds, fileSlug, pngBlob, svgMarkup } from './ui/exporters'
@@ -28,7 +28,7 @@ const LEGEND_EXPORT_KEY = 'domainrings:legend-export'
 const OVERVIEW_KEY = 'domainrings:overview'
 const GUIDES_KEY = 'domainrings:guides'
 const HIGHLIGHT_KEY = 'domainrings:highlight'
-const { replace, setMeta } = useDiagramStore.getState()
+const { replace, setMeta, removeItem } = useDiagramStore.getState()
 
 function currentTheme(): Theme {
   const explicit = document.documentElement.dataset.theme
@@ -58,6 +58,15 @@ export function App() {
   const swap = (next: Diagram, message: string) => {
     setNotice({ tone: 'status', message, undo: diagram })
     replace(next)
+  }
+
+  const deleteItem = (ref: string) => {
+    const collection = COLLECTIONS.find((k) => diagram[k].some((i) => i.id === ref))
+    if (!collection) return false
+    const items: { id: string; name: string }[] = diagram[collection]
+    setNotice({ tone: 'status', message: `Deleted ${items.find((i) => i.id === ref)!.name}.`, undo: diagram })
+    removeItem(collection, ref)
+    return true
   }
 
   const importFile = async (file: File) => {
@@ -130,7 +139,7 @@ export function App() {
           setLegendInExport(include)
         }}
       />
-      <Stage model={model} diagram={diagram} mode={mode} highlight={highlight} legend={legend} revision={revision} title={diagram.title} svgRef={svgRef} panelOpen={editorOpen} showGuides={guides} onReveal={reveal} />
+      <Stage model={model} diagram={diagram} mode={mode} highlight={highlight} legend={legend} revision={revision} title={diagram.title} svgRef={svgRef} panelOpen={editorOpen} showGuides={guides} onReveal={reveal} onDelete={deleteItem} />
       {notice && (
         <section className={`island notice notice-${notice.tone}`} role={notice.tone === 'error' ? 'alert' : 'status'}>
           <p>{notice.message}</p>

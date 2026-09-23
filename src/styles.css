@@ -178,6 +178,7 @@ svg[data-hover='domain'] .node[data-layer='domain'] .box { stroke-width: 2; filt
 
 .canvas .centered { text-anchor: middle; }
 .canvas .end { text-anchor: end; }
+.canvas .node[data-selected] { outline: 2px solid var(--teal); outline-offset: 3px; }
 .canvas .node-portLabel text { font-family: var(--font-mono); fill: var(--ink); fill-opacity: 0.85; }
 .canvas .line-title { font-weight: 600; }
 .canvas .line-mono { font-family: var(--font-mono); }

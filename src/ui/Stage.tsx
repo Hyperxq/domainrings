@@ -23,6 +23,8 @@ interface StageProps {
   showGuides: boolean
   /** Opens the editor at the card for `ref` (an item id, `composition` or `layer:<role>`); `focus` selects its first field. */
   onReveal: (ref: string, focus: boolean) => void
+  /** Removes the element `ref` names; false when it is not a model item (a note, the composition root). */
+  onDelete: (ref: string) => boolean
 }
 
 const GRID = 20
@@ -36,11 +38,15 @@ const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
   actors: 'actor',
   externals: 'external',
 }
+/** Delete and Backspace act on the canvas selection only when no field has the keyboard. */
+const keyOnCanvas = (target: EventTarget | null) =>
+  target instanceof Element && !target.closest('input, textarea, select, [contenteditable]') && (target === document.body || !!target.closest('main.stage'))
+
 /** The layer an element belongs to: its band, or the ring it is drawn in. */
 const layerOf = (target: Element) =>
   target.closest('[data-band]')?.getAttribute('data-band') ?? target.closest('[data-layer]')?.getAttribute('data-layer') ?? null
 
-export function Stage({ model, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, showGuides, onReveal }: StageProps) {
+export function Stage({ model, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, showGuides, onReveal, onDelete }: StageProps) {
   const mainRef = useRef<HTMLElement>(null)
   const drag = useRef<{ x: number; y: number; panning: boolean } | null>(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
@@ -49,6 +55,9 @@ export function Stage({ model, diagram, mode, highlight, legend, revision, title
   const [dragging, setDragging] = useState(false)
   // The layer under the pointer (or keyboard focus); CSS does the highlighting from data-hover on the svg.
   const [hovered, setHovered] = useState<string | null>(null)
+  const [selected, setSelected] = useState<string | null>(null)
+  // A press that became a pan ends in a click too; it must not change the selection.
+  const panned = useRef(false)
   const [editing, setEditing] = useState<{ id: string; collection: CollectionKey; name: string; at: Point } | null>(null)
   const [fullscreen, setFullscreen] = useState(false)
   const [seenRevision, setSeenRevision] = useState(revision)
@@ -85,10 +94,19 @@ export function Stage({ model, diagram, mode, highlight, legend, revision, title
   }, [viewport])
 
   useEffect(() => {
-    const clear = (e: KeyboardEvent) => e.key === 'Escape' && setHovered(null)
-    document.addEventListener('keydown', clear)
-    return () => document.removeEventListener('keydown', clear)
-  }, [])
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setHovered(null)
+        setSelected(null)
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selected && keyOnCanvas(e.target)) {
+        e.preventDefault()
+        if (onDelete(selected)) setSelected(null)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [selected, onDelete])
 
   useEffect(() => {
     if (!fullscreen) return
@@ -132,6 +150,7 @@ export function Stage({ model, diagram, mode, highlight, legend, revision, title
         backgroundPosition: `${-viewport.x * viewport.scale}px ${-viewport.y * viewport.scale}px`,
       }}
       onPointerDown={(e) => {
+        panned.current = false
         if (e.button !== 0 || (e.target as Element).closest('.island, [data-plus], .inline-name')) return
         drag.current = { x: e.clientX, y: e.clientY, panning: false }
       }}
@@ -147,6 +166,7 @@ export function Stage({ model, diagram, mode, highlight, legend, revision, title
           if (Math.hypot(e.clientX - d.x, e.clientY - d.y) <= PAN_SLOP) return
           e.currentTarget.setPointerCapture(e.pointerId)
           d.panning = true
+          panned.current = true
           setDragging(true)
           setHovered(null)
         }
@@ -175,6 +195,7 @@ export function Stage({ model, diagram, mode, highlight, legend, revision, title
         onPointerLeave={(e) => !(e.relatedTarget as Element | null)?.closest?.('[data-plus]') && setHovered(null)}
         onFocus={(e) => setHovered(layerOf(e.target as Element))}
         onBlur={(e) => !(e.relatedTarget as Element | null)?.closest?.('[data-plus]') && setHovered(null)}
+        onClick={(e) => !panned.current && setSelected((e.target as Element).closest('.node')?.getAttribute('data-ref') ?? null)}
         onDoubleClick={(e) => {
           e.preventDefault()
           revealFrom(e.target as Element)
@@ -182,7 +203,7 @@ export function Stage({ model, diagram, mode, highlight, legend, revision, title
         onKeyDown={(e) => e.key === 'Enter' && revealFrom(e.target as Element)}
         viewBox={size.width ? `${viewport.x} ${viewport.y} ${width} ${height}` : undefined}
       >
-        <Diagram model={model} legend={legend} showGuides={showGuides} />
+        <Diagram model={model} legend={legend} showGuides={showGuides} selected={selected} />
       </svg>
 
       <Affordances points={visiblePoints} toScreen={toScreen} onPick={pick} onLayer={setHovered} />

@@ -49,7 +49,7 @@ export const exportBounds = (bounds: Box, options: ExportOptions): Box =>
   options.legend ? { ...bounds, height: bounds.height + options.legendHeight + LEGEND_GAP } : bounds
 
 // Hooks for styling and editing on the canvas; an exported file is a picture, not a control.
-const CANVAS_ONLY = ['class', 'tabindex', 'role', 'aria-label', 'data-ref', 'data-band', 'data-layer']
+const CANVAS_ONLY = ['class', 'tabindex', 'role', 'aria-label', 'data-ref', 'data-band', 'data-layer', 'data-selected']
 
 export async function svgMarkup(svg: SVGSVGElement, bounds: Box, title: string, options: ExportOptions): Promise<string> {
   // Exports ignore hover: drop it and freeze transitions so computed styles are the resting ones, not mid-fade.

@@ -74,3 +74,75 @@ describe('double-click to edit', () => {
     expect((document.activeElement as HTMLInputElement).value).toBe(useCase.name)
   })
 })
+
+describe('selection and delete on the canvas', () => {
+  const useCase = EXAMPLE_DIAGRAM.useCases[0]
+  const selected = (container: HTMLElement) => [...container.querySelectorAll('svg.canvas [data-selected]')].map((n) => n.getAttribute('data-ref'))
+
+  it('selects a node on click, and Esc or a click on empty canvas clears it', () => {
+    const { container } = render(<App />)
+    fireEvent.click(onCanvas(container, useCase.id))
+    expect(selected(container)).toEqual([useCase.id])
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(selected(container)).toEqual([])
+
+    fireEvent.click(onCanvas(container, useCase.id))
+    fireEvent.click(container.querySelector('[data-band="adapters"]')!)
+    expect(selected(container)).toEqual([])
+  })
+
+  it('deletes the selected element with Delete, offers Undo, and Undo restores the exact diagram', () => {
+    const { container } = render(<App />)
+    const port = EXAMPLE_DIAGRAM.ports.find((p) => EXAMPLE_DIAGRAM.adapters.some((a) => a.portId === p.id))!
+    fireEvent.click(onCanvas(container, port.id))
+    fireEvent.keyDown(onCanvas(container, port.id), { key: 'Delete' })
+
+    const after = useDiagramStore.getState().diagram
+    expect(after.ports.some((p) => p.id === port.id)).toBe(false)
+    expect(after.adapters.some((a) => a.portId === port.id)).toBe(false)
+    expect(selected(container)).toEqual([])
+    expect(screen.getByRole('status').textContent).toContain(`Deleted ${port.name}`)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useDiagramStore.getState().diagram).toEqual(EXAMPLE_DIAGRAM)
+  })
+
+  it('deletes with Backspace too', () => {
+    const { container } = render(<App />)
+    fireEvent.click(onCanvas(container, useCase.id))
+    fireEvent.keyDown(document.body, { key: 'Backspace' })
+    expect(useDiagramStore.getState().diagram.useCases.some((u) => u.id === useCase.id)).toBe(false)
+  })
+
+  it('never deletes while typing in an editor field', () => {
+    const { container } = render(<App />)
+    fireEvent.click(onCanvas(container, useCase.id))
+    const input = card(container, useCase.id).querySelector('input')!
+    input.focus()
+    fireEvent.keyDown(input, { key: 'Backspace' })
+    fireEvent.keyDown(input, { key: 'Delete' })
+    expect(useDiagramStore.getState().diagram).toEqual(EXAMPLE_DIAGRAM)
+  })
+
+  it('does nothing on a layer band', () => {
+    const { container } = render(<App />)
+    const band = container.querySelector<SVGElement>('[data-band="application"]')!
+    fireEvent.click(band)
+    band.focus()
+    fireEvent.keyDown(band, { key: 'Delete' })
+    expect(useDiagramStore.getState().diagram).toEqual(EXAMPLE_DIAGRAM)
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('does not select when the press turned into a pan', () => {
+    const { container } = render(<App />)
+    const main = container.querySelector('main')!
+    main.setPointerCapture = () => {}
+    const node = onCanvas(container, useCase.id)
+    fireEvent.pointerDown(node, { button: 0, buttons: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(main, { buttons: 1, clientX: 140, clientY: 100 })
+    fireEvent.pointerUp(main, { clientX: 140, clientY: 100 })
+    fireEvent.click(node)
+    expect(selected(container)).toEqual([])
+  })
+})
