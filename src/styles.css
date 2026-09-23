@@ -349,8 +349,27 @@ label.icon-button:focus-within { outline: 2px solid var(--teal); outline-offset:
 }
 .editor-body[hidden] { display: none; }
 
-.section { display: grid; gap: 8px; padding: 12px 2px; border-top: 1px solid var(--line); }
-.section-head { display: flex; align-items: center; justify-content: space-between; }
+.section { position: relative; padding: 12px 2px; border-top: 1px solid var(--line); }
+.fold > :not(summary) { margin-top: 8px; }
+.fold > .field + .field { margin-top: 8px; }
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  /* Room for the "+" that sits over the row's right end. */
+  padding-right: 34px;
+  cursor: pointer;
+  list-style: none;
+}
+.section-head::-webkit-details-marker { display: none; }
+.section-head .icon { width: 14px; height: 14px; color: var(--muted); transition: transform 150ms ease; }
+.fold[open] > .section-head .icon { transform: rotate(90deg); }
+.section-head .count { color: var(--muted); font-size: 12px; }
+.section-add { position: absolute; top: 12px; right: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .section-head .icon { transition: none; }
+}
 
 .items { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .item {

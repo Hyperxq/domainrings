@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { KINDS } from '../model/kinds'
 import {
   defaultWall,
@@ -27,6 +27,8 @@ const FLASH_MS = 1200
 export function revealInEditor(id: string, focus: boolean) {
   const card = document.querySelector(`[data-item-id="${id}"]`)
   if (!card) return
+  const section = card.closest('details.fold')
+  if (section instanceof HTMLDetailsElement) section.open = true
   card.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
   card.classList.add('is-flash')
   setTimeout(() => card.classList.remove('is-flash'), FLASH_MS)
@@ -57,6 +59,63 @@ function LinkSelect({ label, value, options, onChange }: { label: string; value?
   )
 }
 
+const SECTIONS_KEY = 'domainrings:editor-sections'
+
+function readSections(): Record<string, boolean> {
+  try {
+    return JSON.parse(localStorage.getItem(SECTIONS_KEY) ?? '{}')
+  } catch {
+    return {}
+  }
+}
+
+interface FoldProps {
+  id: string
+  title: string
+  count?: number
+  add?: { label: string; onAdd: () => void }
+  children: ReactNode
+}
+
+/** A collapsible editor section, open by default; each one remembers whether it was left open. */
+function Fold({ id, title, count, add, children }: FoldProps) {
+  const [open, setOpen] = useState(() => readSections()[id] ?? true)
+  const settle = (next: boolean) => {
+    setOpen(next)
+    try {
+      localStorage.setItem(SECTIONS_KEY, JSON.stringify({ ...readSections(), [id]: next }))
+    } catch {
+      // The section still toggles for this session.
+    }
+  }
+  const headingId = `section-${id}`
+  return (
+    <section className="section" aria-labelledby={headingId}>
+      {/* Outside the summary: a button nested in it would be interactive content inside a toggle. */}
+      {add && (
+        <button type="button" className="icon-button small section-add" aria-label={add.label} title={add.label} onClick={add.onAdd}>
+          <Icon name="plus" />
+        </button>
+      )}
+      {/* The click settles synchronously; toggle only catches opens from outside, such as revealInEditor. */}
+      <details className="fold" open={open} onToggle={(e) => e.currentTarget.open !== open && settle(e.currentTarget.open)}>
+        <summary
+          className="section-head"
+          onClick={(e) => {
+            e.preventDefault()
+            settle(!open)
+          }}
+        >
+          <Icon name="chevron" />
+          <h2 id={headingId}>{title}</h2>
+          {count !== undefined && <span className="count">· {count}</span>}
+        </summary>
+        {children}
+      </details>
+    </section>
+  )
+}
+
 interface SectionProps<K extends CollectionKey> {
   collection: K
   items: Item<K>[]
@@ -67,15 +126,8 @@ interface SectionProps<K extends CollectionKey> {
 }
 
 function Section<K extends CollectionKey>({ collection, items, title, noun, empty, fields }: SectionProps<K>) {
-  const headingId = `section-${collection}`
   return (
-    <section className="section" aria-labelledby={headingId}>
-      <header className="section-head">
-        <h2 id={headingId}>{title}</h2>
-        <button type="button" className="icon-button small" aria-label={`Add ${noun}`} title={`Add ${noun}`} onClick={() => addItem(collection)}>
-          <Icon name="plus" />
-        </button>
-      </header>
+    <Fold id={collection} title={title} count={items.length} add={{ label: `Add ${noun}`, onAdd: () => addItem(collection) }}>
       {items.length ? (
         <ul className="items">
           {items.map((item) => {
@@ -98,7 +150,7 @@ function Section<K extends CollectionKey>({ collection, items, title, noun, empt
       ) : (
         <p className="empty">{empty}</p>
       )}
-    </section>
+    </Fold>
   )
 }
 
@@ -138,8 +190,7 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
       </header>
 
       <div id="editor-body" className="editor-body" hidden={!open}>
-        <section className="section" aria-labelledby="section-diagram">
-          <h2 id="section-diagram">Diagram</h2>
+        <Fold id="diagram" title="Diagram">
           <label className="field">
             <span>Title</span>
             <input value={d.title} onChange={(e) => setMeta({ title: e.target.value })} />
@@ -156,10 +207,9 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
               onChange={(e) => setMeta({ composition: e.target.value ? { ...d.composition, name: e.target.value } : undefined })}
             />
           </label>
-        </section>
+        </Fold>
 
-        <section className="section" aria-labelledby="section-layers">
-          <h2 id="section-layers">Layers</h2>
+        <Fold id="layers" title="Layers" count={KINDS[d.kind].rings.length}>
           <ul className="items">
             {KINDS[d.kind].rings.map((ring) => {
               const override = d.layers?.[ring.role]
@@ -182,7 +232,7 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
               )
             })}
           </ul>
-        </section>
+        </Fold>
 
         <Section
           collection="domain"

@@ -15,6 +15,7 @@ const PATHS = {
   shrink: 'M4 4l6 6M10 5v5H5M20 4l-6 6M14 5v5h5M4 20l6-6M5 14h5v5M20 20l-6-6M14 19v-5h5',
   panel: 'M4 4h16v16H4zM10 4v16',
   close: 'M18 6 6 18M6 6l12 12',
+  chevron: 'M9 6l6 6-6 6',
 } as const
 
 export type IconName = keyof typeof PATHS
