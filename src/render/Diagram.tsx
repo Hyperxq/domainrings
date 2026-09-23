@@ -9,7 +9,7 @@ import { DOMAIN_TITLE, EDGE_LABEL, LINE_METRICS, RING_LABEL, RING_SUBTITLE, SUBT
 const SUBTITLE_GAP = 4
 const BOX_PAD_X = 12
 // The domain block is plain text on the solid domain ring.
-const FRAMELESS = new Set<LayoutNode['kind']>(['domainItem', 'note', 'portDecl'])
+const FRAMELESS = new Set<LayoutNode['kind']>(['domainItem', 'note', 'portDecl', 'portLabel'])
 
 function Ring({ ring, shape, inner }: { ring: LayoutRing; shape: Shape; inner?: LayoutRing }) {
   const innermost = !inner
@@ -97,7 +97,8 @@ function Node({ node }: { node: LayoutNode }) {
   const left = node.x - node.width / 2
   const top = node.y - node.height / 2
   const centered = node.align === 'center'
-  const textX = centered ? node.x : left + (node.kind === 'aggregate' ? 8 : BOX_PAD_X)
+  const textX =
+    centered ? node.x : node.align === 'start' ? left : node.align === 'end' ? left + node.width : left + (node.kind === 'aggregate' ? 8 : BOX_PAD_X)
   const textHeight = node.lines.reduce((h, l) => h + LINE_METRICS[l.style].height, 0)
   // An outline's tag sits in its top-left corner; every other node centres its text block vertically.
   let y = node.kind === 'aggregate' ? top + 4 : node.y - textHeight / 2
@@ -118,7 +119,7 @@ function Node({ node }: { node: LayoutNode }) {
           <rect className="box" x={left} y={top} width={node.width} height={node.height} rx={node.kind === 'port' ? 10 : 8} />
         )
       )}
-      <text className={centered ? 'centered' : undefined}>
+      <text className={centered ? 'centered' : node.align === 'end' ? 'end' : undefined}>
         {node.lines.map((line, i) => {
           const m = LINE_METRICS[line.style]
           const lineY = y + m.height / 2

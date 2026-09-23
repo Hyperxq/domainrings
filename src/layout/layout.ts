@@ -28,6 +28,7 @@ export type NodeKind =
   | 'note'
   | 'portDecl'
   | 'composition'
+  | 'portLabel'
 
 /** Centre-anchored box holding typed text lines. */
 export interface LayoutNode {
@@ -36,8 +37,8 @@ export interface LayoutNode {
   kind: NodeKind
   tone: Tone
   lines: TextLine[]
-  /** 'center' draws every line on the node's x axis. */
-  align?: 'center'
+  /** 'center' draws every line on the node's x axis; 'start' and 'end' anchor it on the box's left or right edge. */
+  align?: 'center' | 'start' | 'end'
   /** The ring this element belongs to, for layer highlighting; none for elements outside every ring. */
   layer?: RingRole
   side?: Side
@@ -134,6 +135,8 @@ const OUTSIDE_GAP = 20
 const MARGIN = 16
 /** Every wall-hosted box stays this far inside its wall's 60° sector, so the spokes run clear of it. */
 const SECTOR_CLEAR = 8
+/** Between an overview socket's inner face and its port name. */
+const LABEL_GAP = 4
 /** The composition trunk hugs the outer hexagon this far out. */
 const TRUNK_GAP = OUTSIDE_GAP / 2
 
@@ -247,6 +250,7 @@ function depthAt(shape: Shape, o: Outline, half: number): number {
 
 const circle = (r: number): Outline => ({ halfWidth: r, straight: 0, apex: r })
 const hexagon = (r: number): Outline => ({ halfWidth: r * COS30, straight: r / 2, apex: r })
+const outlineOf = (shape: Shape, r: number) => (shape === 'circle' ? circle(r) : hexagon(r))
 
 /**
  * Smallest ring around `inner` holding every need. A regular hexagon's half-width at dy is
@@ -388,6 +392,9 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   // Overview pills carry the name only, unwrapped; its sockets are bare notches on the ring edge.
   const nameFrame = (name: string) => frame(styled('name', name), 80)
   const NOTCH: Frame = { lines: [], width: 14, height: 30 }
+  // With the socket only a notch, the port name (the contract) sits beside it, inside the application ring.
+  const portLabel = (p: Port) => frame(styled('label', p.name), 0, 0, 0)
+  const labelReach = (p: Port) => (overview ? portLabel(p).width + LABEL_GAP : 0)
   const adapterFrame = (a: Adapter, side: Side) =>
     overview ? nameFrame(a.name) : frame([...styled('eyebrow', adapterTag(side, labels)), ...styled('name', a.name, 18), ...noteLines(a.note)], 110)
   const socketFrame = (p: Port) =>
@@ -493,9 +500,9 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     const groups = portGroups(d, side, onWall)
     const lanes = groups.reduce((k, g) => k + groupRows(g), 0)
     const boxes = groups.flatMap((g) => g.slots.flatMap((s) => [adapterFrame(s.adapter, side), ...s.leaves.map((l) => leafFrame(l, side))]))
-    const socketLength = (f: Frame) => (overview ? NOTCH.height : f.width)
-    const pitch =
-      Math.max(36, ...boxes.map((f) => 2 * reach(f.width, f.height, dir)), ...onWall.map((p) => socketLength(socketFrame(p)))) + ROW_GAP
+    // Overview sockets are notches, but each keeps its whole name beside it along the wall.
+    const socketLength = (p: Port) => (overview ? Math.max(NOTCH.height, portLabel(p).width) : socketFrame(p).width)
+    const pitch = Math.max(36, ...boxes.map((f) => 2 * reach(f.width, f.height, dir)), ...onWall.map(socketLength)) + ROW_GAP
     const uOf = (lane: number) => (lane - (lanes - 1) / 2) * pitch
     let lane = 0
     for (const group of groups) {
@@ -520,7 +527,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
       }
       if (!group.slots.length) lane += 1
       const portKey = `port:${port.id}`
-      const length = overview ? NOTCH.height : Math.max(socketLength(socket), (lane - start) * pitch - ROW_GAP)
+      const length = overview ? NOTCH.height : Math.max(socket.width, (lane - start) * pitch - ROW_GAP)
       wallBoxes.push({ key: portKey, ref: port.id, kind: 'port', side, wall, frame: socket, u: (uOf(start) + uOf(lane - 1)) / 2, v: 0, outer: false, width: length, height: thickness })
       for (const key of adapterKeys) edgePlan.push([key, portKey])
       if (!overview && port.useCaseId && d.useCases.some((u) => u.id === port.useCaseId)) {
@@ -713,6 +720,32 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
       return centre
     })
   }
+  /**
+   * A slanted name starts level with its notch's upper end and runs downhill: centred, an upper wall's name would
+   * reach toward the top vertex and the application title, and the ring would have to grow to clear it.
+   */
+  const labelU = (b: WallBox, f: Frame) => b.u + Math.sign(wallFrame(b.wall).dir.y) * (f.width - b.width) / 2
+  /** Overview port names for a candidate application ring: flat beside a side-wall socket, along a slanted wall. */
+  const portLabels = (appO: Outline) =>
+    overview
+      ? [
+          ...of('port').map((p) => {
+            const f = portLabel(ports.get(p.ref)!)
+            const sign = p.side === 'driving' ? -1 : 1
+            const x = sign * (halfWidthAt(shape, appO, p.y) - widths[p.side].socketHalf - LABEL_GAP - f.width / 2)
+            return { ref: p.ref, side: p.side, frame: f, x, y: p.y, rotation: undefined, align: p.side === 'driving' ? ('start' as const) : ('end' as const) }
+          }),
+          ...wallBoxes
+            .filter((b) => b.kind === 'port')
+            .map((b) => {
+              const f = portLabel(ports.get(b.ref)!)
+              const { n, dir } = wallFrame(b.wall)
+              const depth = appO.halfWidth - b.height / 2 - LABEL_GAP - f.height / 2
+              const u = labelU(b, f)
+              return { ref: b.ref, side: b.side, frame: f, x: n.x * depth + dir.x * u, y: n.y * depth + dir.y * u, rotation: wallAngle(b.wall), align: 'center' as const }
+            }),
+        ]
+      : []
   /** A segment as a hairline quad, so the same separating-axis test covers runs and boxes. */
   const hairline = (a: Point, b: Point): Point[] => {
     const len = Math.hypot(b.x - a.x, b.y - a.y) || 1
@@ -725,7 +758,8 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     ]
   }
   /**
-   * For a candidate application ring: does a slanted-wall socket touch a use case, the title, or a use-case run
+   * For a candidate application ring: does a slanted-wall socket or an overview port name touch a use case or the
+   * title, or a slanted socket touch a use-case run
    * (bus lane, branch or wall-normal run) that is not its own? The upper walls lean in exactly where the buses
    * come down from the use cases, so this is what usually sizes the ring once they are used.
    */
@@ -743,7 +777,8 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
       rectCorners(0, -appO.apex + TITLE_DEPTH + titleHeight(appIndex) / 2, titleWidth(appIndex), titleHeight(appIndex)),
       ...ucY.map((y, k) => rectCorners(0, y, useCaseFrames[k].width, useCaseFrames[k].height)),
     ]
-    if (slantedSocket.some((s) => others.some((o) => quadsOverlap(s.quad, o)))) return true
+    const labels = portLabels(appO).map((l) => rectCorners(l.x, l.y, l.frame.width, l.frame.height, l.rotation))
+    if ([...slantedSocket.map((s) => s.quad), ...labels].some((q) => others.some((o) => quadsOverlap(q, o)))) return true
     if (overview) return false
     // Every use-case run, tagged with the port it serves.
     const runs: { ref: string; quad: Point[] }[] = []
@@ -789,7 +824,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     if (role === 'domain') {
       // The block hangs TITLE_DEPTH under the apex, so its corners move with the radius; the width at a fixed
       // depth under the apex only grows with r, which makes the smallest fitting radius a binary search.
-      const outline = (r: number) => (shape === 'circle' ? circle(r) : hexagon(r))
+      const outline = (r: number) => outlineOf(shape, r)
       const fits = (o: Outline) => {
         const top = -o.apex + TITLE_DEPTH
         const shift = bodyShift(o)
@@ -823,7 +858,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     if (role === 'application') {
       for (const p of of('port')) {
         const clear = Math.max(halfWidthAt(shape, inner, nearest(p.y, p.height)) + GAP, socketClearance(p.side, inner.halfWidth))
-        side.push({ x: clear + widths[p.side].socketHalf, y: farthest(p.y, p.height) })
+        side.push({ x: clear + widths[p.side].socketHalf + labelReach(ports.get(p.ref)!), y: farthest(p.y, p.height) })
       }
       if (useCaseFrames.length) {
         const blockTop = inner.apex + (overview ? GAP : DOMAIN_RUN) + useCaseBlock.height
@@ -849,7 +884,14 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     if (shape === 'hexagon' && role === 'application') {
       for (const b of wallBoxes.filter((b) => !b.outer)) for (const c of localCorners(b)) minApothem = Math.max(minApothem, sectorApothem(c.u, c.v))
       for (const b of wallBoxes.filter((b) => b.kind === 'port')) {
-        minApothem = Math.max(minApothem, inner.halfWidth + GAP + b.height / 2)
+        const label = portLabel(ports.get(b.ref)!)
+        const labelDepth = overview ? LABEL_GAP + label.height : 0
+        minApothem = Math.max(minApothem, inner.halfWidth + GAP + b.height / 2 + labelDepth)
+        if (overview) {
+          for (const u of [labelU(b, label) - label.width / 2, labelU(b, label) + label.width / 2]) {
+            for (const v of [-(b.height / 2 + LABEL_GAP), -(b.height / 2 + labelDepth)]) minApothem = Math.max(minApothem, sectorApothem(u, v))
+          }
+        }
         const port = d.ports.find((p) => p.id === b.ref)!
         const k = d.useCases.findIndex((u) => u.id === port.useCaseId)
         if (k >= 0 && !overview) {
@@ -860,7 +902,8 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
         }
       }
       if (hasSlanted) {
-        for (const c of columnCorners('port', (p) => [-widths[p.side].socketHalf, widths[p.side].socketHalf])) minApothem = Math.max(minApothem, sectorApothem(c.u, c.v))
+        const socketSpan = (p: Planned) => [-widths[p.side].socketHalf - labelReach(ports.get(p.ref)!), widths[p.side].socketHalf]
+        for (const c of columnCorners('port', socketSpan)) minApothem = Math.max(minApothem, sectorApothem(c.u, c.v))
         for (const c of columnCorners('adapter', (p) => [widths[p.side].socketHalf + GAP])) minApothem = Math.max(minApothem, sectorApothem(c.u, c.v))
       }
     }
@@ -871,9 +914,10 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
       if (hasSlanted) for (const c of columnCorners('actor', () => [OUTSIDE_GAP]).concat(columnCorners('external', () => [OUTSIDE_GAP]))) minApothem = Math.max(minApothem, sectorApothem(c.u, c.v))
     }
     let fitted = fitRing(shape, inner, side, vertical, minApothem)
-    // Sockets on the upper walls lean in toward the use cases and the title: grow until none of them touch.
-    if (shape === 'hexagon' && role === 'application' && hasSlanted) {
-      for (let guard = 0; guard < 400 && appClashes(fitted, inner); guard++) fitted = hexagon(fitted.apex * 1.01)
+    // Sockets on the upper walls, and overview port names, lean in toward the use cases and the title: grow until
+    // none of them touch.
+    if (role === 'application' && (hasSlanted || overview)) {
+      for (let guard = 0; guard < 400 && appClashes(fitted, inner); guard++) fitted = outlineOf(shape, fitted.apex * 1.01)
     }
     // The title must fit TITLE_DEPTH under the top: a circle grows until its chord there is wide enough; a
     // hexagon's slope already is by construction, so only its straight width can bind.
@@ -964,6 +1008,9 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
       width: b.width,
       height: b.height,
     })
+  }
+  for (const l of portLabels(app)) {
+    add({ key: `portLabel:${l.ref}`, ref: l.ref, kind: 'portLabel', tone: 'teal', lines: l.frame.lines, align: l.align, side: l.side, rotation: l.rotation, x: l.x, y: l.y, width: l.frame.width, height: l.frame.height })
   }
 
   const byKey = new Map(nodes.map((n) => [n.key, n]))
@@ -1223,7 +1270,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   const serviceIds = new Set(serviceItems.map((i) => i.id))
   const layerOf = (n: LayoutNode): RingRole | undefined => {
     if (n.kind === 'useCase') return 'application'
-    if (n.kind === 'port' || n.kind === 'adapter') return 'adapters'
+    if (n.kind === 'port' || n.kind === 'portLabel' || n.kind === 'adapter') return 'adapters'
     if (n.kind === 'actor' || n.kind === 'external') return config.endpointsInside ? config.rings[0].role : undefined
     if (n.kind === 'composition') return undefined
     return serviceIds.has(n.ref) ? 'domainServices' : 'domain'

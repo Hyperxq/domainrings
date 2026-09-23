@@ -91,7 +91,8 @@ export function insertionPoints(model: LayoutModel, d: Diagram, mode: 'detailed'
     for (const wall of WALLS) {
       const side: Side = ['nw', 'w', 'sw'].includes(wall) ? 'driving' : 'driven'
       const { n, dir } = wallFrame(wall)
-      const onWall = sockets.filter((s) => s.wall === wall)
+      // An overview port name can run past its notch along the wall; the "+" goes past both.
+      const onWall = [...sockets.filter((s) => s.wall === wall), ...nodesOf('portLabel').filter((l) => sockets.some((s) => s.ref === l.ref && s.wall === wall))]
       const along = onWall.length ? Math.max(...onWall.map((s) => s.x * dir.x + s.y * dir.y + (s.rotation !== undefined ? s.width : s.height) / 2)) + GAP : 0
       points.push({
         key: `application:port:${wall}`,

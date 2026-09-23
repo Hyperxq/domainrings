@@ -700,6 +700,139 @@ describe('guides, tones and modes', () => {
   })
 })
 
+// Names far longer than their notches, two of them sharing a slanted wall with no adapter to space them out.
+const LONG_NAMES: Diagram = {
+  version: 1,
+  kind: 'hexagonal',
+  title: '',
+  domain: ['Order', 'Invoice', 'Customer'].map((name) => ({ id: name, name, type: 'entity' as const })),
+  useCases: [],
+  ports: [
+    { id: 'pw', name: 'placeOrderFromTheStorefrontCheckout', side: 'driving', wall: 'w' },
+    { id: 'pn1', name: 'PublishOrderPlacedIntegrationEvent', side: 'driven', wall: 'ne' },
+    { id: 'pn2', name: 'ReserveStockInTheWarehouseSystem', side: 'driven', wall: 'ne' },
+    { id: 'pe', name: 'ChargeTheCustomerPaymentMethod', side: 'driven', wall: 'e' },
+  ],
+  adapters: [],
+  actors: [],
+  externals: [],
+}
+// Long names sharing the lower walls: no title or use case down there, so the spokes are what size the ring.
+const LOWER_WALLS: Diagram = {
+  ...LONG_NAMES,
+  ports: (['sw', 'se'] as const).flatMap((wall) =>
+    [1, 2].map((k) => ({ id: `${wall}${k}`, name: `ALongPortNameOnTheLowerWall${k}`, side: wall === 'sw' ? ('driving' as const) : ('driven' as const), wall })),
+  ),
+}
+// With no slanted wall, only the side walls' own width keeps a long name off the domain.
+const SIDE_WALLS_ONLY: Diagram = { ...LONG_NAMES, ports: LONG_NAMES.ports.map((p) => (p.wall === 'ne' ? { ...p, wall: 'e' as const } : p)) }
+// A tall west column of long names: its outer rows' names reach in toward the spokes.
+const TALL_COLUMN: Diagram = {
+  ...LONG_NAMES,
+  ports: [
+    ...Array.from({ length: 6 }, (_, i) => ({ id: `w${i}`, name: `HandleIncomingRequestNumber${i}FromTheWeb`, side: 'driving' as const, wall: 'w' as const })),
+    { id: 'pn', name: 'x', side: 'driven', wall: 'ne' },
+  ],
+}
+
+describe('overview port labels', () => {
+  describe.each([
+    ['feedback', EXAMPLE_DIAGRAM],
+    ['six-wall stress', STRESS_DIAGRAM],
+    ['clean feedback', withKind('clean')],
+    ['onion stress', withKind('onion', STRESS_DIAGRAM)],
+    ['long names', LONG_NAMES],
+    ['lower walls', LOWER_WALLS],
+    ['side walls only', SIDE_WALLS_ONLY],
+    ['tall column', TALL_COLUMN],
+  ])('%s example', (_, diagram) => {
+    const m = layoutDiagram(diagram, { mode: 'overview' })
+    const app = ringOf(m, 'application')
+    const inner = m.rings[m.rings.indexOf(app) + 1]
+    const labels = m.nodes.filter((n) => n.kind === 'portLabel')
+    const sockets = m.nodes.filter((n) => n.kind === 'port')
+    const edgePoints = (n: LayoutNode) => {
+      const [a, b, c, e] = corners(n)
+      return [[a, b], [b, e], [e, c], [c, a]].flatMap(([p, q]) => sample([p, q] as Segment, 0.05))
+    }
+
+    it('gives every socket exactly one label carrying just the port name', () => {
+      expect(sockets.length).toBe(diagram.ports.length)
+      for (const socket of sockets) {
+        const own = labels.filter((l) => l.ref === socket.ref)
+        expect(own).toHaveLength(1)
+        const name = diagram.ports.find((p) => p.id === socket.ref)!.name
+        expect(own[0].lines).toEqual([{ text: name, style: 'label' }])
+      }
+      expect(labels).toHaveLength(sockets.length)
+    })
+
+    it('keeps each label inside the application ring and a full gap (14) clear of the ring inside it', () => {
+      const clearOf = shrink(m.shape, inner, -14 + 1e-3)
+      for (const label of labels) {
+        for (const p of edgePoints(label)) {
+          expect(inside(m, app, p)).toBe(true)
+          expect(inside(m, clearOf, p)).toBe(false)
+        }
+      }
+    })
+
+    // As with every column box, sectors only bind once some wall is slanted; w/e-only hexagons have no neighbour to meet.
+    it.runIf(sockets.some((s) => s.rotation !== undefined))('keeps each label 8 clear of the spokes, inside its own wall sector', () => {
+      const tan30 = Math.tan(Math.PI / 6)
+      for (const label of labels) {
+        const { n, dir } = wallFrame(sockets.find((s) => s.ref === label.ref)!.wall!)
+        for (const c of corners(label)) expect((dot(c, n) * tan30 - Math.abs(dot(c, dir))) * COS30).toBeGreaterThanOrEqual(8 - 1e-6)
+      }
+    })
+
+    it('overlaps no other element and no layer title', () => {
+      const titles = m.rings.map(labelBox)
+      for (const label of labels) {
+        for (const other of [...m.nodes, ...titles]) {
+          if (other === label) continue
+          expect({ label: label.key, other: other.key, overlap: overlap(label, other) }).toEqual({ label: label.key, other: other.key, overlap: false })
+        }
+      }
+    })
+
+    it('reads upright: slanted labels lie along their wall, side-wall labels stay flat and start just inside the socket', () => {
+      for (const label of labels) {
+        const socket = sockets.find((s) => s.ref === label.ref)!
+        const rotation = label.rotation ?? 0
+        expect(rotation).toBeGreaterThanOrEqual(-90)
+        expect(rotation).toBeLessThanOrEqual(90)
+        if (socket.rotation !== undefined) {
+          expect(rotation).toBeCloseTo(socket.rotation)
+          expect(label.align).toBe('center')
+        } else {
+          expect(label.rotation).toBeUndefined()
+          expect(label.y).toBeCloseTo(socket.y)
+          const driving = socket.side === 'driving'
+          expect(label.align).toBe(driving ? 'start' : 'end')
+          const gap = driving ? left(label) - right(socket) : left(socket) - right(label)
+          expect(gap).toBeGreaterThan(0)
+          expect(gap).toBeLessThanOrEqual(8)
+        }
+      }
+    })
+  })
+
+  it('labels a slanted socket on its inner side, never upside down, on all six walls', () => {
+    const m = layoutDiagram(STRESS_DIAGRAM, { mode: 'overview' })
+    const walls = new Set(m.nodes.filter((n) => n.kind === 'port').map((n) => n.wall))
+    expect(walls).toEqual(new Set(['nw', 'w', 'sw', 'ne', 'e', 'se']))
+    for (const socket of m.nodes.filter((n) => n.kind === 'port' && n.rotation !== undefined)) {
+      const label = find(m, 'portLabel', socket.ref)
+      expect(Math.hypot(label.x, label.y)).toBeLessThan(Math.hypot(socket.x, socket.y))
+    }
+  })
+
+  it('leaves the detailed view without labels', () => {
+    expect(layoutDiagram(STRESS_DIAGRAM).nodes.some((n) => n.kind === 'portLabel')).toBe(false)
+  })
+})
+
 describe('layer membership for hover', () => {
   it.each(KIND_LIST)('tags each element with the ring it belongs to (%s)', (kind) => {
     const m = layoutDiagram({ ...STRESS_DIAGRAM, kind })

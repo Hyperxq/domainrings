@@ -177,6 +177,8 @@ svg[data-hover='domain'] .node[data-layer='domain'] .box { stroke-width: 2; filt
 .node-composition .box { fill: var(--card); stroke: var(--muted); stroke-dasharray: 6 4; }
 
 .canvas .centered { text-anchor: middle; }
+.canvas .end { text-anchor: end; }
+.canvas .node-portLabel text { font-family: var(--font-mono); fill: var(--ink); fill-opacity: 0.85; }
 .canvas .line-title { font-weight: 600; }
 .canvas .line-mono { font-family: var(--font-mono); }
 .canvas .line-eyebrow { font-family: var(--font-mono); fill: var(--muted); }

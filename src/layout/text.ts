@@ -1,4 +1,4 @@
-export type LineStyle = 'eyebrow' | 'title' | 'name' | 'mono' | 'muted' | 'minor' | 'strong' | 'tag'
+export type LineStyle = 'eyebrow' | 'title' | 'name' | 'mono' | 'muted' | 'minor' | 'strong' | 'tag' | 'label'
 
 export interface TextLine {
   text: string
@@ -26,6 +26,8 @@ export const LINE_METRICS: Record<LineStyle, Metrics> = {
   minor: { size: 12, height: 16, em: 0.6, tracking: 0 },
   strong: { size: 13, height: 18, em: 0.62, tracking: 0 },
   tag: { size: 11, height: 14, em: 0.6, tracking: 0 },
+  /** An overview socket's port name, beside its notch. */
+  label: { size: 11, height: 14, em: 0.6, tracking: 0 },
 }
 
 export const RING_LABEL = { size: 13, em: 0.68, tracking: 1.6 } as const

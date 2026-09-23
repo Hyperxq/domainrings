@@ -76,6 +76,19 @@ describe('insertionPoints', () => {
       ])
     })
 
+    it('puts an overview wall "+" past the port names that run along that wall', () => {
+      const model = layoutDiagram(STRESS_DIAGRAM, { mode: 'overview' })
+      const walls = insertionPoints(model, STRESS_DIAGRAM, 'overview').flatMap((p) => (p.action.kind === 'port' && p.action.wall ? [{ wall: p.action.wall, at: p.at }] : []))
+      for (const { wall, at } of walls.filter((w) => w.wall !== 'w' && w.wall !== 'e')) {
+        const sockets = model.nodes.filter((n) => n.kind === 'port' && n.wall === wall)
+        const dir = { x: Math.cos((sockets[0].rotation! * Math.PI) / 180), y: Math.sin((sockets[0].rotation! * Math.PI) / 180) }
+        const along = (q: { x: number; y: number }) => q.x * dir.x + q.y * dir.y
+        const labels = model.nodes.filter((n) => n.kind === 'portLabel' && sockets.some((s) => s.ref === n.ref))
+        const [lo, hi] = [Math.min(...labels.map((l) => along(l) - l.width / 2)), Math.max(...labels.map((l) => along(l) + l.width / 2))]
+        expect(along(at) < lo || along(at) > hi).toBe(true)
+      }
+    })
+
     it('reaches all six walls of the stress example, each past its own run', () => {
       const walls = byLayer(pointsFor(STRESS_DIAGRAM), 'application').flatMap((p) => (p.action.kind === 'port' ? [p.action.wall] : []))
       expect(walls).toEqual(['nw', 'w', 'sw', 'ne', 'e', 'se'])

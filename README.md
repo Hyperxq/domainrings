@@ -61,6 +61,8 @@ A collapsible legend island (bottom-right) lists all three channels. It shows on
 - **Overview** is the calm version. Pills show names only, sockets are bare notches on the application ring edge, and only the straight horizontal flow arrows remain. The domain lists its aggregate and entity roots under the big title. Its smaller boxes give smaller rings.
 - **Guides** switches the dashed spokes that run from the domain's vertices to the outer ring's (hexagons only).
 
+In Overview a socket is only a notch, so its port name (the contract) is written beside it inside the application ring, in 11px mono. On the w and e walls it runs flat from the notch toward the centre. On a slanted wall it lies along the wall, upright, starting level with the notch's upper end and running downhill, so upper-wall names stay clear of the application title. The ring solver sizes the application ring around these names: they never touch a use case, the title, the domain ring (a full gap stays clear) or each other, and with any slanted wall in use they keep clear of the spokes like every other wall box.
+
 The mode and the guides switch are remembered, and exports use whatever is on screen.
 
 ## Layer hover
