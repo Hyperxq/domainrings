@@ -31,6 +31,7 @@ function Harness({ highlight = true }: { highlight?: boolean }) {
       title="Test"
       svgRef={svgRef}
       panelOpen={false}
+      legendOpen={false}
       onReveal={() => {}}
       onDelete={() => false}
       showGuides

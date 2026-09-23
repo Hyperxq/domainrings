@@ -66,6 +66,8 @@ export interface LayoutRing {
   straight: number
   apex: number
   labelAt: Point
+  /** The title and subtitle block, which nothing may cover. */
+  titleBox: Box
 }
 
 export interface LayoutEdge {
@@ -717,7 +719,8 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
       titleBottom + GAP,
       ...stackFrames.flatMap((f, j) => [
         depthAt(shape, appO, useCaseBlock.width / 2 + PAD) - useCaseOffsets[j],
-        ...SIDES.map((s) => depthAt(shape, appO, busX(s, stack[j], insideO.halfWidth) + PAD) - useCaseOffsets[j] - f.height / 2),
+        // Bus corners only exist in Detailed, as in the solver: on a circle they would sink the stack into the domain.
+        ...(overview ? [] : SIDES.map((s) => depthAt(shape, appO, busX(s, stack[j], insideO.halfWidth) + PAD) - useCaseOffsets[j] - f.height / 2)),
       ]),
     )
     let y = -appO.apex + depth
@@ -1027,6 +1030,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     ...ringTitle(i),
     ...outlines[i],
     labelAt: { x: 0, y: -outlines[i].apex + TITLE_DEPTH + titleLine(i) / 2 },
+    titleBox: { x: -titleWidth(i) / 2, y: -outlines[i].apex + TITLE_DEPTH, width: titleWidth(i), height: titleHeight(i) },
   }))
 
   const blockTop = -domain.apex + TITLE_DEPTH

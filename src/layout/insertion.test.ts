@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { insertionItem, insertionPoints, type InsertionPoint } from './insertion'
-import { layoutDiagram } from './layout'
+import { layoutDiagram, wallFrame } from './layout'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
 import type { Diagram } from '../model/schema'
 
@@ -89,20 +89,24 @@ describe('insertionPoints', () => {
       }
     })
 
-    it('offers a use case "+" in every sector of a hexagon, besides the one under the title', () => {
+    it('offers a use case "+" per sector of a hexagon besides the one under the title, skipping sectors whose "+" would sit on the stack', () => {
       const actions = points.filter((p) => p.action.kind === 'useCase').map((p) => p.action)
-      expect(actions).toEqual([{ kind: 'useCase' }, ...['nw', 'w', 'sw', 'ne', 'e', 'se'].map((placement) => ({ kind: 'useCase', placement }))])
+      expect(actions).toEqual([{ kind: 'useCase' }, ...['w', 'sw', 'e', 'se'].map((placement) => ({ kind: 'useCase', placement }))])
+      const stress = byLayer(pointsFor(STRESS_DIAGRAM, 'overview'), 'application').flatMap((p) => (p.action.kind === 'useCase' && p.action.placement ? [p.action.placement] : []))
+      // EarnPoints sits on nw at the stack's height, so both ends of that run are taken; ne is free lower down.
+      expect(stress).toEqual(['w', 'sw', 'ne', 'e', 'se'])
       const clean = { ...EXAMPLE_DIAGRAM, kind: 'clean' as const }
       expect(byLayer(pointsFor(clean), 'application').filter((p) => p.action.kind === 'useCase').map((p) => p.action)).toEqual([{ kind: 'useCase' }])
     })
 
-    it('puts a sector "+" inside the application band, past the use cases already on that wall', () => {
+    it('puts a sector "+" past the use cases already on that wall', () => {
       const model = layoutDiagram(STRESS_DIAGRAM)
       const nw = pointsFor(STRESS_DIAGRAM).find((p) => p.action.kind === 'useCase' && p.action.placement === 'nw')!
       const placed = model.nodes.find((n) => n.kind === 'useCase' && n.wall === 'nw')!
       const dir = { x: COS30, y: -0.5 }
       const along = (q: { x: number; y: number }) => q.x * dir.x + q.y * dir.y
-      expect(along(nw.at)).toBeGreaterThan(along(placed) + (placed.width / 2) * COS30 + (placed.height / 2) * 0.5)
+      const reach = (placed.width / 2) * COS30 + (placed.height / 2) * 0.5
+      expect(along(nw.at) > along(placed) + reach || along(nw.at) < along(placed) - reach).toBe(true)
     })
 
     it('reaches all six walls of the stress example, each past its own run', () => {
@@ -155,5 +159,67 @@ describe('insertionItem', () => {
     [{ kind: 'endpoint' as const, side: 'driven' as const, adapterId: 'a' }, undefined, { collection: 'externals', patch: { name: 'New system', adapterId: 'a' } }],
   ])('creates %j (%s) with its link and default name', (action, choice, expected) => {
     expect(insertionItem(action, choice)).toEqual(expected)
+  })
+})
+
+describe('insertion points never crowd the canvas', () => {
+  const PLUS = 24
+  const SQRT3 = Math.sqrt(3)
+  const extraStacked = { ...EXAMPLE_DIAGRAM, useCases: [...EXAMPLE_DIAGRAM.useCases, { id: 'uc-extra', name: 'ArchiveFeedback' }] }
+  const noUseCases = { ...EXAMPLE_DIAGRAM, useCases: [], ports: EXAMPLE_DIAGRAM.ports.map(({ useCaseId: _, ...p }) => p) }
+  const box = (at: { x: number; y: number }) => ({ x0: at.x - PLUS / 2, x1: at.x + PLUS / 2, y0: at.y - PLUS / 2, y1: at.y + PLUS / 2 })
+  const hits = (a: ReturnType<typeof box>, b: { x: number; y: number; width: number; height: number }) =>
+    a.x1 > b.x && a.x0 < b.x + b.width && a.y1 > b.y && a.y0 < b.y + b.height
+
+  describe.each([
+    ['feedback', EXAMPLE_DIAGRAM],
+    ['feedback with a second stacked use case', extraStacked],
+    ['feedback without use cases', noUseCases],
+    ['stress', STRESS_DIAGRAM],
+    ['clean feedback', { ...EXAMPLE_DIAGRAM, kind: 'clean' as const }],
+    [
+      'three wide seats on one wall',
+      {
+        ...EXAMPLE_DIAGRAM,
+        useCases: ['ImportTheNightlyStockFeed', 'RebuildTheSearchIndex', 'ExpireAbandonedCarts'].map((name, i) => ({ id: `u${i}`, name, placement: 'sw' as const })),
+        ports: EXAMPLE_DIAGRAM.ports.map(({ useCaseId: _, ...p }) => p),
+      },
+    ],
+  ])('%s', (_, diagram) => {
+    it.each(['detailed', 'overview'] as const)('keeps every "+" off the layer titles and 24 apart (%s)', (mode) => {
+      const model = layoutDiagram(diagram, { mode })
+      const points = insertionPoints(model, diagram, mode)
+      for (const p of points) {
+        for (const r of model.rings) expect(hits(box(p.at), r.titleBox) ? `${p.key} over the ${r.role} title` : 'clear').toBe('clear')
+        for (const q of points) if (q !== p) expect(Math.hypot(q.at.x - p.at.x, q.at.y - p.at.y) >= PLUS ? 'apart' : `${p.key} near ${q.key}`).toBe('apart')
+      }
+    })
+
+    it.each(['detailed', 'overview'] as const)('offers exactly one use case "+" for the stack, below it (%s)', (mode) => {
+      const model = layoutDiagram(diagram, { mode })
+      const app = model.rings.find((r) => r.role === 'application')!
+      const stackPlus = insertionPoints(model, diagram, mode).filter((p) => p.action.kind === 'useCase' && !p.action.placement)
+      expect(stackPlus).toHaveLength(1)
+      const stacked = model.nodes.filter((n) => n.kind === 'useCase' && !n.wall)
+      const floor = stacked.length ? Math.max(...stacked.map((n) => n.y + n.height / 2)) : app.titleBox.y + app.titleBox.height
+      expect(stackPlus[0].at.y - PLUS / 2).toBeGreaterThanOrEqual(floor)
+    })
+
+    it.each(['detailed', 'overview'] as const)('keeps each sector "+" 8 clear of the spokes and off the stack (%s)', (mode) => {
+      const model = layoutDiagram(diagram, { mode })
+      const stacked = model.nodes.filter((n) => n.kind === 'useCase' && !n.wall)
+      for (const p of insertionPoints(model, diagram, mode)) {
+        if (p.action.kind !== 'useCase' || !p.action.placement) continue
+        const { n, dir } = wallFrame(p.action.placement)
+        const depth = p.at.x * n.x + p.at.y * n.y
+        const along = Math.abs(p.at.x * dir.x + p.at.y * dir.y)
+        // Distance from the point to the nearer spoke of its sector, less the "+" half-size.
+        expect((depth / SQRT3 - along) * (SQRT3 / 2) - PLUS / 2).toBeGreaterThanOrEqual(8 - 1e-6)
+        for (const s of stacked) expect(hits(box(p.at), { x: s.x - s.width / 2, y: s.y - s.height / 2, width: s.width, height: s.height }) ? `${p.key} on ${s.key}` : 'clear').toBe('clear')
+        // The upper sectors share their height with the stack: a "+" there only below the stack's own "+".
+        const stackPlus = insertionPoints(model, diagram, mode).find((q) => q.action.kind === 'useCase' && !q.action.placement)!
+        if (p.action.placement === 'nw' || p.action.placement === 'ne') expect(p.at.y).toBeGreaterThanOrEqual(stackPlus.at.y + PLUS)
+      }
+    })
   })
 })

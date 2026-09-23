@@ -694,6 +694,15 @@ describe('guides, tones and modes', () => {
       }
     })
 
+    it('keeps the stacked use cases in the application band, above the ring inside it', () => {
+      const app = ringOf(overview, 'application')
+      const inner = overview.rings[overview.rings.indexOf(app) + 1]
+      for (const u of overview.nodes.filter((n) => n.kind === 'useCase' && !n.wall)) {
+        expect(bottom(u)).toBeLessThanOrEqual(-inner.apex)
+        for (const c of corners(u)) expect(inside(overview, app, c)).toBe(true)
+      }
+    })
+
     it('shrinks the rings', () => {
       expect(overview.rings[0].apex).toBeLessThan(detailed.rings[0].apex)
     })

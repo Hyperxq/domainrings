@@ -15,6 +15,7 @@ const PATHS = {
   panel: 'M4 4h16v16H4zM10 4v16',
   close: 'M18 6 6 18M6 6l12 12',
   chevron: 'M9 6l6 6-6 6',
+  info: 'M12 21a9 9 0 1 0 0-18a9 9 0 0 0 0 18zM12 11v5M12 8h.01',
 } as const
 
 export type IconName = keyof typeof PATHS

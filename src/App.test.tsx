@@ -253,3 +253,46 @@ describe('toolbar', () => {
     expect(group.querySelector('svg')).toBeNull()
   })
 })
+
+describe('legend island', () => {
+  const legendButton = () => document.querySelector<HTMLButtonElement>('.legend .legend-head')!
+  const headings = () => [...document.querySelectorAll('.legend h3')].map((h) => h.textContent)
+
+  beforeEach(() => localStorage.removeItem('domainrings:legend-open'))
+
+  it('reads as a help panel when closed, and shows its close control when open', () => {
+    render(<App />)
+    const button = legendButton()
+    expect(button.getAttribute('aria-expanded')).toBe('false')
+    expect(button.getAttribute('title')).toBe('Show legend')
+    expect(button.textContent).toBe('Legend')
+    fireEvent.click(button)
+    expect(screen.getByRole('button', { name: 'Hide legend' }).getAttribute('aria-expanded')).toBe('true')
+    expect(localStorage.getItem('domainrings:legend-open')).toBe('true')
+  })
+
+  it('closes on Esc while focus is inside it', () => {
+    render(<App />)
+    fireEvent.click(legendButton())
+    const checkbox = screen.getByLabelText('Include legend in export')
+    checkbox.focus()
+    fireEvent.keyDown(checkbox, { key: 'Escape' })
+    expect(legendButton().getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('never shows an empty section', () => {
+    useDiagramStore.getState().replace({ ...EXAMPLE_DIAGRAM, domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] })
+    render(<App />)
+    fireEvent.click(legendButton())
+    expect(headings()).toEqual(['Colour · layer', 'Stroke · role'])
+  })
+
+  it('explains the glyphs present in the diagram even in Overview, where the canvas hides them', () => {
+    localStorage.setItem('domainrings:overview', 'true')
+    render(<App />)
+    fireEvent.click(legendButton())
+    expect(headings()).toContain('Glyph · type')
+    expect([...document.querySelectorAll('.legend-tags li')].map((li) => li.textContent)).toContain('◆ aggregate')
+    localStorage.removeItem('domainrings:overview')
+  })
+})

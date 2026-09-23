@@ -31,6 +31,7 @@ const LEGEND_EXPORT_KEY = 'domainrings:legend-export'
 const OVERVIEW_KEY = 'domainrings:overview'
 const GUIDES_KEY = 'domainrings:guides'
 const HIGHLIGHT_KEY = 'domainrings:highlight'
+const LEGEND_OPEN_KEY = 'domainrings:legend-open'
 const { replace, setMeta, removeItem } = useDiagramStore.getState()
 
 function currentTheme(): Theme {
@@ -58,6 +59,7 @@ export function App() {
   const noticeSeq = useRef(0)
   const show = (next: Omit<Notice, 'id'>) => setNotice({ ...next, id: ++noticeSeq.current })
   const [legendInExport, setLegendInExport] = useState(() => readPref(LEGEND_EXPORT_KEY, true))
+  const [legendOpen, setLegendOpen] = useState(() => readPref(LEGEND_OPEN_KEY, false))
   const legend = legendFor(diagram)
 
   const swap = (next: Diagram, message: string) => {
@@ -138,13 +140,18 @@ export function App() {
       <Editor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} />
       <Legend
         legend={legend}
+        open={legendOpen}
+        onOpen={(open) => {
+          writePref(LEGEND_OPEN_KEY, open)
+          setLegendOpen(open)
+        }}
         includeInExport={legendInExport}
         onIncludeInExport={(include) => {
           writePref(LEGEND_EXPORT_KEY, include)
           setLegendInExport(include)
         }}
       />
-      <Stage model={model} diagram={diagram} mode={mode} highlight={highlight} legend={legend} revision={revision} title={diagram.title} svgRef={svgRef} panelOpen={editorOpen} showGuides={guides} onReveal={reveal} onDelete={deleteItem} />
+      <Stage model={model} diagram={diagram} mode={mode} highlight={highlight} legend={legend} revision={revision} title={diagram.title} svgRef={svgRef} panelOpen={editorOpen} legendOpen={legendOpen} showGuides={guides} onReveal={reveal} onDelete={deleteItem} />
       {notice?.tone === 'status' && (
         <Toast
           key={notice.id}

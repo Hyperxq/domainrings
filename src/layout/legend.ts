@@ -43,7 +43,16 @@ export const LEGEND_ROW = 18
 export const LEGEND_HEADING = 22
 export const LEGEND_PAD = 12
 export const LEGEND_SWATCH = 24
-export const LEGEND_SECTIONS = ['Colour = layer', 'Stroke = role', 'Glyph = type'] as const
+
+/** The legend's channels in order. One with no rows is left out wherever the legend is drawn. */
+export function legendSections(legend: LegendModel) {
+  const all = [
+    { key: 'colours', title: 'Colour · layer', rows: legend.colours.length },
+    { key: 'strokes', title: 'Stroke · role', rows: legend.strokes.length },
+    { key: 'tags', title: 'Glyph · type', rows: legend.tags.length },
+  ] as const
+  return all.filter((s) => s.rows > 0)
+}
 
 /** Size of the legend block drawn into exports. */
 export function legendSize(legend: LegendModel) {
@@ -52,9 +61,9 @@ export function legendSize(legend: LegendModel) {
     Math.max(
       ...texts.map((t) => measure(t, LINE_METRICS.muted) + LEGEND_SWATCH),
       ...legend.tags.map((t) => measure(t, LINE_METRICS.tag)),
-      ...LEGEND_SECTIONS.map((t) => measure(t, LINE_METRICS.title)),
+      ...legendSections(legend).map((s) => measure(s.title, LINE_METRICS.title)),
     ) +
     2 * LEGEND_PAD
   const rows = legend.colours.length + legend.strokes.length + legend.tags.length
-  return { width, height: 2 * LEGEND_PAD + LEGEND_SECTIONS.length * LEGEND_HEADING + rows * LEGEND_ROW }
+  return { width, height: 2 * LEGEND_PAD + legendSections(legend).length * LEGEND_HEADING + rows * LEGEND_ROW }
 }

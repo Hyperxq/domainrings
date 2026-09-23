@@ -21,6 +21,8 @@ interface StageProps {
   title: string
   svgRef: Ref<SVGSVGElement>
   panelOpen: boolean
+  /** The open legend island takes the right column, so the fit leaves it free. */
+  legendOpen: boolean
   showGuides: boolean
   /** Opens the editor at the card for `ref` (an item id, `composition` or `layer:<role>`); `focus` selects its first field. */
   onReveal: (ref: string, focus: boolean) => void
@@ -47,7 +49,7 @@ const keyOnCanvas = (target: EventTarget | null) =>
 const layerOf = (target: Element) =>
   target.closest('[data-band]')?.getAttribute('data-band') ?? target.closest('[data-layer]')?.getAttribute('data-layer') ?? null
 
-export function Stage({ model, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, showGuides, onReveal, onDelete }: StageProps) {
+export function Stage({ model, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete }: StageProps) {
   const mainRef = useRef<HTMLElement>(null)
   const drag = useRef<{ x: number; y: number; panning: boolean } | null>(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
@@ -61,13 +63,15 @@ export function Stage({ model, diagram, mode, highlight, legend, revision, title
   const panned = useRef(false)
   const [editing, setEditing] = useState<{ id: string; collection: CollectionKey; name: string; at: Point } | null>(null)
   const [fullscreen, setFullscreen] = useState(false)
-  const [seenRevision, setSeenRevision] = useState(revision)
-  if (revision !== seenRevision) {
-    setSeenRevision(revision)
+  // A new diagram, or the legend opening or closing, refits.
+  const fitKey = `${revision}:${legendOpen}`
+  const [seenFitKey, setSeenFitKey] = useState(fitKey)
+  if (fitKey !== seenFitKey) {
+    setSeenFitKey(fitKey)
     setView(null)
   }
 
-  const viewport = view ?? fitTo(model.bounds, size.width || model.bounds.width, size.height || model.bounds.height, islandInset(size, panelOpen))
+  const viewport = view ?? fitTo(model.bounds, size.width || model.bounds.width, size.height || model.bounds.height, islandInset(size, panelOpen, legendOpen))
   const centre = { x: size.width / 2, y: size.height / 2 }
 
   useEffect(() => {

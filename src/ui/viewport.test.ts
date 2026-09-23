@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fitTo, MAX_SCALE, panBy, toDiagram, zoomAt } from './viewport'
+import { fitTo, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, panBy, toDiagram, zoomAt } from './viewport'
 
 describe('viewport', () => {
   const v = { x: -100, y: -50, scale: 2 }

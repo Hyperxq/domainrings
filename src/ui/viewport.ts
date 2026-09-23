@@ -50,8 +50,12 @@ export function fitTo(bounds: Box, width: number, height: number, inset: Inset =
   }
 }
 
-// Mirrors the island placement in styles.css so a fit never tucks the diagram under a panel.
-export function islandInset({ width, height }: { width: number; height: number }, panelOpen: boolean): Inset {
+/** The open legend island's width (styles.css `.legend[data-open]`). */
+export const LEGEND_ISLAND_WIDTH = 260
+
+// Mirrors the island placement in styles.css so a fit never tucks the diagram under a panel. On phones the open
+// legend floats over the canvas: reserving its column would leave no room for the diagram.
+export function islandInset({ width, height }: { width: number; height: number }, panelOpen: boolean, legendOpen: boolean): Inset {
   if (width <= 720) return { top: 104, right: 8, bottom: panelOpen ? height * 0.45 + 16 : 64, left: 8 }
-  return { top: 64, right: 16, bottom: panelOpen ? 16 : 60, left: panelOpen ? 324 : 16 }
+  return { top: 64, right: legendOpen ? LEGEND_ISLAND_WIDTH + 24 : 16, bottom: panelOpen ? 16 : 60, left: panelOpen ? 324 : 16 }
 }

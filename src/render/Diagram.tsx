@@ -3,7 +3,7 @@ import type { Shape } from '../model/kinds'
 import { bandPath } from './band'
 import type { LayoutEdge, LayoutModel, LayoutNode, LayoutRing, LayoutText, Point } from '../layout/layout'
 import type { Box } from '../layout/layout'
-import { LEGEND_GAP, LEGEND_HEADING, LEGEND_PAD, LEGEND_ROW, LEGEND_SECTIONS, LEGEND_SWATCH, legendSize, type LegendModel } from '../layout/legend'
+import { LEGEND_GAP, LEGEND_HEADING, LEGEND_PAD, LEGEND_ROW, legendSections, LEGEND_SWATCH, legendSize, type LegendModel } from '../layout/legend'
 import { DOMAIN_TITLE, EDGE_LABEL, LINE_METRICS, RING_LABEL, RING_SUBTITLE, SUBTITLE, TAG_GAP, TITLE } from '../layout/text'
 
 const SUBTITLE_GAP = 4
@@ -159,19 +159,21 @@ function SvgLegend({ legend, bounds }: { legend: LegendModel; bounds: Box }) {
     rows.push(<text key={text} className="legend-heading" x={LEGEND_PAD} y={y + LEGEND_HEADING / 2} fontSize={13}>{text}</text>)
     y += LEGEND_HEADING
   }
-  heading(LEGEND_SECTIONS[0])
+  const titles = new Map(legendSections(legend).map((s) => [s.key, s.title]))
+  const section = (key: 'colours' | 'strokes' | 'tags') => titles.has(key) && heading(titles.get(key)!)
+  section('colours')
   for (const c of legend.colours) {
     rows.push(<rect key={`c-${c.label}`} className={`legend-swatch swatch-${c.swatch}`} x={LEGEND_PAD} y={y + 4} width={16} height={10} rx={2} />)
     rows.push(<text key={`ct-${c.label}`} className="legend-label" x={LEGEND_PAD + LEGEND_SWATCH} y={y + LEGEND_ROW / 2} fontSize={LINE_METRICS.muted.size}>{c.label}</text>)
     y += LEGEND_ROW
   }
-  heading(LEGEND_SECTIONS[1])
+  section('strokes')
   for (const s of legend.strokes) {
     rows.push(<line key={`s-${s.stroke}`} className={`stroke-${s.stroke}`} x1={LEGEND_PAD} y1={y + LEGEND_ROW / 2} x2={LEGEND_PAD + 18} y2={y + LEGEND_ROW / 2} />)
     rows.push(<text key={`st-${s.stroke}`} className="legend-label" x={LEGEND_PAD + LEGEND_SWATCH} y={y + LEGEND_ROW / 2} fontSize={LINE_METRICS.muted.size}>{s.label}</text>)
     y += LEGEND_ROW
   }
-  heading(LEGEND_SECTIONS[2])
+  section('tags')
   for (const t of legend.tags) {
     rows.push(<text key={`t-${t}`} className="legend-tag" x={LEGEND_PAD} y={y + LEGEND_ROW / 2} fontSize={LINE_METRICS.tag.size}>{t}</text>)
     y += LEGEND_ROW
