@@ -14,6 +14,7 @@ const FRAMELESS = new Set<LayoutNode['kind']>(['domainItem', 'note', 'portDecl']
 function Ring({ ring, shape, inner }: { ring: LayoutRing; shape: Shape; inner?: LayoutRing }) {
   const innermost = !inner
   const className = `ring ring-${ring.role}`
+  const ref = `layer:${ring.role}`
   return (
     <>
       <path
@@ -22,6 +23,7 @@ function Ring({ ring, shape, inner }: { ring: LayoutRing; shape: Shape; inner?: 
         fillRule="evenodd"
         data-band={ring.role}
         data-layer={ring.role}
+        data-ref={ref}
         tabIndex={0}
         role="group"
         aria-label={ring.title}
@@ -29,6 +31,7 @@ function Ring({ ring, shape, inner }: { ring: LayoutRing; shape: Shape; inner?: 
       <text
         className={innermost ? 'domain-title' : 'ring-label'}
         data-layer={ring.role}
+        data-ref={ref}
         x={ring.labelAt.x}
         y={ring.labelAt.y}
         fontSize={innermost ? DOMAIN_TITLE.size : RING_LABEL.size}
@@ -39,6 +42,7 @@ function Ring({ ring, shape, inner }: { ring: LayoutRing; shape: Shape; inner?: 
         <text
           className={`ring-subtitle${innermost ? ' on-domain' : ''}`}
           data-layer={ring.role}
+          data-ref={ref}
           x={ring.labelAt.x}
           y={ring.labelAt.y + ((innermost ? DOMAIN_TITLE.size : RING_LABEL.size) + 4) / 2 + SUBTITLE_GAP + RING_SUBTITLE.size / 2 + 2}
           fontSize={RING_SUBTITLE.size}
@@ -101,6 +105,10 @@ function Node({ node }: { node: LayoutNode }) {
     <g
       className={`node node-${node.kind} tone-${node.tone}`}
       data-layer={node.layer}
+      data-ref={node.ref}
+      tabIndex={0}
+      role="button"
+      aria-label={`Edit ${node.lines.map((l) => l.text).join(' ')}`}
       transform={node.rotation ? `rotate(${node.rotation} ${node.x} ${node.y})` : undefined}
     >
       {node.kind === 'aggregate' ? (

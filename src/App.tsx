@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { layoutDiagram, type LayoutMode } from './layout/layout'
 import { legendFor, legendSize } from './layout/legend'
 import { EXAMPLES } from './model/example'
 import { parseHexa, toHexa } from './model/hexa'
 import type { Diagram } from './model/schema'
 import { useDiagramStore } from './model/store'
-import { Editor } from './ui/Editor'
+import { Editor, revealInEditor } from './ui/Editor'
 import { download, exportBounds, fileSlug, pngBlob, svgMarkup } from './ui/exporters'
 import { Icon } from './ui/Icon'
 import { Legend } from './ui/Legend'
@@ -44,6 +45,11 @@ export function App() {
   const model = layoutDiagram(diagram, { mode })
   const svgRef = useRef<SVGSVGElement>(null)
   const [editorOpen, setEditorOpen] = useState(() => !matchMedia('(max-width: 720px)').matches)
+  const reveal = (ref: string, focus: boolean) => {
+    // The card only exists to scroll to once the collapsed editor has rendered open.
+    flushSync(() => setEditorOpen(true))
+    revealInEditor(ref, focus)
+  }
   const [theme, setTheme] = useState(currentTheme)
   const [notice, setNotice] = useState<Notice | null>(null)
   const [legendInExport, setLegendInExport] = useState(() => readPref(LEGEND_EXPORT_KEY, true))
@@ -124,7 +130,7 @@ export function App() {
           setLegendInExport(include)
         }}
       />
-      <Stage model={model} diagram={diagram} mode={mode} highlight={highlight} legend={legend} revision={revision} title={diagram.title} svgRef={svgRef} panelOpen={editorOpen} showGuides={guides} />
+      <Stage model={model} diagram={diagram} mode={mode} highlight={highlight} legend={legend} revision={revision} title={diagram.title} svgRef={svgRef} panelOpen={editorOpen} showGuides={guides} onReveal={reveal} />
       {notice && (
         <section className={`island notice notice-${notice.tone}`} role={notice.tone === 'error' ? 'alert' : 'status'}>
           <p>{notice.message}</p>

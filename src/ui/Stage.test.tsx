@@ -31,6 +31,7 @@ function Harness({ highlight = true }: { highlight?: boolean }) {
       title="Test"
       svgRef={svgRef}
       panelOpen={false}
+      onReveal={() => {}}
       showGuides
       highlight={highlight}
     />
@@ -124,5 +125,25 @@ describe('Stage "+" affordances', () => {
     fireEvent.change(input, { target: { value: '   ' } })
     fireEvent.blur(input)
     expect(useDiagramStore.getState().diagram.useCases).toEqual(EXAMPLE_DIAGRAM.useCases)
+  })
+})
+
+describe('Stage panning', () => {
+  const origin = (container: HTMLElement) => (container.querySelector('main') as HTMLElement).style.backgroundPosition
+
+  it('keeps a press that barely moves as a click, and pans once the pointer really moves', () => {
+    const { container } = render(<Harness />)
+    const main = container.querySelector('main')!
+    main.setPointerCapture = () => {}
+    const start = origin(container)
+
+    fireEvent.pointerDown(svg(container), { button: 0, buttons: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(main, { buttons: 1, clientX: 102, clientY: 101 })
+    expect(origin(container)).toBe(start)
+    expect(main.classList.contains('is-dragging')).toBe(false)
+
+    fireEvent.pointerMove(main, { buttons: 1, clientX: 140, clientY: 100 })
+    expect(origin(container)).not.toBe(start)
+    expect(main.classList.contains('is-dragging')).toBe(true)
   })
 })

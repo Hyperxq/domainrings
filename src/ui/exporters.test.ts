@@ -31,4 +31,12 @@ describe('svgMarkup legend', () => {
     expect(markup).not.toContain('data-legend')
     expect(markup).toContain('viewBox="0 0 400 300"')
   })
+
+  it('drops the canvas editing hooks from every element', async () => {
+    const svg = canvas()
+    const node = svg.querySelector('rect')!
+    for (const [k, v] of Object.entries({ tabindex: '0', role: 'button', 'aria-label': 'Edit X', 'data-ref': 'x', 'data-band': 'domain', 'data-layer': 'domain' })) node.setAttribute(k, v)
+    const markup = await svgMarkup(svg, bounds, 'T', { legend: true, legendHeight: 120 })
+    expect(markup).not.toMatch(/tabindex|role=|aria-label|data-ref|data-band|data-layer/)
+  })
 })

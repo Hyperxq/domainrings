@@ -75,6 +75,10 @@ A hovered or focused layer shows one "+" per place something can be added: a dom
 
 Picking one creates the element with a placeholder name and opens a name field over it. Enter commits, Esc removes the element, and blur commits (or removes the element if the name is empty). The editor then scrolls to the new item and flashes it.
 
+## Editing from the canvas
+
+Double-click any element (a domain item, use case, port, adapter, actor, external system or the composition root) to open the editor at its card: the editor expands if it was collapsed, the card scrolls to the centre and flashes, and its name is selected, ready to type over. Double-clicking a layer's title or band goes to that layer's fieldset under Layers. Elements are focusable, so Tab to one and press Enter to do the same. A press only becomes a pan once the pointer moves more than 3 px, so clicks and double-clicks reach the element under them, and the canvas never selects its own text.
+
 ## Examples
 
 Load an example from the toolbar: the chat feedback slice, or a stress test (10 domain items, 3 use cases, 6 driven ports) that shows how the layout grows.

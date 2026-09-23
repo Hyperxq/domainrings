@@ -26,6 +26,7 @@ interface StageProps {
 }
 
 const GRID = 20
+const PAN_SLOP = 3
 const { addItem, updateItem, removeItem } = useDiagramStore.getState()
 const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
   domain: 'domainItem',
@@ -41,7 +42,7 @@ const layerOf = (target: Element) =>
 
 export function Stage({ model, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, showGuides, onReveal }: StageProps) {
   const mainRef = useRef<HTMLElement>(null)
-  const drag = useRef<{ x: number; y: number } | null>(null)
+  const drag = useRef<{ x: number; y: number; panning: boolean } | null>(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
   // null means "fitted": the viewport follows the diagram bounds until the user pans or zooms.
   const [view, setView] = useState<Viewport | null>(null)
@@ -131,17 +132,26 @@ export function Stage({ model, diagram, mode, highlight, legend, revision, title
         backgroundPosition: `${-viewport.x * viewport.scale}px ${-viewport.y * viewport.scale}px`,
       }}
       onPointerDown={(e) => {
-        // The second press of a double-click never starts a pan.
-        if (e.button !== 0 || e.detail > 1 || (e.target as Element).closest('.island, [data-plus], .inline-name')) return
-        e.currentTarget.setPointerCapture(e.pointerId)
-        drag.current = { x: e.clientX, y: e.clientY }
-        setDragging(true)
-        setHovered(null)
+        if (e.button !== 0 || (e.target as Element).closest('.island, [data-plus], .inline-name')) return
+        drag.current = { x: e.clientX, y: e.clientY, panning: false }
       }}
       onPointerMove={(e) => {
-        if (!drag.current) return
-        setView(panBy(viewport, e.clientX - drag.current.x, e.clientY - drag.current.y))
-        drag.current = { x: e.clientX, y: e.clientY }
+        const d = drag.current
+        if (!d) return
+        if (!(e.buttons & 1)) {
+          drag.current = null
+          return
+        }
+        if (!d.panning) {
+          // Capturing retargets click and dblclick to the stage, so a press that barely moves stays a click on its element.
+          if (Math.hypot(e.clientX - d.x, e.clientY - d.y) <= PAN_SLOP) return
+          e.currentTarget.setPointerCapture(e.pointerId)
+          d.panning = true
+          setDragging(true)
+          setHovered(null)
+        }
+        setView(panBy(viewport, e.clientX - d.x, e.clientY - d.y))
+        drag.current = { x: e.clientX, y: e.clientY, panning: true }
       }}
       onPointerUp={() => {
         drag.current = null
@@ -159,7 +169,7 @@ export function Stage({ model, diagram, mode, highlight, legend, revision, title
         aria-label={title || 'Architecture diagram'}
         data-hover={highlight ? (hovered ?? undefined) : undefined}
         onPointerOver={(e) => {
-          if (drag.current) return
+          if (drag.current?.panning) return
           setHovered(layerOf(e.target as Element))
         }}
         onPointerLeave={(e) => !(e.relatedTarget as Element | null)?.closest?.('[data-plus]') && setHovered(null)}
