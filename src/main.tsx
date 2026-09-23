@@ -21,6 +21,6 @@ if (storage) autosave(useMapStore, storage, boot.recovery)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <App boot={boot} />
   </StrictMode>,
 )

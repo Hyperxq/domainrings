@@ -19,6 +19,9 @@ beforeAll(() => {
   // A narrow viewport, so the editor starts collapsed.
   window.matchMedia = ((media: string) => ({ matches: true, media, addEventListener() {}, removeEventListener() {} })) as unknown as typeof matchMedia
   Element.prototype.scrollIntoView = scrollIntoView
+  // jsdom does not implement the Blob-URL APIs the download flow uses.
+  URL.createObjectURL ??= vi.fn(() => 'blob:mock')
+  URL.revokeObjectURL ??= vi.fn()
 })
 beforeEach(() => {
   useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM))
@@ -372,5 +375,56 @@ describe('linking on the canvas', () => {
     input.focus()
     fireEvent.keyDown(input, { key: 'l' })
     expect(linking(container)).toBe(false)
+  })
+})
+
+describe('boot recovery notice', () => {
+  const KEPT_MESSAGE = "Your last session couldn't be restored, so the example is open. Your saved work is kept in this browser; nothing was deleted."
+  const NOT_KEPT_MESSAGE = "Your last session couldn't be restored and a copy couldn't be kept, so autosave is off."
+
+  it('does not show a notice on an ordinary boot', () => {
+    render(<App />)
+    expect(screen.queryByText(KEPT_MESSAGE)).toBeNull()
+    expect(screen.queryByText(NOT_KEPT_MESSAGE)).toBeNull()
+  })
+
+  it('shows the kept-copy notice as a status region, with a working Download saved copy action', async () => {
+    render(<App boot={{ recovery: 'kept', unreadableText: '{not valid json' }} />)
+    const status = screen.getByRole('status')
+    expect(status.querySelector('p')!.textContent).toBe(KEPT_MESSAGE)
+
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Download saved copy' }))
+
+    expect(clickSpy).toHaveBeenCalledTimes(1)
+    const anchor = clickSpy.mock.instances[0] as HTMLAnchorElement
+    expect(anchor.download).toMatch(/\.hexa$/)
+    expect(await captured!.text()).toBe('{not valid json')
+
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+  })
+
+  it('shows the not-kept notice with no download action', () => {
+    render(<App boot={{ recovery: 'not-kept' }} />)
+    expect(screen.getByRole('status').textContent).toBe(NOT_KEPT_MESSAGE)
+    expect(screen.queryByRole('button', { name: 'Download saved copy' })).toBeNull()
+  })
+
+  it('stays on screen until dismissed, unlike an ordinary status toast', () => {
+    vi.useFakeTimers()
+    render(<App boot={{ recovery: 'kept', unreadableText: '{x' }} />)
+    act(() => vi.advanceTimersByTime(20000))
+    expect(screen.getByRole('status')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(screen.queryByRole('status')).toBeNull()
+    vi.useRealTimers()
   })
 })

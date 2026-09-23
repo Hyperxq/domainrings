@@ -7,6 +7,7 @@ import { EXAMPLES } from './model/example'
 import { parseHexa, toHexa, toMap } from './model/hexa'
 import { collectionOf, type LinkTarget } from './model/links'
 import { diagramOf } from './model/map'
+import type { Recovery } from './model/persistence'
 import type { HexaMap } from './model/schema'
 import { useMapStore } from './model/store'
 import { Editor, revealInEditor } from './ui/Editor'
@@ -23,10 +24,17 @@ type Theme = 'light' | 'dark'
 interface Notice {
   /** A new notice restarts the toast's countdown even when its text repeats. */
   id: number
-  tone: 'status' | 'error'
+  tone: 'status' | 'error' | 'recovery'
   message: string
   details?: string[]
   undo?: { map: HexaMap; focus: string }
+  /** The unreadable text a "recovery" notice offers to download, when a copy was kept. */
+  download?: string
+}
+
+const RECOVERY_MESSAGE: Record<'kept' | 'not-kept', string> = {
+  kept: "Your last session couldn't be restored, so the example is open. Your saved work is kept in this browser; nothing was deleted.",
+  'not-kept': "Your last session couldn't be restored and a copy couldn't be kept, so autosave is off.",
 }
 
 const THEME_KEY = 'domainrings:theme'
@@ -43,7 +51,11 @@ function currentTheme(): Theme {
   return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
-export function App() {
+interface AppProps {
+  boot?: { recovery: Recovery; unreadableText?: string }
+}
+
+export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   const revision = useMapStore((s) => s.revision)
@@ -60,7 +72,11 @@ export function App() {
     revealInEditor(ref, focus)
   }
   const [theme, setTheme] = useState(currentTheme)
-  const [notice, setNotice] = useState<Notice | null>(null)
+  const [notice, setNotice] = useState<Notice | null>(() =>
+    boot.recovery === 'none'
+      ? null
+      : { id: 0, tone: 'recovery', message: RECOVERY_MESSAGE[boot.recovery], download: boot.recovery === 'kept' ? boot.unreadableText : undefined },
+  )
   const noticeSeq = useRef(0)
   const show = (next: Omit<Notice, 'id'>) => setNotice({ ...next, id: ++noticeSeq.current })
   const [legendInExport, setLegendInExport] = useState(() => readPref(LEGEND_EXPORT_KEY, true))
@@ -208,6 +224,21 @@ export function App() {
             </ul>
           )}
           <div className="notice-actions">
+            <button type="button" className="icon-button small" aria-label="Dismiss" onClick={() => setNotice(null)}>
+              <Icon name="close" />
+            </button>
+          </div>
+        </section>
+      )}
+      {notice?.tone === 'recovery' && (
+        <section className="island notice" role="status" aria-live="polite">
+          <p>{notice.message}</p>
+          <div className="notice-actions">
+            {notice.download !== undefined && (
+              <button type="button" className="text-button" onClick={() => download(notice.download!, 'unreadable-session.hexa', 'application/json')}>
+                Download saved copy
+              </button>
+            )}
             <button type="button" className="icon-button small" aria-label="Dismiss" onClick={() => setNotice(null)}>
               <Icon name="close" />
             </button>
