@@ -63,7 +63,7 @@ export const STRESS_DIAGRAM: Diagram = {
   version: 1,
   kind: 'hexagonal',
   title: 'Stress test',
-  subtitle: 'Ten domain items, three use cases, ports on all six walls',
+  subtitle: 'Ten domain items, three use cases (one beside its port), ports on all six walls',
   domain: [
     { id: 'g-order', name: 'Order', type: 'aggregate' },
     { id: 'e-line', name: 'OrderLine', type: 'entity', parentId: 'g-order' },
@@ -79,7 +79,7 @@ export const STRESS_DIAGRAM: Diagram = {
   useCases: [
     { id: 'uc-place', name: 'PlaceOrder', note: 'execute(cmd): Promise<OrderId>\nprice, reserve stock, charge' },
     { id: 'uc-cancel', name: 'CancelOrder', note: 'execute(cmd): Promise<void>\nrelease stock, notify' },
-    { id: 'uc-earn', name: 'EarnPoints', note: 'execute(evt): Promise<void>\ncredit the loyalty card' },
+    { id: 'uc-earn', name: 'EarnPoints', placement: 'nw', note: 'execute(evt): Promise<void>\ncredit the loyalty card' },
   ],
   ports: [
     { id: 'p-orders', name: 'ordersApi', side: 'driving', wall: 'w', useCaseId: 'uc-place', note: '(command)' },

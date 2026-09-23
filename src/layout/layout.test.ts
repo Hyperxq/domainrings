@@ -1032,6 +1032,263 @@ describe('ports on every wall (hexagonal stress example)', () => {
   })
 })
 
+const RUN_MIN = 16
+
+describe('use cases placed on a wall', () => {
+  const placed = STRESS_DIAGRAM.useCases.find((u) => u.placement === 'nw')!
+  const port = STRESS_DIAGRAM.ports.find((p) => p.useCaseId === placed.id && p.wall === 'nw')!
+  const tan30 = Math.tan(Math.PI / 6)
+
+  it('extends the stress example with a use case on nw, next to its driving port', () => {
+    expect(placed).toBeDefined()
+    expect(port.side).toBe('driving')
+  })
+
+  describe.each(['detailed', 'overview'] as const)('%s', (mode) => {
+    const m = layoutDiagram(STRESS_DIAGRAM, { mode })
+    const app = ringOf(m, 'application')
+    const inner = m.rings[m.rings.indexOf(app) + 1]
+    const node = find(m, 'useCase', placed.id)
+    const { n, dir } = wallFrame('nw')
+
+    it('sits upright in the nw sector, 8 clear of the spokes, inside the application band', () => {
+      expect(node.wall).toBe('nw')
+      expect(node.rotation).toBeUndefined()
+      const clearOfInner = shrink(m.shape, inner, -14 + 1e-3)
+      for (const c of corners(node)) {
+        expect(Math.abs(dot(c, dir))).toBeLessThanOrEqual(dot(c, n) * tan30 - 8 / COS30 + 1e-6)
+        expect(inside(m, app, c)).toBe(true)
+        expect(inside(m, clearOfInner, c)).toBe(false)
+      }
+    })
+
+    it('sits on the inner side of its wall’s sockets and their names', () => {
+      const wallContent = m.nodes.filter((b) => (b.kind === 'port' || b.kind === 'portLabel') && STRESS_DIAGRAM.ports.some((p) => p.id === b.ref && p.wall === 'nw'))
+      const innermost = Math.min(...wallContent.flatMap((b) => corners(b).map((c) => dot(c, n))))
+      for (const c of corners(node)) expect(dot(c, n)).toBeLessThan(innermost)
+    })
+
+    it('overlaps no other element and no layer title', () => {
+      for (const other of [...m.nodes, ...m.rings.map(labelBox)]) {
+        if (other === node) continue
+        expect(overlap(node, other) ? `overlaps ${other.key}` : 'apart').toBe('apart')
+      }
+    })
+
+    it('keeps the top stack for every other use case', () => {
+      for (const u of STRESS_DIAGRAM.useCases.filter((u) => u !== placed)) {
+        const stacked = find(m, 'useCase', u.id)
+        expect(stacked.x).toBe(0)
+        expect(stacked.wall).toBeUndefined()
+      }
+    })
+  })
+
+  describe('routing (detailed)', () => {
+    const m = layoutDiagram(STRESS_DIAGRAM)
+    const domain = ringOf(m, 'domain')
+    const { n } = wallFrame('nw')
+    const edge = (key: string) => {
+      const e = m.edges.find((x) => x.key === key)
+      if (!e) throw new Error(`no edge ${key}`)
+      return e
+    }
+
+    it('runs its same-wall driving port straight in along the wall normal, labelled', () => {
+      const e = edge(`port:${port.id}->useCase:${placed.id}`)
+      expect(e.points).toHaveLength(2)
+      const [a, b] = e.points
+      const run = { x: b.x - a.x, y: b.y - a.y }
+      expect(Math.abs(run.x * n.y - run.y * n.x)).toBeLessThan(1e-6)
+      expect(dot(run, n)).toBeLessThan(-12)
+      expect(e.label).toBe(KINDS.hexagonal.labels.runs)
+    })
+
+    it('still reaches its ports on other walls through the bus', () => {
+      for (const p of STRESS_DIAGRAM.ports.filter((p) => p.useCaseId === placed.id && p.wall !== 'nw')) {
+        const e = m.edges.find((x) => x.key.includes(`useCase:${placed.id}`) && x.key.includes(`port:${p.id}`))!
+        expect(e.points.length).toBeGreaterThanOrEqual(3)
+      }
+    })
+
+    it('asks the domain along the sector bisector, landing square on the nearest domain wall', () => {
+      const e = edge(`useCase:${placed.id}->domain`)
+      expect(e.points).toHaveLength(2)
+      const [a, b] = e.points
+      const run = { x: b.x - a.x, y: b.y - a.y }
+      expect(Math.abs(run.x * n.y - run.y * n.x)).toBeLessThan(1e-6)
+      expect(dot(b, n)).toBeCloseTo(domain.halfWidth, 6)
+      expect(Math.hypot(run.x, run.y)).toBeGreaterThanOrEqual(16)
+    })
+  })
+
+  const base: Diagram = { version: 1, kind: 'hexagonal', title: '', domain: [{ id: 'd1', name: 'Order', type: 'entity' }], useCases: [], ports: [], adapters: [], actors: [], externals: [] }
+  // A wide seat alone on a lower wall: only its own sector and domain clearance size the ring.
+  const LONE_SEAT: Diagram = { ...base, useCases: [{ id: 'u1', name: 'ReconcileEveryOutstandingInvoice', placement: 'sw' }] }
+  // A seat beside a tall west column with no slanted port: column sockets keep no sector, so only the clash check parts them.
+  const BY_COLUMN: Diagram = {
+    ...base,
+    useCases: ['ImportTheNightlyStockFeed', 'RebuildTheSearchIndex', 'ExpireAbandonedCarts'].map((name, i) => ({ id: `u${i}`, name, placement: 'sw' as const })),
+    ports: Array.from({ length: 7 }, (_, i) => ({ id: `w${i}`, name: `receiveWarehouseEvent${i}`, side: 'driving' as const, wall: 'w' as const })),
+  }
+  // A narrow seat against a tall domain: the room for its question to the domain is what sizes the ring.
+  const TALL_DOMAIN: Diagram = {
+    ...base,
+    domain: Array.from({ length: 16 }, (_, i) => ({ id: `d${i}`, name: `Entity${i}`, type: 'entity' as const })),
+    useCases: [{ id: 'u1', name: 'Go', placement: 'se' }],
+  }
+  // A lane from the stacked use case down to an east socket passes the north-east sector, where a seat sits.
+  const LANE_PAST_SEAT: Diagram = {
+    ...base,
+    useCases: [
+      { id: 'u0', name: 'PlaceAnOrderFromTheWebShop' },
+      { id: 'u1', name: 'SendTheWeeklyNewsletterDigestToEveryone', placement: 'ne' },
+    ],
+    ports: [
+      { id: 'p0', name: 'OrderRepository', side: 'driven', wall: 'e', useCaseId: 'u0' },
+      { id: 'p1', name: 'MailQueue', side: 'driven', wall: 'se', useCaseId: 'u0' },
+    ],
+  }
+  // Long west names on rows far from the centre, and one small seat elsewhere: only the sector rule keeps those names
+  // out of the neighbouring sectors.
+  const LONG_COLUMN: Diagram = {
+    ...base,
+    useCases: [{ id: 'u1', name: 'Go', placement: 'ne' }],
+    ports: Array.from({ length: 5 }, (_, i) => ({ id: `w${i}`, name: `handleTheIncomingWarehouseReplenishmentEvent${i}`, side: 'driving' as const, wall: 'w' as const })),
+  }
+  const domain4 = Array.from({ length: 4 }, (_, i) => ({ id: `d${i}`, name: `Entity${i}`, type: 'entity' as const }))
+  // A lower-left seat serving an east port: its exit to the bus runs right, across the domain unless the ring grows.
+  const EXIT_ACROSS_DOMAIN: Diagram = {
+    ...base,
+    domain: domain4,
+    useCases: [{ id: 'u0', name: 'PlaceOrder' }, { id: 'u1', name: 'SettleTheDailyLedger', placement: 'sw' }],
+    ports: [{ id: 'p0', name: 'LedgerStore', side: 'driven', wall: 'e', useCaseId: 'u1' }],
+  }
+  // An upper-left seat serving an east port: its exit runs right, under the title, across the stacked use case.
+  const EXIT_UNDER_STACK: Diagram = {
+    ...base,
+    domain: domain4,
+    useCases: [{ id: 'u0', name: 'PlaceAnOrderFromTheWebShopCheckout' }, { id: 'u1', name: 'SettleTheDailyLedger', placement: 'nw' }],
+    ports: [{ id: 'p0', name: 'LedgerStore', side: 'driven', wall: 'e', useCaseId: 'u1' }],
+  }
+  // A seat beside the domain serving a port on the far side: a sideways exit would run straight through the domain.
+  const EXIT_FROM_SIDE_WALL: Diagram = {
+    ...base,
+    domain: domain4,
+    useCases: [{ id: 'u0', name: 'PlaceOrder' }, { id: 'u1', name: 'SettleTheDailyLedger', placement: 'w' }],
+    ports: [
+      { id: 'p0', name: 'LedgerStore', side: 'driven', wall: 'e', useCaseId: 'u1' },
+      { id: 'p1', name: 'ledgerApi', side: 'driving', wall: 'w', useCaseId: 'u1' },
+    ],
+  }
+  // A seat on an upper wall under a stacked use case: the title and the stack are what it has to clear.
+  const UNDER_TITLE: Diagram = {
+    ...base,
+    useCases: [
+      { id: 'u0', name: 'PlaceAnOrderFromTheWebShop' },
+      { id: 'u1', name: 'SendTheWeeklyNewsletterDigest', placement: 'ne' },
+    ],
+  }
+
+  describe.each([
+    ['lone seat', LONE_SEAT],
+    ['seat by a column', BY_COLUMN],
+    ['seat under the title', UNDER_TITLE],
+    ['seat by a tall domain', TALL_DOMAIN],
+    ['lane past a seat', LANE_PAST_SEAT],
+    ['long column', LONG_COLUMN],
+    ['exit across the domain', EXIT_ACROSS_DOMAIN],
+    ['exit under the stack', EXIT_UNDER_STACK],
+    ['exit from a side wall', EXIT_FROM_SIDE_WALL],
+    ['stress', STRESS_DIAGRAM],
+  ])('every seated use case (%s)', (_, diagram) => {
+    it.each(['detailed', 'overview'] as const)('stays in its sector and band, clear of everything (%s)', (mode) => {
+      const m = layoutDiagram(diagram, { mode })
+      const app = ringOf(m, 'application')
+      const clearOfInner = shrink(m.shape, m.rings[m.rings.indexOf(app) + 1], -14 + 1e-3)
+      const seatedNodes = m.nodes.filter((u) => u.kind === 'useCase' && u.wall)
+      expect(seatedNodes).toHaveLength(diagram.useCases.filter((u) => u.placement && u.placement !== 'top').length)
+      for (const node of seatedNodes) {
+        const { n, dir } = wallFrame(node.wall!)
+        for (const c of corners(node)) {
+          expect(Math.abs(dot(c, dir))).toBeLessThanOrEqual(dot(c, n) * tan30 - 8 / COS30 + 1e-6)
+          expect(inside(m, app, c)).toBe(true)
+          expect(inside(m, clearOfInner, c)).toBe(false)
+        }
+        for (const other of [...m.nodes, ...m.rings.map(labelBox)]) {
+          if (other !== node) expect(overlap(node, other) ? `${node.key} overlaps ${other.key}` : 'apart').toBe('apart')
+        }
+      }
+    })
+
+    it('never runs a segment through a box it does not connect', () => {
+      const m = layoutDiagram(diagram)
+      for (const e of m.edges) {
+        const others = m.nodes.filter((n) => !endpointsOf(e.key).includes(n.key))
+        for (const seg of segments(e.points)) {
+          for (const q of sample(seg)) {
+            const hit = others.find((n) => strictlyInside(n, q))
+            expect(hit ? `${e.key} crosses ${hit.key}` : 'clear').toBe('clear')
+          }
+        }
+      }
+    })
+
+    it('reaches its bus without ever entering the domain', () => {
+      const m = layoutDiagram(diagram)
+      const domain = m.rings.at(-1)!
+      for (const node of m.nodes.filter((u) => u.kind === 'useCase' && u.wall)) {
+        for (const e of m.edges.filter((e) => endpointsOf(e.key).includes(node.key) && !e.key.endsWith('->domain'))) {
+          for (const seg of segments(e.points)) for (const q of sample(seg)) expect(inside(m, domain, q) ? `${e.key} enters the domain` : 'outside').toBe('outside')
+        }
+      }
+    })
+
+    it('leaves room for its question to the domain, which lands square on the domain’s matching wall', () => {
+      const m = layoutDiagram(diagram)
+      const domain = m.rings.at(-1)!
+      for (const node of m.nodes.filter((u) => u.kind === 'useCase' && u.wall)) {
+        const { n } = wallFrame(node.wall!)
+        const points = m.edges.find((e) => e.key === `${node.key}->domain`)!.points
+        const [a, b] = points
+        expect(Math.hypot(b.x - a.x, b.y - a.y)).toBeGreaterThanOrEqual(RUN_MIN)
+        const [p, q] = points.slice(-2)
+        expect(Math.abs((q.x - p.x) * n.y - (q.y - p.y) * n.x)).toBeLessThan(1e-6)
+        expect(dot(q, n)).toBeCloseTo(domain.halfWidth, 6)
+      }
+    })
+  })
+
+  it.each([
+    ['detailed', BY_COLUMN],
+    ['overview', BY_COLUMN],
+    ['detailed', LONG_COLUMN],
+    ['overview', LONG_COLUMN],
+  ] as const)('keeps side-wall sockets and their names in their own sector once a use case is seated (%s)', (mode, diagram) => {
+    const m = layoutDiagram(diagram, { mode })
+    const socketOf = new Map(m.nodes.filter((n) => n.kind === 'port').map((n) => [n.ref, n]))
+    for (const box of m.nodes.filter((n) => n.kind === 'port' || n.kind === 'portLabel')) {
+      const { n, dir } = wallFrame(socketOf.get(box.ref)!.wall!)
+      for (const c of corners(box)) expect(Math.abs(dot(c, dir))).toBeLessThanOrEqual(dot(c, n) * tan30 - 8 / COS30 + 1e-6)
+    }
+  })
+
+  it('centres a run of seats on the ports they serve, the wall midpoint when they serve none', () => {
+    const m = layoutDiagram(BY_COLUMN)
+    const { dir } = wallFrame('sw')
+    const us = m.nodes.filter((u) => u.kind === 'useCase' && u.wall === 'sw').map((u) => dot(u, dir))
+    expect(us).toHaveLength(3)
+    expect(us.reduce((a, b) => a + b, 0) / us.length).toBeCloseTo(0, 6)
+  })
+
+  it('treats an explicit top placement as no placement, and circles ignore placement', () => {
+    const top = { ...STRESS_DIAGRAM, useCases: STRESS_DIAGRAM.useCases.map((u) => ({ ...u, placement: 'top' as const })) }
+    const none = { ...STRESS_DIAGRAM, useCases: STRESS_DIAGRAM.useCases.map(({ placement: _, ...u }) => u) }
+    expect(layoutDiagram(top)).toEqual(layoutDiagram(none))
+    expect(layoutDiagram(withKind('clean', STRESS_DIAGRAM))).toEqual(layoutDiagram(withKind('clean', none)))
+  })
+})
+
 describe('sector clearance binds without use cases', () => {
   // Lower walls only, and no use cases: no title or bus to clash with, so the sector rule is what sizes the ring.
   const d: Diagram = {

@@ -89,6 +89,22 @@ describe('insertionPoints', () => {
       }
     })
 
+    it('offers a use case "+" in every sector of a hexagon, besides the one under the title', () => {
+      const actions = points.filter((p) => p.action.kind === 'useCase').map((p) => p.action)
+      expect(actions).toEqual([{ kind: 'useCase' }, ...['nw', 'w', 'sw', 'ne', 'e', 'se'].map((placement) => ({ kind: 'useCase', placement }))])
+      const clean = { ...EXAMPLE_DIAGRAM, kind: 'clean' as const }
+      expect(byLayer(pointsFor(clean), 'application').filter((p) => p.action.kind === 'useCase').map((p) => p.action)).toEqual([{ kind: 'useCase' }])
+    })
+
+    it('puts a sector "+" inside the application band, past the use cases already on that wall', () => {
+      const model = layoutDiagram(STRESS_DIAGRAM)
+      const nw = pointsFor(STRESS_DIAGRAM).find((p) => p.action.kind === 'useCase' && p.action.placement === 'nw')!
+      const placed = model.nodes.find((n) => n.kind === 'useCase' && n.wall === 'nw')!
+      const dir = { x: COS30, y: -0.5 }
+      const along = (q: { x: number; y: number }) => q.x * dir.x + q.y * dir.y
+      expect(along(nw.at)).toBeGreaterThan(along(placed) + (placed.width / 2) * COS30 + (placed.height / 2) * 0.5)
+    })
+
     it('reaches all six walls of the stress example, each past its own run', () => {
       const walls = byLayer(pointsFor(STRESS_DIAGRAM), 'application').flatMap((p) => (p.action.kind === 'port' ? [p.action.wall] : []))
       expect(walls).toEqual(['nw', 'w', 'sw', 'ne', 'e', 'se'])
@@ -130,6 +146,7 @@ describe('insertionItem', () => {
     [{ kind: 'domainChild' as const, parentId: 'g' }, 'valueObject' as const, { collection: 'domain', patch: { name: 'NewValueObject', type: 'valueObject', parentId: 'g' } }],
     [{ kind: 'drivenPortDecl' as const }, undefined, { collection: 'ports', patch: { name: 'NewPort', side: 'driven', wall: 'e' } }],
     [{ kind: 'useCase' as const }, undefined, { collection: 'useCases', patch: { name: 'NewUseCase' } }],
+    [{ kind: 'useCase' as const, placement: 'nw' as const }, undefined, { collection: 'useCases', patch: { name: 'NewUseCase', placement: 'nw' } }],
     [{ kind: 'port' as const, side: 'driving' as const, wall: 'sw' as const }, undefined, { collection: 'ports', patch: { name: 'newPort', side: 'driving', wall: 'sw' } }],
     [{ kind: 'port' as const, side: 'driven' as const }, undefined, { collection: 'ports', patch: { name: 'NewPort', side: 'driven' } }],
     [{ kind: 'adapter' as const, side: 'driven' as const, portId: 'p' }, undefined, { collection: 'adapters', patch: { name: 'NewAdapter', portId: 'p' } }],

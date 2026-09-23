@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { legendFor } from './legend'
+import { LEGEND_HEADING, LEGEND_ROW, legendFor, legendSections, legendSize } from './legend'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
 
 describe('legendFor', () => {
@@ -40,5 +40,21 @@ describe('legendFor', () => {
     ])
     expect(legendFor({ ...STRESS_DIAGRAM, kind: 'clean' }).tags).toContain('⇥ input port')
     expect(legendFor(STRESS_DIAGRAM).tags).toContain('● entity')
+  })
+})
+
+describe('legend sections', () => {
+  const empty = { ...EXAMPLE_DIAGRAM, domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }
+
+  it('names the three channels as small label pairs', () => {
+    expect(legendSections(legendFor(EXAMPLE_DIAGRAM)).map((s) => s.title)).toEqual(['Colour · layer', 'Stroke · role', 'Glyph · type'])
+  })
+
+  it('omits a channel with nothing to explain, in the island and in the export block alike', () => {
+    const sections = legendSections(legendFor(empty))
+    expect(sections.map((s) => s.title)).toEqual(['Colour · layer', 'Stroke · role'])
+    const full = legendSize(legendFor(EXAMPLE_DIAGRAM))
+    const bare = legendSize(legendFor(empty))
+    expect(full.height - bare.height).toBe(LEGEND_HEADING + legendFor(EXAMPLE_DIAGRAM).tags.length * LEGEND_ROW)
   })
 })

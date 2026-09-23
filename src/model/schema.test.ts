@@ -98,3 +98,22 @@ describe('DiagramSchema', () => {
     })
   })
 })
+
+describe('use case placement', () => {
+  const withPlacement = (placement: unknown) => ({ ...EXAMPLE_DIAGRAM, useCases: EXAMPLE_DIAGRAM.useCases.map((u, i) => (i === 0 ? { ...u, placement } : u)) })
+
+  it('is optional: a use case without one stays in the stack under the title', () => {
+    const parsed = DiagramSchema.parse(EXAMPLE_DIAGRAM)
+    expect(parsed.useCases.every((u) => u.placement === undefined)).toBe(true)
+  })
+
+  it.each(['top', 'nw', 'w', 'sw', 'ne', 'e', 'se'])('accepts %s', (placement) => {
+    expect(DiagramSchema.parse(withPlacement(placement)).useCases[0].placement).toBe(placement)
+  })
+
+  it('rejects anything else, at the placement path', () => {
+    const result = DiagramSchema.safeParse(withPlacement('north'))
+    expect(result.success).toBe(false)
+    expect(result.error!.issues[0].path).toEqual(['useCases', 0, 'placement'])
+  })
+})

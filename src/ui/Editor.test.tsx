@@ -108,3 +108,21 @@ describe('ports: side chosen at creation, cards grouped by side', () => {
     expect(namesIn(group(container, other === 'driving' ? 'Driven ports' : 'Driving ports'))).not.toContain(port.name)
   })
 })
+
+describe('use case placement', () => {
+  const uc = EXAMPLE_DIAGRAM.useCases[0]
+  const placementOf = () => useDiagramStore.getState().diagram.useCases.find((u) => u.id === uc.id)!.placement
+
+  it('offers the stack under the title or any wall, in hexagons only', () => {
+    const { container } = renderEditor()
+    const select = container.querySelector<HTMLSelectElement>(`[data-item-id="${uc.id}"] select[aria-label="Placement"]`)!
+    expect([...select.options].map((o) => o.textContent)).toEqual(['Under the title', 'North-west', 'West', 'South-west', 'North-east', 'East', 'South-east'])
+    fireEvent.change(select, { target: { value: 'nw' } })
+    expect(placementOf()).toBe('nw')
+    fireEvent.change(select, { target: { value: 'top' } })
+    expect(placementOf()).toBeUndefined()
+    cleanup()
+    useDiagramStore.getState().replace({ ...EXAMPLE_DIAGRAM, kind: 'clean' })
+    expect(renderEditor().container.querySelector(`[data-item-id="${uc.id}"] select[aria-label="Placement"]`)).toBeNull()
+  })
+})

@@ -43,6 +43,12 @@ A port is still driving or driven. In the hexagonal kind it can also sit on any 
   - An ownership link does the same from its own lane, meeting the socket a quarter of its length off-centre.
   - The composition trunk hugs the outer hexagon just outside it. Each branch runs in along its wall's normal to the adapter, a quarter of the box off the endpoint arrow, so it never crosses an endpoint.
 
+## Use cases on a wall (hexagonal)
+
+A use case normally stacks under the application title. In a hexagon its `placement` can name a wall instead (`nw`, `w`, `sw`, `ne`, `e`, `se`); `top` or no placement keeps the stack, and circles ignore it like they ignore port walls. A seated use case sits upright in that wall's sector, inside the application band: set in from the wall past its sockets (and their Overview names) by the room an arrow needs, 8 clear of the spokes, and stacked along the wall like ports, the run centred on the ports it serves there. Once any use case is seated, the w/e columns keep to their sectors too, so no two walls' content can meet.
+
+Routing: a port on the same wall runs straight in along the wall normal (labelled). Ports on other walls still use the bus; a seated use case first steps to just past the domain's top or bottom, then crosses to its lane, so it never runs through the domain. Its question to the domain leaves along the sector's bisector and lands square on the domain's matching wall, stepping along the wall first when it sits past that wall's end. On Application hover each sector offers its own "+ use case".
+
 ## Visual language
 
 One channel per meaning:

@@ -7,7 +7,7 @@ export type InsertionAction =
   | { kind: 'domainRoot' }
   | { kind: 'domainChild'; parentId: string }
   | { kind: 'drivenPortDecl' }
-  | { kind: 'useCase' }
+  | { kind: 'useCase'; placement?: Wall }
   | { kind: 'port'; side: Side; wall?: Wall }
   | { kind: 'adapter'; side: Side; portId?: string }
   | { kind: 'endpoint'; side: Side; adapterId: string }
@@ -78,7 +78,7 @@ export function insertionPoints(model: LayoutModel, d: Diagram, mode: 'detailed'
   }
 
   // Application: under the last use case, and past the end of each wall's port run (the midpoint when empty).
-  const useCases = nodesOf('useCase')
+  const useCases = nodesOf('useCase').filter((u) => !u.wall)
   points.push({
     key: 'application:useCase',
     layer: 'application',
@@ -86,6 +86,23 @@ export function insertionPoints(model: LayoutModel, d: Diagram, mode: 'detailed'
     action: { kind: 'useCase' },
     label: 'Add a use case',
   })
+  if (model.shape === 'hexagon') {
+    // One more per sector: past the use cases already seated on that wall, or midway across the band.
+    const inner = model.rings[model.rings.indexOf(app) + 1]
+    for (const wall of WALLS) {
+      const { n, dir } = wallFrame(wall)
+      const seated = nodesOf('useCase').filter((u) => u.wall === wall)
+      const along = seated.length ? Math.max(...seated.map((u) => u.x * dir.x + u.y * dir.y + halfReach(u, dir))) + GAP : 0
+      const depth = seated.length ? seated[0].x * n.x + seated[0].y * n.y : (app.halfWidth + inner.halfWidth) / 2
+      points.push({
+        key: `application:useCase:${wall}`,
+        layer: 'application',
+        at: { x: n.x * depth + dir.x * along, y: n.y * depth + dir.y * along },
+        action: { kind: 'useCase', placement: wall },
+        label: `Add a use case on the ${WALL_NAME[wall]} wall`,
+      })
+    }
+  }
   const sockets = nodesOf('port')
   if (model.shape === 'hexagon') {
     for (const wall of WALLS) {
@@ -180,7 +197,7 @@ export function insertionItem(action: InsertionAction, choice?: DomainType): { c
     case 'drivenPortDecl':
       return { collection: 'ports', patch: { name: portName('driven'), side: 'driven', wall: 'e' } }
     case 'useCase':
-      return { collection: 'useCases', patch: { name: 'NewUseCase' } }
+      return { collection: 'useCases', patch: { name: 'NewUseCase', ...(action.placement ? { placement: action.placement } : {}) } }
     case 'port':
       return { collection: 'ports', patch: { name: portName(action.side), side: action.side, ...(action.wall ? { wall: action.wall } : {}) } }
     case 'adapter':

@@ -13,7 +13,9 @@ export const LayerRoleSchema = z.enum(['outer', 'adapters', 'application', 'doma
 const LayerTextSchema = z.object({ title: z.string().optional(), subtitle: z.string().optional() })
 
 const DomainItemSchema = z.object({ id, name: z.string(), type: DomainTypeSchema, parentId: id.optional(), note })
-const UseCaseSchema = z.object({ id, name: z.string(), note })
+// 'top' (the default) stacks a use case under the application title; a wall seats it in that wall's sector.
+export const PlacementSchema = z.enum(['top', ...WallSchema.options])
+const UseCaseSchema = z.object({ id, name: z.string(), placement: PlacementSchema.optional(), note })
 const PortSchema = z.object({ id, name: z.string(), side: SideSchema, wall: WallSchema.optional(), useCaseId: id.optional(), note })
 const AdapterSchema = z.object({ id, name: z.string(), portId: id.optional(), note })
 const EndpointSchema = z.object({ id, name: z.string(), adapterId: id.optional(), note })
@@ -107,6 +109,7 @@ export type ArchitectureKind = z.infer<typeof KindSchema>
 export type DomainType = z.infer<typeof DomainTypeSchema>
 export type Side = z.infer<typeof SideSchema>
 export type Wall = z.infer<typeof WallSchema>
+export type Placement = z.infer<typeof PlacementSchema>
 export const defaultWall = (side: Side): Wall => (side === 'driving' ? 'w' : 'e')
 export type LayerRole = z.infer<typeof LayerRoleSchema>
 export type DomainItem = z.infer<typeof DomainItemSchema>

@@ -33,6 +33,18 @@ describe('viewport', () => {
     expect((topLeft.y + bottomRight.y) / 2).toBeCloseTo(0, 9)
   })
 
+  it('reserves the open legend island’s column on the right, and gives it back when the legend closes', () => {
+    const size = { width: 1440, height: 900 }
+    const closed = islandInset(size, true, false)
+    const open = islandInset(size, true, true)
+    expect(open.right).toBe(LEGEND_ISLAND_WIDTH + 24)
+    expect(closed.right).toBe(16)
+    const bounds = { x: -500, y: -500, width: 1000, height: 1000 }
+    const fit = fitTo(bounds, size.width, size.height, open)
+    expect(toDiagram(fit, { x: size.width - open.right, y: 0 }).x).toBeGreaterThanOrEqual(bounds.x + bounds.width - 1e-9)
+    expect(fitTo(bounds, size.width, size.height, closed)).not.toEqual(fit)
+  })
+
   it('fits inside the area left free by floating panels', () => {
     const bounds = { x: 0, y: 0, width: 400, height: 400 }
     const inset = { top: 60, right: 0, bottom: 0, left: 320 }

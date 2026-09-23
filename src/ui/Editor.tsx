@@ -284,7 +284,24 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
           )}
         />
 
-        <Section collection="useCases" items={d.useCases} title="Use cases" noun="use case" empty="No use cases yet. Add what the application does." />
+        <Section
+          collection="useCases"
+          items={d.useCases}
+          title="Use cases"
+          noun="use case"
+          empty="No use cases yet. Add what the application does."
+          fields={(item, update) =>
+            KINDS[d.kind].shape === 'hexagon' && (
+              <label className="field">
+                <span>Placement</span>
+                <select aria-label="Placement" value={item.placement ?? 'top'} onChange={(e) => update({ placement: e.target.value === 'top' ? undefined : WallSchema.parse(e.target.value) })}>
+                  <option value="top">Under the title</option>
+                  {WallSchema.options.map((w) => <option key={w} value={w}>{WALL_LABEL[w]}</option>)}
+                </select>
+              </label>
+            )
+          }
+        />
 
         <Section
           collection="ports"
