@@ -244,7 +244,7 @@ describe('undo toast', () => {
   it('keeps an error notice in the fuller layout, without a countdown', async () => {
     render(<App />)
     const file = new File(['{ nope'], 'broken.hexa', { type: 'application/json' })
-    fireEvent.change(screen.getByLabelText('Import a .hexa file'), { target: { files: [file] } })
+    fireEvent.change(screen.getByLabelText('Open a .hexa file, replacing the map'), { target: { files: [file] } })
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0)
     })
@@ -256,9 +256,9 @@ describe('undo toast', () => {
 })
 
 describe('toolbar', () => {
-  it('labels New, Example and Import with text, and groups the export formats under one Export label', () => {
+  it('labels New, Example and Open with text, and groups the export formats under one Export label', () => {
     render(<App />)
-    for (const [name, text] of [['New diagram', 'New'], ['Load an example', 'Example'], ['Import a .hexa file', 'Import']]) {
+    for (const [name, text] of [['New diagram', 'New'], ['Load an example', 'Example'], ['Open a .hexa file, replacing the map', 'Open…']]) {
       const control = screen.getByLabelText(name)
       expect(control.closest('.icon-button, .tool')!.textContent).toContain(text)
     }
@@ -316,7 +316,7 @@ describe('refused imports leave the current map untouched (MIG-02, MIG-03)', () 
     const broken = JSON.stringify({ app: 'domainrings', version: 2, kind: 'hexagonal', title: 'Bad', contexts: [{ id: 'c1' }], hexagons: [], links: [] })
     const file = new File([broken], 'broken.hexa', { type: 'application/json' })
 
-    fireEvent.change(screen.getByLabelText('Import a .hexa file'), { target: { files: [file] } })
+    fireEvent.change(screen.getByLabelText('Open a .hexa file, replacing the map'), { target: { files: [file] } })
     await act(async () => {
       await Promise.resolve()
     })
@@ -331,7 +331,7 @@ describe('refused imports leave the current map untouched (MIG-02, MIG-03)', () 
     const newer = JSON.stringify({ app: 'domainrings', version: 99 })
     const file = new File([newer], 'future.hexa', { type: 'application/json' })
 
-    fireEvent.change(screen.getByLabelText('Import a .hexa file'), { target: { files: [file] } })
+    fireEvent.change(screen.getByLabelText('Open a .hexa file, replacing the map'), { target: { files: [file] } })
     await act(async () => {
       await Promise.resolve()
     })
@@ -350,7 +350,7 @@ describe('notices never overlap', () => {
     render(<App boot={{ recovery: 'kept', unreadableText: '{not valid json' }} />)
     const broken = JSON.stringify({ app: 'domainrings', version: 2, kind: 'hexagonal', title: 'Bad', contexts: [{ id: 'c1' }], hexagons: [], links: [] })
     const file = new File([broken], 'broken.hexa', { type: 'application/json' })
-    fireEvent.change(screen.getByLabelText('Import a .hexa file'), { target: { files: [file] } })
+    fireEvent.change(screen.getByLabelText('Open a .hexa file, replacing the map'), { target: { files: [file] } })
     await act(async () => {
       await Promise.resolve()
     })
@@ -980,7 +980,7 @@ describe('export scope (EXPORT-03)', () => {
       expect((screen.getByRole('radio', { name: 'Hexagon' }) as HTMLInputElement).checked).toBe(true)
 
       const file = new File([toHexa(twoHexMap())], 'two.hexa', { type: 'application/json' })
-      fireEvent.change(screen.getByLabelText('Import a .hexa file'), { target: { files: [file] } })
+      fireEvent.change(screen.getByLabelText('Open a .hexa file, replacing the map'), { target: { files: [file] } })
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0)
       })

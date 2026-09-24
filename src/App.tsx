@@ -5,11 +5,13 @@ import { currentHexagon, hexagonBounds, layoutMap } from './layout/map'
 import { legendFor, legendSize } from './layout/legend'
 import { EXAMPLES } from './model/example'
 import { parseHexa, toHexa, toMap } from './model/hexa'
+import { KINDS } from './model/kinds'
 import { collectionOf, type LinkTarget } from './model/links'
 import { contextName, diagramOf, UNTITLED_HEXAGON } from './model/map'
 import type { Recovery } from './model/persistence'
 import type { HexaMap, Link, Wall } from './model/schema'
 import { useMapStore } from './model/store'
+import { ConvertDialog } from './ui/ConvertDialog'
 import { Editor, revealInEditor } from './ui/Editor'
 import { download, exportBounds, fileSlug, legendDrawn, pngBlob, svgMarkup } from './ui/exporters'
 import { Icon } from './ui/Icon'
@@ -46,7 +48,7 @@ const OVERVIEW_KEY = 'domainrings:overview'
 const GUIDES_KEY = 'domainrings:guides'
 const HIGHLIGHT_KEY = 'domainrings:highlight'
 const LEGEND_OPEN_KEY = 'domainrings:legend-open'
-const { replace, restore, setMapMeta, removeItem, updateItem, addHexagon, removeHexagon, setMeta } = useMapStore.getState()
+const { replace, restore, setMapMeta, removeItem, updateItem, addHexagon, importHexagon, removeHexagon, setMeta } = useMapStore.getState()
 
 interface AppProps {
   boot?: { recovery: Recovery; unreadableText?: string }
@@ -58,6 +60,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const revision = useMapStore((s) => s.revision)
   const diagram = diagramOf(map, hexId)
   const multiHexagon = map.hexagons.length > 1
+  const contextLabel = contextName(map, map.hexagons.find((h) => h.id === hexId)!.contextId)
   const [mode, setMode] = useState<LayoutMode>(() => (readPref(OVERVIEW_KEY, false) ? 'overview' : 'detailed'))
   const [guides, setGuides] = useState(() => readPref(GUIDES_KEY, true))
   const [highlight, setHighlight] = useState(() => readPref(HIGHLIGHT_KEY, true))
@@ -133,14 +136,29 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // Grow: the just-added hexagon's own inline title field is open until it commits (onNamed) or is undone
   // (onNamingCancel, or the toast's own Undo — either restores `before`, exactly as a one-step undo (GROW-03)).
   const [growing, setGrowing] = useState<{ hexId: string; before: { map: HexaMap; focus: string } } | null>(null)
-  const handleGrow = (side: Wall | undefined, context: 'same' | 'new') => {
+  const completeGrow = (side: Wall | undefined, context: 'same' | 'new', convert?: boolean) => {
     const before = { map, focus: hexId }
-    const newHexId = addHexagon(hexId, { side, context })
+    const newHexId = addHexagon(hexId, { side, context, convert })
     if (!newHexId) return
     const grownMap = useMapStore.getState().map
     const label = contextName(grownMap, grownMap.hexagons.find((h) => h.id === newHexId)!.contextId)
     show({ tone: 'status', message: `Added ${UNTITLED_HEXAGON} to ${label}. It is now the current hexagon.`, undo: before })
     setGrowing({ hexId: newHexId, before })
+  }
+
+  // Growing or importing into a Clean/Onion map asks first (CONV-01..05); `openerRef` remembers whatever had
+  // focus at the moment the question was raised — the "+"/button ChoiceMenu already returned focus there before
+  // this ran — so Cancel/Confirm can hand it back explicitly once the dialog unmounts.
+  const [converting, setConverting] = useState<
+    { action: 'add'; side: Wall | undefined; context: 'same' | 'new' } | { action: 'import'; file: HexaMap; context: 'same' | 'new'; fileName: string } | null
+  >(null)
+  const openerRef = useRef<HTMLElement | null>(null)
+  const handleGrow = (side: Wall | undefined, context: 'same' | 'new') => {
+    if (map.kind !== 'hexagonal') {
+      openerRef.current = document.activeElement as HTMLElement | null
+      return setConverting({ action: 'add', side, context })
+    }
+    completeGrow(side, context)
   }
 
   // A sticky toast (DEL-02) clears itself the moment the map next changes for any OTHER reason — not on a timer.
@@ -179,13 +197,46 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     setLinking(null)
   }
 
-  const importFile = async (file: File) => {
+  // Shared by Open… (replaces the map) and "Add hexagon from file…" (adds one hexagon): a file that fails to
+  // parse is refused the same way either place (IMP-07) — a newer-version file isn't broken (REQ-03.1), so it
+  // gets its own headline, no fix-it framing.
+  const parseFile = async (file: File): Promise<HexaMap | undefined> => {
     const result = parseHexa(await file.text())
-    if (result.ok) return swap(result.map, `Opened ${file.name}.`)
-    // A newer-version file isn't broken (REQ-03.1) — nothing to "fix", so it gets its own headline, no fix-it framing.
+    if (result.ok) return result.map
     const message =
       result.reason === 'newer' ? `${file.name} was made by a newer version of domainrings.` : `${file.name} could not be opened. Fix these problems and try again:`
     show({ tone: 'error', message, details: result.errors })
+    return undefined
+  }
+
+  const importFile = async (file: File) => {
+    const parsed = await parseFile(file)
+    if (parsed) swap(parsed, `Opened ${file.name}.`)
+  }
+
+  const completeImport = (file: HexaMap, context: 'same' | 'new', fileName: string, convert?: boolean) => {
+    const before = { map, focus: hexId }
+    const newHexId = importHexagon(file, { context, convert })
+    if (!newHexId) return
+    const imported = useMapStore.getState().map.hexagons.find((h) => h.id === newHexId)!
+    const kindNotice = file.kind !== 'hexagonal' ? ` ${fileName} was ${KINDS[file.kind].label}; it now uses this map's hexagonal kind.` : ''
+    show({ tone: 'status', message: `Added ${imported.title || UNTITLED_HEXAGON} from ${fileName}.${kindNotice}`, undo: before })
+  }
+
+  // "Add hexagon from file…" (IMP-01..07): refuses a multi-hexagon file before any conversion question (IMP-04.2),
+  // then either asks to convert (map.kind isn't hexagonal) or imports straight away.
+  const handleAddFromFile = async (file: File, context: 'same' | 'new', opener: HTMLElement | null) => {
+    const parsed = await parseFile(file)
+    if (!parsed) return
+    if (parsed.hexagons.length > 1) {
+      show({ tone: 'error', message: `This file has ${parsed.hexagons.length} hexagons. Add hexagon from file… takes one; use Open to replace the map.` })
+      return
+    }
+    if (map.kind !== 'hexagonal') {
+      openerRef.current = opener
+      return setConverting({ action: 'import', file: parsed, context, fileName: file.name })
+    }
+    completeImport(parsed, context, file.name)
   }
 
   const exportAs = async (format: 'hexa' | 'svg' | 'png') => {
@@ -222,7 +273,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           const example = EXAMPLES.find((x) => x.id === id)!
           swap(example.map, `Loaded the ${example.label} example.`)
         }}
-        onImport={importFile}
+        onOpen={importFile}
         onExport={exportAs}
         onTheme={(choice) => {
           setRootPref('theme', choice === 'system' ? undefined : choice)
@@ -254,6 +305,8 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         onPrune={pruneToast}
         onAddHexagon={() => handleGrow(undefined, 'same')}
         onDeleteHexagon={handleDelete}
+        onAddFromFile={handleAddFromFile}
+        contextLabel={contextLabel}
       />
       <Legend
         legend={legend}
@@ -286,7 +339,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         linking={linking}
         onLinking={startLinking}
         onLink={link}
-        contextLabel={contextName(map, map.hexagons.find((h) => h.id === hexId)!.contextId)}
+        contextLabel={contextLabel}
         onGrow={handleGrow}
         naming={!!growing}
         onNamed={(title) => {
@@ -299,6 +352,22 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           setNotice(null)
         }}
       />
+      {converting && (
+        <ConvertDialog
+          kind={map.kind}
+          action={converting.action}
+          onConfirm={() => {
+            if (converting.action === 'add') completeGrow(converting.side, converting.context, true)
+            else completeImport(converting.file, converting.context, converting.fileName, true)
+            setConverting(null)
+            openerRef.current?.focus()
+          }}
+          onCancel={() => {
+            setConverting(null)
+            openerRef.current?.focus()
+          }}
+        />
+      )}
       {linking && <Toast key={`link:${linking}`} sticky message={`Choose a target for ${nameOf(linking)} · Esc to cancel`} onClose={() => setLinking(null)} />}
       {!linking && notice?.tone === 'status' && (
         <Toast
