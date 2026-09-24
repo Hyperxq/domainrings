@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EDITOR_CHIP_BOTTOM, fitMap, fitTo, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, MIN_FIT_SCALE, MIN_SCALE, panBy, pinch, toDiagram, zoomAt } from './viewport'
+import { contains, EDITOR_CHIP_BOTTOM, fitMap, fitTo, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, MIN_FIT_SCALE, MIN_SCALE, panBy, pinch, toDiagram, visibleRect, zoomAt } from './viewport'
 import { currentHexagon, hexagonBounds, layoutMap } from '../layout/map'
 import { TWO_SLICES_MAP } from '../model/example'
 import type { Point } from '../layout/layout'
@@ -144,5 +144,58 @@ describe('viewport', () => {
     expect(bottomRight.x).toBeGreaterThanOrEqual(400)
     expect(bottomRight.y).toBeGreaterThanOrEqual(400)
     expect((topLeft.x + bottomRight.x) / 2).toBeCloseTo(200, 9)
+  })
+
+  it('accepts a minScale override, fitting a huge map below the usual MIN_SCALE floor (FIT-01.1)', () => {
+    const bounds = { x: -50000, y: -100, width: 100000, height: 200 }
+    const fit = fitTo(bounds, 1000, 800, undefined, 0)
+    expect(fit.scale).toBeLessThan(MIN_SCALE)
+    expect(fit.scale).toBeGreaterThan(0)
+    const topLeft = toDiagram(fit, { x: 0, y: 0 })
+    const bottomRight = toDiagram(fit, { x: 1000, y: 800 })
+    expect(topLeft.x).toBeLessThanOrEqual(bounds.x + 1e-6)
+    expect(topLeft.y).toBeLessThanOrEqual(bounds.y + 1e-6)
+    expect(bottomRight.x).toBeGreaterThanOrEqual(bounds.x + bounds.width - 1e-6)
+    expect(bottomRight.y).toBeGreaterThanOrEqual(bounds.y + bounds.height - 1e-6)
+  })
+
+  it('defaults minScale to MIN_SCALE when omitted, matching the unclamped-below-0.1 behaviour today', () => {
+    const bounds = { x: -50000, y: -100, width: 100000, height: 200 }
+    expect(fitTo(bounds, 1000, 800).scale).toBe(MIN_SCALE)
+    expect(fitTo(bounds, 1000, 800).scale).toBe(fitTo(bounds, 1000, 800, undefined, MIN_SCALE).scale)
+  })
+
+  describe('visibleRect', () => {
+    it('is the diagram-space box visible through the stage area, floating panels excluded', () => {
+      const v = { x: 100, y: 50, scale: 2 }
+      const size = { width: 1000, height: 800 }
+      const inset = { top: 60, right: 20, bottom: 10, left: 320 }
+      const rect = visibleRect(v, size, inset)
+      const topLeft = toDiagram(v, { x: inset.left, y: inset.top })
+      const bottomRight = toDiagram(v, { x: size.width - inset.right, y: size.height - inset.bottom })
+      expect(rect).toEqual({ x: topLeft.x, y: topLeft.y, width: bottomRight.x - topLeft.x, height: bottomRight.y - topLeft.y })
+    })
+
+    it('defaults to no inset', () => {
+      const v = { x: 0, y: 0, scale: 1 }
+      const size = { width: 200, height: 100 }
+      expect(visibleRect(v, size)).toEqual({ x: 0, y: 0, width: 200, height: 100 })
+    })
+  })
+
+  describe('contains', () => {
+    const outer = { x: 0, y: 0, width: 100, height: 100 }
+
+    it('is true for a box fully inside, including touching the edges', () => {
+      expect(contains(outer, { x: 10, y: 10, width: 20, height: 20 })).toBe(true)
+      expect(contains(outer, outer)).toBe(true)
+    })
+
+    it('is false for a box that pokes outside on any side', () => {
+      expect(contains(outer, { x: -1, y: 10, width: 20, height: 20 })).toBe(false)
+      expect(contains(outer, { x: 10, y: 10, width: 95, height: 20 })).toBe(false)
+      expect(contains(outer, { x: 10, y: -5, width: 20, height: 20 })).toBe(false)
+      expect(contains(outer, { x: 10, y: 10, width: 20, height: 95 })).toBe(false)
+    })
   })
 })

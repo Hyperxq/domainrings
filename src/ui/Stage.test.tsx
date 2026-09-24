@@ -9,6 +9,7 @@ import { toMap } from '../model/hexa'
 import { contextName, diagramOf, freeSides, neighbour, SIDE_ORDER } from '../model/map'
 import { useMapStore } from '../model/store'
 import { hexGroup, twoHexMap } from '../test/fixtures'
+import { fitTo, islandInset, MIN_SCALE } from './viewport'
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class {
@@ -279,6 +280,48 @@ describe('Stage panning', () => {
     fireEvent.pointerMove(main, { buttons: 1, clientX: 140, clientY: 100 })
     expect(origin(container)).not.toBe(start)
     expect(main.classList.contains('is-dragging')).toBe(true)
+  })
+})
+
+// Outer-loop acceptance test for S-005 (FIT-01, FIT-02, ADR-05): written first and kept red through the inner
+// viewport.ts/Stage.tsx RED-GREEN cycles below; green once the tri-state view and "Fit all" are fully wired.
+describe('Stage "Fit all" (FIT-01, ADR-05)', () => {
+  /** Reconstructs the live viewport from the same DOM styles toScreen/backgroundPosition derive from (GRID=20,
+   * matching Stage.tsx) — the same self-consistent-formula idiom App.test.tsx's own toScreenX helper uses. */
+  const viewportOf = (container: HTMLElement) => {
+    const style = (container.querySelector('main') as HTMLElement).style
+    const scale = parseFloat(style.backgroundSize) / 20
+    const [px, py] = style.backgroundPosition.split(' ').map(parseFloat)
+    return { x: -px / scale, y: -py / scale, scale }
+  }
+  const expectViewport = (container: HTMLElement, expected: { x: number; y: number; scale: number }) => {
+    const actual = viewportOf(container)
+    expect(actual.x).toBeCloseTo(expected.x, 6)
+    expect(actual.y).toBeCloseTo(expected.y, 6)
+    expect(actual.scale).toBeCloseTo(expected.scale, 6)
+  }
+
+  it('fits the whole map at whatever zoom that takes, below the MIN_SCALE floor "auto" would clamp to, and keeps following the map as it grows', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fit all' }))
+
+    const inset = islandInset({ width: 0, height: 0 }, false, false)
+    const model1 = layoutMap(useMapStore.getState().map)
+    const expected1 = fitTo(model1.bounds, model1.bounds.width, model1.bounds.height, inset, 0)
+    expectViewport(container, expected1)
+    // Never falls back to a partial view (FIT-01.1/01.2): the fitted scale is allowed BELOW the floor an
+    // explicit fit used to clamp to.
+    expect(expected1.scale).toBeLessThan(MIN_SCALE)
+
+    act(() => {
+      useMapStore.getState().addHexagon('h1', { context: 'same' })
+    })
+
+    const model2 = layoutMap(useMapStore.getState().map)
+    const expected2 = fitTo(model2.bounds, model2.bounds.width, model2.bounds.height, inset, 0)
+    expectViewport(container, expected2)
   })
 })
 
