@@ -82,6 +82,17 @@ describe('map store', () => {
     expect(state().map).toMatchObject({ title: 'Billing', kind: 'clean' })
   })
 
+  it('refuses a kind change on a multi-hexagon map, leaving the map unchanged (MIG-04.2)', () => {
+    const twoHex = {
+      ...toMap(EXAMPLE_DIAGRAM),
+      hexagons: [...toMap(EXAMPLE_DIAGRAM).hexagons, { ...toMap(EXAMPLE_DIAGRAM).hexagons[0], id: 'h2', cell: { q: 1, r: 0 } }],
+    }
+    state().replace(twoHex)
+    const before = state().map
+    state().setMapMeta({ kind: 'onion' })
+    expect(state().map).toBe(before)
+  })
+
   it('leaves every hexagon but the current one untouched by reference', () => {
     const twoHex = {
       ...toMap(EXAMPLE_DIAGRAM),

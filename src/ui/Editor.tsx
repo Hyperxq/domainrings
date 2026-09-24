@@ -19,7 +19,7 @@ import { diagramOf } from '../model/map'
 import { useMapStore, type Item } from '../model/store'
 import { Icon } from './Icon'
 
-const { addItem, updateItem, removeItem, setMeta } = useMapStore.getState()
+const { addItem, updateItem, removeItem, setMeta, setMapMeta } = useMapStore.getState()
 
 type Patch<K extends CollectionKey> = Partial<Omit<Item<K>, 'id'>>
 
@@ -223,16 +223,23 @@ export function Editor({ open, onToggle, onPrune }: { open: boolean; onToggle: (
   return (
     <aside className={`island editor${open ? '' : ' is-collapsed'}`} aria-label="Diagram editor">
       <header className="editor-head">
-        <h2>Model</h2>
+        <h2>{d.title || 'Untitled hexagon'}</h2>
         <button type="button" className="icon-button" aria-expanded={open} aria-controls="editor-body" aria-label={open ? 'Collapse editor' : 'Expand editor'} title={open ? 'Collapse editor' : 'Expand editor'} onClick={onToggle}>
           <Icon name="panel" />
         </button>
       </header>
 
       <div id="editor-body" className="editor-body" hidden={!open}>
-        <Fold id="diagram" title="Diagram">
+        <Fold id="map" title="Map">
+          <label className="field">
+            <span>Map title</span>
+            <input value={map.title} onChange={(e) => setMapMeta({ title: e.target.value })} />
+          </label>
+        </Fold>
+
+        <Fold id="hexagon" title="Hexagon">
           <label className="field" data-item-id="hexagon">
-            <span>Title</span>
+            <span>Hexagon title</span>
             <input value={d.title} onChange={(e) => setMeta(hexId, { title: e.target.value })} />
           </label>
           <label className="field">

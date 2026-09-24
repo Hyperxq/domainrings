@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { Editor, revealInEditor } from './Editor'
 import { EXAMPLE_DIAGRAM } from '../model/example'
 import { toMap } from '../model/hexa'
@@ -19,12 +19,13 @@ afterEach(cleanup)
 const renderEditor = () => render(<Editor open onToggle={() => {}} onPrune={() => {}} />)
 const section = (container: HTMLElement, title: string) =>
   [...container.querySelectorAll('details')].find((d) => d.querySelector(':scope > summary h2')?.textContent === title) as HTMLDetailsElement
+const card = (container: HTMLElement, id: string) => container.querySelector<HTMLElement>(`[data-item-id="${id}"]`)!
 const port = EXAMPLE_DIAGRAM.ports[0]
 
 describe('collapsible editor sections', () => {
   it('starts with every section open, each summary showing its title and item count', () => {
     const { container } = renderEditor()
-    const titles = ['Diagram', 'Layers', 'Domain', 'Use cases', 'Ports', 'Adapters', 'Actors', 'External systems']
+    const titles = ['Map', 'Hexagon', 'Layers', 'Domain', 'Use cases', 'Ports', 'Adapters', 'Actors', 'External systems']
     for (const title of titles) expect(section(container, title).open).toBe(true)
     expect(section(container, 'Ports').querySelector('summary')!.textContent).toBe(`Ports· ${EXAMPLE_DIAGRAM.ports.length}`)
   })
@@ -57,6 +58,44 @@ describe('collapsible editor sections', () => {
 
     expect(section(container, 'Ports').open).toBe(true)
     expect((document.activeElement as HTMLInputElement).value).toBe(port.name)
+  })
+})
+
+describe('map and hexagon titles (TITLE-01, TITLE-02)', () => {
+  it('shows distinct, clearly labelled Map and Hexagon title fields, and no field labelled plain "Title" (TITLE-02.1)', () => {
+    const { container } = renderEditor()
+    const mapSection = within(section(container, 'Map'))
+    const hexagonSection = within(section(container, 'Hexagon'))
+    expect(mapSection.getByLabelText('Map title')).toBeInstanceOf(HTMLInputElement)
+    expect(hexagonSection.getByLabelText('Hexagon title')).toBeInstanceOf(HTMLInputElement)
+    expect(hexagonSection.getByLabelText('Subtitle')).toBeInstanceOf(HTMLInputElement)
+    expect(mapSection.queryByText('Title', { selector: 'label > span' })).toBeNull()
+    expect(hexagonSection.queryByText('Title', { selector: 'label > span' })).toBeNull()
+  })
+
+  it('names the current hexagon in the panel header, falling back to "Untitled hexagon" (TITLE-02.1)', () => {
+    renderEditor()
+    expect(screen.getByRole('heading', { level: 2, name: EXAMPLE_DIAGRAM.title })).toBeInstanceOf(HTMLHeadingElement)
+
+    cleanup()
+    useMapStore.getState().replace(toMap({ ...EXAMPLE_DIAGRAM, title: '' }))
+    renderEditor()
+    expect(screen.getByRole('heading', { level: 2, name: 'Untitled hexagon' })).toBeInstanceOf(HTMLHeadingElement)
+  })
+
+  it('editing the map title updates only the map, leaving every hexagon untouched (TITLE-01.1)', () => {
+    const base = toMap(EXAMPLE_DIAGRAM)
+    const otherHexagon = { ...base.hexagons[0], id: 'h2', cell: { q: 1, r: 0 }, title: 'Second slice' }
+    useMapStore.getState().replace({ ...base, hexagons: [base.hexagons[0], otherHexagon] })
+    const { container } = renderEditor()
+    const mapTitleInput = within(section(container, 'Map')).getByLabelText('Map title')
+
+    fireEvent.change(mapTitleInput, { target: { value: 'Renamed map' } })
+
+    expect(useMapStore.getState().map.title).toBe('Renamed map')
+    expect(currentDiagram()).toMatchObject({ title: EXAMPLE_DIAGRAM.title, subtitle: EXAMPLE_DIAGRAM.subtitle })
+    expect(useMapStore.getState().map.hexagons[1]).toBe(otherHexagon)
+    expect((card(container, 'hexagon').querySelector('input') as HTMLInputElement).value).toBe(EXAMPLE_DIAGRAM.title)
   })
 })
 

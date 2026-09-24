@@ -8,6 +8,8 @@ const REPOSITORY_URL = 'https://github.com/Hyperxq/domainrings'
 
 interface ToolbarProps {
   kind: ArchitectureKind
+  /** A map with more than one hexagon is always hexagonal (MIG-04) — the kind radios go inert and explain why. */
+  kindLocked: boolean
   theme: 'light' | 'dark'
   onKind: (kind: ArchitectureKind) => void
   onNew: () => void
@@ -23,7 +25,9 @@ interface ToolbarProps {
   onHighlight: (on: boolean) => void
 }
 
-export function Toolbar({ kind, theme, onKind, onNew, onExample, onImport, onExport, onTheme, mode, onMode, guides, onGuides, highlight, onHighlight }: ToolbarProps) {
+const KIND_LOCK_HINT = 'A map with more than one hexagon is always hexagonal.'
+
+export function Toolbar({ kind, kindLocked, theme, onKind, onNew, onExample, onImport, onExport, onTheme, mode, onMode, guides, onGuides, highlight, onHighlight }: ToolbarProps) {
   return (
     <header className="island toolbar">
       <h1 className="wordmark">domainrings</h1>
@@ -32,10 +36,23 @@ export function Toolbar({ kind, theme, onKind, onNew, onExample, onImport, onExp
         <legend className="visually-hidden">Architecture style</legend>
         {KindSchema.options.map((k) => (
           <label key={k} className="kind">
-            <input type="radio" name="kind" value={k} checked={kind === k} onChange={() => onKind(k)} />
+            <input
+              type="radio"
+              name="kind"
+              value={k}
+              checked={kind === k}
+              aria-disabled={kindLocked || undefined}
+              aria-describedby={kindLocked ? 'kind-lock-hint' : undefined}
+              onChange={() => onKind(k)}
+            />
             <span>{KINDS[k].label}</span>
           </label>
         ))}
+        {kindLocked && (
+          <p id="kind-lock-hint" className="kind-lock-hint">
+            {KIND_LOCK_HINT}
+          </p>
+        )}
       </fieldset>
 
       <span className="divider" aria-hidden="true" />

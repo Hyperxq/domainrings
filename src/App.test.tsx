@@ -497,6 +497,37 @@ describe('link pruning (LINK-01, LINK-02)', () => {
   })
 })
 
+describe('kind lock on a multi-hexagon map (MIG-04.2)', () => {
+  const twoHexMap = (): HexaMap => {
+    const base = toMap(EXAMPLE_DIAGRAM)
+    const h1 = base.hexagons[0]
+    return { ...base, links: [], hexagons: [{ ...h1, cell: { q: 0, r: 0 } }, { ...h1, id: 'h2', cell: { q: 1, r: 0 }, title: 'Second slice' }] }
+  }
+
+  it('disables the kind radios with a hint, and clicking one still leaves the map hexagonal', () => {
+    useMapStore.getState().replace(twoHexMap())
+    render(<App />)
+
+    const clean = screen.getByRole('radio', { name: 'Clean' })
+    expect(clean.getAttribute('aria-disabled')).toBe('true')
+    const hintId = clean.getAttribute('aria-describedby')
+    expect(hintId).toBeTruthy()
+    expect(document.getElementById(hintId!)!.textContent).toBe('A map with more than one hexagon is always hexagonal.')
+
+    fireEvent.click(clean)
+
+    expect(useMapStore.getState().map.kind).toBe('hexagonal')
+  })
+
+  it('leaves the kind radios enabled, with no hint, on a single-hexagon map', () => {
+    render(<App />)
+
+    const clean = screen.getByRole('radio', { name: 'Clean' })
+    expect(clean.getAttribute('aria-disabled')).toBeNull()
+    expect(clean.getAttribute('aria-describedby')).toBeNull()
+  })
+})
+
 describe('boot recovery notice', () => {
   const KEPT_MESSAGE = "Your last session couldn't be restored, so the example is open. Your saved work is kept in this browser; nothing was deleted."
   const NOT_KEPT_MESSAGE = "Your last session couldn't be restored and a copy couldn't be kept, so autosave is off."

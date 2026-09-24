@@ -182,6 +182,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     <>
       <Toolbar
         kind={map.kind}
+        kindLocked={map.hexagons.length > 1}
         theme={theme}
         onKind={(kind) => setMapMeta({ kind })}
         onNew={() => swap(toMap({ version: 1, kind: map.kind, title: 'Untitled architecture', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }), 'Started a new diagram.')}
