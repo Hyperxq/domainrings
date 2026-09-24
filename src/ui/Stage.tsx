@@ -68,11 +68,15 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
   // began. `detail === 1` is a real click's own gesture start (browsers never send 0 or repeat 1), so it is
   // the anchor to remember, not the live `hexId`.
   const gestureAnchorHexId = useRef(hexId)
+  // A mousedown moves focus to its target as a browser default action, firing `focus` before `pointerup`/`click`.
+  // That focus must not reveal "+" buttons (they would sit under the next press and steal its click/dblclick) —
+  // only a real keyboard focus should. `pointerdown`/`pointerup` on the stage bracket every such press.
+  const pointerPressed = useRef(false)
   const [size, setSize] = useState({ width: 0, height: 0 })
   // null means "fitted": the viewport follows the diagram bounds until the user pans or zooms.
   const [view, setView] = useState<Viewport | null>(null)
   const [dragging, setDragging] = useState(false)
-  // The layer under the pointer (or keyboard focus); CSS does the highlighting from data-hover on the svg.
+  // The layer under the pointer (or keyboard focus); CSS does the highlighting from data-hover on the current [data-hex] group.
   const [hovered, setHovered] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   // A press that became a pan ends in a click too; it must not change the selection.
@@ -236,6 +240,7 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
       }}
       onPointerDown={(e) => {
         panned.current = false
+        pointerPressed.current = true
         if (e.button !== 0 || (e.target as Element).closest('.island, [data-plus], .inline-name')) return
         drag.current = { x: e.clientX, y: e.clientY, panning: false }
       }}
@@ -261,10 +266,12 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
       onPointerUp={() => {
         drag.current = null
         setDragging(false)
+        pointerPressed.current = false
       }}
       onPointerCancel={() => {
         drag.current = null
         setDragging(false)
+        pointerPressed.current = false
       }}
     >
       <svg
@@ -279,7 +286,7 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
           setHovered(layerOf(target))
         }}
         onPointerLeave={(e) => !(e.relatedTarget as Element | null)?.closest?.('[data-plus]') && setHovered(null)}
-        onFocus={(e) => setHovered(layerOf(e.target as Element))}
+        onFocus={(e) => !pointerPressed.current && setHovered(layerOf(e.target as Element))}
         onBlur={(e) => !(e.relatedTarget as Element | null)?.closest?.('[data-plus]') && setHovered(null)}
         data-link-mode={linking ? '' : undefined}
         onClick={(e) => {

@@ -94,6 +94,19 @@ describe('Stage layer hover', () => {
 })
 
 describe('Stage "+" affordances', () => {
+  it('does not reveal "+" buttons when focus follows a pointer press, only for a real keyboard focus', () => {
+    const { container } = render(<Harness />)
+    const band = container.querySelector('[data-band="domain"]')!
+
+    fireEvent.pointerDown(band, { button: 0 })
+    fireEvent.focus(band)
+    expect(container.querySelector('button.plus')).toBeNull()
+
+    fireEvent.pointerUp(band)
+    fireEvent.focus(band)
+    expect(container.querySelector('button.plus')).not.toBeNull()
+  })
+
   it('shows only the "+" buttons of the hovered layer', () => {
     const { container } = render(<Harness />)
     expect(screen.queryByRole('button', { name: 'Add a use case' })).toBeNull()
