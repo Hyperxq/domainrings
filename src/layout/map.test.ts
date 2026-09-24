@@ -111,6 +111,23 @@ describe('layoutMap — multi-hexagon placement (CANVAS-01, CANVAS-02)', () => {
   })
 })
 
+describe('cellCentre — affine pointy-top lattice (ADR-01)', () => {
+  const pitch = { x: 100, y: 80 }
+
+  it('places {0,0} at the origin regardless of pitch', () => {
+    expect(cellCentre({ q: 0, r: 0 }, pitch)).toStrictEqual({ x: 0, y: 0 })
+  })
+
+  it('steps by pitch.x along q, with no y movement', () => {
+    expect(cellCentre({ q: 2, r: 0 }, pitch)).toStrictEqual({ x: 200, y: 0 })
+  })
+
+  it('steps by pitch.y along r, skewing x by half a step per r — a pointy-top lattice, not a rectangular grid', () => {
+    expect(cellCentre({ q: 0, r: 1 }, pitch)).toStrictEqual({ x: 50, y: 80 })
+    expect(cellCentre({ q: 0, r: -2 }, pitch)).toStrictEqual({ x: -100, y: -160 })
+  })
+})
+
 describe('layoutMap — honeycomb lattice placement (ADR-01)', () => {
   const twoCellColumn = (): HexaMap => ({
     version: 2,
@@ -124,18 +141,20 @@ describe('layoutMap — honeycomb lattice placement (ADR-01)', () => {
     links: [],
   })
 
-  it('places {0,0}/{0,1} at cellCentre(cell, pitch), pitch from the map’s own max extents + MAP_GAP', () => {
+  it('derives pitch from the map’s own max extents + MAP_GAP and places {0,1} at half a pitch.x, one pitch.y down', () => {
     const result = layoutMap(twoCellColumn())
     const [a, b] = result.hexagons
     // Both hexagons share the same (empty) content, so either model's bounds already are the map's max extents.
+    // Expected values are literal arithmetic on that independently-derived pitch, never calling cellCentre —
+    // otherwise a mutation to cellCentre's own formula would cancel out on both sides of the assertion.
     const left = -a.model.bounds.x
     const right = a.model.bounds.x + a.model.bounds.width
     const top = -a.model.bounds.y
     const bottom = a.model.bounds.y + a.model.bounds.height
-    const pitch = { x: left + right + MAP_GAP, y: top + bottom + MAP_GAP }
-    expect(a.centre).toStrictEqual(cellCentre({ q: 0, r: 0 }, pitch))
-    expect(b.centre).toStrictEqual(cellCentre({ q: 0, r: 1 }, pitch))
+    const pitchX = left + right + MAP_GAP
+    const pitchY = top + bottom + MAP_GAP
     expect(a.centre).toStrictEqual({ x: 0, y: 0 })
+    expect(b.centre).toStrictEqual({ x: pitchX * 0.5, y: pitchY })
   })
 
   it('keeps the two boxes disjoint by at least MAP_GAP', () => {
