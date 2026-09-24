@@ -453,4 +453,17 @@ describe('Stage — hull and chip are inert (CB-05, ADR-05 extended to context o
 
     expect(useMapStore.getState().map).toBe(beforeMap)
   })
+
+  it('does not change an existing selection when a hull is clicked', () => {
+    const base = twoHexMap()
+    useMapStore.getState().replace({ ...base, contexts: [base.contexts[0], { id: 'c2' }], hexagons: [base.hexagons[0], { ...base.hexagons[1], contextId: 'c2' }] })
+    const { container } = render(<Harness />)
+    const node = hexGroup(container, 'h1').querySelector<HTMLElement>('.node[data-ref]')!
+    fireEvent.click(node)
+    expect(node.hasAttribute('data-selected')).toBe(true)
+
+    fireEvent.click(container.querySelector('[data-hull]')!)
+
+    expect(node.hasAttribute('data-selected')).toBe(true)
+  })
 })

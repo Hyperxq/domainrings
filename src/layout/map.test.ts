@@ -3,6 +3,7 @@ import { cellCentre, hexagonBounds, layoutMap, MAP_GAP } from './map'
 import { layoutDiagram, type LayoutMode } from './layout'
 import { toMap } from '../model/hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM } from '../model/example'
+import { removeHexagon } from '../model/map'
 import type { Diagram, HexaMap } from '../model/schema'
 import { twoHexagonMap } from '../test/fixtures'
 
@@ -247,5 +248,30 @@ describe('layoutMap — contexts (CB-01.1, ADR-04, SEAM-04)', () => {
     const withContexts = layoutMap(twoContextMap())
     // h2 sits at a distant cell {6,6} — its hull loop and chip push the bounds far beyond the two close hexagons alone.
     expect(withContexts.bounds.width).toBeGreaterThan(withoutContexts.bounds.width * 3)
+  })
+
+  it('removes hulls and chips when removeHexagon drops the map back to one context (CB-01.3)', () => {
+    const grown = twoContextMap()
+    expect(layoutMap(grown).contexts).toHaveLength(2)
+
+    const { map: backToOne } = removeHexagon(grown, 'h2')
+
+    expect(layoutMap(backToOne).contexts).toHaveLength(0)
+  })
+
+  it('grows bounds to include a long chip label even when the hull loops alone would not need it', () => {
+    // Adjacent cells keep the hull loops tight; only a long context name should force the bounds wider.
+    const adjacent = (contexts: HexaMap['contexts']): HexaMap => ({
+      ...oneContextMap(),
+      contexts,
+      hexagons: [
+        { id: 'h1', contextId: 'c1', cell: { q: 0, r: 0 }, title: 'A', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] },
+        { id: 'h2', contextId: 'c2', cell: { q: 1, r: 0 }, title: 'B', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] },
+      ],
+    })
+    const shortLabel = layoutMap(adjacent([{ id: 'c1' }, { id: 'c2' }]))
+    const longLabel = layoutMap(adjacent([{ id: 'c1', name: 'B'.repeat(200) }, { id: 'c2' }]))
+
+    expect(longLabel.bounds.width).toBeGreaterThan(shortLabel.bounds.width)
   })
 })

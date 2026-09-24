@@ -1116,6 +1116,40 @@ describe('renaming a bounded context (NAME-01..03)', () => {
     expect(document.querySelector(`[data-chip="${contextId}"]`)!.textContent).toBe('Context 1')
   })
 
+  it('lets two contexts share the exact same name, both chips showing it (NAME-01.2)', () => {
+    render(<App />)
+    growSecondContext()
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    const [c1, c2] = useMapStore.getState().map.contexts.map((c) => c.id)
+    const input1 = screen.getByLabelText('Name for Context 1')
+    const input2 = screen.getByLabelText('Name for Context 2')
+
+    fireEvent.focus(input1)
+    fireEvent.change(input1, { target: { value: 'Billing' } })
+    fireEvent.blur(input1)
+    fireEvent.focus(input2)
+    fireEvent.change(input2, { target: { value: 'Billing' } })
+    fireEvent.blur(input2)
+
+    expect(document.querySelector(`[data-chip="${c1}"]`)!.textContent).toBe('Billing')
+    expect(document.querySelector(`[data-chip="${c2}"]`)!.textContent).toBe('Billing')
+  })
+
+  it('reverts the chip to the "Context {n}" placeholder as soon as the name is cleared (NAME-02.3)', () => {
+    render(<App />)
+    growSecondContext()
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    const contextId = useMapStore.getState().map.contexts[0].id
+    const input = screen.getByLabelText('Name for Context 1')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Billing' } })
+    expect(document.querySelector(`[data-chip="${contextId}"]`)!.textContent).toBe('Billing')
+
+    fireEvent.change(input, { target: { value: '' } })
+
+    expect(document.querySelector(`[data-chip="${contextId}"]`)!.textContent).toBe('Context 1')
+  })
+
   it('does not toast or offer undo when a blur never changed the name', () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
