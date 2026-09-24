@@ -1,17 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { FULL_TOOLBAR, Toolbar } from './Toolbar'
+import { FULL_TOOLBAR, ROOMY_TOOLBAR, Toolbar } from './Toolbar'
 
 type Listener = () => void
-let roomy = true
+const minWidth = (query: string) => Number(/min-width: (\d+)px/.exec(query)![1])
+const FULL = minWidth(FULL_TOOLBAR)
+const ROOMY = minWidth(ROOMY_TOOLBAR)
+let viewport = FULL
 const listeners = new Set<Listener>()
 
 beforeEach(() => {
-  roomy = true
+  viewport = FULL
   listeners.clear()
   window.matchMedia = ((media: string) => ({
     get matches() {
-      return media === FULL_TOOLBAR ? roomy : false
+      return viewport >= minWidth(media)
     },
     media,
     addEventListener: (_: string, l: Listener) => listeners.add(l),
@@ -20,7 +23,7 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-function renderToolbar(overrides: { kindLocked?: boolean } = {}) {
+function renderToolbar(overrides: { kindLocked?: boolean; mode?: 'overview' | 'detailed'; guides?: boolean; highlight?: boolean } = {}) {
   const props = {
     kind: 'hexagonal' as const,
     kindLocked: false,
@@ -60,7 +63,7 @@ describe('Toolbar at full width', () => {
 
 describe('Toolbar below the full-width breakpoint', () => {
   beforeEach(() => {
-    roomy = false
+    viewport = FULL - 1
   })
 
   it('collapses the kind radios into a select that drives the same onKind', () => {
@@ -106,10 +109,79 @@ describe('Toolbar below the full-width breakpoint', () => {
     renderToolbar()
     expect(screen.getByRole('combobox', { name: 'Architecture style' })).toBeTruthy()
 
-    roomy = true
+    viewport = FULL
     act(() => listeners.forEach((l) => l()))
 
     expect(screen.queryByRole('combobox', { name: 'Architecture style' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Export as SVG' })).toBeTruthy()
+  })
+})
+
+describe('Toolbar between the two breakpoints', () => {
+  beforeEach(() => {
+    viewport = ROOMY
+  })
+
+  it('keeps the file buttons labelled and the detail level and toggles in the bar', () => {
+    renderToolbar()
+    for (const text of ['New', 'Example', 'Import']) expect(screen.getByText(text)).toBeTruthy()
+    expect(screen.getByRole('radio', { name: 'Overview' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Guides' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
+  })
+})
+
+describe('Toolbar below the compact breakpoint', () => {
+  beforeEach(() => {
+    viewport = ROOMY - 1
+  })
+
+  const openView = () => fireEvent.click(screen.getByRole('button', { name: 'View' }))
+
+  it('shows the file actions as icons that keep their accessible names and tooltips', () => {
+    renderToolbar()
+    for (const text of ['New', 'Example', 'Import']) expect(screen.queryByText(text)).toBeNull()
+    expect(screen.getByRole('button', { name: 'New diagram' }).getAttribute('title')).toBe('New diagram')
+    expect(screen.getByRole('combobox', { name: 'Load an example' }).closest('label')!.getAttribute('title')).toBe('Load an example')
+    expect(screen.getByLabelText('Import a .hexa file').closest('label')!.getAttribute('title')).toBe('Import a .hexa file')
+  })
+
+  it('moves the detail level and the toggles into a View menu that shows their state', () => {
+    renderToolbar({ mode: 'overview', guides: false, highlight: true })
+    expect(screen.queryByRole('radio', { name: 'Overview' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Guides' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Highlight' })).toBeNull()
+
+    openView()
+
+    const state = screen.getAllByRole('menuitemcheckbox').map((item) => [item.textContent, item.getAttribute('aria-checked')])
+    expect(state).toEqual([
+      ['Overview', 'true'],
+      ['Detailed', 'false'],
+      ['Guides', 'false'],
+      ['Highlight', 'true'],
+    ])
+  })
+
+  it.each([
+    ['Overview', 'onMode', 'overview'],
+    ['Detailed', 'onMode', 'detailed'],
+    ['Guides', 'onGuides', true],
+    ['Highlight', 'onHighlight', false],
+  ] as const)('choosing %s in the View menu calls %s with %s', (name, handler, value) => {
+    const props = renderToolbar({ mode: 'detailed', guides: false, highlight: true })
+    openView()
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name }))
+    expect(props[handler]).toHaveBeenCalledTimes(1)
+    expect(props[handler]).toHaveBeenCalledWith(value)
+    for (const other of (['onMode', 'onGuides', 'onHighlight'] as const).filter((h) => h !== handler)) expect(props[other]).not.toHaveBeenCalled()
+  })
+
+  it('keeps the kind select and the Export menu', () => {
+    const { onExport } = renderToolbar()
+    expect(screen.getByRole('combobox', { name: 'Architecture style' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'SVG' }))
+    expect(onExport).toHaveBeenCalledWith('svg')
   })
 })

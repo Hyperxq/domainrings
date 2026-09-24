@@ -35,29 +35,38 @@ interface ToolbarProps {
 
 const KIND_LOCK_HINT = 'A map with more than one hexagon is always hexagonal.'
 const SCOPE_LABEL: Record<ExportScope, string> = { map: 'Map', hexagon: 'Hexagon' }
+const MODE_LABEL: Record<LayoutMode, string> = { overview: 'Overview', detailed: 'Detailed' }
 const EXPORT_CHOICES = [
   { id: 'hexa', label: '.hexa' },
   { id: 'svg', label: 'SVG' },
   { id: 'png', label: 'PNG' },
 ] as const
 
-/** The widest toolbar (a multi-hexagon map, fallback fonts) measured 1326px in Chrome; below this, plus the 12px
- * side margins, it would overflow, so the kind radios and export buttons collapse. */
+/* Each tier's widest toolbar (a multi-hexagon map, fallback fonts) plus the 12px side margins, measured in Chrome:
+ * the full one is 1326px, so below 1350 the kind radios and export buttons collapse; the compact one is 1112px, so
+ * below 1136 the file actions lose their words and the view controls fold into a menu. */
 export const FULL_TOOLBAR = '(min-width: 1350px)'
-const subscribeToWidth = (onChange: () => void) => {
-  const query = matchMedia(FULL_TOOLBAR)
-  query.addEventListener('change', onChange)
-  return () => query.removeEventListener('change', onChange)
-}
-const roomy = () => matchMedia(FULL_TOOLBAR).matches
+export const ROOMY_TOOLBAR = '(min-width: 1136px)'
+const media = (query: string) => ({
+  subscribe: (onChange: () => void) => {
+    const list = matchMedia(query)
+    list.addEventListener('change', onChange)
+    return () => list.removeEventListener('change', onChange)
+  },
+  matches: () => matchMedia(query).matches,
+})
+const fullMedia = media(FULL_TOOLBAR)
+const roomyMedia = media(ROOMY_TOOLBAR)
 
 export function Toolbar({ kind, kindLocked, theme, onKind, onNew, onExample, onImport, onExport, onTheme, mode, onMode, guides, onGuides, highlight, onHighlight, showScope, exportScope, onExportScope }: ToolbarProps) {
-  const full = useSyncExternalStore(subscribeToWidth, roomy)
+  const full = useSyncExternalStore(fullMedia.subscribe, fullMedia.matches)
+  const roomy = useSyncExternalStore(roomyMedia.subscribe, roomyMedia.matches)
   const lock = {
     title: kindLocked ? KIND_LOCK_HINT : undefined,
     'aria-disabled': kindLocked || undefined,
     'aria-describedby': kindLocked ? 'kind-lock-hint' : undefined,
   }
+  const tool = roomy ? 'tool' : 'icon-button'
   return (
     <header className="island toolbar">
       <h1 className="wordmark">domainrings</h1>
@@ -89,31 +98,55 @@ export function Toolbar({ kind, kindLocked, theme, onKind, onNew, onExample, onI
 
       <span className="divider" aria-hidden="true" />
 
-      <fieldset className="kinds">
-        <legend className="visually-hidden">Detail level</legend>
-        {(['overview', 'detailed'] as const).map((m) => (
-          <label key={m} className="kind">
-            <input type="radio" name="mode" value={m} checked={mode === m} onChange={() => onMode(m)} />
-            <span>{m === 'overview' ? 'Overview' : 'Detailed'}</span>
-          </label>
-        ))}
-      </fieldset>
-      <button type="button" className="text-button" aria-pressed={guides} title="Show the dashed guide spokes" onClick={() => onGuides(!guides)}>
-        Guides
-      </button>
-      <button type="button" className="text-button" aria-pressed={highlight} title="Highlight the layer under the pointer" onClick={() => onHighlight(!highlight)}>
-        Highlight
-      </button>
+      {roomy ? (
+        <>
+          <fieldset className="kinds">
+            <legend className="visually-hidden">Detail level</legend>
+            {(['overview', 'detailed'] as const).map((m) => (
+              <label key={m} className="kind">
+                <input type="radio" name="mode" value={m} checked={mode === m} onChange={() => onMode(m)} />
+                <span>{MODE_LABEL[m]}</span>
+              </label>
+            ))}
+          </fieldset>
+          <button type="button" className="text-button" aria-pressed={guides} title="Show the dashed guide spokes" onClick={() => onGuides(!guides)}>
+            Guides
+          </button>
+          <button type="button" className="text-button" aria-pressed={highlight} title="Highlight the layer under the pointer" onClick={() => onHighlight(!highlight)}>
+            Highlight
+          </button>
+        </>
+      ) : (
+        <ChoiceMenu
+          label={
+            <>
+              View
+              <Icon name="chevron" />
+            </>
+          }
+          choices={[
+            { id: 'overview', label: MODE_LABEL.overview, checked: mode === 'overview' },
+            { id: 'detailed', label: MODE_LABEL.detailed, checked: mode === 'detailed' },
+            { id: 'guides', label: 'Guides', checked: guides },
+            { id: 'highlight', label: 'Highlight', checked: highlight },
+          ]}
+          onChoose={(id) => {
+            if (id === 'guides') onGuides(!guides)
+            else if (id === 'highlight') onHighlight(!highlight)
+            else onMode(id)
+          }}
+        />
+      )}
 
       <span className="divider" aria-hidden="true" />
 
-      <button type="button" className="tool" aria-label="New diagram" title="New diagram" onClick={onNew}>
+      <button type="button" className={tool} aria-label="New diagram" title="New diagram" onClick={onNew}>
         <Icon name="new" />
-        <span className="tool-text">New</span>
+        {roomy && 'New'}
       </button>
-      <label className="tool example-picker" title="Load an example">
+      <label className={`${tool} example-picker`} title="Load an example">
         <Icon name="example" />
-        <span className="tool-text">Example</span>
+        {roomy && 'Example'}
         <select
           aria-label="Load an example"
           value=""
@@ -130,7 +163,7 @@ export function Toolbar({ kind, kindLocked, theme, onKind, onNew, onExample, onI
           ))}
         </select>
       </label>
-      <label className="tool" title="Import a .hexa file">
+      <label className={tool} title="Import a .hexa file">
         <input
           type="file"
           accept=".hexa,application/json"
@@ -143,7 +176,7 @@ export function Toolbar({ kind, kindLocked, theme, onKind, onNew, onExample, onI
           }}
         />
         <Icon name="upload" />
-        <span className="tool-text">Import</span>
+        {roomy && 'Import'}
       </label>
 
       <span className="divider" aria-hidden="true" />
