@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { contextName, diagramOf, freeCell, freeSides, neighbour, nextId, placeHexagon, putDiagram, pruneLinks, SIDE_ORDER, UNTITLED_HEXAGON, type Cell } from './map'
+import { contextName, diagramOf, freeCell, freeSides, neighbour, nextId, placeHexagon, putDiagram, pruneLinks, removeHexagon, SIDE_ORDER, UNTITLED_HEXAGON, type Cell } from './map'
 import { toMap } from './hexa'
 import { EXAMPLE_DIAGRAM } from './example'
-import type { Diagram, HexaMap } from './schema'
+import type { Diagram, HexaMap, Link } from './schema'
 
 describe('diagramOf', () => {
   it('builds the v1-shaped view of a hexagon, with the map kind and no id/contextId/cell', () => {
@@ -328,5 +328,50 @@ describe('placeHexagon (ADR-02)', () => {
     const untitledView: Diagram = { ...view, title: UNTITLED_HEXAGON }
     const { map: next, hexId } = placeHexagon(map, untitledView, { cell: { q: 1, r: 0 }, contextId: 'c1' })
     expect(next.hexagons.find((h) => h.id === hexId)?.title).toBe(UNTITLED_HEXAGON)
+  })
+})
+
+describe('removeHexagon (ADR-02, ADR-03 E2)', () => {
+  const twoContextMap = (): HexaMap => ({
+    version: 2,
+    kind: 'hexagonal',
+    title: 'Two',
+    contexts: [{ id: 'c1', name: 'Billing' }, { id: 'c2' }],
+    hexagons: [emptyHexagon('h1', 'c1', { q: 0, r: 0 }), emptyHexagon('h2', 'c2', { q: 1, r: 0 })],
+    links: [],
+  })
+
+  it('drops the removed hexagon, keeping every other hexagon by reference', () => {
+    const map = twoContextMap()
+    const { map: next } = removeHexagon(map, 'h2')
+    expect(next.hexagons).toStrictEqual([map.hexagons[0]])
+    expect(next.hexagons[0]).toBe(map.hexagons[0])
+  })
+
+  it('drops the removed hexagon’s own context once it holds no other hexagon (DEL-03.1)', () => {
+    const map = twoContextMap()
+    const { map: next } = removeHexagon(map, 'h2')
+    expect(next.contexts).toStrictEqual([map.contexts[0]])
+  })
+
+  it('keeps a context that still holds another hexagon after the removal', () => {
+    const map: HexaMap = { ...twoContextMap(), hexagons: [emptyHexagon('h1', 'c1', { q: 0, r: 0 }), emptyHexagon('h2', 'c1', { q: 1, r: 0 }), emptyHexagon('h3', 'c2', { q: 2, r: 0 })] }
+    const { map: next } = removeHexagon(map, 'h2')
+    expect(next.contexts).toStrictEqual(map.contexts)
+    expect(next.hexagons.map((h) => h.id)).toEqual(['h1', 'h3'])
+  })
+
+  it('drops every link with either end on the removed hexagon, keeping links between other hexagons', () => {
+    const linkFrom: Link = { id: 'l1', from: { hexagonId: 'h1', portId: 'p1' }, to: { hexagonId: 'h2', portId: 'p2' } }
+    const linkTo: Link = { id: 'l2', from: { hexagonId: 'h3', portId: 'p3' }, to: { hexagonId: 'h1', portId: 'p4' } }
+    const linkUnrelated: Link = { id: 'l3', from: { hexagonId: 'h2', portId: 'p5' }, to: { hexagonId: 'h3', portId: 'p6' } }
+    const map: HexaMap = {
+      ...twoContextMap(),
+      hexagons: [emptyHexagon('h1', 'c1', { q: 0, r: 0 }), emptyHexagon('h2', 'c1', { q: 1, r: 0 }), emptyHexagon('h3', 'c2', { q: 2, r: 0 })],
+      links: [linkFrom, linkTo, linkUnrelated],
+    }
+    const { map: next, pruned } = removeHexagon(map, 'h1')
+    expect(next.links).toStrictEqual([linkUnrelated])
+    expect(pruned).toStrictEqual([linkFrom, linkTo])
   })
 })

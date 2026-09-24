@@ -74,6 +74,19 @@ export function placeHexagon(map: HexaMap, view: Diagram, at: { cell: Cell; cont
   return { map: { ...map, kind: 'hexagonal', contexts, hexagons: [...map.hexagons, hexagon] }, hexId }
 }
 
+/** Removes `hexId`, every link with either end on it, and — only when it was that hexagon's own context and now
+ * holds none — that context. A foreign context that already had none of its own is left alone (ADR-03 E2: the
+ * freed hexagon/context ids may be reused by the next `nextId` call). */
+export function removeHexagon(map: HexaMap, hexId: string): { map: HexaMap; pruned: Link[] } {
+  const removed = map.hexagons.find((h) => h.id === hexId)!
+  const hexagons = map.hexagons.filter((h) => h.id !== hexId)
+  const pruned = map.links.filter((l) => l.from.hexagonId === hexId || l.to.hexagonId === hexId)
+  const links = map.links.filter((l) => l.from.hexagonId !== hexId && l.to.hexagonId !== hexId)
+  const contextEmptied = !hexagons.some((h) => h.contextId === removed.contextId)
+  const contexts = contextEmptied ? map.contexts.filter((c) => c.id !== removed.contextId) : map.contexts
+  return { map: { ...map, hexagons, links, contexts }, pruned }
+}
+
 /** The v1-shaped view of one hexagon, for every consumer still typed on `Diagram` (layout, insertion, links, legend). */
 export function diagramOf(map: HexaMap, hexId: string): Diagram {
   const hexagon = map.hexagons.find((h) => h.id === hexId)
