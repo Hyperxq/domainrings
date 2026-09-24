@@ -1206,7 +1206,36 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     expect(imported.contextId).toBe(useMapStore.getState().map.contexts.at(-1)!.id)
   })
 
+  it('leaves the export scope untouched, only changing which hexagon is current (IMP-01.3)', async () => {
+    useMapStore.getState().replace(twoHexMap())
+    useMapStore.getState().setFocus('h2')
+    render(<App />)
+    openEditor()
+    fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
+    openImportMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
+    await pickFile(oneHexFile())
+
+    expect((screen.getByRole('radio', { name: 'Hexagon' }) as HTMLInputElement).checked).toBe(true)
+    const imported = useMapStore.getState().map.hexagons.at(-1)!
+    expect(useMapStore.getState().focus).toBe(imported.id)
+  })
+
   it('refuses a file with more than one hexagon before any conversion question, leaving the map untouched (IMP-04)', async () => {
+    render(<App />)
+    openEditor()
+    const before = useMapStore.getState().map
+    openImportMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
+    await pickFile(toHexa(twoHexMap()), 'two.hexa')
+
+    expect(useMapStore.getState().map).toBe(before)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole('alert').textContent).toBe('This file has 2 hexagons. Add hexagon from file… takes one; use Open to replace the map.')
+  })
+
+  it('refuses a multi-hexagon file before any conversion question, even when the target map is Clean or Onion (IMP-04.2)', async () => {
+    useMapStore.getState().setMapMeta({ kind: 'clean' })
     render(<App />)
     openEditor()
     const before = useMapStore.getState().map
@@ -1282,6 +1311,29 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
 
     expect(useMapStore.getState().map).toStrictEqual(before)
+    expect(useMapStore.getState().focus).toBe(beforeFocus)
+  })
+
+  it('"Convert and import" converts the map and imports as one undoable step, restoring both the kind and the hexagon on Undo (CONV-03.2)', async () => {
+    useMapStore.getState().setMapMeta({ kind: 'onion' })
+    render(<App />)
+    openEditor()
+    const before = useMapStore.getState().map
+    const beforeFocus = useMapStore.getState().focus
+    openImportMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
+    await pickFile(oneHexFile())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Convert and import' }))
+
+    expect(useMapStore.getState().map.kind).toBe('hexagonal')
+    const imported = useMapStore.getState().map.hexagons.at(-1)!
+    expect(imported.title).toBe('Legacy System')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useMapStore.getState().map).toStrictEqual(before)
+    expect(useMapStore.getState().map.kind).toBe('onion')
     expect(useMapStore.getState().focus).toBe(beforeFocus)
   })
 })
