@@ -9,7 +9,7 @@ import { toMap } from '../model/hexa'
 import { contextName, diagramOf, freeSides, neighbour, SIDE_ORDER } from '../model/map'
 import { useMapStore } from '../model/store'
 import { hexGroup, twoHexMap } from '../test/fixtures'
-import { fitMap, fitTo, islandInset } from './viewport'
+import { fitMap, fitTo, islandInset, MIN_SCALE, zoomAt } from './viewport'
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class {
@@ -431,6 +431,36 @@ describe('Stage — auto-fit after a map-shape change (FIT-02, ADR-05)', () => {
 
     expect(useMapStore.getState().revision).toBe(revisionBefore)
     expect(svg(container).hasAttribute('data-link-mode')).toBe(true)
+  })
+})
+
+describe('Stage — wheel floor follows "Fit all", not a hardcoded MIN_SCALE (FIT-01, ADR-05)', () => {
+  const viewportOf = (container: HTMLElement) => {
+    const style = (container.querySelector('main') as HTMLElement).style
+    const scale = parseFloat(style.backgroundSize) / 20
+    const [px, py] = style.backgroundPosition.split(' ').map(parseFloat)
+    return { x: -px / scale, y: -py / scale, scale }
+  }
+
+  it('wheeling out from a "Fit all" view keeps zooming by min(MIN_SCALE, wholeFit.scale), never snapping the scale back up to the plain MIN_SCALE floor', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+    fireEvent.click(screen.getByRole('button', { name: 'Fit all' }))
+    const fitted = viewportOf(container)
+    const inset = islandInset({ width: 0, height: 0 }, false, false)
+    const model = layoutMap(useMapStore.getState().map)
+    const wholeFit = fitTo(model.bounds, model.bounds.width, model.bounds.height, inset, 0)
+    const zoomFloor = Math.min(MIN_SCALE, wholeFit.scale)
+
+    const main = container.querySelector('main')!
+    fireEvent.wheel(main, { deltaY: 4000 }) // A hard zoom-out — would hit MIN_SCALE under the old hardcoded floor.
+    const zoomedOut = viewportOf(container)
+    const expected = zoomAt(fitted, Math.exp(-4000 * 0.0015), { x: 0, y: 0 }, zoomFloor)
+
+    expect(zoomedOut.scale).toBeCloseTo(expected.scale, 6)
+    // Never above the fitted "whole" scale itself — a hardcoded MIN_SCALE floor above wholeFit.scale would have
+    // clamped the zoom-out short of the view it was already fitted to.
+    expect(zoomedOut.scale).toBeLessThanOrEqual(fitted.scale + 1e-9)
   })
 })
 
