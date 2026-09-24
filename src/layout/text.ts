@@ -37,6 +37,8 @@ export const DOMAIN_TITLE = { size: 22, em: 0.62, tracking: 0 } as const
 export const EDGE_LABEL = { size: 13, em: 0.56 } as const
 export const TITLE = { size: 24, em: 0.58 } as const
 export const SUBTITLE = { size: 14, em: 0.56 } as const
+/** A context's name/placeholder chip on the map (CB-01, ADR-04). */
+export const CHIP_LABEL = { size: 12, em: 0.62, tracking: 0.3 } as const
 
 export const measure = (text: string, m: { size: number; em: number; tracking?: number }) =>
   text.length * (m.size * m.em + (m.tracking ?? 0))

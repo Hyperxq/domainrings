@@ -1,6 +1,8 @@
-import { diagramOf, UNTITLED_HEXAGON } from '../model/map'
+import { contextName, diagramOf, UNTITLED_HEXAGON } from '../model/map'
 import type { HexaMap, Link } from '../model/schema'
+import { contextRegions } from './hull'
 import { layoutDiagram, type Box, type LayoutModel, type LayoutOptions, type LayoutText, type Point } from './layout'
+import { CHIP_LABEL, measure } from './text'
 
 export interface MapHexagonLayout {
   id: string
@@ -16,6 +18,16 @@ export interface MapLinkLayout {
   points: [Point, Point]
 }
 
+export interface MapContextLayout {
+  id: string
+  label: string
+  /** The context's outlined region (ADR-04): one array entry per closed loop — several for a split context or one
+   * ringing a foreign hexagon (a hole). */
+  loops: Point[][]
+  /** Anchor for the context's name chip: above the region's topmost vertex. */
+  chip: Point
+}
+
 export interface MapLayout {
   hexagons: MapHexagonLayout[]
   links: MapLinkLayout[]
@@ -25,12 +37,29 @@ export interface MapLayout {
   /** The lattice spacing this layout used (ADR-01) — lets a caller place a not-yet-existing neighbour cell, such
    * as the grow-menu anchor on a free side (SEAM-04). */
   pitch: Point
+  /** One entry per context, only from two contexts up (CB-01.1) — an empty array below that threshold. */
+  contexts: MapContextLayout[]
 }
 
 /** Gap kept between two adjacent hexagons' outer edges, on top of their content width. */
 export const MAP_GAP = 60
 const MAP_TITLE_SIZE = 20
 const MAP_TITLE_GAP = 16
+/** Vertical clearance between a region's topmost vertex and its chip. */
+const CHIP_GAP = 12
+const CHIP_HEIGHT = 16
+
+/** Above the region's topmost vertex (min y, then min x to break ties) — always inside the map's own bounds. */
+function chipAnchor(loops: Point[][]): Point {
+  const top = loops.flat().reduce((best, v) => (v.y < best.y || (v.y === best.y && v.x < best.x) ? v : best))
+  return { x: top.x, y: top.y - CHIP_GAP }
+}
+
+/** A chip's approximate footprint, so a long context name still grows the map's bounds to include it. */
+function chipBox(chip: Point, label: string): Box {
+  const width = measure(label, CHIP_LABEL)
+  return { x: chip.x - width / 2, y: chip.y - CHIP_HEIGHT / 2, width, height: CHIP_HEIGHT }
+}
 
 function unionBox(boxes: Box[]): Box {
   const x0 = Math.min(...boxes.map((b) => b.x))
@@ -108,5 +137,21 @@ export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout 
     title = { key: 'map-title', text: map.title, x: bounds.x, y: bounds.y - MAP_TITLE_GAP, style: 'title' }
     bounds = { x: bounds.x, y: bounds.y - MAP_TITLE_GAP - MAP_TITLE_SIZE, width: bounds.width, height: bounds.height + MAP_TITLE_GAP + MAP_TITLE_SIZE }
   }
-  return { hexagons, links, bounds, title, pitch }
+
+  // Outlined regions + chips only from two contexts up (CB-01.1) — a single-context map draws and exports exactly
+  // as #1 would have (CB-01.4).
+  const contexts: MapContextLayout[] = []
+  if (map.contexts.length >= 2) {
+    const regions = contextRegions(hexagons, pitch)
+    for (const context of map.contexts) {
+      const loops = regions.get(context.id) ?? []
+      if (!loops.length) continue // a context declared with no hexagons (schema allows it, the store never creates one) draws nothing
+      const chip = chipAnchor(loops)
+      contexts.push({ id: context.id, label: contextName(map, context.id), loops, chip })
+    }
+    const contextBoxes = contexts.flatMap((c) => [...c.loops.flat().map((p): Box => ({ x: p.x, y: p.y, width: 0, height: 0 })), chipBox(c.chip, c.label)])
+    bounds = unionBox([bounds, ...contextBoxes])
+  }
+
+  return { hexagons, links, bounds, title, pitch, contexts }
 }
