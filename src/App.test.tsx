@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { App } from './App'
 import { EXAMPLE_DIAGRAM, TWO_SLICES_MAP } from './model/example'
 import { toHexa, toMap } from './model/hexa'
-import { diagramOf } from './model/map'
+import { diagramOf, UNTITLED_HEXAGON } from './model/map'
 import { useMapStore } from './model/store'
 import { fileSlug } from './ui/exporters'
 import { card, currentDiagram, hexGroup, linkedTwoHexMap, twoHexMap } from './test/fixtures'
@@ -804,6 +804,36 @@ describe('export scope (EXPORT-03)', () => {
     expect(hexMarkup).not.toContain('Second slice')
     expect(clickSpy.mock.instances.at(-1)).toMatchObject({ download: `${fileSlug(EXAMPLE_DIAGRAM.title)}.svg` })
     expect(viewBoxWidth(hexMarkup)).toBeLessThan(viewBoxWidth(mapMarkup))
+
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  it('names a blank-titled hexagon export after the untitled hexagon, not the whole map (EXPORT-02.2)', async () => {
+    const map = twoHexMap()
+    useMapStore.getState().replace({ ...map, hexagons: [map.hexagons[0], { ...map.hexagons[1], title: '' }] })
+    const { container } = render(<App />)
+    fireEvent.click(hexGroup(container, 'h2'))
+    fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(clickSpy.mock.instances.at(-1)).toMatchObject({ download: `${fileSlug(UNTITLED_HEXAGON)}.svg` })
+    const markup = await captured!.text()
+    expect(markup).toContain(`<title>${UNTITLED_HEXAGON}</title>`)
 
     createSpy.mockRestore()
     clickSpy.mockRestore()

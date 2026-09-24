@@ -166,7 +166,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       // Only a multi-hexagon map has a scope to honour — a single hexagon always exports map-shaped (EXPORT-03.1).
       const scoped = exportScope === 'hexagon' && multiHexagon
       const frame = scoped ? hexagonBounds(currentHexagon(model, hexId)) : model.bounds
-      const exportTitle = scoped ? diagram.title : map.title
+      const exportTitle = scoped ? diagram.title || UNTITLED_HEXAGON : map.title
       const name = fileSlug(exportTitle)
       const options = { legend: legendInExport, legendHeight: legendSize(legend).height, only: scoped ? hexId : undefined }
       const markup = await svgMarkup(svgRef.current, frame, exportTitle, options)
