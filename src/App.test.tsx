@@ -637,6 +637,26 @@ describe('boot recovery notice', () => {
     expect(screen.queryByRole('status')).toBeNull()
     vi.useRealTimers()
   })
+
+  it('keeps the recovery notice on screen through a later status toast and starting a link (REQ-03.2)', () => {
+    const { container } = render(<App boot={{ recovery: 'kept', unreadableText: '{x' }} />)
+    expect(screen.getByRole('button', { name: 'Download saved copy' })).toBeTruthy()
+
+    // An ordinary status toast (here: an edit) must not replace the recovery notice.
+    fireEvent.click(onCanvas(container, EXAMPLE_DIAGRAM.useCases[0].id))
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+    expect(screen.getByRole('button', { name: 'Download saved copy' })).toBeTruthy()
+
+    // Starting a link — the other path that used to clear any non-error notice — must not clear it either.
+    const adapter = EXAMPLE_DIAGRAM.adapters.find((a) => EXAMPLE_DIAGRAM.ports.find((p) => p.id === a.portId)?.side === 'driven')!
+    fireEvent.click(onCanvas(container, adapter.id))
+    fireEvent.keyDown(document.body, { key: 'l' })
+    const recoverySection = screen.getByRole('button', { name: 'Download saved copy' }).closest('section')!
+    expect(recoverySection).toBeTruthy()
+
+    fireEvent.click(recoverySection.querySelector<HTMLButtonElement>('[aria-label="Dismiss"]')!)
+    expect(screen.queryByRole('button', { name: 'Download saved copy' })).toBeNull()
+  })
 })
 
 describe('export scope (EXPORT-03)', () => {

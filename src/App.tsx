@@ -73,7 +73,10 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     revealInEditor(ref, focus)
   }
   const [theme, setTheme] = useState(currentTheme)
-  const [notice, setNotice] = useState<Notice | null>(() =>
+  const [notice, setNotice] = useState<Notice | null>(null)
+  // Its own slot, never touched by show()/startLinking: it stays until the user dismisses it (REQ-03.2),
+  // whatever status toasts or link-mode hints come and go in the meantime.
+  const [recoveryNotice, setRecoveryNotice] = useState<Notice | null>(() =>
     boot.recovery === 'none'
       ? null
       : { id: 0, tone: 'recovery', message: RECOVERY_MESSAGE[boot.recovery], download: boot.recovery === 'kept' ? boot.unreadableText : undefined },
@@ -264,16 +267,16 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           </div>
         </section>
       )}
-      {notice?.tone === 'recovery' && (
+      {recoveryNotice && (
         <section className="island notice" role="status" aria-live="polite">
-          <p>{notice.message}</p>
+          <p>{recoveryNotice.message}</p>
           <div className="notice-actions">
-            {notice.download !== undefined && (
-              <button type="button" className="text-button" onClick={() => download(notice.download!, 'unreadable-session.hexa', 'application/json')}>
+            {recoveryNotice.download !== undefined && (
+              <button type="button" className="text-button" onClick={() => download(recoveryNotice.download!, 'unreadable-session.hexa', 'application/json')}>
                 Download saved copy
               </button>
             )}
-            <button type="button" className="icon-button small" aria-label="Dismiss" onClick={() => setNotice(null)}>
+            <button type="button" className="icon-button small" aria-label="Dismiss" onClick={() => setRecoveryNotice(null)}>
               <Icon name="close" />
             </button>
           </div>
