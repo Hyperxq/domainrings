@@ -23,8 +23,10 @@ interface MapState {
   /** Bumps when the whole map is swapped, so the stage knows to refit. */
   revision: number
   replace: (map: HexaMap) => void
-  /** Undo: restores both the map and whichever hexagon was current at the time of the edit, without bumping revision. */
-  restore: (snapshot: { map: HexaMap; focus: string }) => void
+  /** Undo: restores both the map and whichever hexagon was current at the time of the edit. An item edit leaves the
+   * revision alone (link mode and the view survive); undoing a whole-map swap (`swap: true`) bumps it like `replace`
+   * did, so the view refits and link mode ends. */
+  restore: (snapshot: { map: HexaMap; focus: string; swap?: boolean }) => void
   setFocus: (hexId: string) => void
   setMapMeta: (meta: MapMeta) => void
   setMeta: (hexId: string, meta: HexagonMeta) => void
@@ -55,7 +57,7 @@ export const useMapStore = create<MapState>()((set, get) => {
     focus: boot.map.hexagons[0].id,
     revision: 0,
     replace: (map) => set({ map, focus: map.hexagons[0].id, revision: get().revision + 1 }),
-    restore: ({ map, focus }) => set({ map, focus }),
+    restore: ({ map, focus, swap }) => set((s) => ({ map, focus, revision: swap ? s.revision + 1 : s.revision })),
     setFocus: (hexId) => set((s) => (s.map.hexagons.some((h) => h.id === hexId) ? { focus: hexId } : {})),
     setMapMeta: (meta) =>
       set((s) => (meta.kind && meta.kind !== 'hexagonal' && s.map.hexagons.length > 1 ? {} : { map: { ...s.map, ...meta } })),

@@ -27,7 +27,7 @@ interface Notice {
   tone: 'status' | 'error' | 'recovery'
   message: string
   details?: string[]
-  undo?: { map: HexaMap; focus: string }
+  undo?: { map: HexaMap; focus: string; swap?: boolean }
   /** The unreadable text a "recovery" notice offers to download, when a copy was kept. */
   download?: string
 }
@@ -89,7 +89,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const [exportScope, setExportScope] = useState<ExportScope>('map')
 
   const swap = (nextMap: HexaMap, message: string) => {
-    show({ tone: 'status', message, undo: { map, focus: hexId } })
+    show({ tone: 'status', message, undo: { map, focus: hexId, swap: true } })
     replace(nextMap)
     setExportScope('map')
   }

@@ -93,6 +93,17 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
     setView(null)
   }
 
+  // Whatever moves the store's focus — a click/keyboard switch (also handled in focusHexagon) or an Undo outside
+  // Stage's own handlers — leaves no stale selection or link mode pointing at a hexagon that is no longer current.
+  // An effect, not a render-phase update like fitKey above: onLinking sets App's own state, and React disallows
+  // updating a different component's state while this one renders.
+  useEffect(() => {
+    setSelected(null)
+    onLinking(null)
+    // Deliberately keyed on hexId alone — onLinking is a fresh closure every App render and must not re-fire this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hexId])
+
   const viewport =
     view ?? fitMap(model.bounds, hexagonBounds(hex), size.width || model.bounds.width, size.height || model.bounds.height, islandInset(size, panelOpen, legendOpen))
   const centre = { x: size.width / 2, y: size.height / 2 }

@@ -527,6 +527,24 @@ describe('current hexagon (FOCUS-03, FOCUS-06)', () => {
     expect(useMapStore.getState().map).toBe(beforeEdit)
     expect(useMapStore.getState().focus).toBe('h1')
   })
+
+  it('undoing a swap clears a stale selection left on the hexagon that comes back current, so Delete has nothing to act on (FOCUS-06.2)', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<App />)
+    fireEvent.click(hexGroup(container, 'h2'))
+    expect(useMapStore.getState().focus).toBe('h2')
+    const useCase = EXAMPLE_DIAGRAM.useCases[0]
+    fireEvent.click(hexGroup(container, 'h2').querySelector(`[data-ref="${useCase.id}"]`)!)
+    expect(container.querySelectorAll('[data-selected]')).toHaveLength(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useMapStore.getState().focus).toBe('h2')
+    expect(container.querySelectorAll('[data-selected]')).toHaveLength(0)
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+    expect(diagramOf(useMapStore.getState().map, 'h2').useCases.some((u) => u.id === useCase.id)).toBe(true)
+  })
 })
 
 describe('link pruning (LINK-01, LINK-02)', () => {

@@ -115,6 +115,20 @@ describe('map store', () => {
     expect(state().revision).toBe(revisionAfterEdit)
   })
 
+  it('restore bumps the revision when undoing a swap (swap: true), refitting the view — but not when undoing an edit', () => {
+    const before = state()
+    const swapSnapshot = { map: before.map, focus: before.focus, swap: true }
+    const editSnapshot = { map: before.map, focus: before.focus }
+    const revisionBefore = state().revision
+
+    state().restore(swapSnapshot)
+    expect(state().revision).toBe(revisionBefore + 1)
+
+    const revisionAfterSwapRestore = state().revision
+    state().restore(editSnapshot)
+    expect(state().revision).toBe(revisionAfterSwapRestore)
+  })
+
   it('setFocus moves the current hexagon without touching map or revision', () => {
     const twoHex = {
       ...toMap(EXAMPLE_DIAGRAM),
