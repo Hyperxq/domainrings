@@ -44,7 +44,8 @@ const EXPORT_CHOICES = [
 
 /* Each tier's widest toolbar (a multi-hexagon map, fallback fonts) plus the 12px side margins, measured in Chrome:
  * the full one is 1326px, so below 1350 the kind radios and export buttons collapse; the compact one is 1112px, so
- * below 1136 the file actions lose their words and the view controls fold into a menu. */
+ * below 1136 the file actions lose their words, the view controls fold into a menu and the export scope into the
+ * Export menu. */
 export const FULL_TOOLBAR = '(min-width: 1350px)'
 export const ROOMY_TOOLBAR = '(min-width: 1136px)'
 const media = (query: string) => ({
@@ -181,7 +182,7 @@ export function Toolbar({ kind, kindLocked, theme, onKind, onNew, onExample, onI
 
       <span className="divider" aria-hidden="true" />
 
-      {showScope && (
+      {showScope && roomy && (
         <fieldset className="kinds">
           <legend className="visually-hidden">Export scope</legend>
           {(['map', 'hexagon'] as const).map((s) => (
@@ -212,8 +213,11 @@ export function Toolbar({ kind, kindLocked, theme, onKind, onNew, onExample, onI
               <Icon name="chevron" />
             </>
           }
-          choices={EXPORT_CHOICES}
-          onChoose={onExport}
+          choices={[
+            ...(showScope && !roomy ? (['map', 'hexagon'] as const).map((s) => ({ id: s, label: SCOPE_LABEL[s], checked: exportScope === s })) : []),
+            ...EXPORT_CHOICES,
+          ]}
+          onChoose={(id) => (id === 'map' || id === 'hexagon' ? onExportScope(id) : onExport(id))}
         />
       )}
 

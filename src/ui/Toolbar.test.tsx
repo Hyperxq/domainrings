@@ -23,7 +23,9 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-function renderToolbar(overrides: { kindLocked?: boolean; mode?: 'overview' | 'detailed'; guides?: boolean; highlight?: boolean } = {}) {
+function renderToolbar(
+  overrides: { kindLocked?: boolean; mode?: 'overview' | 'detailed'; guides?: boolean; highlight?: boolean; showScope?: boolean; exportScope?: 'map' | 'hexagon' } = {},
+) {
   const props = {
     kind: 'hexagonal' as const,
     kindLocked: false,
@@ -41,7 +43,7 @@ function renderToolbar(overrides: { kindLocked?: boolean; mode?: 'overview' | 'd
     highlight: true,
     onHighlight: vi.fn(),
     showScope: false,
-    exportScope: 'map' as const,
+    exportScope: 'map' as 'map' | 'hexagon',
     onExportScope: vi.fn(),
     ...overrides,
   }
@@ -129,6 +131,17 @@ describe('Toolbar between the two breakpoints', () => {
     expect(screen.getByRole('button', { name: 'Guides' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
   })
+
+  it('keeps the export scope as radios beside an Export menu of formats only', () => {
+    const { onExportScope } = renderToolbar({ showScope: true })
+    fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
+    expect(onExportScope).toHaveBeenCalledWith('hexagon')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }))
+
+    expect(screen.queryAllByRole('menuitemcheckbox')).toHaveLength(0)
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['.hexa', 'SVG', 'PNG'])
+  })
 })
 
 describe('Toolbar below the compact breakpoint', () => {
@@ -183,5 +196,48 @@ describe('Toolbar below the compact breakpoint', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Export' }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'SVG' }))
     expect(onExport).toHaveBeenCalledWith('svg')
+  })
+
+  const openExport = () => fireEvent.click(screen.getByRole('button', { name: 'Export' }))
+
+  it('folds the export scope into the Export menu, checked by the current scope, ahead of the formats', () => {
+    renderToolbar({ showScope: true, exportScope: 'map' })
+    expect(screen.queryByRole('radio', { name: 'Hexagon' })).toBeNull()
+
+    openExport()
+
+    const items = screen.getAllByRole('menu')[0].querySelectorAll('[role^="menuitem"]')
+    expect([...items].map((item) => [item.textContent, item.getAttribute('aria-checked')])).toEqual([
+      ['Map', 'true'],
+      ['Hexagon', 'false'],
+      ['.hexa', null],
+      ['SVG', null],
+      ['PNG', null],
+    ])
+  })
+
+  it('choosing a scope in the Export menu sets the scope and exports nothing', () => {
+    const { onExport, onExportScope } = renderToolbar({ showScope: true, exportScope: 'map' })
+    openExport()
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Hexagon' }))
+    expect(onExportScope).toHaveBeenCalledTimes(1)
+    expect(onExportScope).toHaveBeenCalledWith('hexagon')
+    expect(onExport).not.toHaveBeenCalled()
+  })
+
+  it('choosing a format in the Export menu exports it and leaves the scope alone', () => {
+    const { onExport, onExportScope } = renderToolbar({ showScope: true, exportScope: 'hexagon' })
+    openExport()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'PNG' }))
+    expect(onExport).toHaveBeenCalledTimes(1)
+    expect(onExport).toHaveBeenCalledWith('png')
+    expect(onExportScope).not.toHaveBeenCalled()
+  })
+
+  it('lists no scope items for a single-hexagon map', () => {
+    renderToolbar({ showScope: false })
+    openExport()
+    expect(screen.queryAllByRole('menuitemcheckbox')).toHaveLength(0)
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['.hexa', 'SVG', 'PNG'])
   })
 })
