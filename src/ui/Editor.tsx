@@ -138,6 +138,7 @@ interface SectionProps<K extends CollectionKey> {
 }
 
 function Section<K extends CollectionKey>({ hexId, map, onPrune, collection, items, title, noun, empty, fields, actions, groups }: SectionProps<K>) {
+  const report = (pruned: Link[]) => pruned.length && onPrune(pruned, { map, focus: hexId })
   const add = (
     <button type="button" className="icon-button small" aria-label={`Add ${noun}`} title={`Add ${noun}`} onClick={() => addItem(hexId, collection)}>
       <Icon name="plus" />
@@ -146,10 +147,7 @@ function Section<K extends CollectionKey>({ hexId, map, onPrune, collection, ite
   const cards = (list: Item<K>[]) => (
         <ul className="items">
           {list.map((item) => {
-            const update = (patch: Patch<K>) => {
-              const pruned = updateItem(hexId, collection, item.id, patch)
-              if (pruned.length) onPrune(pruned, { map, focus: hexId })
-            }
+            const update = (patch: Patch<K>) => report(updateItem(hexId, collection, item.id, patch))
             return (
               <li key={item.id} className="item" data-item-id={item.id}>
                 <input className="name" aria-label={`${noun} name`} value={item.name} onChange={(e) => update({ name: e.target.value } as Patch<K>)} />
@@ -158,10 +156,7 @@ function Section<K extends CollectionKey>({ hexId, map, onPrune, collection, ite
                   className="icon-button small remove"
                   aria-label={`Remove ${noun} ${item.name}`}
                   title={`Remove ${noun}`}
-                  onClick={() => {
-                    const pruned = removeItem(hexId, collection, item.id)
-                    if (pruned.length) onPrune(pruned, { map, focus: hexId })
-                  }}
+                  onClick={() => report(removeItem(hexId, collection, item.id))}
                 >
                   <Icon name="close" />
                 </button>
