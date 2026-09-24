@@ -1,0 +1,31 @@
+{
+  "app": "domainrings",
+  "version": 1,
+  "kind": "hexagonal",
+  "title": "Maximal",
+  "subtitle": "Every optional field present",
+  "seedVersion": 4,
+  "extra": "unknown top-level key, must not survive migration",
+  "domain": [
+    { "id": "d-root", "name": "Root", "type": "aggregate", "note": "root note" },
+    { "id": "d-child", "name": "Child", "type": "entity", "parentId": "d-root", "note": "child note" }
+  ],
+  "useCases": [
+    { "id": "uc-1", "name": "DoThing", "placement": "nw", "note": "uc note" }
+  ],
+  "ports": [
+    { "id": "p-in", "name": "in", "side": "driving", "wall": "nw", "useCaseId": "uc-1", "note": "port note" },
+    { "id": "p-out", "name": "out", "side": "driven", "wall": "se", "note": "out note" }
+  ],
+  "adapters": [
+    { "id": "a-1", "name": "Adapter1", "portId": "p-in", "note": "adapter note" }
+  ],
+  "actors": [
+    { "id": "act-1", "name": "Actor1", "adapterId": "a-1", "note": "actor note" }
+  ],
+  "externals": [
+    { "id": "ext-1", "name": "External1", "adapterId": "a-1", "note": "external note" }
+  ],
+  "composition": { "name": "composition.ts", "note": "comp note" },
+  "layers": { "application": { "title": "App", "subtitle": "use cases" }, "domain": { "title": "Domain" } }
+}

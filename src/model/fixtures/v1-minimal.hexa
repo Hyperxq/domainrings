@@ -1,0 +1,12 @@
+{
+  "app": "domainrings",
+  "version": 1,
+  "kind": "hexagonal",
+  "title": "Minimal",
+  "domain": [],
+  "useCases": [],
+  "ports": [],
+  "adapters": [],
+  "actors": [],
+  "externals": []
+}

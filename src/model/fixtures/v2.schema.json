@@ -1,0 +1,422 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "number",
+      "const": 2
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "hexagonal",
+        "clean",
+        "onion"
+      ]
+    },
+    "title": {
+      "type": "string"
+    },
+    "contexts": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "hexagons": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "entity",
+                    "valueObject",
+                    "aggregate",
+                    "domainService"
+                  ]
+                },
+                "parentId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "note": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "type"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "useCases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string"
+                },
+                "placement": {
+                  "type": "string",
+                  "enum": [
+                    "top",
+                    "nw",
+                    "w",
+                    "sw",
+                    "ne",
+                    "e",
+                    "se"
+                  ]
+                },
+                "note": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "ports": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string"
+                },
+                "side": {
+                  "type": "string",
+                  "enum": [
+                    "driving",
+                    "driven"
+                  ]
+                },
+                "wall": {
+                  "type": "string",
+                  "enum": [
+                    "nw",
+                    "w",
+                    "sw",
+                    "ne",
+                    "e",
+                    "se"
+                  ]
+                },
+                "useCaseId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "note": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "side"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "adapters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string"
+                },
+                "portId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "note": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "actors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string"
+                },
+                "adapterId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "note": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "externals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string"
+                },
+                "adapterId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "note": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "composition": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "layers": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "enum": [
+                "outer",
+                "adapters",
+                "application",
+                "domainServices",
+                "domain"
+              ]
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "subtitle": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "contextId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cell": {
+            "type": "object",
+            "properties": {
+              "q": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "r": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "q",
+              "r"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "title",
+          "domain",
+          "useCases",
+          "ports",
+          "adapters",
+          "actors",
+          "externals",
+          "id",
+          "contextId",
+          "cell"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "from": {
+            "type": "object",
+            "properties": {
+              "hexagonId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "portId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "adapterId": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "hexagonId",
+              "portId"
+            ],
+            "additionalProperties": false
+          },
+          "to": {
+            "type": "object",
+            "properties": {
+              "hexagonId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "portId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "adapterId": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "hexagonId",
+              "portId"
+            ],
+            "additionalProperties": false
+          },
+          "pattern": {
+            "type": "string",
+            "enum": [
+              "acl",
+              "ohs-pl",
+              "customer-supplier",
+              "conformist",
+              "shared-kernel"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "from",
+          "to"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "app": {
+      "type": "string",
+      "const": "domainrings"
+    }
+  },
+  "required": [
+    "version",
+    "kind",
+    "title",
+    "contexts",
+    "hexagons",
+    "links",
+    "app"
+  ],
+  "additionalProperties": false
+}
