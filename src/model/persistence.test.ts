@@ -4,6 +4,7 @@ import { autosave, browserStorage, loadMap, LEGACY_KEY, MAP_KEY, UNREADABLE_KEY,
 import { readPref } from '../ui/prefs'
 import { parseHexa, toHexa, toMap } from './hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, SEED_VERSION, TWO_SLICES_MAP } from './example'
+import { useMapStore } from './store'
 import type { Diagram, HexaMap } from './schema'
 
 const memoryStorage = (initial: Record<string, string> = {}) => {
@@ -246,8 +247,9 @@ describe('RT-01: the shipped "Two slices, one link" example round-trips through 
     expect(reloaded).toEqual({ map: store.getState().map, recovery: 'none' })
     expect(reloaded.map).toStrictEqual(edited)
     // A fresh boot off the reloaded map always focuses its first hexagon (FOCUS-02), regardless of what was
-    // current when the edit was made.
-    expect(reloaded.map.hexagons[0].id).toBe('h1')
+    // current when the edit was made — through the real replace() action, not just the map's own hexagon order.
+    useMapStore.getState().replace(reloaded.map)
+    expect(useMapStore.getState().focus).toBe(reloaded.map.hexagons[0].id)
   })
 })
 
