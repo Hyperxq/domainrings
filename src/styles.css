@@ -286,6 +286,10 @@ body {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+.icon-solid {
+  fill: currentColor;
+  stroke: none;
+}
 
 .icon-button,
 .text-button,

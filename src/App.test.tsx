@@ -274,7 +274,7 @@ describe('toolbar', () => {
     expect(link.getAttribute('target')).toBe('_blank')
     expect(link.getAttribute('rel')).toBe('noreferrer')
     expect(link.closest('.toolbar')).not.toBeNull()
-    expect(link.querySelector('svg')).not.toBeNull()
+    expect(link.querySelector('svg.icon-solid')).not.toBeNull()
   })
 })
 

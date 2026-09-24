@@ -233,7 +233,7 @@ export function Toolbar({ kind, kindLocked, theme, onKind, onNew, onExample, onI
         <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
       </button>
       <a className="icon-button" href={REPOSITORY_URL} target="_blank" rel="noreferrer" aria-label="View the source on GitHub" title="Source on GitHub">
-        <Icon name="code" />
+        <Icon name="github" />
       </a>
     </header>
   )
