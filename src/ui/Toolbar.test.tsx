@@ -272,6 +272,25 @@ describe('Toolbar below the compact breakpoint', () => {
   })
 })
 
+// At a literal phone width (below styles.css's toolbar wrap point, TOOLBAR-PHONE-01) the markup is the same
+// icon-only tier as above — styles.css wraps it into two rows instead of scrolling sideways — so this pins the
+// requirement that drove the wrap: nothing is dropped for it to hide, every control stays reachable as one of
+// the three menus or a labelled icon/link.
+describe('Toolbar at phone width', () => {
+  beforeEach(() => {
+    viewport = 390
+  })
+
+  it('keeps every control reachable: the three menus, the labelled file actions, and the GitHub link', () => {
+    renderToolbar({ showScope: true })
+    for (const name of ['View', 'Export', 'Appearance']) expect(screen.getByRole('button', { name })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'New diagram' })).toBeTruthy()
+    expect(screen.getByRole('combobox', { name: 'Load an example' })).toBeTruthy()
+    expect(screen.getByLabelText('Import a .hexa file')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'View the source on GitHub' })).toBeTruthy()
+  })
+})
+
 describe('Toolbar appearance menu', () => {
   const openAppearance = () => fireEvent.click(screen.getByRole('button', { name: 'Appearance' }))
   const iconPath = () => screen.getByRole('button', { name: 'Appearance' }).querySelector('path')!.getAttribute('d')!

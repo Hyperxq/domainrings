@@ -81,6 +81,9 @@ export const EDITOR_CHIP_BOTTOM = 72 + 46
 // Mirrors the island placement in styles.css so a fit never tucks the diagram under a panel. On phones the open
 // legend floats over the canvas: reserving its column would leave no room for the diagram.
 export function islandInset({ width, height }: { width: number; height: number }, panelOpen: boolean, legendOpen: boolean): Inset {
+  // Below the toolbar's wrap point (styles.css `@media (max-width: 640px)`) it grows from one row to two,
+  // pushing the zoom island — and everything reserved below it — down by that extra row's height.
+  if (width <= 640) return { top: 140, right: 8, bottom: panelOpen ? height * 0.45 + 16 : 64, left: 8 }
   if (width <= 720) return { top: 104, right: 8, bottom: panelOpen ? height * 0.45 + 16 : 64, left: 8 }
   // Open, the editor takes the left column; collapsed, its chip still sits top-left, where the diagram's title goes.
   return { top: panelOpen ? 64 : EDITOR_CHIP_BOTTOM + 8, right: legendOpen ? LEGEND_ISLAND_WIDTH + 24 : 16, bottom: panelOpen ? 16 : 60, left: panelOpen ? 324 : 16 }

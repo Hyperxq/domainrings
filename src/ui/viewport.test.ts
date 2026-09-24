@@ -57,6 +57,14 @@ describe('viewport', () => {
     expect(toDiagram(fit, { x: 0, y: EDITOR_CHIP_BOTTOM }).y).toBeLessThanOrEqual(bounds.y + 1e-9)
   })
 
+  it('reserves extra top room on a phone, where the toolbar wraps into two rows (TOOLBAR-PHONE-01)', () => {
+    const tablet = islandInset({ width: 700, height: 800 }, false, false)
+    const phone = islandInset({ width: 390, height: 844 }, false, false)
+    expect(phone.top).toBeGreaterThan(tablet.top)
+    expect(phone.right).toBe(tablet.right)
+    expect(phone.left).toBe(tablet.left)
+  })
+
   it('fits the whole map when it fits at a usable scale (CANVAS-04.1)', () => {
     const mapBounds = { x: -400, y: -300, width: 800, height: 600 }
     const currentBounds = { x: -400, y: -300, width: 200, height: 200 }

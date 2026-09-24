@@ -646,3 +646,15 @@ span.swatch-external { background: var(--slate-soft); border-color: var(--slate)
   .toast { top: 108px; bottom: auto; }
   .legend { top: 108px; bottom: auto; right: 8px; }
 }
+
+/* Below this the icon-only toolbar (614-618px wide) no longer fits the ~340-374px available on a phone, so it
+   wraps into two centred rows instead of scrolling sideways; that grows it from one row (42px) to two (78px,
+   measured in Chrome), pushing every island stacked below it (zoom, notices, toast, legend) down by that 36px,
+   matched by `islandInset`'s width<=640 branch in viewport.ts. */
+@media (max-width: 640px) {
+  .toolbar { flex-wrap: wrap; justify-content: center; overflow-x: visible; touch-action: none; }
+  .zoom { top: 96px; }
+  .notices { top: 144px; }
+  .toast { top: 144px; }
+  .legend { top: 144px; }
+}
