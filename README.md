@@ -59,7 +59,7 @@ Your work autosaves in this browser's `localStorage` a moment after each change,
 
 Each meaning has one channel, and a collapsible legend in the bottom-right corner lists them:
 
-- **Colour = layer or side:** amber for the driving side, teal for the application, solid teal for the domain, slate for the driven side and external systems.
+- **Colour = layer or side:** indigo for the driving side, rust for the driven side, teal for the application ring and a solid teal domain, slate for the outer ring and external systems.
 - **Stroke = role:** dashed for contracts (ports), solid for implementations (adapters, use cases), dotted for wiring and ownership.
 - **Glyph + word = type:** `◆ aggregate`, `● entity`, `○ value object`, `⚙ domain service`, `▶ use case`, `⇥` for the driving side and `⇤` for the driven side, with each skin's own port and adapter words.
 
