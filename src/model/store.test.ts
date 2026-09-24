@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useMapStore } from './store'
 import { toMap } from './hexa'
-import { diagramOf } from './map'
+import { diagramOf, freeSides, neighbour, SIDE_ORDER, UNTITLED_HEXAGON } from './map'
 import { MapSchema, type HexaMap, type Link } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
 
@@ -186,6 +186,79 @@ describe('map store', () => {
       const flippedBack = state().updateItem('h1', 'ports', 'p-repo', { side: 'driven', wall: 'e' })
       expect(flippedBack).toEqual([])
       expect(state().map.links).toEqual([])
+    })
+  })
+
+  describe('addHexagon (ADR-02, SEAM-03)', () => {
+    it('grows into the same context on the given side, focuses it, and leaves revision untouched', () => {
+      const before = state()
+      const revisionBefore = before.revision
+      const hexId = state().addHexagon(before.focus, { side: 'e', context: 'same' })
+      expect(hexId).toBeDefined()
+      const grown = state().map.hexagons.find((h) => h.id === hexId)!
+      expect(grown.contextId).toBe(before.map.hexagons[0].contextId)
+      expect(grown.cell).toStrictEqual(neighbour(before.map.hexagons[0].cell, 'e'))
+      expect(grown.title).toBe(UNTITLED_HEXAGON)
+      expect(state().map.contexts).toStrictEqual(before.map.contexts)
+      expect(state().focus).toBe(hexId)
+      expect(state().revision).toBe(revisionBefore)
+    })
+
+    it('grows into a new context appended in the same transition when context is "new"', () => {
+      const before = state()
+      const hexId = state().addHexagon(before.focus, { side: 'w', context: 'new' })
+      expect(state().map.contexts).toHaveLength(before.map.contexts.length + 1)
+      const newContext = state().map.contexts.at(-1)!
+      expect(state().map.hexagons.find((h) => h.id === hexId)?.contextId).toBe(newContext.id)
+      expect(state().map.hexagons.filter((h) => h.contextId === newContext.id)).toHaveLength(1)
+    })
+
+    it('omitting side falls back to the first free side in SIDE_ORDER', () => {
+      const before = state()
+      const firstFree = freeSides(before.map, before.map.hexagons[0].cell)[0]
+      const hexId = state().addHexagon(before.focus, { context: 'same' })
+      const grown = state().map.hexagons.find((h) => h.id === hexId)!
+      expect(grown.cell).toStrictEqual(neighbour(before.map.hexagons[0].cell, firstFree))
+    })
+
+    it('returns undefined and leaves the map untouched when the hexagon has no free side', () => {
+      const before = state()
+      const surrounded: HexaMap = {
+        ...before.map,
+        hexagons: [before.map.hexagons[0], ...SIDE_ORDER.map((s, i) => ({ ...before.map.hexagons[0], id: `ring${i}`, cell: neighbour(before.map.hexagons[0].cell, s) }))],
+      }
+      state().replace(surrounded)
+      const map = state().map
+      const hexId = state().addHexagon(state().focus, { context: 'same' })
+      expect(hexId).toBeUndefined()
+      expect(state().map).toBe(map)
+    })
+
+    it('returns undefined on a non-hexagonal map without convert, leaving the map untouched', () => {
+      state().setMapMeta({ kind: 'clean' })
+      const map = state().map
+      const hexId = state().addHexagon(state().focus, { context: 'same' })
+      expect(hexId).toBeUndefined()
+      expect(state().map).toBe(map)
+    })
+
+    it('with convert: true, grows a non-hexagonal map and flips its kind to hexagonal in one notification', () => {
+      state().setMapMeta({ kind: 'onion' })
+      const hexId = state().addHexagon(state().focus, { context: 'same', convert: true })
+      expect(hexId).toBeDefined()
+      expect(state().map.kind).toBe('hexagonal')
+    })
+
+    it('every output parses MapSchema', () => {
+      state().addHexagon(state().focus, { context: 'new' })
+      expect(MapSchema.safeParse(state().map).success).toBe(true)
+    })
+
+    it('leaves every other hexagon untouched by reference', () => {
+      const before = state()
+      const untouched = before.map.hexagons[0]
+      state().addHexagon(before.focus, { side: 'e', context: 'new' })
+      expect(state().map.hexagons[0]).toBe(untouched)
     })
   })
 })

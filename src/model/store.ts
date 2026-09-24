@@ -1,7 +1,7 @@
 import { create } from 'zustand'
-import { diagramOf, putDiagram, pruneLinks } from './map'
+import { diagramOf, freeSides, neighbour, placeHexagon, putDiagram, pruneLinks, UNTITLED_HEXAGON } from './map'
 import { browserStorage, loadMap } from './persistence'
-import { REFERENCES, type CollectionKey, type Diagram, type HexaMap, type Hexagon, type Link, type Linkable } from './schema'
+import { REFERENCES, type CollectionKey, type Diagram, type HexaMap, type Hexagon, type Link, type Linkable, type Wall } from './schema'
 
 export type Item<K extends CollectionKey> = Diagram[K][number]
 type HexagonMeta = Partial<Pick<Hexagon, 'title' | 'subtitle' | 'composition' | 'layers'>>
@@ -33,6 +33,10 @@ interface MapState {
   addItem: <K extends CollectionKey>(hexId: string, key: K, patch?: Partial<Omit<Item<K>, 'id'>>) => string
   updateItem: <K extends CollectionKey>(hexId: string, key: K, id: string, patch: Partial<Omit<Item<K>, 'id'>>) => Link[]
   removeItem: (hexId: string, key: CollectionKey, id: string) => Link[]
+  /** Grows the map from `from`'s given (or first free, in SIDE_ORDER) side, into that hexagon's own context or a
+   * fresh one. Undefined — a no-op — when `from` has no free side, or the map isn't hexagonal and `convert` isn't
+   * set (ADR-02). Focuses the new hexagon; never bumps `revision`. */
+  addHexagon: (from: string, opts: { side?: Wall; context: 'same' | 'new'; convert?: boolean }) => string | undefined
 }
 
 // Computed keys widen to an index signature; this is the one place the collection type is re-asserted.
@@ -79,5 +83,16 @@ export const useMapStore = create<MapState>()((set, get) => {
         }
         return next
       }),
+    addHexagon: (from, { side, context, convert }) => {
+      const map = get().map
+      const source = map.hexagons.find((h) => h.id === from)
+      if (!source || (map.kind !== 'hexagonal' && !convert)) return undefined
+      const growSide = side ?? freeSides(map, source.cell)[0]
+      if (growSide === undefined) return undefined
+      const view: Diagram = { version: 1, kind: 'hexagonal', title: UNTITLED_HEXAGON, domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }
+      const { map: next, hexId } = placeHexagon(map, view, { cell: neighbour(source.cell, growSide), contextId: context === 'same' ? source.contextId : undefined })
+      set({ map: next, focus: hexId })
+      return hexId
+    },
   }
 })
