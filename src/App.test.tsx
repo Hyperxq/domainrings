@@ -2,10 +2,11 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { App } from './App'
 import { EXAMPLE_DIAGRAM } from './model/example'
-import { toMap } from './model/hexa'
+import { toHexa, toMap } from './model/hexa'
 import { diagramOf } from './model/map'
 import type { HexaMap, Link } from './model/schema'
 import { useMapStore } from './model/store'
+import { fileSlug } from './ui/exporters'
 
 const currentDiagram = () => diagramOf(useMapStore.getState().map, useMapStore.getState().focus)
 
@@ -576,5 +577,110 @@ describe('boot recovery notice', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
     expect(screen.queryByRole('status')).toBeNull()
     vi.useRealTimers()
+  })
+})
+
+describe('export scope (EXPORT-03)', () => {
+  const twoHexMap = (): HexaMap => {
+    const base = toMap(EXAMPLE_DIAGRAM)
+    const h1 = base.hexagons[0]
+    return { ...base, links: [], hexagons: [{ ...h1, cell: { q: 0, r: 0 } }, { ...h1, id: 'h2', cell: { q: 1, r: 0 }, title: 'Second slice' }] }
+  }
+
+  it('hides the Export scope choice on a single-hexagon map', () => {
+    render(<App />)
+    expect(screen.queryByRole('group', { name: 'Export scope' })).toBeNull()
+  })
+
+  it('shows the Export scope choice, defaulted to Map, on a multi-hexagon map', () => {
+    useMapStore.getState().replace(twoHexMap())
+    render(<App />)
+    expect((screen.getByRole('radio', { name: 'Map' }) as HTMLInputElement).checked).toBe(true)
+    expect((screen.getByRole('radio', { name: 'Hexagon' }) as HTMLInputElement).checked).toBe(false)
+  })
+
+  it('always saves the whole map as .hexa, regardless of the chosen export scope', async () => {
+    useMapStore.getState().replace(twoHexMap())
+    render(<App />)
+    fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
+
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save as .hexa file' }))
+
+    expect(clickSpy).toHaveBeenCalledTimes(1)
+    const anchor = clickSpy.mock.instances[0] as HTMLAnchorElement
+    expect(anchor.download).toMatch(/\.hexa$/)
+    const parsed = JSON.parse(await captured!.text())
+    expect(parsed.hexagons).toHaveLength(2)
+
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+  })
+
+  it('exports only the current hexagon (scope Hexagon) or the whole map (scope Map), each with its own title (EXPORT-01/02)', async () => {
+    useMapStore.getState().replace({ ...twoHexMap(), title: 'Whole map title' })
+    render(<App />)
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+    const viewBoxWidth = (markup: string) => Number(/viewBox="[-\d.]+ [-\d.]+ ([-\d.]+) /.exec(markup)![1])
+
+    // Scope defaults to Map, current hexagon (h1) unchanged: both hexagons' own headings should appear.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    const mapMarkup = await captured!.text()
+    expect(mapMarkup).toContain('Second slice') // h2's own heading — proves the whole map, not just h1, was exported
+    expect(clickSpy.mock.instances.at(-1)).toMatchObject({ download: `${fileSlug('Whole map title')}.svg` })
+
+    // Switch to Hexagon scope: only h1 (the current hexagon) should export, under its OWN title/filename.
+    fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    const hexMarkup = await captured!.text()
+    expect(hexMarkup).not.toContain('Second slice')
+    expect(clickSpy.mock.instances.at(-1)).toMatchObject({ download: `${fileSlug(EXAMPLE_DIAGRAM.title)}.svg` })
+    expect(viewBoxWidth(hexMarkup)).toBeLessThan(viewBoxWidth(mapMarkup))
+
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  describe('resets on replace', () => {
+    beforeEach(() => vi.useFakeTimers())
+    afterEach(() => vi.useRealTimers())
+
+    it('resets the export scope to Map whenever the map is replaced (import)', async () => {
+      useMapStore.getState().replace(twoHexMap())
+      render(<App />)
+      fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
+      expect((screen.getByRole('radio', { name: 'Hexagon' }) as HTMLInputElement).checked).toBe(true)
+
+      const file = new File([toHexa(twoHexMap())], 'two.hexa', { type: 'application/json' })
+      fireEvent.change(screen.getByLabelText('Import a .hexa file'), { target: { files: [file] } })
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      expect((screen.getByRole('radio', { name: 'Map' }) as HTMLInputElement).checked).toBe(true)
+      expect((screen.getByRole('radio', { name: 'Hexagon' }) as HTMLInputElement).checked).toBe(false)
+    })
   })
 })

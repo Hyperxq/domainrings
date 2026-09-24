@@ -6,6 +6,8 @@ import { Icon } from './Icon'
 
 const REPOSITORY_URL = 'https://github.com/Hyperxq/domainrings'
 
+export type ExportScope = 'map' | 'hexagon'
+
 interface ToolbarProps {
   kind: ArchitectureKind
   /** A map with more than one hexagon is always hexagonal (MIG-04) — the kind radios go inert and explain why. */
@@ -23,11 +25,16 @@ interface ToolbarProps {
   onGuides: (show: boolean) => void
   highlight: boolean
   onHighlight: (on: boolean) => void
+  /** Only a multi-hexagon map has more than one thing to export (EXPORT-03) — a single hexagon has nothing to choose between. */
+  showScope: boolean
+  exportScope: ExportScope
+  onExportScope: (scope: ExportScope) => void
 }
 
 const KIND_LOCK_HINT = 'A map with more than one hexagon is always hexagonal.'
+const SCOPE_LABEL: Record<ExportScope, string> = { map: 'Map', hexagon: 'Hexagon' }
 
-export function Toolbar({ kind, kindLocked, theme, onKind, onNew, onExample, onImport, onExport, onTheme, mode, onMode, guides, onGuides, highlight, onHighlight }: ToolbarProps) {
+export function Toolbar({ kind, kindLocked, theme, onKind, onNew, onExample, onImport, onExport, onTheme, mode, onMode, guides, onGuides, highlight, onHighlight, showScope, exportScope, onExportScope }: ToolbarProps) {
   return (
     <header className="island toolbar">
       <h1 className="wordmark">domainrings</h1>
@@ -115,6 +122,18 @@ export function Toolbar({ kind, kindLocked, theme, onKind, onNew, onExample, onI
       </label>
 
       <span className="divider" aria-hidden="true" />
+
+      {showScope && (
+        <fieldset className="kinds">
+          <legend className="visually-hidden">Export scope</legend>
+          {(['map', 'hexagon'] as const).map((s) => (
+            <label key={s} className="kind">
+              <input type="radio" name="export-scope" value={s} checked={exportScope === s} onChange={() => onExportScope(s)} />
+              <span>{SCOPE_LABEL[s]}</span>
+            </label>
+          ))}
+        </fieldset>
+      )}
 
       <span className="export">
         <span id="export-label" className="export-label">

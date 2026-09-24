@@ -42,6 +42,9 @@ export interface ExportOptions {
   /** Draw the legend block under the diagram's bottom-right corner. */
   legend: boolean
   legendHeight: number
+  /** Restricts the export to one hexagon's `[data-hex]` group — every other hexagon, the map link and the map
+   * title are dropped (EXPORT-02). Omitted (or unset) exports the whole map (EXPORT-01). */
+  only?: string
 }
 
 /** The exported frame: the diagram bounds, grown downward to make room for the legend when it is included. */
@@ -50,11 +53,17 @@ export const exportBounds = (bounds: Box, options: ExportOptions): Box =>
 
 // Hooks for styling and editing on the canvas; an exported file is a picture, not a control.
 const CANVAS_ONLY = ['class', 'tabindex', 'role', 'aria-label', 'data-ref', 'data-band', 'data-layer', 'data-selected', 'data-link-target']
+// Map-scoping attributes (SEAM-07): stripped in a SECOND pass, after the `only` filter and the cue removal have
+// used `data-hex`/`data-map-link`/`data-map-title` as selectors — stripping them earlier would leave nothing to select.
+const SCOPE_ONLY = ['data-hex', 'aria-current', 'aria-hidden', 'data-map-link', 'data-map-title', 'data-hover', 'data-cue']
 
 export async function svgMarkup(svg: SVGSVGElement, bounds: Box, title: string, options: ExportOptions): Promise<string> {
-  // Exports ignore hover: drop it and freeze transitions so computed styles are the resting ones, not mid-fade.
-  const hover = svg.getAttribute('data-hover')
-  svg.removeAttribute('data-hover')
+  // Exports ignore hover: drop it from the svg root and from whichever hexagon group carries it (CANVAS-03 scopes
+  // hover to the current hexagon's group, not the svg root), and freeze transitions so computed styles are the
+  // resting ones, not mid-fade.
+  const hovered = [svg, ...svg.querySelectorAll('[data-hover]')]
+  const hoverValues = hovered.map((el) => el.getAttribute('data-hover'))
+  hovered.forEach((el) => el.removeAttribute('data-hover'))
   svg.classList.add('exporting')
   getComputedStyle(svg).opacity
   const clone = svg.cloneNode(true) as SVGSVGElement
@@ -66,10 +75,30 @@ export async function svgMarkup(svg: SVGSVGElement, bounds: Box, title: string, 
   })
 
   svg.classList.remove('exporting')
-  if (hover) svg.setAttribute('data-hover', hover)
+  hovered.forEach((el, i) => {
+    if (hoverValues[i]) el.setAttribute('data-hover', hoverValues[i]!)
+  })
 
-  // The live canvas hides the legend group; its classes are stripped below, so what stays in the clone shows.
-  if (!options.legend) clone.querySelector('[data-legend]')?.remove()
+  // Map scope never shows the legend, whatever the user's preference — a legend enumerates one hexagon's layers,
+  // which is ambiguous once more than one hexagon shares the frame (EXPORT-01).
+  const mapScopeWithMultipleHexagons = !options.only && clone.querySelectorAll('[data-hex]').length > 1
+
+  // Scope to one hexagon (EXPORT-02): every other hexagon's group, plus the map-level link and title that only
+  // make sense across the whole map, are dropped entirely — not just stripped of their scoping attribute.
+  if (options.only) {
+    clone.querySelectorAll('[data-hex]').forEach((g) => {
+      if (g.getAttribute('data-hex') !== options.only) g.remove()
+    })
+    clone.querySelectorAll('[data-map-link], [data-map-title]').forEach((el) => el.remove())
+  }
+  // The current-hexagon cue is a canvas-only affordance, never part of an export, in either scope.
+  clone.querySelectorAll('[data-cue]').forEach((el) => el.remove())
+  clone.querySelectorAll('*').forEach((el) => {
+    for (const attr of SCOPE_ONLY) el.removeAttribute(attr)
+  })
+
+  // The live canvas hides the legend group; its classes are stripped above, so what stays in the clone shows.
+  if (!options.legend || mapScopeWithMultipleHexagons) clone.querySelector('[data-legend]')?.remove()
 
   const ns = 'http://www.w3.org/2000/svg'
   const { x, y, width, height } = exportBounds(bounds, options)

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import type { LayoutMode } from './layout/layout'
-import { layoutMap } from './layout/map'
+import { hexagonBounds, layoutMap } from './layout/map'
 import { legendFor, legendSize } from './layout/legend'
 import { EXAMPLES } from './model/example'
 import { parseHexa, toHexa, toMap } from './model/hexa'
@@ -17,7 +17,7 @@ import { Legend } from './ui/Legend'
 import { readPref, writePref } from './ui/prefs'
 import { Stage } from './ui/Stage'
 import { Toast } from './ui/Toast'
-import { Toolbar } from './ui/Toolbar'
+import { Toolbar, type ExportScope } from './ui/Toolbar'
 
 type Theme = 'light' | 'dark'
 
@@ -82,10 +82,12 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const [legendInExport, setLegendInExport] = useState(() => readPref(LEGEND_EXPORT_KEY, true))
   const [legendOpen, setLegendOpen] = useState(() => readPref(LEGEND_OPEN_KEY, false))
   const legend = legendFor(diagram)
+  const [exportScope, setExportScope] = useState<ExportScope>('map')
 
   const swap = (nextMap: HexaMap, message: string) => {
     show({ tone: 'status', message, undo: { map, focus: hexId } })
     replace(nextMap)
+    setExportScope('map')
   }
 
   const nameOf = (ref: string) => {
@@ -154,14 +156,18 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   }
 
   const exportAs = async (format: 'hexa' | 'svg' | 'png') => {
-    const name = fileSlug(diagram.title)
     try {
-      if (format === 'hexa') return download(toHexa(map), `${name}.hexa`, 'application/json')
+      if (format === 'hexa') return download(toHexa(map), `${fileSlug(map.title)}.hexa`, 'application/json')
       if (!svgRef.current) return
-      const options = { legend: legendInExport, legendHeight: legendSize(legend).height }
-      const markup = await svgMarkup(svgRef.current, model.bounds, diagram.title, options)
+      // Only a multi-hexagon map has a scope to honour — a single hexagon always exports map-shaped (EXPORT-03.1).
+      const scoped = exportScope === 'hexagon' && map.hexagons.length > 1
+      const frame = scoped ? hexagonBounds(model.hexagons.find((h) => h.id === hexId)!) : model.bounds
+      const exportTitle = scoped ? diagram.title : map.title
+      const name = fileSlug(exportTitle)
+      const options = { legend: legendInExport, legendHeight: legendSize(legend).height, only: scoped ? hexId : undefined }
+      const markup = await svgMarkup(svgRef.current, frame, exportTitle, options)
       if (format === 'svg') download(markup, `${name}.svg`, 'image/svg+xml')
-      else download(await pngBlob(markup, exportBounds(model.bounds, options)), `${name}.png`)
+      else download(await pngBlob(markup, exportBounds(frame, options)), `${name}.png`)
     } catch (error) {
       show({ tone: 'error', message: `Export failed: ${(error as Error).message}` })
     }
@@ -183,6 +189,9 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       <Toolbar
         kind={map.kind}
         kindLocked={map.hexagons.length > 1}
+        showScope={map.hexagons.length > 1}
+        exportScope={exportScope}
+        onExportScope={setExportScope}
         theme={theme}
         onKind={(kind) => setMapMeta({ kind })}
         onNew={() => swap(toMap({ version: 1, kind: map.kind, title: 'Untitled architecture', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }), 'Started a new diagram.')}
