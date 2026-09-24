@@ -333,8 +333,13 @@ label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
 
 .toolbar {
   top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  /* Centred without a transform: a transformed toolbar would trap the fixed export menu in its scroll box; and
+     above the other islands, so that menu is never painted under a notice. */
+  z-index: 11;
+  width: fit-content;
+  margin: 0 auto;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -370,6 +375,8 @@ label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
 .kind input:checked + span { background: var(--teal-soft); color: var(--teal); font-weight: 600; }
 .kind input:focus-visible + span { outline: 2px solid var(--teal); outline-offset: 1px; }
 .kind input[aria-disabled='true'] + span { opacity: 0.5; cursor: not-allowed; }
+.kind-select { flex: none; height: 32px; }
+.kind-select[aria-disabled='true'] { opacity: 0.5; cursor: not-allowed; }
 
 .divider { flex: none; width: 1px; height: 20px; margin: 0 4px; background: var(--line); }
 
@@ -379,6 +386,18 @@ label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
 .segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .segmented .text-button { height: 28px; border-radius: 0; color: var(--ink); font-size: 13px; }
 .segmented .text-button + .text-button { border-left: 1px solid var(--line); }
+.choice-trigger { display: inline-flex; align-items: center; gap: 4px; flex: none; font-size: 13px; }
+.choice-trigger .icon { width: 14px; height: 14px; color: var(--muted); transform: rotate(90deg); }
+.choice-menu {
+  display: grid;
+  gap: 2px;
+  min-width: 120px;
+  padding: 4px;
+  --enter-translate: 0 -4px;
+  animation: enter var(--motion-base) var(--motion-ease);
+}
+.choice-menu .text-button { justify-items: start; height: auto; min-height: 32px; padding: 4px 8px; font-size: 13px; }
+.choice-description { color: var(--muted); font-size: 12px; font-weight: 400; }
 
 .editor {
   top: 72px;
@@ -606,7 +625,7 @@ span.swatch-external { background: var(--slate-soft); border-color: var(--slate)
 .legend-export { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 
 @media (max-width: 720px) {
-  .toolbar { top: 8px; left: 8px; right: 8px; transform: none; max-width: none; }
+  .toolbar { top: 8px; left: 8px; right: 8px; width: auto; margin: 0; max-width: none; }
   .editor { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 45dvh; }
   .zoom { top: 60px; right: 8px; bottom: auto; left: auto; }
   .notices { top: 108px; right: 8px; }

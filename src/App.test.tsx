@@ -16,7 +16,8 @@ beforeAll(() => {
     unobserve() {}
     disconnect() {}
   } as unknown as typeof ResizeObserver
-  // A narrow viewport, so the editor starts collapsed.
+  // Every query matches: a narrow viewport, so the editor starts collapsed, yet the full toolbar (min-width query) —
+  // its compact form is covered in Toolbar.test.tsx.
   window.matchMedia = ((media: string) => ({ matches: true, media, addEventListener() {}, removeEventListener() {} })) as unknown as typeof matchMedia
   Element.prototype.scrollIntoView = scrollIntoView
   // jsdom does not implement the Blob-URL APIs the download flow uses.

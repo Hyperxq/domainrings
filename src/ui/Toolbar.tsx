@@ -1,7 +1,9 @@
 import { EXAMPLES } from '../model/example'
 import type { LayoutMode } from '../layout/layout'
 import { KINDS } from '../model/kinds'
+import { useSyncExternalStore } from 'react'
 import { KindSchema, type ArchitectureKind } from '../model/schema'
+import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
 
 const REPOSITORY_URL = 'https://github.com/Hyperxq/domainrings'
@@ -33,36 +35,57 @@ interface ToolbarProps {
 
 const KIND_LOCK_HINT = 'A map with more than one hexagon is always hexagonal.'
 const SCOPE_LABEL: Record<ExportScope, string> = { map: 'Map', hexagon: 'Hexagon' }
+const EXPORT_CHOICES = [
+  { id: 'hexa', label: '.hexa' },
+  { id: 'svg', label: 'SVG' },
+  { id: 'png', label: 'PNG' },
+] as const
+
+/** The widest toolbar (a multi-hexagon map, fallback fonts) measured 1326px in Chrome; below this, plus the 12px
+ * side margins, it would overflow, so the kind radios and export buttons collapse. */
+export const FULL_TOOLBAR = '(min-width: 1350px)'
+const subscribeToWidth = (onChange: () => void) => {
+  const query = matchMedia(FULL_TOOLBAR)
+  query.addEventListener('change', onChange)
+  return () => query.removeEventListener('change', onChange)
+}
+const roomy = () => matchMedia(FULL_TOOLBAR).matches
 
 export function Toolbar({ kind, kindLocked, theme, onKind, onNew, onExample, onImport, onExport, onTheme, mode, onMode, guides, onGuides, highlight, onHighlight, showScope, exportScope, onExportScope }: ToolbarProps) {
+  const full = useSyncExternalStore(subscribeToWidth, roomy)
+  const lock = {
+    title: kindLocked ? KIND_LOCK_HINT : undefined,
+    'aria-disabled': kindLocked || undefined,
+    'aria-describedby': kindLocked ? 'kind-lock-hint' : undefined,
+  }
   return (
     <header className="island toolbar">
       <h1 className="wordmark">domainrings</h1>
 
-      <fieldset className="kinds" title={kindLocked ? KIND_LOCK_HINT : undefined}>
-        <legend className="visually-hidden">Architecture style</legend>
-        {KindSchema.options.map((k) => (
-          <label key={k} className="kind">
-            <input
-              type="radio"
-              name="kind"
-              value={k}
-              checked={kind === k}
-              aria-disabled={kindLocked || undefined}
-              aria-describedby={kindLocked ? 'kind-lock-hint' : undefined}
-              onChange={() => onKind(k)}
-            />
-            <span>{KINDS[k].label}</span>
-          </label>
-        ))}
-        {/* Out of flow (REQ-04.2 keeps it assistive-tech only): a visible hint pushes a multi-hexagon toolbar past
-            the viewport; the locked fieldset's title carries it for sighted pointer users instead. */}
-        {kindLocked && (
-          <p id="kind-lock-hint" className="visually-hidden">
-            {KIND_LOCK_HINT}
-          </p>
-        )}
-      </fieldset>
+      {full ? (
+        <fieldset className="kinds" title={lock.title}>
+          <legend className="visually-hidden">Architecture style</legend>
+          {KindSchema.options.map((k) => (
+            <label key={k} className="kind">
+              <input type="radio" name="kind" value={k} checked={kind === k} aria-disabled={lock['aria-disabled']} aria-describedby={lock['aria-describedby']} onChange={() => onKind(k)} />
+              <span>{KINDS[k].label}</span>
+            </label>
+          ))}
+        </fieldset>
+      ) : (
+        <select className="kind-select" aria-label="Architecture style" value={kind} {...lock} onChange={(e) => onKind(e.currentTarget.value as ArchitectureKind)}>
+          {KindSchema.options.map((k) => (
+            <option key={k} value={k}>{KINDS[k].label}</option>
+          ))}
+        </select>
+      )}
+      {/* Out of flow (REQ-04.2 keeps it assistive-tech only): a visible hint pushes a multi-hexagon toolbar past
+          the viewport; the locked control's title carries it for sighted pointer users instead. */}
+      {kindLocked && (
+        <p id="kind-lock-hint" className="visually-hidden">
+          {KIND_LOCK_HINT}
+        </p>
+      )}
 
       <span className="divider" aria-hidden="true" />
 
@@ -137,16 +160,29 @@ export function Toolbar({ kind, kindLocked, theme, onKind, onNew, onExample, onI
         </fieldset>
       )}
 
-      <span className="export">
-        <span id="export-label" className="export-label">
-          Export
+      {full ? (
+        <span className="export">
+          <span id="export-label" className="export-label">
+            Export
+          </span>
+          <span className="segmented" role="group" aria-labelledby="export-label">
+            <button type="button" className="text-button" aria-label="Save as .hexa file" onClick={() => onExport('hexa')}>.hexa</button>
+            <button type="button" className="text-button" aria-label="Export as SVG" onClick={() => onExport('svg')}>SVG</button>
+            <button type="button" className="text-button" aria-label="Export as PNG" onClick={() => onExport('png')}>PNG</button>
+          </span>
         </span>
-        <span className="segmented" role="group" aria-labelledby="export-label">
-          <button type="button" className="text-button" aria-label="Save as .hexa file" onClick={() => onExport('hexa')}>.hexa</button>
-          <button type="button" className="text-button" aria-label="Export as SVG" onClick={() => onExport('svg')}>SVG</button>
-          <button type="button" className="text-button" aria-label="Export as PNG" onClick={() => onExport('png')}>PNG</button>
-        </span>
-      </span>
+      ) : (
+        <ChoiceMenu
+          label={
+            <>
+              Export
+              <Icon name="chevron" />
+            </>
+          }
+          choices={EXPORT_CHOICES}
+          onChoose={onExport}
+        />
+      )}
 
       <span className="divider" aria-hidden="true" />
 
