@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useMapStore } from './store'
-import { toMap } from './hexa'
+import { parseHexa, toHexa, toMap } from './hexa'
 import { diagramOf, freeCell, freeSides, neighbour, SIDE_ORDER, UNTITLED_HEXAGON } from './map'
 import { MapSchema, type HexaMap, type Link } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
@@ -350,6 +350,28 @@ describe('map store', () => {
       expect(first).not.toBe(second)
       expect(firstHex.cell).not.toStrictEqual(secondHex.cell)
       expect(firstHex.contextId).not.toBe(secondHex.contextId)
+    })
+
+    it('never mutates the source file object (IMP-03)', () => {
+      const file = oneHexFile()
+      const snapshot = structuredClone(file)
+      state().importHexagon(file, { context: 'new' })
+      expect(file).toStrictEqual(snapshot)
+    })
+
+    it('importing the current map’s own just-saved file adds a second, independent hexagon (IMP-05.2)', () => {
+      const before = state().map
+      const saved = parseHexa(toHexa(before))
+      if (!saved.ok) throw new Error('fixture map failed to round-trip through toHexa/parseHexa')
+      const hexId = state().importHexagon(saved.map, { context: 'new' })
+      expect(hexId).toBeDefined()
+      expect(state().map.hexagons).toHaveLength(2)
+      const imported = state().map.hexagons.find((h) => h.id === hexId)!
+      expect(imported.id).not.toBe(before.hexagons[0].id)
+      expect(imported.cell).not.toStrictEqual(before.hexagons[0].cell)
+      const { id: _id, contextId: _contextId, cell: _cell, ...sourceFields } = before.hexagons[0]
+      const { id: _importedId, contextId: _importedContextId, cell: _importedCell, ...importedFields } = imported
+      expect(importedFields).toStrictEqual(sourceFields)
     })
 
     it('importing the same file twice, both times into "same", places both in the current hexagon’s context, still on distinct cells', () => {
