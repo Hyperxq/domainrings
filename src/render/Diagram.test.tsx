@@ -1,5 +1,7 @@
 import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { MapDiagram } from './Diagram'
 import { layoutMap } from '../layout/map'
 import { toMap } from '../model/hexa'
@@ -58,6 +60,16 @@ describe('MapDiagram — two hexagons (CANVAS-01, CANVAS-02)', () => {
     expect([...groups].map((g) => g.getAttribute('data-hex'))).toEqual(['h1', 'h2'])
     expect(container.querySelectorAll('[data-map-link]')).toHaveLength(1)
     expect(container.querySelectorAll('[data-map-title]')).toHaveLength(1)
+  })
+
+  it('draws the map link with a visible stroke, on the canvas and in the exported markup (CANVAS-02)', async () => {
+    const { container } = renderSvg(twoHexagonMap())
+    const line = container.querySelector('[data-map-link]')!
+    expect(line.classList.contains('map-link')).toBe(true)
+
+    const css = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf-8')
+    const rule = /\.map-link\s*\{[^}]*stroke:\s*[^;}]+[;}]/
+    expect(css).toMatch(rule)
   })
 
   it('gives every hexagon group its own translate transform matching its centre', () => {

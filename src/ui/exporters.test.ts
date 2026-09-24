@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { svgMarkup } from './exporters'
 
 const NS = 'http://www.w3.org/2000/svg'
@@ -40,6 +42,7 @@ function mapCanvas() {
 
   const link = document.createElementNS(NS, 'line')
   link.setAttribute('data-map-link', '')
+  link.setAttribute('class', 'map-link')
   link.setAttribute('aria-hidden', 'true')
 
   const mapTitle = document.createElementNS(NS, 'text')
@@ -107,6 +110,24 @@ describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {
     expect(markup).toContain('data-legend')
     expect(markup).toContain('>Legend<')
     expect(markup).not.toMatch(/data-hex|aria-current|data-cue|data-hover/)
+  })
+
+  it('carries a visible (non-none) stroke on the map link into the exported markup', async () => {
+    const styleTag = document.createElement('style')
+    styleTag.textContent = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf-8')
+    document.head.appendChild(styleTag)
+    try {
+      const markup = await svgMarkup(mapCanvas(), bounds, 'Map title', { legend: false, legendHeight: 0 })
+      const lineMarkup = markup.match(/<line[^>]*>/)?.[0] ?? ''
+      const stroke = lineMarkup.match(/stroke="([^"]*)"/)?.[1]
+      // An unstyled SVG line's computed stroke resolves to transparent black in jsdom, not the literal
+      // keyword `none` — so the invisibility bug must be caught against the transparent value too.
+      expect(stroke).toBeTruthy()
+      expect(stroke).not.toBe('none')
+      expect(stroke).not.toBe('rgba(0, 0, 0, 0)')
+    } finally {
+      styleTag.remove()
+    }
   })
 
   it('clears the current hexagon’s hover before exporting, and restores it on the live canvas afterward', async () => {

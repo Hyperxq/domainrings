@@ -283,7 +283,7 @@ export function MapDiagram({ map, legend, showGuides, focus, selected, linkTarge
         )
       })}
       {map.links.map((link) => (
-        <line key={link.id} data-map-link="" aria-hidden="true" x1={link.points[0].x} y1={link.points[0].y} x2={link.points[1].x} y2={link.points[1].y} />
+        <line key={link.id} className="map-link" data-map-link="" aria-hidden="true" x1={link.points[0].x} y1={link.points[0].y} x2={link.points[1].x} y2={link.points[1].y} />
       ))}
       {map.title && <text data-map-title="" className="diagram-title" x={map.title.x} y={map.title.y} fontSize={TITLE.size}>{map.title.text}</text>}
       <SvgLegend legend={legend} bounds={hexagonBounds(current)} />
