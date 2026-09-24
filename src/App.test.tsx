@@ -5,6 +5,7 @@ import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM, TWO_SLICES_MAP } from './model/example
 import { layoutDiagram } from './layout/layout'
 import { toHexa, toMap } from './model/hexa'
 import { diagramOf, UNTITLED_HEXAGON } from './model/map'
+import { autosave } from './model/persistence'
 import { useMapStore } from './model/store'
 import { fileSlug } from './ui/exporters'
 import { card, currentDiagram, hexGroup, linkedTwoHexMap, twoHexMap } from './test/fixtures'
@@ -24,6 +25,13 @@ beforeAll(() => {
   // jsdom does not implement the Blob-URL APIs the download flow uses.
   URL.createObjectURL ??= vi.fn(() => 'blob:mock')
   URL.revokeObjectURL ??= vi.fn()
+  // jsdom does not implement the dialog element's modal behaviour (v30) — ConvertDialog needs this to render.
+  HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  }
+  HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
+    this.removeAttribute('open')
+  }
 })
 beforeEach(() => {
   useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM))
@@ -1152,5 +1160,201 @@ describe('delete a hexagon (DEL-01..06)', () => {
 
     expect(useMapStore.getState().map.kind).toBe('hexagonal')
     expect(screen.getByRole('radio', { name: 'Onion' }).hasAttribute('aria-disabled')).toBe(false)
+  })
+})
+
+describe('import a hexagon from file (IMP-01..07)', () => {
+  const openEditor = () => fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+  const openImportMenu = () => fireEvent.click(screen.getByRole('button', { name: 'Add hexagon from file…' }))
+  const oneHexFile = (kind: 'hexagonal' | 'clean' | 'onion' = 'hexagonal') => toHexa(toMap({ ...EXAMPLE_DIAGRAM, kind, title: 'Legacy System' }))
+  const pickFile = async (text: string, name = 'legacy.hexa') => {
+    const file = new File([text], name, { type: 'application/json' })
+    fireEvent.change(screen.getByLabelText('Add hexagon from a .hexa file'), { target: { files: [file] } })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    return file
+  }
+
+  it('imports into the current hexagon’s own bounded context, focuses the imported hexagon, and shows the exact toast text', async () => {
+    render(<App />)
+    openEditor()
+    const before = useMapStore.getState().map
+    openImportMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
+    const file = await pickFile(oneHexFile())
+
+    expect(useMapStore.getState().map.hexagons).toHaveLength(2)
+    expect(useMapStore.getState().map.contexts).toStrictEqual(before.contexts)
+    const imported = useMapStore.getState().map.hexagons.at(-1)!
+    expect(imported.contextId).toBe(before.hexagons[0].contextId)
+    expect(useMapStore.getState().focus).toBe(imported.id)
+    expect(toastEl()!.querySelector('p')!.textContent).toBe(`Added ${imported.title} from ${file.name}.`)
+  })
+
+  it('imports into a new bounded context, appending it without touching the existing one (IMP-01.4)', async () => {
+    render(<App />)
+    openEditor()
+    const before = useMapStore.getState().map
+    openImportMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
+    await pickFile(oneHexFile())
+
+    expect(useMapStore.getState().map.contexts).toHaveLength(before.contexts.length + 1)
+    expect(useMapStore.getState().map.contexts[0]).toStrictEqual(before.contexts[0])
+    const imported = useMapStore.getState().map.hexagons.at(-1)!
+    expect(imported.contextId).toBe(useMapStore.getState().map.contexts.at(-1)!.id)
+  })
+
+  it('refuses a file with more than one hexagon before any conversion question, leaving the map untouched (IMP-04)', async () => {
+    render(<App />)
+    openEditor()
+    const before = useMapStore.getState().map
+    openImportMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
+    await pickFile(toHexa(twoHexMap()), 'two.hexa')
+
+    expect(useMapStore.getState().map).toBe(before)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole('alert').textContent).toBe('This file has 2 hexagons. Add hexagon from file… takes one; use Open to replace the map.')
+  })
+
+  it('an invalid file is refused the same way Open refuses one, without opening any dialog (IMP-07)', async () => {
+    render(<App />)
+    openEditor()
+    const before = useMapStore.getState().map
+    openImportMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
+    await pickFile('{ nope', 'broken.hexa')
+
+    expect(useMapStore.getState().map).toBe(before)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole('alert').textContent).toContain('broken.hexa could not be opened')
+  })
+
+  it('opens the conversion dialog when the target map is Onion, and "Convert and import" completes the import in one step (CONV-01.2, CONV-03, CONV-04)', async () => {
+    useMapStore.getState().setMapMeta({ kind: 'onion' })
+    render(<App />)
+    openEditor()
+    openImportMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
+    await pickFile(oneHexFile('clean'), 'legacy.hexa')
+
+    const dialog = screen.getByRole('dialog')
+    expect(dialog.textContent).toContain('Convert this Onion map to hexagonal?')
+    expect(useMapStore.getState().map.kind).toBe('onion')
+    expect(useMapStore.getState().map.hexagons).toHaveLength(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Convert and import' }))
+
+    expect(useMapStore.getState().map.kind).toBe('hexagonal')
+    expect(useMapStore.getState().map.hexagons).toHaveLength(2)
+    expect(toastEl()!.querySelector('p')!.textContent).toBe("Added Legacy System from legacy.hexa. legacy.hexa was Clean; it now uses this map's hexagonal kind.")
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('Cancel on the conversion dialog leaves the map untouched and returns focus to the import trigger (CONV-02.1)', async () => {
+    useMapStore.getState().setMapMeta({ kind: 'clean' })
+    render(<App />)
+    openEditor()
+    const before = useMapStore.getState().map
+    const trigger = screen.getByRole('button', { name: 'Add hexagon from file…' })
+    openImportMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
+    await pickFile(oneHexFile())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(useMapStore.getState().map).toBe(before)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('Undo restores the map and focus to what they were before the import', async () => {
+    render(<App />)
+    openEditor()
+    const before = useMapStore.getState().map
+    const beforeFocus = useMapStore.getState().focus
+    openImportMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
+    await pickFile(oneHexFile())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useMapStore.getState().map).toStrictEqual(before)
+    expect(useMapStore.getState().focus).toBe(beforeFocus)
+  })
+})
+
+describe('growing or importing into a Clean/Onion map asks first (CONV-01..05, GROW-01.5)', () => {
+  const growEast = () => fireEvent.click(screen.getByRole('button', { name: 'Add hexagon to the east of Chat feedback slice' }))
+
+  it('opens the conversion dialog instead of growing directly, naming the map’s own kind (GROW-01.5, CONV-01.1)', () => {
+    useMapStore.getState().setMapMeta({ kind: 'clean' })
+    render(<App />)
+    const before = useMapStore.getState().map
+    growEast()
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
+
+    const dialog = screen.getByRole('dialog')
+    expect(dialog.textContent).toContain('Convert this Clean map to hexagonal?')
+    expect(screen.getByRole('button', { name: 'Convert and add' })).toBeTruthy()
+    expect(useMapStore.getState().map).toBe(before)
+  })
+
+  it('Cancel leaves the map untouched and returns focus to the side “+” trigger (CONV-02.1)', () => {
+    useMapStore.getState().setMapMeta({ kind: 'clean' })
+    render(<App />)
+    const before = useMapStore.getState().map
+    const trigger = screen.getByRole('button', { name: 'Add hexagon to the east of Chat feedback slice' })
+    growEast()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(useMapStore.getState().map).toBe(before)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('"Convert and add" converts the map and grows it as one undoable step (CONV-03)', () => {
+    useMapStore.getState().setMapMeta({ kind: 'onion' })
+    render(<App />)
+    const before = useMapStore.getState().map
+    const beforeFocus = useMapStore.getState().focus
+    growEast()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Convert and add' }))
+
+    expect(useMapStore.getState().map.kind).toBe('hexagonal')
+    expect(useMapStore.getState().map.hexagons).toHaveLength(2)
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useMapStore.getState().map).toStrictEqual(before)
+    expect(useMapStore.getState().focus).toBe(beforeFocus)
+  })
+})
+
+describe('no autosave while the conversion dialog is open (CONV-02.3)', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('does not write to storage while the dialog is open, even past the usual autosave delay', () => {
+    useMapStore.getState().setMapMeta({ kind: 'clean' })
+    const storage = { setItem: vi.fn() }
+    autosave(useMapStore, storage, 'none', 400)
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add hexagon to the east of Chat feedback slice' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
+    expect(screen.getByRole('dialog')).toBeTruthy()
+
+    act(() => vi.advanceTimersByTime(1000))
+
+    expect(storage.setItem).not.toHaveBeenCalled()
   })
 })
