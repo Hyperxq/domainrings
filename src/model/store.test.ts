@@ -4,6 +4,7 @@ import { toMap } from './hexa'
 import { diagramOf, freeSides, neighbour, SIDE_ORDER, UNTITLED_HEXAGON } from './map'
 import { MapSchema, type HexaMap, type Link } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
+import { linkedTwoHexMap, twoHexMap } from '../test/fixtures'
 
 const state = () => useMapStore.getState()
 const currentDiagram = () => diagramOf(state().map, state().focus)
@@ -259,6 +260,45 @@ describe('map store', () => {
       const untouched = before.map.hexagons[0]
       state().addHexagon(before.focus, { side: 'e', context: 'new' })
       expect(state().map.hexagons[0]).toBe(untouched)
+    })
+  })
+
+  describe('removeHexagon (ADR-02, DEL-01..04)', () => {
+    it('is a no-op returning [] and leaving the map untouched on the last hexagon (DEL-01)', () => {
+      const map = state().map
+      const pruned = state().removeHexagon(state().focus)
+      expect(pruned).toEqual([])
+      expect(state().map).toBe(map)
+    })
+
+    it('removes the hexagon, prunes its links, and leaves the revision untouched', () => {
+      state().replace(linkedTwoHexMap())
+      const revisionBefore = state().revision
+      const pruned = state().removeHexagon('h1')
+      expect(pruned).toHaveLength(1)
+      expect(state().map.hexagons.map((h) => h.id)).toEqual(['h2'])
+      expect(state().map.links).toEqual([])
+      expect(state().revision).toBe(revisionBefore)
+    })
+
+    it('moves focus to the first remaining hexagon when the deleted one was current (DEL-04.1)', () => {
+      state().replace(twoHexMap())
+      state().setFocus('h1')
+      state().removeHexagon('h1')
+      expect(state().focus).toBe('h2')
+    })
+
+    it('leaves focus untouched when a non-current hexagon is deleted', () => {
+      state().replace(twoHexMap())
+      state().setFocus('h2')
+      state().removeHexagon('h1')
+      expect(state().focus).toBe('h2')
+    })
+
+    it('every output parses MapSchema', () => {
+      state().replace(twoHexMap())
+      state().removeHexagon('h1')
+      expect(MapSchema.safeParse(state().map).success).toBe(true)
     })
   })
 })

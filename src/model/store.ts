@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { diagramOf, freeSides, neighbour, placeHexagon, putDiagram, pruneLinks, UNTITLED_HEXAGON } from './map'
+import { diagramOf, freeSides, neighbour, placeHexagon, putDiagram, pruneLinks, removeHexagon as removeHexagonFromMap, UNTITLED_HEXAGON } from './map'
 import { browserStorage, loadMap } from './persistence'
 import { REFERENCES, type CollectionKey, type Diagram, type HexaMap, type Hexagon, type Link, type Linkable, type Wall } from './schema'
 
@@ -37,6 +37,10 @@ interface MapState {
    * fresh one. Undefined — a no-op — when `from` has no free side, or the map isn't hexagonal and `convert` isn't
    * set (ADR-02). Focuses the new hexagon; never bumps `revision`. */
   addHexagon: (from: string, opts: { side?: Wall; context: 'same' | 'new'; convert?: boolean }) => string | undefined
+  /** Removes `hexId`, pruning its links and dropping its own now-empty context; moves focus to `hexagons[0]` when
+   * the deleted one was current. No-op ([]), leaving the map untouched, on the map's last hexagon (DEL-01) — a
+   * map is never left with zero. Never bumps `revision`. */
+  removeHexagon: (hexId: string) => Link[]
 }
 
 // Computed keys widen to an index signature; this is the one place the collection type is re-asserted.
@@ -93,6 +97,13 @@ export const useMapStore = create<MapState>()((set, get) => {
       const { map: next, hexId } = placeHexagon(map, view, { cell: neighbour(source.cell, growSide), contextId: context === 'same' ? source.contextId : undefined })
       set({ map: next, focus: hexId })
       return hexId
+    },
+    removeHexagon: (hexId) => {
+      const map = get().map
+      if (map.hexagons.length <= 1) return []
+      const { map: next, pruned } = removeHexagonFromMap(map, hexId)
+      set({ map: next, focus: get().focus === hexId ? next.hexagons[0].id : get().focus })
+      return pruned
     },
   }
 })
