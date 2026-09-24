@@ -164,4 +164,38 @@ describe('layoutMap — honeycomb lattice placement (ADR-01)', () => {
     const boxB = hexagonBounds(b)
     expect(boxB.y - (boxA.y + boxA.height)).toBeGreaterThanOrEqual(MAP_GAP)
   })
+
+  // Hardening for a coverage gap verify-in-loop-1 flagged: the two prior tests use hexagons with IDENTICAL
+  // (empty) content, so a pitch computed from `perHexagon[0]`'s extents alone happens to match `Math.max(...)`
+  // over every hexagon — neither test can tell the two implementations apart. Here h1 (first in the array) is
+  // tiny and h2 is STRESS-sized, so a first-hexagon-only pitch would be far too small and the boxes would overlap.
+  it('derives pitch from the map-wide max extents, not the first hexagon’s own (CANVAS-01.4 hardening)', () => {
+    const map: HexaMap = {
+      version: 2,
+      kind: 'hexagonal',
+      title: 'Small then stress',
+      contexts: [{ id: 'c1' }],
+      hexagons: [
+        { id: 'h1', contextId: 'c1', cell: { q: 0, r: 0 }, title: 'Small', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] },
+        {
+          id: 'h2',
+          contextId: 'c1',
+          cell: { q: 1, r: 0 },
+          title: STRESS_DIAGRAM.title,
+          domain: STRESS_DIAGRAM.domain,
+          useCases: STRESS_DIAGRAM.useCases,
+          ports: STRESS_DIAGRAM.ports,
+          adapters: STRESS_DIAGRAM.adapters,
+          actors: STRESS_DIAGRAM.actors,
+          externals: STRESS_DIAGRAM.externals,
+        },
+      ],
+      links: [],
+    }
+    const result = layoutMap(map)
+    const [a, b] = result.hexagons
+    const boxA = hexagonBounds(a)
+    const boxB = hexagonBounds(b)
+    expect(boxB.x - (boxA.x + boxA.width)).toBeGreaterThanOrEqual(MAP_GAP)
+  })
 })
