@@ -31,6 +31,7 @@ const WALL_LABEL: Record<Wall, string> = { nw: 'North-west', w: 'West', sw: 'Sou
 
 const FLASH_MS = 1200
 const NO_FREE_SIDE_HINT = 'No free side around this hexagon.'
+const LAST_HEXAGON_HINT = 'A map needs at least one hexagon.'
 
 /** Bring a card into view and flash it, so canvas and panel stay in step; `focus` also selects its first field. */
 export function revealInEditor(id: string, focus: boolean) {
@@ -208,7 +209,19 @@ function adaptersBySide(d: Diagram) {
   return (side: Side) => d.adapters.filter((a) => (a.portId ? portSide.get(a.portId) === side : true))
 }
 
-export function Editor({ open, onToggle, onPrune, onAddHexagon }: { open: boolean; onToggle: () => void; onPrune: OnPrune; onAddHexagon: () => void }) {
+export function Editor({
+  open,
+  onToggle,
+  onPrune,
+  onAddHexagon,
+  onDeleteHexagon,
+}: {
+  open: boolean
+  onToggle: () => void
+  onPrune: OnPrune
+  onAddHexagon: () => void
+  onDeleteHexagon: () => void
+}) {
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   const d = diagramOf(map, hexId)
@@ -217,6 +230,7 @@ export function Editor({ open, onToggle, onPrune, onAddHexagon }: { open: boolea
   const sideLabel: Record<Side, string> = { driving: labels.drivingPort, driven: labels.drivenPort }
   const currentCell = map.hexagons.find((h) => h.id === hexId)?.cell
   const canGrow = !!currentCell && freeSides(map, currentCell).length > 0
+  const canDelete = map.hexagons.length > 1
 
   return (
     <aside className={`island editor${open ? '' : ' is-collapsed'}`} aria-label="Diagram editor">
@@ -264,6 +278,20 @@ export function Editor({ open, onToggle, onPrune, onAddHexagon }: { open: boolea
           {!canGrow && (
             <p id="no-free-side-hint" className="visually-hidden">
               {NO_FREE_SIDE_HINT}
+            </p>
+          )}
+          <button
+            type="button"
+            className="text-button"
+            aria-disabled={canDelete ? undefined : true}
+            aria-describedby={canDelete ? undefined : 'last-hexagon-hint'}
+            onClick={() => canDelete && onDeleteHexagon()}
+          >
+            Delete hexagon
+          </button>
+          {!canDelete && (
+            <p id="last-hexagon-hint" className="visually-hidden">
+              {LAST_HEXAGON_HINT}
             </p>
           )}
         </Fold>

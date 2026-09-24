@@ -1075,3 +1075,82 @@ describe('grow the map (GROW-01..04, ADR-02)', () => {
     expect(container.querySelector('main.stage .inline-name')).toBeTruthy()
   })
 })
+
+describe('delete a hexagon (DEL-01..06)', () => {
+  const openEditor = () => fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+  const deleteButton = () => screen.getByRole('button', { name: 'Delete hexagon' })
+
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('is aria-disabled on a single-hexagon map (DEL-01.2)', () => {
+    render(<App />)
+    openEditor()
+    expect(deleteButton().getAttribute('aria-disabled')).toBe('true')
+  })
+
+  it('deletes the current hexagon, prunes its link, and shows the exact sticky toast text (DEL-02.1)', () => {
+    useMapStore.getState().replace(linkedTwoHexMap())
+    render(<App />)
+    openEditor()
+    const removedTitle = currentDiagram().title
+
+    fireEvent.click(deleteButton())
+
+    expect(useMapStore.getState().map.hexagons.map((h) => h.id)).toEqual(['h2'])
+    expect(useMapStore.getState().map.links).toEqual([])
+    expect(toastEl()!.textContent).toContain(`Deleted ${removedTitle} and its 1 link`)
+
+    // Sticky: still up well past the normal 6 s countdown (DEL-02).
+    act(() => vi.advanceTimersByTime(20000))
+    expect(toastEl()).not.toBeNull()
+  })
+
+  it('shows "Deleted {title}" with no link count for an unlinked hexagon (DEL-02.2)', () => {
+    useMapStore.getState().replace(twoHexMap())
+    render(<App />)
+    openEditor()
+    const removedTitle = currentDiagram().title
+
+    fireEvent.click(deleteButton())
+
+    expect(toastEl()!.querySelector('p')!.textContent).toBe(`Deleted ${removedTitle}`)
+  })
+
+  it('clears the sticky toast on the map’s next edit, not on the timer', () => {
+    useMapStore.getState().replace(twoHexMap())
+    render(<App />)
+    openEditor()
+    fireEvent.click(deleteButton())
+    expect(toastEl()).not.toBeNull()
+
+    act(() => useMapStore.getState().setMeta(useMapStore.getState().focus, { title: 'Edited' }))
+
+    expect(toastEl()).toBeNull()
+  })
+
+  it('Undo restores the hexagon, its links, its context, and prior focus (DEL-05.1)', () => {
+    useMapStore.getState().replace(linkedTwoHexMap())
+    render(<App />)
+    openEditor()
+    const before = useMapStore.getState().map
+    const beforeFocus = useMapStore.getState().focus
+    fireEvent.click(deleteButton())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useMapStore.getState().map).toStrictEqual(before)
+    expect(useMapStore.getState().focus).toBe(beforeFocus)
+  })
+
+  it('deleting down to one hexagon keeps the map kind hexagonal and re-enables the kind control (DEL-06.1)', () => {
+    useMapStore.getState().replace(twoHexMap())
+    render(<App />)
+    openEditor()
+
+    fireEvent.click(deleteButton())
+
+    expect(useMapStore.getState().map.kind).toBe('hexagonal')
+    expect(screen.getByRole('radio', { name: 'Onion' }).hasAttribute('aria-disabled')).toBe(false)
+  })
+})

@@ -5,7 +5,7 @@ import { EXAMPLE_DIAGRAM } from '../model/example'
 import { toMap } from '../model/hexa'
 import { neighbour, SIDE_ORDER } from '../model/map'
 import { useMapStore } from '../model/store'
-import { card, currentDiagram } from '../test/fixtures'
+import { card, currentDiagram, twoHexMap } from '../test/fixtures'
 
 const SECTIONS_KEY = 'domainrings:editor-sections'
 
@@ -15,7 +15,8 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-const renderEditor = (onAddHexagon: () => void = () => {}) => render(<Editor open onToggle={() => {}} onPrune={() => {}} onAddHexagon={onAddHexagon} />)
+const renderEditor = (onAddHexagon: () => void = () => {}, onDeleteHexagon: () => void = () => {}) =>
+  render(<Editor open onToggle={() => {}} onPrune={() => {}} onAddHexagon={onAddHexagon} onDeleteHexagon={onDeleteHexagon} />)
 const section = (container: HTMLElement, title: string) =>
   [...container.querySelectorAll('details')].find((d) => d.querySelector(':scope > summary h2')?.textContent === title) as HTMLDetailsElement
 const port = EXAMPLE_DIAGRAM.ports[0]
@@ -126,6 +127,34 @@ describe('"Add hexagon" button in the Hexagon section (GROW-04)', () => {
 
     fireEvent.click(button)
     expect(onAddHexagon).not.toHaveBeenCalled()
+  })
+})
+
+describe('"Delete hexagon" button in the Hexagon section (DEL-01)', () => {
+  it('is enabled and calls onDeleteHexagon when the map has more than one hexagon', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const onDeleteHexagon = vi.fn()
+    const { container } = renderEditor(() => {}, onDeleteHexagon)
+    const button = within(section(container, 'Hexagon')).getByRole('button', { name: 'Delete hexagon' })
+    expect(button.hasAttribute('aria-disabled')).toBe(false)
+
+    fireEvent.click(button)
+
+    expect(onDeleteHexagon).toHaveBeenCalledOnce()
+  })
+
+  it('is aria-disabled, keyboard-reachable, and hinted on the map’s last hexagon (DEL-01.2)', () => {
+    const onDeleteHexagon = vi.fn()
+    const { container } = renderEditor(() => {}, onDeleteHexagon)
+    const button = within(section(container, 'Hexagon')).getByRole('button', { name: 'Delete hexagon' })
+
+    expect(button.getAttribute('aria-disabled')).toBe('true')
+    expect(button.hasAttribute('disabled')).toBe(false)
+    const hint = document.getElementById(button.getAttribute('aria-describedby')!)
+    expect(hint?.textContent).toBe('A map needs at least one hexagon.')
+
+    fireEvent.click(button)
+    expect(onDeleteHexagon).not.toHaveBeenCalled()
   })
 })
 

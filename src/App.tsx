@@ -30,6 +30,10 @@ interface Notice {
   undo?: { map: HexaMap; focus: string; swap?: boolean }
   /** The unreadable text a "recovery" notice offers to download, when a copy was kept. */
   download?: string
+  /** Stays up past the usual 6 s countdown (DEL-02) — clears on the map's next edit, tracked via `staleWhenMapIsnt`. */
+  sticky?: boolean
+  /** For a sticky notice: the map right after the action it reports. The notice clears once `map` moves past it. */
+  staleWhenMapIsnt?: HexaMap
 }
 
 const RECOVERY_MESSAGE: Record<'kept' | 'not-kept', string> = {
@@ -42,7 +46,7 @@ const OVERVIEW_KEY = 'domainrings:overview'
 const GUIDES_KEY = 'domainrings:guides'
 const HIGHLIGHT_KEY = 'domainrings:highlight'
 const LEGEND_OPEN_KEY = 'domainrings:legend-open'
-const { replace, restore, setMapMeta, removeItem, updateItem, addHexagon, setMeta } = useMapStore.getState()
+const { replace, restore, setMapMeta, removeItem, updateItem, addHexagon, removeHexagon, setMeta } = useMapStore.getState()
 
 interface AppProps {
   boot?: { recovery: Recovery; unreadableText?: string }
@@ -139,6 +143,20 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     setGrowing({ hexId: newHexId, before })
   }
 
+  // A sticky toast (DEL-02) clears itself the moment the map next changes for any OTHER reason — not on a timer.
+  if (notice?.sticky && notice.staleWhenMapIsnt && map !== notice.staleWhenMapIsnt) setNotice(null)
+
+  const handleDelete = () => {
+    const before = { map, focus: hexId }
+    const title = diagram.title || UNTITLED_HEXAGON
+    const pruned = removeHexagon(hexId)
+    const after = useMapStore.getState().map
+    if (after === map) return // last hexagon — the Editor button is disabled, so this is defensive only
+    const plural = pruned.length === 1 ? '' : 's'
+    const message = pruned.length ? `Deleted ${title} and its ${pruned.length} link${plural}` : `Deleted ${title}`
+    show({ tone: 'status', message, undo: before, sticky: true, staleWhenMapIsnt: after })
+  }
+
   // Link mode: the element being linked. It ends when that element goes, or the whole map is swapped.
   const [linking, setLinking] = useState<string | null>(null)
   const [linkRevision, setLinkRevision] = useState(revision)
@@ -230,7 +248,13 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           setHighlight(on)
         }}
       />
-      <Editor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} onPrune={pruneToast} onAddHexagon={() => handleGrow(undefined, 'same')} />
+      <Editor
+        open={editorOpen}
+        onToggle={() => setEditorOpen(!editorOpen)}
+        onPrune={pruneToast}
+        onAddHexagon={() => handleGrow(undefined, 'same')}
+        onDeleteHexagon={handleDelete}
+      />
       <Legend
         legend={legend}
         open={legendOpen}
@@ -280,6 +304,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         <Toast
           key={notice.id}
           message={notice.message}
+          sticky={notice.sticky}
           onUndo={
             notice.undo &&
             (() => {
