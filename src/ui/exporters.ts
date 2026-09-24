@@ -55,7 +55,7 @@ export const exportBounds = (bounds: Box, options: ExportOptions): Box =>
 const CANVAS_ONLY = ['class', 'tabindex', 'role', 'aria-label', 'data-ref', 'data-band', 'data-layer', 'data-selected', 'data-link-target']
 // Map-scoping attributes (SEAM-07): stripped in a SECOND pass, after the `only` filter and the cue removal have
 // used `data-hex`/`data-map-link`/`data-map-title` as selectors — stripping them earlier would leave nothing to select.
-const SCOPE_ONLY = ['data-hex', 'aria-current', 'aria-hidden', 'data-map-link', 'data-map-title', 'data-hover', 'data-cue']
+const SCOPE_ONLY = ['data-hex', 'aria-current', 'aria-hidden', 'data-map-link', 'data-map-title', 'data-hover']
 
 export async function svgMarkup(svg: SVGSVGElement, bounds: Box, title: string, options: ExportOptions): Promise<string> {
   // Exports ignore hover: drop it from the svg root and from whichever hexagon group carries it (CANVAS-03 scopes
@@ -81,12 +81,13 @@ export async function svgMarkup(svg: SVGSVGElement, bounds: Box, title: string, 
 
   // Map scope never shows the legend, whatever the user's preference — a legend enumerates one hexagon's layers,
   // which is ambiguous once more than one hexagon shares the frame (EXPORT-01).
-  const mapScopeWithMultipleHexagons = !options.only && clone.querySelectorAll('[data-hex]').length > 1
+  const hexGroups = clone.querySelectorAll('[data-hex]')
+  const mapScopeWithMultipleHexagons = !options.only && hexGroups.length > 1
 
   // Scope to one hexagon (EXPORT-02): every other hexagon's group, plus the map-level link and title that only
   // make sense across the whole map, are dropped entirely — not just stripped of their scoping attribute.
   if (options.only) {
-    clone.querySelectorAll('[data-hex]').forEach((g) => {
+    hexGroups.forEach((g) => {
       if (g.getAttribute('data-hex') !== options.only) g.remove()
     })
     clone.querySelectorAll('[data-map-link], [data-map-title]').forEach((el) => el.remove())
