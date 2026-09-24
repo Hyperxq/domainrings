@@ -234,7 +234,7 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
   })
   const growChoices = (context: string) => [
     { id: 'same' as const, label: `Hexagon in ${context}` },
-    { id: 'new' as const, label: 'Hexagon in a new context' },
+    { id: 'new' as const, label: 'Hexagon in a new bounded context' },
   ]
   const targets = linking ? linkTargets(diagram, linking) : []
   const nameOf = (ref: string) => {
@@ -371,8 +371,9 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
         onClick={(e) => {
           if (panned.current) return
           const target = e.target as Element
-          // The map link is inert by handler, not by pointer-events:none (ADR-05): it must never select, focus-switch or reveal.
-          if (target.closest('[data-map-link]')) return
+          // The map link, and every context hull/chip, are inert by handler, not by pointer-events:none (ADR-05):
+          // none of them must ever select, focus-switch or reveal.
+          if (target.closest('[data-map-link], [data-hull], [data-chip]')) return
           if (e.detail === 1) gestureAnchorHexId.current = hexId
           const clickedHexId = target.closest('[data-hex]')?.getAttribute('data-hex') ?? null
           if (clickedHexId && clickedHexId !== hexId) return focusHexagon(clickedHexId)
@@ -385,7 +386,7 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
         onDoubleClick={(e) => {
           e.preventDefault()
           const target = e.target as Element
-          if (target.closest('[data-map-link]')) return
+          if (target.closest('[data-map-link], [data-hull], [data-chip]')) return
           const clickedHexId = target.closest('[data-hex]')?.getAttribute('data-hex') ?? null
           if (clickedHexId && clickedHexId !== gestureAnchorHexId.current) {
             focusHexagon(clickedHexId)

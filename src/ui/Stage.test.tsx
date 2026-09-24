@@ -223,11 +223,11 @@ describe('Stage side "+" (GROW-01, ADR-02)', () => {
     expect(onGrow).toHaveBeenCalledWith('e', 'same')
   })
 
-  it('choosing "Hexagon in a new context" calls onGrow with the side and "new"', () => {
+  it('choosing "Hexagon in a new bounded context" calls onGrow with the side and "new"', () => {
     const onGrow = vi.fn()
     render(<Harness onGrow={onGrow} />)
     fireEvent.click(screen.getByRole('button', { name: 'Add hexagon to the east of Test' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in a new context' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in a new bounded context' }))
     expect(onGrow).toHaveBeenCalledWith('e', 'new')
   })
 })
@@ -430,5 +430,27 @@ describe('Stage current-hexagon focus (FOCUS-01, 03, 04, 05, CANVAS-03)', () => 
     const h2UseCases = diagramOf(useMapStore.getState().map, 'h2').useCases.map((u) => u.name)
     expect(h1UseCases).toContain('CommittedOnSwitch')
     expect(h2UseCases).not.toContain('CommittedOnSwitch')
+  })
+})
+
+describe('Stage — hull and chip are inert (CB-05, ADR-05 extended to context overlays)', () => {
+  it('never respond to hover, click, or double-click', () => {
+    const hexId = useMapStore.getState().focus
+    useMapStore.getState().addHexagon(hexId, { side: 'e', context: 'new' })
+    const { container } = render(<Harness />)
+    expect(useMapStore.getState().map.contexts.length).toBeGreaterThanOrEqual(2)
+    const hull = container.querySelector('[data-hull]')!
+    const chip = container.querySelector('[data-chip]')!
+
+    fireEvent.pointerOver(hull)
+    expect(container.querySelector('[data-hex][aria-current="true"]')!.hasAttribute('data-hover')).toBe(false)
+
+    const beforeMap = useMapStore.getState().map
+    fireEvent.click(hull)
+    fireEvent.doubleClick(hull)
+    fireEvent.click(chip)
+    fireEvent.doubleClick(chip)
+
+    expect(useMapStore.getState().map).toBe(beforeMap)
   })
 })

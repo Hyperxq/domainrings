@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react'
-import { currentHexagon, hexagonBounds, hexagonTitle, type MapLayout } from '../layout/map'
+import { currentHexagon, hexagonBounds, hexagonTitle, type MapContextLayout, type MapLayout } from '../layout/map'
 import type { Shape } from '../model/kinds'
 import { bandPath } from './band'
 import type { LayoutEdge, LayoutModel, LayoutNode, LayoutRing, LayoutText, Point } from '../layout/layout'
 import type { Box } from '../layout/layout'
 import { LEGEND_GAP, LEGEND_HEADING, LEGEND_PAD, LEGEND_ROW, legendSections, LEGEND_SWATCH, legendSize, type LegendModel } from '../layout/legend'
-import { DOMAIN_TITLE, EDGE_LABEL, LINE_METRICS, RING_LABEL, RING_SUBTITLE, SUBTITLE, TAG_GAP, TITLE } from '../layout/text'
+import { CHIP_LABEL, DOMAIN_TITLE, EDGE_LABEL, LINE_METRICS, RING_LABEL, RING_SUBTITLE, SUBTITLE, TAG_GAP, TITLE } from '../layout/text'
 
 const SUBTITLE_GAP = 4
 const BOX_PAD_X = 12
@@ -235,6 +235,37 @@ function HexCue({ model }: { model: LayoutModel }) {
 
 const NO_TARGETS = new Set<string>()
 
+/** One `M...Z` subpath per loop — several loops in one `<path>` drawn `fill-rule="evenodd"` is exactly how a
+ * split context or a hole around a foreign hexagon is meant to paint (ADR-04). */
+function hullPath(loops: Point[][]): string {
+  return loops.map((loop) => `M${loop.map((p) => `${p.x} ${p.y}`).join('L')}Z`).join(' ')
+}
+
+/** One outlined region per context (CB-01, CB-02) — inert, painted below every hexagon group. */
+function Hulls({ contexts }: { contexts: MapContextLayout[] }) {
+  if (!contexts.length) return null
+  return (
+    <g data-hulls="" aria-hidden="true">
+      {contexts.map((c) => (
+        <path key={c.id} className="hull" data-hull={c.id} fillRule="evenodd" d={hullPath(c.loops)} />
+      ))}
+    </g>
+  )
+}
+
+/** One name/placeholder chip per context (CB-01, CB-03) — inert, painted above every hexagon group and link. */
+function Chips({ contexts }: { contexts: MapContextLayout[] }) {
+  return (
+    <>
+      {contexts.map((c) => (
+        <text key={c.id} className="chip" data-chip={c.id} aria-hidden="true" x={c.chip.x} y={c.chip.y} fontSize={CHIP_LABEL.size}>
+          {c.label}
+        </text>
+      ))}
+    </>
+  )
+}
+
 interface MapDiagramProps {
   map: MapLayout
   legend: LegendModel
@@ -256,6 +287,7 @@ export function MapDiagram({ map, legend, showGuides, focus, selected, linkTarge
   return (
     <>
       <Defs rings={first.model.rings} />
+      <Hulls contexts={map.contexts} />
       {map.hexagons.map((hex) => {
         const isCurrent = hex.id === focus
         const title = hexagonTitle(hex.model)
@@ -285,6 +317,7 @@ export function MapDiagram({ map, legend, showGuides, focus, selected, linkTarge
       {map.links.map((link) => (
         <line key={link.id} className="map-link" data-map-link="" aria-hidden="true" x1={link.points[0].x} y1={link.points[0].y} x2={link.points[1].x} y2={link.points[1].y} />
       ))}
+      <Chips contexts={map.contexts} />
       {map.title && <text data-map-title="" className="diagram-title" x={map.title.x} y={map.title.y} fontSize={TITLE.size}>{map.title.text}</text>}
       <SvgLegend legend={legend} bounds={hexagonBounds(current)} />
     </>

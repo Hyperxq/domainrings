@@ -1022,7 +1022,7 @@ describe('grow the map (GROW-01..04, ADR-02)', () => {
     const before = useMapStore.getState().map
     growEast()
 
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in a new context' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in a new bounded context' }))
 
     expect(useMapStore.getState().map.contexts).toHaveLength(before.contexts.length + 1)
     expect(useMapStore.getState().map.contexts[0]).toStrictEqual(before.contexts[0])

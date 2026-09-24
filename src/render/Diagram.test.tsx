@@ -156,3 +156,61 @@ describe('MapDiagram — current-hexagon scoping (FOCUS-01, CANVAS-03, EDIT-01)'
     }
   })
 })
+
+/** Two hexagons in one context (h1, h2 — matches twoHexagonMap) plus a third in a second context. */
+function threeHexTwoContextMap(): HexaMap {
+  const base = twoHexagonMap()
+  return {
+    ...base,
+    contexts: [...base.contexts, { id: 'c2' }],
+    hexagons: [
+      ...base.hexagons,
+      { id: 'h3', contextId: 'c2', cell: { q: 0, r: 1 }, title: 'Slice C', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] },
+    ],
+  }
+}
+
+describe('MapDiagram — context hulls and chips (CB-01, CB-02, CB-05)', () => {
+  it('draws no hull or chip below two contexts (CB-01.1, CB-01.4)', () => {
+    const { container } = renderSvg(twoHexagonMap())
+    expect(container.querySelectorAll('[data-hull]')).toHaveLength(0)
+    expect(container.querySelectorAll('[data-chip]')).toHaveLength(0)
+  })
+
+  it('draws exactly one hull and one chip per context, from two contexts up (CB-01.2)', () => {
+    const map = threeHexTwoContextMap()
+    const { container, model } = renderSvg(map)
+    expect(model.contexts).toHaveLength(2)
+    const hulls = container.querySelectorAll('[data-hull]')
+    const chips = container.querySelectorAll('[data-chip]')
+    expect(hulls).toHaveLength(2)
+    expect(chips).toHaveLength(2)
+    expect([...hulls].map((h) => h.getAttribute('data-hull')).sort()).toEqual(['c1', 'c2'])
+    expect([...chips].map((h) => h.getAttribute('data-chip')).sort()).toEqual(['c1', 'c2'])
+  })
+
+  it('paints hulls before every hexagon group, and chips after the hexagon groups and the map links', () => {
+    const { container } = renderSvg(threeHexTwoContextMap())
+    const svg = container.querySelector('svg')!
+    const order = [...svg.querySelectorAll('*')]
+    const firstHexGroup = svg.querySelector('[data-hex]')!
+    const lastLink = [...svg.querySelectorAll('[data-map-link]')].at(-1)!
+    const lastHull = [...svg.querySelectorAll('[data-hull]')].at(-1)!
+    const firstChip = svg.querySelector('[data-chip]')!
+    expect(order.indexOf(lastHull)).toBeLessThan(order.indexOf(firstHexGroup))
+    expect(order.indexOf(firstChip)).toBeGreaterThan(order.indexOf(lastLink))
+  })
+
+  it('marks the hulls group inert (aria-hidden) and each hull evenodd; each chip is inert and shows its label', () => {
+    const { container, model } = renderSvg(threeHexTwoContextMap())
+    expect(container.querySelector('[data-hulls]')!.getAttribute('aria-hidden')).toBe('true')
+    for (const hull of container.querySelectorAll('[data-hull]')) {
+      expect(hull.getAttribute('fill-rule')).toBe('evenodd')
+    }
+    for (const context of model.contexts) {
+      const chip = container.querySelector(`[data-chip="${context.id}"]`)!
+      expect(chip.getAttribute('aria-hidden')).toBe('true')
+      expect(chip.textContent).toBe(context.label)
+    }
+  })
+})
