@@ -348,7 +348,6 @@ label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
 .kind input:checked + span { background: var(--teal-soft); color: var(--teal); font-weight: 600; }
 .kind input:focus-visible + span { outline: 2px solid var(--teal); outline-offset: 1px; }
 .kind input[aria-disabled='true'] + span { opacity: 0.5; cursor: not-allowed; }
-.kind-lock-hint { margin: 0 0 0 6px; color: var(--muted); font-size: 12px; white-space: nowrap; }
 
 .divider { flex: none; width: 1px; height: 20px; margin: 0 4px; background: var(--line); }
 

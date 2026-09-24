@@ -585,6 +585,16 @@ describe('kind lock on a multi-hexagon map (MIG-04.2)', () => {
     expect(useMapStore.getState().map.kind).toBe('hexagonal')
   })
 
+  it('takes the hint out of flow (so a multi-hexagon toolbar never overflows) but still surfaces it as a title on the locked fieldset (REQ-04.2)', () => {
+    useMapStore.getState().replace(twoHexMap())
+    render(<App />)
+
+    const clean = screen.getByRole('radio', { name: 'Clean' })
+    const hintId = clean.getAttribute('aria-describedby')!
+    expect(document.getElementById(hintId)!.classList.contains('visually-hidden')).toBe(true)
+    expect(clean.closest('fieldset')!.getAttribute('title')).toBe('A map with more than one hexagon is always hexagonal.')
+  })
+
   it('leaves the kind radios enabled, with no hint, on a single-hexagon map', () => {
     render(<App />)
 

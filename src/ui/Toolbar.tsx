@@ -39,7 +39,7 @@ export function Toolbar({ kind, kindLocked, theme, onKind, onNew, onExample, onI
     <header className="island toolbar">
       <h1 className="wordmark">domainrings</h1>
 
-      <fieldset className="kinds">
+      <fieldset className="kinds" title={kindLocked ? KIND_LOCK_HINT : undefined}>
         <legend className="visually-hidden">Architecture style</legend>
         {KindSchema.options.map((k) => (
           <label key={k} className="kind">
@@ -55,8 +55,10 @@ export function Toolbar({ kind, kindLocked, theme, onKind, onNew, onExample, onI
             <span>{KINDS[k].label}</span>
           </label>
         ))}
+        {/* Out of flow (REQ-04.2 keeps it assistive-tech only): a visible hint pushes a multi-hexagon toolbar past
+            the viewport; the locked fieldset's title carries it for sighted pointer users instead. */}
         {kindLocked && (
-          <p id="kind-lock-hint" className="kind-lock-hint">
+          <p id="kind-lock-hint" className="visually-hidden">
             {KIND_LOCK_HINT}
           </p>
         )}
