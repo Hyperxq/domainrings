@@ -267,7 +267,7 @@ export function Editor({ open, onToggle, onPrune }: { open: boolean; onToggle: (
                   <fieldset className="item layer" data-item-id={`layer:${ring.role}`}>
                     <legend>{ring.name}</legend>
                   <label className="field">
-                    <span>Title</span>
+                    <span>Ring title</span>
                     <input value={override?.title ?? ''} placeholder={ring.name} onChange={(e) => setLayer({ title: e.target.value || undefined })} />
                   </label>
                   <label className="field">

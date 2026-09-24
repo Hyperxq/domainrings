@@ -162,5 +162,16 @@ describe('map store', () => {
       expect(pruned).toEqual([])
       expect(state().map.links).toHaveLength(1)
     })
+
+    it('flipping a linked port’s side back after a prune does not restore the link — only undo does (LINK-01.6)', () => {
+      state().replace(linkedTwoHex())
+      const flipped = state().updateItem('h1', 'ports', 'p-repo', { side: 'driving', wall: undefined })
+      expect(flipped).toHaveLength(1)
+      expect(state().map.links).toEqual([])
+
+      const flippedBack = state().updateItem('h1', 'ports', 'p-repo', { side: 'driven', wall: 'e' })
+      expect(flippedBack).toEqual([])
+      expect(state().map.links).toEqual([])
+    })
   })
 })

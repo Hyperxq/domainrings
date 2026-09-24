@@ -71,6 +71,7 @@ describe('map and hexagon titles (TITLE-01, TITLE-02)', () => {
     expect(hexagonSection.getByLabelText('Subtitle')).toBeInstanceOf(HTMLInputElement)
     expect(mapSection.queryByText('Title', { selector: 'label > span' })).toBeNull()
     expect(hexagonSection.queryByText('Title', { selector: 'label > span' })).toBeNull()
+    expect(screen.queryByText('Title', { selector: 'label > span', exact: true })).toBeNull()
   })
 
   it('names the current hexagon in the panel header, falling back to "Untitled hexagon" (TITLE-02.1)', () => {
