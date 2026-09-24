@@ -14,7 +14,6 @@ interface ChoiceMenuProps<Id extends string> {
   ariaLabel?: string
   choices: readonly Choice<Id>[]
   onChoose: (id: Id) => void
-  /** Extra classes on the trigger. */
   className?: string
   /** `end` aligns the menu's right edge with the trigger's, for a trigger near the viewport's right edge. */
   align?: 'start' | 'end'
