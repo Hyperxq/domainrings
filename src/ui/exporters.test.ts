@@ -36,9 +36,12 @@ function mapCanvas() {
   h2.setAttribute('data-hex', 'h2')
   h2.setAttribute('role', 'button')
   h2.setAttribute('tabindex', '0')
+  // The non-current hexagon's canvas-only tooltip (Diagram.tsx: `{!isCurrent && <title>…</title>}`).
+  const h2Tooltip = document.createElementNS(NS, 'title')
+  h2Tooltip.textContent = 'Second slice'
   const h2Marker = document.createElementNS(NS, 'text')
   h2Marker.textContent = 'H2 marker'
-  h2.append(h2Marker)
+  h2.append(h2Tooltip, h2Marker)
 
   const link = document.createElementNS(NS, 'line')
   link.setAttribute('data-map-link', '')
@@ -94,6 +97,12 @@ describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {
     expect(markup).toContain('H2 marker')
     expect(markup).toContain('Map title')
     expect(markup).not.toMatch(/data-hex|aria-current|data-cue|data-map-link|data-map-title|data-hover/)
+  })
+
+  it('drops the non-current hexagon’s canvas-only tooltip from a map-scope export (EXPORT-01.2)', async () => {
+    const markup = await svgMarkup(mapCanvas(), bounds, 'Map title', { legend: false, legendHeight: 0 })
+    expect(markup).toContain('H2 marker')
+    expect(markup).not.toMatch(/<title[^>]*>Second slice<\/title>/)
   })
 
   it('map scope omits the legend even when asked, per the multi-hexagon legend rule', async () => {

@@ -100,6 +100,9 @@ export async function svgMarkup(svg: SVGSVGElement, bounds: Box, title: string, 
   }
   // The current-hexagon cue is a canvas-only affordance, never part of an export, in either scope.
   clone.querySelectorAll('[data-cue]').forEach((el) => el.remove())
+  // A non-current hexagon's native tooltip (its <title>, for the "make current" affordance) is canvas-only
+  // too: left in, it would leak as a stray tooltip over a map-scope export (EXPORT-01.2).
+  clone.querySelectorAll('[data-hex] > title').forEach((el) => el.remove())
   clone.querySelectorAll('*').forEach((el) => {
     for (const attr of SCOPE_ONLY) el.removeAttribute(attr)
   })
