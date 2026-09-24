@@ -250,9 +250,10 @@ interface MapDiagramProps {
 }
 
 /** Composes every hexagon of a map into one SVG: one `<defs>`, one `<g data-hex>` per hexagon, the map's links
- * drawn above them, an optional map title, and the legend once — under the map's first hexagon. */
+ * drawn above them, an optional map title, and the legend once — under the current hexagon. */
 export function MapDiagram({ map, legend, showGuides, focus, selected, linkTargets, hovered }: MapDiagramProps) {
   const first = map.hexagons[0]
+  const current = map.hexagons.find((h) => h.id === focus) ?? first
   return (
     <>
       <Defs rings={first.model.rings} />
@@ -286,7 +287,7 @@ export function MapDiagram({ map, legend, showGuides, focus, selected, linkTarge
         <line key={link.id} data-map-link="" aria-hidden="true" x1={link.points[0].x} y1={link.points[0].y} x2={link.points[1].x} y2={link.points[1].y} />
       ))}
       {map.title && <text data-map-title="" className="diagram-title" x={map.title.x} y={map.title.y} fontSize={TITLE.size}>{map.title.text}</text>}
-      <SvgLegend legend={legend} bounds={hexagonBounds(first)} />
+      <SvgLegend legend={legend} bounds={hexagonBounds(current)} />
     </>
   )
 }

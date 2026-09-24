@@ -623,6 +623,74 @@ describe('export scope (EXPORT-03)', () => {
     clickSpy.mockRestore()
   })
 
+  it('names the .hexa file after the map title, even when it differs from the current hexagon title (pin — App.tsx exportAs line 160)', () => {
+    render(<App />)
+    const mapTitleInput = screen.getByLabelText('Map title') as HTMLInputElement
+
+    fireEvent.change(mapTitleInput, { target: { value: 'Renamed whole map' } })
+
+    expect(useMapStore.getState().map.title).toBe('Renamed whole map')
+    expect(currentDiagram().title).toBe(EXAMPLE_DIAGRAM.title)
+
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:mock')
+    fireEvent.click(screen.getByRole('button', { name: 'Save as .hexa file' }))
+
+    expect((clickSpy.mock.instances[0] as HTMLAnchorElement).download).toBe(`${fileSlug('Renamed whole map')}.hexa`)
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+  })
+
+  it('anchors the legend to the current hexagon, not always the first, on screen and in a hexagon-scope export (EXPORT-02)', async () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<App />)
+    const hexGroup = (hexId: string) => container.querySelector(`[data-hex="${hexId}"]`)!
+    const translateOf = (el: Element) => {
+      const [, x, y] = /translate\(([-\d.]+) ([-\d.]+)\)/.exec(el.getAttribute('transform')!)!
+      return { x: Number(x), y: Number(y) }
+    }
+    const legendTranslate = () => translateOf(container.querySelector('svg.canvas [data-legend]')!)
+
+    // On screen: switching the current hexagon must move the legend by the same amount the hexagons
+    // themselves are shifted apart — anchoring it under h1 forever would leave it stuck in place.
+    const legendUnderH1 = legendTranslate()
+    fireEvent.click(hexGroup('h2'))
+    expect(useMapStore.getState().focus).toBe('h2')
+    const legendUnderH2 = legendTranslate()
+    const centreShift = translateOf(hexGroup('h2')).x - translateOf(hexGroup('h1')).x
+    expect(centreShift).toBeGreaterThan(0)
+    expect(legendUnderH2.x - legendUnderH1.x).toBeCloseTo(centreShift, 5)
+
+    // In a hexagon-scope export, the legend must lie inside the exported frame, not the first hexagon's.
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+    fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    const markup = await captured!.text()
+    const [, vxStr, vyStr, vwStr, vhStr] = /viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"/.exec(markup)!
+    const viewBox = { x: Number(vxStr), y: Number(vyStr), width: Number(vwStr), height: Number(vhStr) }
+    const [, lxStr, lyStr] = /<g[^>]*data-legend[^>]*transform="translate\(([-\d.]+) ([-\d.]+)\)"/.exec(markup)!
+    const legendInExport = { x: Number(lxStr), y: Number(lyStr) }
+
+    expect(legendInExport.x).toBeGreaterThanOrEqual(viewBox.x)
+    expect(legendInExport.x).toBeLessThanOrEqual(viewBox.x + viewBox.width)
+    expect(legendInExport.y).toBeGreaterThanOrEqual(viewBox.y)
+    expect(legendInExport.y).toBeLessThanOrEqual(viewBox.y + viewBox.height)
+
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
   it('exports only the current hexagon (scope Hexagon) or the whole map (scope Map), each with its own title (EXPORT-01/02)', async () => {
     useMapStore.getState().replace({ ...twoHexMap(), title: 'Whole map title' })
     render(<App />)
