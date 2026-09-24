@@ -15,7 +15,7 @@ describe('motion tokens', () => {
 
   it('times every transition and animation with the shared duration and easing tokens', () => {
     for (const value of motion) {
-      expect(value).not.toMatch(/\d(m?s)\b|\bease(-in|-out|-in-out)?\b|cubic-bezier|\blinear\b/)
+      expect(value).not.toMatch(/\d(m?s)\b|(?<![-\w])(ease(-in|-out|-in-out)?|linear)\b|cubic-bezier/)
       expect(value).toMatch(/var\(--motion-(fast|base|ease)\)/)
     }
   })

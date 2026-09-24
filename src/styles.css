@@ -3,6 +3,17 @@
   --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
   --hover: color-mix(in srgb, var(--teal) 9%, transparent);
+  /* Motion narrates cause and effect (focus moved, item appeared, notice arrived); it never decorates. */
+  --motion-fast: 120ms;
+  --motion-base: 150ms;
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --motion-fast: 0s; --motion-base: 0s; }
+}
+/* One entrance for everything that appears: a fade from the offset or scale the element sets. */
+@keyframes enter {
+  from { opacity: 0; translate: var(--enter-translate, 0 0); scale: var(--enter-scale, 1); }
 }
 
 /* Diagram */
@@ -48,10 +59,9 @@
 /* Layer hover: data-hover on the CURRENT hexagon's group names the layer, scoping the effect to it (CANVAS-03) —
    it brightens, glows and titles in ink, the rest dims. */
 .ring, .node, .edge, .guide, .edge-label, .ring-label, .ring-subtitle, .domain-title, .box {
-  transition: opacity 180ms ease-out, fill 180ms ease-out, stroke-width 180ms ease-out, filter 180ms ease-out;
-}
-@media (prefers-reduced-motion: reduce) {
-  .ring, .node, .edge, .guide, .edge-label, .ring-label, .ring-subtitle, .domain-title, .box { transition: none; }
+  transition-property: opacity, fill, stroke;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-ease);
 }
 .exporting, .exporting * { transition: none !important; }
 .ring:focus-visible { outline: none; }
@@ -86,7 +96,17 @@
 .glow-domain { flood-color: var(--teal-deep); }
 
 /* Current-hexagon cue and non-current hexagon affordance (FOCUS-01, CANVAS-03). */
-.hex-cue { fill: none; stroke: var(--teal); stroke-width: 2px; vector-effect: non-scaling-stroke; pointer-events: none; }
+.hex-cue {
+  fill: none;
+  stroke: var(--teal);
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+  /* Mounted afresh in the new current hexagon's group on every switch, so the entrance marks where focus went.
+     SVG scales about the group's origin, the hexagon centre. */
+  --enter-scale: 0.96;
+  animation: enter var(--motion-base) var(--motion-ease);
+}
 [data-hex][role='button'] { cursor: pointer; }
 
 /* On-canvas "+" affordances and the inline name field, laid over the stage in screen coordinates. */
@@ -106,6 +126,8 @@
   box-shadow: var(--shadow);
   cursor: pointer;
   pointer-events: auto;
+  --enter-scale: 0.6;
+  animation: enter var(--motion-base) var(--motion-ease);
 }
 .plus .icon { width: 14px; height: 14px; }
 .plus:hover { background: var(--teal-soft); }
@@ -400,16 +422,13 @@ label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
   list-style: none;
 }
 .section-head::-webkit-details-marker { display: none; }
-.section-head .icon { width: 14px; height: 14px; color: var(--muted); transition: transform 150ms ease; }
+.section-head .icon { width: 14px; height: 14px; color: var(--muted); transition: transform var(--motion-base) var(--motion-ease); }
 .fold[open] > .section-head .icon { transform: rotate(90deg); }
 .section-head .count { color: var(--muted); font-size: 12px; }
 .section-actions { position: absolute; top: 12px; right: 2px; display: flex; gap: 2px; }
 .section-actions .text-button.small { height: 26px; padding: 0 8px; font-size: 12px; }
 .port-group { display: grid; gap: 6px; }
 .port-group h3 { margin: 4px 2px 0; color: var(--muted); font-size: 12px; font-weight: 600; }
-@media (prefers-reduced-motion: reduce) {
-  .section-head .icon { transition: none; }
-}
 
 .items { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .item {
@@ -484,6 +503,7 @@ textarea { width: 100%; resize: vertical; margin-top: 4px; }
   gap: 6px;
   padding: 10px 12px;
 }
+.notice { --enter-translate: 0 -8px; animation: enter var(--motion-base) var(--motion-ease); }
 .notice p { margin: 0; }
 .notice-error { box-shadow: inset 3px 0 0 var(--error), var(--shadow); }
 .notice ul {
@@ -523,18 +543,13 @@ textarea { width: 100%; resize: vertical; margin-top: 4px; }
   padding: 4px 4px 4px 14px;
   font-size: 13px;
   transform: translateX(-50%);
-  animation: toast-in 150ms ease-out;
-  transition: opacity 150ms ease-in, transform 150ms ease-in;
+  --enter-translate: 0 8px;
+  animation: enter var(--motion-base) var(--motion-ease);
+  transition: opacity var(--motion-base) var(--motion-ease), translate var(--motion-base) var(--motion-ease);
 }
 .toast p { flex: 1; min-width: 0; margin: 0 8px 0 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .toast .text-button { font-size: 13px; color: var(--teal); }
-.toast.is-leaving { opacity: 0; transform: translate(-50%, 8px); }
-@keyframes toast-in {
-  from { opacity: 0; transform: translate(-50%, 8px); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .toast { animation: none; transition: none; }
-}
+.toast.is-leaving { opacity: 0; translate: 0 8px; }
 
 .legend {
   right: 12px;
@@ -563,10 +578,10 @@ textarea { width: 100%; resize: vertical; margin-top: 4px; }
 .legend-head:hover { background: var(--hover); }
 .legend-head .icon:first-child { color: var(--teal); }
 /* The chevron points up while closed (the panel opens upward) and down while open. */
-.legend-head .icon:last-child { width: 14px; height: 14px; margin-left: auto; color: var(--muted); transform: rotate(-90deg); transition: transform 150ms ease; }
+.legend-head .icon:last-child { width: 14px; height: 14px; margin-left: auto; color: var(--muted); transform: rotate(-90deg); transition: transform var(--motion-base) var(--motion-ease); }
 .legend[data-open] .legend-head .icon:last-child { transform: rotate(90deg); }
 /* 0fr → 1fr animates the body's height without measuring it. */
-.legend-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 150ms ease; }
+.legend-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--motion-base) var(--motion-ease); }
 .legend[data-open] .legend-body { grid-template-rows: 1fr; }
 /* Collapsed, the body must not widen the island past its header row. */
 .legend:not([data-open]) .legend-body { width: 0; }
@@ -589,9 +604,6 @@ span.swatch-external { background: var(--slate-soft); border-color: var(--slate)
 .legend-tags { font-family: var(--font-mono); }
 .legend-footer { padding: 8px 0; border-top: 1px solid var(--line); }
 .legend-export { display: flex; align-items: center; gap: 6px; font-size: 12px; }
-@media (prefers-reduced-motion: reduce) {
-  .legend-body, .legend-head .icon:last-child { transition: none; }
-}
 
 @media (max-width: 720px) {
   .toolbar { top: 8px; left: 8px; right: 8px; transform: none; max-width: none; }
