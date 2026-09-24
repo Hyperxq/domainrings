@@ -485,7 +485,7 @@ describe('link pruning (LINK-01, LINK-02)', () => {
     expect(selectedRefs()).toEqual([useCase.id])
 
     fireEvent.doubleClick(line)
-    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
+    screen.getByRole('button', { name: 'Expand editor' })
 
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(selectedRefs()).toEqual([])

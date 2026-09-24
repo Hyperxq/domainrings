@@ -108,22 +108,46 @@ describe('pruneLinks', () => {
     expect(pruned).toHaveLength(1)
   })
 
+  it('moving the side back after a prune does not restore the link — only undo does (LINK-01.6)', () => {
+    const map = baseMap()
+    const flipped: HexaMap = {
+      ...map,
+      hexagons: [{ ...map.hexagons[0], ports: map.hexagons[0].ports.map((p) => (p.id === 'p-out' ? { ...p, side: 'driving', wall: 'w' } : p)) }, map.hexagons[1]],
+    }
+    const afterPrune = pruneLinks(flipped, 'h1').map
+    expect(afterPrune.links).toEqual([])
+
+    const flippedBack: HexaMap = {
+      ...afterPrune,
+      hexagons: [{ ...afterPrune.hexagons[0], ports: afterPrune.hexagons[0].ports.map((p) => (p.id === 'p-out' ? { ...p, side: 'driven', wall: 'e' } : p)) }, afterPrune.hexagons[1]],
+    }
+    const { map: afterFlipBack, pruned } = pruneLinks(flippedBack, 'h1')
+    expect(afterFlipBack.links).toEqual([])
+    expect(pruned).toEqual([])
+  })
+
   it('keeps the link for a same-side wall change, a rename, or an unrelated deletion (LINK-01.3)', () => {
     const map = baseMap()
     const wallChanged: HexaMap = {
       ...map,
       hexagons: [{ ...map.hexagons[0], ports: map.hexagons[0].ports.map((p) => (p.id === 'p-out' ? { ...p, wall: 'se' } : p)) }, map.hexagons[1]],
     }
-    expect(pruneLinks(wallChanged, 'h1')).toEqual({ map: wallChanged, pruned: [] })
+    const wallResult = pruneLinks(wallChanged, 'h1')
+    expect(wallResult.map).toBe(wallChanged)
+    expect(wallResult.pruned).toEqual([])
 
     const renamed: HexaMap = {
       ...map,
       hexagons: [{ ...map.hexagons[0], ports: map.hexagons[0].ports.map((p) => (p.id === 'p-out' ? { ...p, name: 'Renamed' } : p)) }, map.hexagons[1]],
     }
-    expect(pruneLinks(renamed, 'h1').pruned).toEqual([])
+    const renamedResult = pruneLinks(renamed, 'h1')
+    expect(renamedResult.map).toBe(renamed)
+    expect(renamedResult.pruned).toEqual([])
 
     const unrelatedDeleted: HexaMap = { ...map, hexagons: [{ ...map.hexagons[0], ports: map.hexagons[0].ports.filter((p) => p.id !== 'p-unrelated') }, map.hexagons[1]] }
-    expect(pruneLinks(unrelatedDeleted, 'h1').pruned).toEqual([])
+    const unrelatedResult = pruneLinks(unrelatedDeleted, 'h1')
+    expect(unrelatedResult.map).toBe(unrelatedDeleted)
+    expect(unrelatedResult.pruned).toEqual([])
   })
 
   it('keeps the link and clears adapterId when the linked end’s own adapter is deleted or re-pointed (LINK-01.3)', () => {
