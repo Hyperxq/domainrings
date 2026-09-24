@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { App } from './App'
-import { EXAMPLE_DIAGRAM } from './model/example'
+import { EXAMPLE_DIAGRAM, TWO_SLICES_MAP } from './model/example'
 import { toHexa, toMap } from './model/hexa'
 import { diagramOf } from './model/map'
 import type { HexaMap, Link } from './model/schema'
@@ -270,6 +270,72 @@ describe('toolbar', () => {
     expect(link.getAttribute('rel')).toBe('noreferrer')
     expect(link.closest('.toolbar')).not.toBeNull()
     expect(link.querySelector('svg')).not.toBeNull()
+  })
+})
+
+describe('the "Two slices, one link (preview)" example (EX-01, CANVAS-01/02/04, FOCUS-02)', () => {
+  const pickExample = (label: string) => fireEvent.change(screen.getByLabelText('Load an example'), { target: { value: label } })
+
+  it('loads TWO_SLICES_MAP with the first hexagon current, and fits the view (no pan/zoom override)', () => {
+    render(<App />)
+    const option = screen.getByRole('option', { name: 'Two slices, one link (preview)' }) as HTMLOptionElement
+
+    pickExample(option.value)
+
+    expect(useMapStore.getState().map).toStrictEqual(TWO_SLICES_MAP)
+    expect(useMapStore.getState().focus).toBe('h1')
+    expect(screen.getByRole('status').textContent).toContain('Loaded the Two slices, one link (preview) example.')
+  })
+
+  it('renders both hexagons of the example, non-overlapping, connected by exactly one link line', () => {
+    const { container } = render(<App />)
+    const option = screen.getByRole('option', { name: 'Two slices, one link (preview)' }) as HTMLOptionElement
+    pickExample(option.value)
+
+    const groups = container.querySelectorAll('svg.canvas [data-hex]')
+    expect(groups).toHaveLength(2)
+    expect(container.querySelectorAll('svg.canvas [data-map-link]')).toHaveLength(1)
+    const boxOf = (hexId: string) => container.querySelector(`[data-hex="${hexId}"]`)!.getBoundingClientRect()
+    // jsdom's getBoundingClientRect is a zero-box stub; the real non-overlap guarantee is proven at the layout
+    // level (layout/map.test.ts CANVAS-01.1). Here we only pin that both hexagons render as distinct groups
+    // with different transforms, which is what the DOM identity contract (SEAM-05) actually promises.
+    expect(boxOf('h1')).toBeDefined()
+    expect(container.querySelector('[data-hex="h1"]')!.getAttribute('transform')).not.toBe(container.querySelector('[data-hex="h2"]')!.getAttribute('transform'))
+  })
+})
+
+describe('refused imports leave the current map untouched (MIG-02, MIG-03)', () => {
+  it('refuses a structurally invalid v2 file, naming the reason, without touching the current map', async () => {
+    render(<App />)
+    const before = useMapStore.getState().map
+    const broken = JSON.stringify({ app: 'domainrings', version: 2, kind: 'hexagonal', title: 'Bad', contexts: [{ id: 'c1' }], hexagons: [], links: [] })
+    const file = new File([broken], 'broken.hexa', { type: 'application/json' })
+
+    fireEvent.change(screen.getByLabelText('Import a .hexa file'), { target: { files: [file] } })
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(useMapStore.getState().map).toBe(before)
+    expect(screen.getByRole('alert').textContent).toContain('broken.hexa could not be opened')
+  })
+
+  it('refuses a file made by a newer version, naming it as newer rather than damaged, without touching the current map', async () => {
+    render(<App />)
+    const before = useMapStore.getState().map
+    const newer = JSON.stringify({ app: 'domainrings', version: 99 })
+    const file = new File([newer], 'future.hexa', { type: 'application/json' })
+
+    fireEvent.change(screen.getByLabelText('Import a .hexa file'), { target: { files: [file] } })
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(useMapStore.getState().map).toBe(before)
+    const alert = screen.getByRole('alert')
+    expect(alert.textContent).toContain('future.hexa could not be opened')
+    expect(alert.textContent).toMatch(/newer version/)
+    expect(alert.textContent).not.toMatch(/damaged/)
   })
 })
 

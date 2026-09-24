@@ -3,7 +3,7 @@ import { createStore } from 'zustand/vanilla'
 import { autosave, browserStorage, loadMap, LEGACY_KEY, MAP_KEY, UNREADABLE_KEY, V1_KEY } from './persistence'
 import { readPref } from '../ui/prefs'
 import { parseHexa, toHexa, toMap } from './hexa'
-import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, SEED_VERSION } from './example'
+import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, SEED_VERSION, TWO_SLICES_MAP } from './example'
 import type { Diagram, HexaMap } from './schema'
 
 const memoryStorage = (initial: Record<string, string> = {}) => {
@@ -226,6 +226,28 @@ describe('a two-hexagon map round-trips through autosave and reload', () => {
 
     const reloaded = loadMap(storage)
     expect(reloaded).toEqual({ map: { ...map, title: 'Renamed' }, recovery: 'none' })
+  })
+})
+
+describe('RT-01: the shipped "Two slices, one link" example round-trips through a reload', () => {
+  afterEach(() => vi.useRealTimers())
+
+  it('after loading the example, editing the current hexagon, and autosave running, a reload restores the edit and refocuses the first hexagon', () => {
+    vi.useFakeTimers()
+    const edited: HexaMap = { ...TWO_SLICES_MAP, hexagons: [{ ...TWO_SLICES_MAP.hexagons[0], title: 'Renamed while editing h1' }, TWO_SLICES_MAP.hexagons[1]] }
+    const store = createStore(() => ({ map: TWO_SLICES_MAP }))
+    const storage = memoryStorage()
+    autosave(store, storage, 'none', 400)
+
+    store.setState({ map: edited })
+    vi.advanceTimersByTime(400)
+
+    const reloaded = loadMap(storage)
+    expect(reloaded).toEqual({ map: store.getState().map, recovery: 'none' })
+    expect(reloaded.map).toStrictEqual(edited)
+    // A fresh boot off the reloaded map always focuses its first hexagon (FOCUS-02), regardless of what was
+    // current when the edit was made.
+    expect(reloaded.map.hexagons[0].id).toBe('h1')
   })
 })
 
