@@ -6,9 +6,9 @@ import { legendFor, legendSize } from './layout/legend'
 import { EXAMPLES } from './model/example'
 import { parseHexa, toHexa, toMap } from './model/hexa'
 import { collectionOf, type LinkTarget } from './model/links'
-import { diagramOf, UNTITLED_HEXAGON } from './model/map'
+import { contextName, diagramOf, UNTITLED_HEXAGON } from './model/map'
 import type { Recovery } from './model/persistence'
-import type { HexaMap, Link } from './model/schema'
+import type { HexaMap, Link, Wall } from './model/schema'
 import { useMapStore } from './model/store'
 import { Editor, revealInEditor } from './ui/Editor'
 import { download, exportBounds, fileSlug, legendDrawn, pngBlob, svgMarkup } from './ui/exporters'
@@ -42,7 +42,7 @@ const OVERVIEW_KEY = 'domainrings:overview'
 const GUIDES_KEY = 'domainrings:guides'
 const HIGHLIGHT_KEY = 'domainrings:highlight'
 const LEGEND_OPEN_KEY = 'domainrings:legend-open'
-const { replace, restore, setMapMeta, removeItem, updateItem } = useMapStore.getState()
+const { replace, restore, setMapMeta, removeItem, updateItem, addHexagon, setMeta } = useMapStore.getState()
 
 interface AppProps {
   boot?: { recovery: Recovery; unreadableText?: string }
@@ -124,6 +124,19 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     if (pruned.length) pruneToast(pruned, before)
     else show({ tone: 'status', message: `Deleted ${nameOf(ref)}.`, undo: before })
     return true
+  }
+
+  // Grow: the just-added hexagon's own inline title field is open until it commits (onNamed) or is undone
+  // (onNamingCancel, or the toast's own Undo — either restores `before`, exactly as a one-step undo (GROW-03)).
+  const [growing, setGrowing] = useState<{ hexId: string; before: { map: HexaMap; focus: string } } | null>(null)
+  const handleGrow = (side: Wall | undefined, context: 'same' | 'new') => {
+    const before = { map, focus: hexId }
+    const newHexId = addHexagon(hexId, { side, context })
+    if (!newHexId) return
+    const grownMap = useMapStore.getState().map
+    const label = contextName(grownMap, grownMap.hexagons.find((h) => h.id === newHexId)!.contextId)
+    show({ tone: 'status', message: `Added ${UNTITLED_HEXAGON} to ${label}. It is now the current hexagon.`, undo: before })
+    setGrowing({ hexId: newHexId, before })
   }
 
   // Link mode: the element being linked. It ends when that element goes, or the whole map is swapped.
@@ -217,7 +230,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           setHighlight(on)
         }}
       />
-      <Editor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} onPrune={pruneToast} />
+      <Editor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} onPrune={pruneToast} onAddHexagon={() => handleGrow(undefined, 'same')} />
       <Legend
         legend={legend}
         open={legendOpen}
@@ -231,7 +244,37 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           setLegendInExport(include)
         }}
       />
-      <Stage model={model} hexId={hexId} diagram={diagram} mode={mode} highlight={highlight} legend={legend} revision={revision} title={diagram.title} svgRef={svgRef} panelOpen={editorOpen} legendOpen={legendOpen} showGuides={guides} onReveal={reveal} onDelete={deleteItem} linking={linking} onLinking={startLinking} onLink={link} />
+      <Stage
+        model={model}
+        hexId={hexId}
+        diagram={diagram}
+        mode={mode}
+        highlight={highlight}
+        legend={legend}
+        revision={revision}
+        title={diagram.title}
+        svgRef={svgRef}
+        panelOpen={editorOpen}
+        legendOpen={legendOpen}
+        showGuides={guides}
+        onReveal={reveal}
+        onDelete={deleteItem}
+        linking={linking}
+        onLinking={startLinking}
+        onLink={link}
+        contextLabel={contextName(map, map.hexagons.find((h) => h.id === hexId)!.contextId)}
+        onGrow={handleGrow}
+        naming={!!growing}
+        onNamed={(title) => {
+          setMeta(growing!.hexId, { title })
+          setGrowing(null)
+        }}
+        onNamingCancel={() => {
+          restore(growing!.before)
+          setGrowing(null)
+          setNotice(null)
+        }}
+      />
       {linking && <Toast key={`link:${linking}`} sticky message={`Choose a target for ${nameOf(linking)} · Esc to cancel`} onClose={() => setLinking(null)} />}
       {!linking && notice?.tone === 'status' && (
         <Toast
@@ -242,6 +285,8 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
             (() => {
               restore(notice.undo!)
               setNotice(null)
+              // Undoing a grow through the toast is the same restore as Esc-while-naming — close the field too.
+              setGrowing(null)
             })
           }
           onClose={() => setNotice(null)}

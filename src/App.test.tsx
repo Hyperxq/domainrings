@@ -990,3 +990,88 @@ describe('export scope (EXPORT-03)', () => {
     })
   })
 })
+
+describe('grow the map (GROW-01..04, ADR-02)', () => {
+  const growEast = () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Add hexagon to the east of Chat feedback slice' }))
+  }
+
+  it('opens the new hexagon’s title field, focused, and announces the grow via a toast', () => {
+    render(<App />)
+    growEast()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
+
+    const input = screen.getByRole('textbox', { name: 'Hexagon title' }) as HTMLInputElement
+    expect(document.activeElement).toBe(input)
+    expect(input.value).toBe(UNTITLED_HEXAGON)
+    expect(useMapStore.getState().map.hexagons).toHaveLength(2)
+    expect(useMapStore.getState().focus).toBe(useMapStore.getState().map.hexagons[1].id)
+    expect(toastEl()!.textContent).toContain(`Added ${UNTITLED_HEXAGON} to Context 1. It is now the current hexagon.`)
+  })
+
+  it('growing into a new context appends it, without touching the existing one', () => {
+    render(<App />)
+    const before = useMapStore.getState().map
+    growEast()
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in a new context' }))
+
+    expect(useMapStore.getState().map.contexts).toHaveLength(before.contexts.length + 1)
+    expect(useMapStore.getState().map.contexts[0]).toStrictEqual(before.contexts[0])
+  })
+
+  it('Undo removes the grown hexagon and restores the previous focus (map and focus toStrictEqual)', () => {
+    render(<App />)
+    const before = useMapStore.getState().map
+    const beforeFocus = useMapStore.getState().focus
+    growEast()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useMapStore.getState().map).toStrictEqual(before)
+    expect(useMapStore.getState().focus).toBe(beforeFocus)
+    expect(screen.queryByRole('textbox', { name: 'Hexagon title' })).toBeNull()
+  })
+
+  it('Esc while naming removes the grown hexagon, exactly as Undo would (GROW-03.2)', () => {
+    render(<App />)
+    const before = useMapStore.getState().map
+    const beforeFocus = useMapStore.getState().focus
+    growEast()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
+    const input = screen.getByRole('textbox', { name: 'Hexagon title' })
+
+    fireEvent.keyDown(input, { key: 'Escape' })
+
+    expect(useMapStore.getState().map).toStrictEqual(before)
+    expect(useMapStore.getState().focus).toBe(beforeFocus)
+    expect(screen.queryByRole('textbox', { name: 'Hexagon title' })).toBeNull()
+  })
+
+  it('committing a typed title on Enter sets it and closes the field', () => {
+    render(<App />)
+    growEast()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
+    const input = screen.getByRole('textbox', { name: 'Hexagon title' })
+
+    fireEvent.change(input, { target: { value: 'Billing' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(screen.queryByRole('textbox', { name: 'Hexagon title' })).toBeNull()
+    expect(useMapStore.getState().map.hexagons.at(-1)?.title).toBe('Billing')
+  })
+
+  it('the Hexagon-section "Add hexagon" button grows into the same context (GROW-04.1)', () => {
+    const { container } = render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add hexagon' }))
+
+    expect(useMapStore.getState().map.hexagons).toHaveLength(2)
+    expect(useMapStore.getState().map.hexagons[1].contextId).toBe(useMapStore.getState().map.hexagons[0].contextId)
+    // Both the canvas's inline naming field and the Editor's own Hexagon-title field share the "Hexagon title"
+    // accessible name (the same underlying value, shown in two places at once) — scope to the canvas-only one.
+    expect(container.querySelector('main.stage .inline-name')).toBeTruthy()
+  })
+})

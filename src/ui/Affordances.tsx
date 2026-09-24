@@ -83,12 +83,18 @@ export function Affordances({ points, toScreen, onPick, onLayer }: AffordancesPr
 interface InlineNameProps {
   at: Point
   initial: string
+  /** Accessible name of the field; defaults to "Name" for the per-item insertion fields. */
+  label?: string
+  /** When set, an empty commit (Enter or blur) keeps `initial` instead of removing the element — for a hexagon's
+   * own title, which should never vanish on a stray blur the way a small inline item does. */
+  emptyCommits?: boolean
   onCommit: (name: string) => void
   onCancel: () => void
 }
 
-/** The name field of a just-created element, over its box: Enter commits, Esc undoes, blur commits unless empty. */
-export function InlineName({ at, initial, onCommit, onCancel }: InlineNameProps) {
+/** The name field of a just-created element, over its box: Enter commits, Esc undoes, blur commits unless empty
+ * (or, with `emptyCommits`, blur/Enter on empty keeps the initial default instead of undoing). */
+export function InlineName({ at, initial, label = 'Name', emptyCommits, onCommit, onCancel }: InlineNameProps) {
   const [value, setValue] = useState(initial)
   // Enter or Esc settles once; the blur that follows when the field goes away must not settle again.
   const settled = useRef(false)
@@ -96,12 +102,13 @@ export function InlineName({ at, initial, onCommit, onCancel }: InlineNameProps)
     if (settled.current) return
     settled.current = true
     if (commit && value.trim()) onCommit(value.trim())
+    else if (commit && emptyCommits) onCommit(initial)
     else onCancel()
   }
   return (
     <input
       className="inline-name"
-      aria-label="Name"
+      aria-label={label}
       style={{ left: at.x, top: at.y }}
       value={value}
       autoFocus

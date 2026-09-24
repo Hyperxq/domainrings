@@ -140,6 +140,25 @@
   pointer-events: auto;
 }
 .plus-menu .text-button { justify-content: start; font-family: var(--font-mono); font-weight: 500; }
+
+/* Grow-the-map side "+": a ChoiceMenu (GROW-01) positioned at the shared cell-edge midpoint, styled to match .plus. */
+.side-plus { position: absolute; transform: translate(-50%, -50%); }
+.side-plus .choice-trigger {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--teal);
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--teal);
+  box-shadow: var(--shadow);
+  --enter-scale: 0.6;
+  animation: enter var(--motion-base) var(--motion-ease);
+}
+.side-plus .choice-trigger .icon { width: 14px; height: 14px; color: var(--teal); transform: none; }
+.side-plus .choice-trigger:hover { background: var(--teal-soft); }
 .inline-name {
   position: absolute;
   z-index: 5;

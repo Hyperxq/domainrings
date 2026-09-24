@@ -3,15 +3,20 @@ import { flushSync } from 'react-dom'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
 import type { LayoutMode, LayoutNode, Point } from '../layout/layout'
 import type { LegendModel } from '../layout/legend'
-import { currentHexagon, hexagonBounds, hexagonTitle, type MapLayout } from '../layout/map'
+import { cellCentre, currentHexagon, hexagonBounds, hexagonTitle, type MapLayout } from '../layout/map'
 import { collectionOf, linkTargets, type LinkTarget } from '../model/links'
-import type { CollectionKey, Diagram as DiagramModel, DomainType } from '../model/schema'
+import { freeSides, neighbour, UNTITLED_HEXAGON } from '../model/map'
+import type { CollectionKey, Diagram as DiagramModel, DomainType, Wall } from '../model/schema'
 import { useMapStore } from '../model/store'
 import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
+import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
 import { typing } from './keys'
 import { fitMap, islandInset, panBy, pinch, zoomAt, type Viewport } from './viewport'
+
+/** Lowercase, hyphenated compass names for the grow "+" aria-label ("Add hexagon to the {…} of {title}"). */
+const SIDE_NAME: Record<Wall, string> = { e: 'east', se: 'south-east', sw: 'south-west', w: 'west', nw: 'north-west', ne: 'north-east' }
 
 interface StageProps {
   model: MapLayout
@@ -37,6 +42,14 @@ interface StageProps {
   linking: string | null
   onLinking: (ref: string | null) => void
   onLink: (source: string, target: LinkTarget) => void
+  /** The current hexagon's own context display name, for the grow menu's "Hexagon in {context}" choice. */
+  contextLabel: string
+  /** Grows the map from the current hexagon's given free side, into its own context or a new one (GROW-01). */
+  onGrow: (side: Wall, context: 'same' | 'new') => void
+  /** True right after growing: the current hexagon's title field is open inline (GROW-02.1). */
+  naming: boolean
+  onNamed: (title: string) => void
+  onNamingCancel: () => void
 }
 
 const GRID = 20
@@ -58,7 +71,7 @@ const keyOnCanvas = (target: EventTarget | null) =>
 const layerOf = (target: Element) =>
   target.closest('[data-band]')?.getAttribute('data-band') ?? target.closest('[data-layer]')?.getAttribute('data-layer') ?? null
 
-export function Stage({ model, hexId, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete, linking, onLinking, onLink }: StageProps) {
+export function Stage({ model, hexId, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete, linking, onLinking, onLink, contextLabel, onGrow, naming, onNamed, onNamingCancel }: StageProps) {
   const hex = currentHexagon(model, hexId)
   const hexModel = hex.model
   const mainRef = useRef<HTMLElement>(null)
@@ -213,6 +226,16 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
     x: (p.x + hex.centre.x - viewport.x) * viewport.scale,
     y: (p.y + hex.centre.y - viewport.y) * viewport.scale,
   })
+  // The grow-menu anchors are already in map space (cell centres), unlike hexagon-local insertion points.
+  const mapToScreen = (p: Point) => ({ x: (p.x - viewport.x) * viewport.scale, y: (p.y - viewport.y) * viewport.scale })
+  const growSides = freeSides(model, hex.cell).map((side) => {
+    const neighbourCentre = cellCentre(neighbour(hex.cell, side), model.pitch)
+    return { side, at: mapToScreen({ x: (hex.centre.x + neighbourCentre.x) / 2, y: (hex.centre.y + neighbourCentre.y) / 2 }) }
+  })
+  const growChoices = (context: string) => [
+    { id: 'same' as const, label: `Hexagon in ${context}` },
+    { id: 'new' as const, label: 'Hexagon in a new context' },
+  ]
   const targets = linking ? linkTargets(diagram, linking) : []
   const nameOf = (ref: string) => {
     const collection = collectionOf(diagram, ref)
@@ -400,6 +423,16 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
       </p>
 
       <Affordances points={visiblePoints} toScreen={toScreen} onPick={pick} onLayer={setHovered} />
+      {growSides.map(({ side, at }) => (
+        <span key={side} className="side-plus" style={{ left: at.x, top: at.y }}>
+          <ChoiceMenu
+            label={<Icon name="plus" />}
+            ariaLabel={`Add hexagon to the ${SIDE_NAME[side]} of ${title || UNTITLED_HEXAGON}`}
+            choices={growChoices(contextLabel)}
+            onChoose={(context) => onGrow(side, context)}
+          />
+        </span>
+      ))}
       {linkable && (
         <button type="button" className="link-chip" data-plus="" style={chipAt(linkable)} aria-label={`Link ${nameOf(linkable.ref)} to…`} onClick={() => onLinking(linkable.ref)}>
           Link to…
@@ -420,6 +453,9 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
             setEditing(null)
           }}
         />
+      )}
+      {naming && (
+        <InlineName key={`naming:${hexId}`} at={mapToScreen(hex.centre)} initial={diagram.title} label="Hexagon title" emptyCommits onCommit={onNamed} onCancel={onNamingCancel} />
       )}
 
       <div className="island zoom" role="group" aria-label="Zoom">

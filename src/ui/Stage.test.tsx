@@ -6,7 +6,7 @@ import { layoutMap } from '../layout/map'
 import { legendFor } from '../layout/legend'
 import { EXAMPLE_DIAGRAM } from '../model/example'
 import { toMap } from '../model/hexa'
-import { diagramOf } from '../model/map'
+import { contextName, diagramOf, freeSides, neighbour, SIDE_ORDER } from '../model/map'
 import { useMapStore } from '../model/store'
 import { hexGroup, twoHexMap } from '../test/fixtures'
 
@@ -21,12 +21,27 @@ beforeEach(() => useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM)))
 afterEach(cleanup)
 
 /** The stage as the app wires it: laid out from the live store. */
-function Harness({ highlight = true, onReveal = () => {} }: { highlight?: boolean; onReveal?: (ref: string, focus: boolean) => void }) {
+function Harness({
+  highlight = true,
+  onReveal = () => {},
+  onGrow = () => {},
+  naming = false,
+  onNamed = () => {},
+  onNamingCancel = () => {},
+}: {
+  highlight?: boolean
+  onReveal?: (ref: string, focus: boolean) => void
+  onGrow?: (side: import('../model/schema').Wall, context: 'same' | 'new') => void
+  naming?: boolean
+  onNamed?: (title: string) => void
+  onNamingCancel?: () => void
+}) {
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   const diagram = diagramOf(map, hexId)
   const svgRef = createRef<SVGSVGElement>()
   const [linking, setLinking] = useState<string | null>(null)
+  const currentContextId = map.hexagons.find((h) => h.id === hexId)!.contextId
   return (
     <Stage
       model={layoutMap(map)}
@@ -46,6 +61,11 @@ function Harness({ highlight = true, onReveal = () => {} }: { highlight?: boolea
       onLink={() => {}}
       showGuides
       highlight={highlight}
+      contextLabel={contextName(map, currentContextId)}
+      onGrow={onGrow}
+      naming={naming}
+      onNamed={onNamed}
+      onNamingCancel={onNamingCancel}
     />
   )
 }
@@ -153,6 +173,92 @@ describe('Stage "+" affordances', () => {
     fireEvent.change(input, { target: { value: '   ' } })
     fireEvent.blur(input)
     expect(diagramOf(useMapStore.getState().map, useMapStore.getState().focus).useCases).toEqual(EXAMPLE_DIAGRAM.useCases)
+  })
+})
+
+describe('Stage side "+" (GROW-01, ADR-02)', () => {
+  it('renders exactly freeSides.length triggers on the current hexagon, one per free side', () => {
+    const { container } = render(<Harness />)
+    // A lone hexagon (the default single-hexagon store state) has all 6 sides free.
+    expect(container.querySelectorAll('.side-plus')).toHaveLength(6)
+  })
+
+  it('excludes exactly the occupied side, and renders none on the non-current hexagon', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+    // h1 (current) has a neighbour on 'e' only (h2 sits at {1,0}); h2 (non-current) offers none at all.
+    expect(container.querySelectorAll('.side-plus')).toHaveLength(5)
+  })
+
+  it('renders none when the current hexagon is fully surrounded', () => {
+    const base = twoHexMap()
+    const centre = base.hexagons[0]
+    const ring = SIDE_ORDER.map((s, i) => ({ ...centre, id: `ring${i}`, cell: neighbour(centre.cell, s), contextId: centre.contextId }))
+    useMapStore.getState().replace({ ...base, hexagons: [centre, ...ring] })
+    const { container } = render(<Harness />)
+    expect(freeSides(useMapStore.getState().map, centre.cell)).toEqual([])
+    expect(container.querySelectorAll('.side-plus')).toHaveLength(0)
+  })
+
+  it('labels each trigger "Add hexagon to the {side} of {title}"', () => {
+    const { container } = render(<Harness />)
+    expect(screen.getByRole('button', { name: 'Add hexagon to the east of Test' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Add hexagon to the north-west of Test' })).toBeTruthy()
+    expect(container.querySelectorAll('.side-plus')).toHaveLength(6)
+  })
+
+  it('positions each trigger toward its own side of the current hexagon — east strictly right of west', () => {
+    render(<Harness />)
+    const at = (name: string) => (screen.getByRole('button', { name }).closest('.side-plus') as HTMLElement).style
+    // Screen x = (mapX - viewport.x) * scale + pan: a shared viewport.x/scale/pan means the east midpoint
+    // (map x = +pitch.x/2) must land strictly right of the west one (map x = -pitch.x/2), whatever the fit resolves to.
+    expect(parseFloat(at('Add hexagon to the east of Test').left)).toBeGreaterThan(parseFloat(at('Add hexagon to the west of Test').left))
+  })
+
+  it('choosing "Hexagon in {context}" calls onGrow with the side and "same"', () => {
+    const onGrow = vi.fn()
+    render(<Harness onGrow={onGrow} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add hexagon to the east of Test' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
+    expect(onGrow).toHaveBeenCalledWith('e', 'same')
+  })
+
+  it('choosing "Hexagon in a new context" calls onGrow with the side and "new"', () => {
+    const onGrow = vi.fn()
+    render(<Harness onGrow={onGrow} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add hexagon to the east of Test' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in a new context' }))
+    expect(onGrow).toHaveBeenCalledWith('e', 'new')
+  })
+})
+
+describe('Stage hexagon-naming field (GROW-02, ADR-02)', () => {
+  it('renders no field when naming is false', () => {
+    render(<Harness />)
+    expect(screen.queryByRole('textbox', { name: 'Hexagon title' })).toBeNull()
+  })
+
+  it('renders an inline title field for the current hexagon, labelled "Hexagon title", when naming is true', () => {
+    render(<Harness naming />)
+    const input = screen.getByRole('textbox', { name: 'Hexagon title' }) as HTMLInputElement
+    expect(input.value).toBe('Chat feedback slice')
+  })
+
+  it('commits the typed title via onNamed on Enter', () => {
+    const onNamed = vi.fn()
+    render(<Harness naming onNamed={onNamed} />)
+    const input = screen.getByRole('textbox', { name: 'Hexagon title' })
+    fireEvent.change(input, { target: { value: 'Billing' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onNamed).toHaveBeenCalledWith('Billing')
+  })
+
+  it('calls onNamingCancel on Esc', () => {
+    const onNamingCancel = vi.fn()
+    render(<Harness naming onNamingCancel={onNamingCancel} />)
+    const input = screen.getByRole('textbox', { name: 'Hexagon title' })
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(onNamingCancel).toHaveBeenCalledOnce()
   })
 })
 

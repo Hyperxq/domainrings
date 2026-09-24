@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { Editor, revealInEditor } from './Editor'
 import { EXAMPLE_DIAGRAM } from '../model/example'
 import { toMap } from '../model/hexa'
+import { neighbour, SIDE_ORDER } from '../model/map'
 import { useMapStore } from '../model/store'
 import { card, currentDiagram } from '../test/fixtures'
 
@@ -14,7 +15,7 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-const renderEditor = () => render(<Editor open onToggle={() => {}} onPrune={() => {}} />)
+const renderEditor = (onAddHexagon: () => void = () => {}) => render(<Editor open onToggle={() => {}} onPrune={() => {}} onAddHexagon={onAddHexagon} />)
 const section = (container: HTMLElement, title: string) =>
   [...container.querySelectorAll('details')].find((d) => d.querySelector(':scope > summary h2')?.textContent === title) as HTMLDetailsElement
 const port = EXAMPLE_DIAGRAM.ports[0]
@@ -94,6 +95,37 @@ describe('map and hexagon titles (TITLE-01, TITLE-02)', () => {
     expect(currentDiagram()).toMatchObject({ title: EXAMPLE_DIAGRAM.title, subtitle: EXAMPLE_DIAGRAM.subtitle })
     expect(useMapStore.getState().map.hexagons[1]).toBe(otherHexagon)
     expect((card(container, 'hexagon').querySelector('input') as HTMLInputElement).value).toBe(EXAMPLE_DIAGRAM.title)
+  })
+})
+
+describe('"Add hexagon" button in the Hexagon section (GROW-04)', () => {
+  it('is enabled and calls onAddHexagon when the current hexagon has a free side', () => {
+    const onAddHexagon = vi.fn()
+    const { container } = renderEditor(onAddHexagon)
+    const button = within(section(container, 'Hexagon')).getByRole('button', { name: 'Add hexagon' })
+    expect(button.hasAttribute('aria-disabled')).toBe(false)
+
+    fireEvent.click(button)
+
+    expect(onAddHexagon).toHaveBeenCalledOnce()
+  })
+
+  it('is aria-disabled, keyboard-reachable, and hinted when the current hexagon is surrounded (GROW-04.1)', () => {
+    const base = toMap(EXAMPLE_DIAGRAM)
+    const centre = base.hexagons[0]
+    const ring = SIDE_ORDER.map((s, i) => ({ ...centre, id: `ring${i}`, cell: neighbour(centre.cell, s) }))
+    useMapStore.getState().replace({ ...base, hexagons: [centre, ...ring] })
+    const onAddHexagon = vi.fn()
+    const { container } = renderEditor(onAddHexagon)
+    const button = within(section(container, 'Hexagon')).getByRole('button', { name: 'Add hexagon' })
+
+    expect(button.getAttribute('aria-disabled')).toBe('true')
+    expect(button.hasAttribute('disabled')).toBe(false)
+    const hint = document.getElementById(button.getAttribute('aria-describedby')!)
+    expect(hint?.textContent).toBe('No free side around this hexagon.')
+
+    fireEvent.click(button)
+    expect(onAddHexagon).not.toHaveBeenCalled()
   })
 })
 

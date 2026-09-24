@@ -15,7 +15,7 @@ import {
   type Wall,
 } from '../model/schema'
 import { parentCandidates } from '../model/links'
-import { diagramOf, UNTITLED_HEXAGON } from '../model/map'
+import { diagramOf, freeSides, UNTITLED_HEXAGON } from '../model/map'
 import { useMapStore, type Item } from '../model/store'
 import { Icon } from './Icon'
 
@@ -30,6 +30,7 @@ type OnPrune = (pruned: Link[], before: { map: HexaMap; focus: string }) => void
 const WALL_LABEL: Record<Wall, string> = { nw: 'North-west', w: 'West', sw: 'South-west', ne: 'North-east', e: 'East', se: 'South-east' }
 
 const FLASH_MS = 1200
+const NO_FREE_SIDE_HINT = 'No free side around this hexagon.'
 
 /** Bring a card into view and flash it, so canvas and panel stay in step; `focus` also selects its first field. */
 export function revealInEditor(id: string, focus: boolean) {
@@ -207,13 +208,15 @@ function adaptersBySide(d: Diagram) {
   return (side: Side) => d.adapters.filter((a) => (a.portId ? portSide.get(a.portId) === side : true))
 }
 
-export function Editor({ open, onToggle, onPrune }: { open: boolean; onToggle: () => void; onPrune: OnPrune }) {
+export function Editor({ open, onToggle, onPrune, onAddHexagon }: { open: boolean; onToggle: () => void; onPrune: OnPrune; onAddHexagon: () => void }) {
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   const d = diagramOf(map, hexId)
   const labels = KINDS[d.kind].labels
   const adaptersOn = adaptersBySide(d)
   const sideLabel: Record<Side, string> = { driving: labels.drivingPort, driven: labels.drivenPort }
+  const currentCell = map.hexagons.find((h) => h.id === hexId)?.cell
+  const canGrow = !!currentCell && freeSides(map, currentCell).length > 0
 
   return (
     <aside className={`island editor${open ? '' : ' is-collapsed'}`} aria-label="Diagram editor">
@@ -249,6 +252,20 @@ export function Editor({ open, onToggle, onPrune }: { open: boolean; onToggle: (
               onChange={(e) => setMeta(hexId, { composition: e.target.value ? { ...d.composition, name: e.target.value } : undefined })}
             />
           </label>
+          <button
+            type="button"
+            className="text-button"
+            aria-disabled={canGrow ? undefined : true}
+            aria-describedby={canGrow ? undefined : 'no-free-side-hint'}
+            onClick={() => canGrow && onAddHexagon()}
+          >
+            Add hexagon
+          </button>
+          {!canGrow && (
+            <p id="no-free-side-hint" className="visually-hidden">
+              {NO_FREE_SIDE_HINT}
+            </p>
+          )}
         </Fold>
 
         <Fold id="layers" title="Layers" count={KINDS[d.kind].rings.length}>
