@@ -336,9 +336,10 @@ describe('refused imports leave the current map untouched (MIG-02, MIG-03)', () 
 
     expect(useMapStore.getState().map).toBe(before)
     const alert = screen.getByRole('alert')
-    expect(alert.textContent).toContain('future.hexa could not be opened')
+    expect(alert.textContent).toContain('future.hexa was made by a newer version of domainrings.')
     expect(alert.textContent).toMatch(/newer version/)
     expect(alert.textContent).not.toMatch(/damaged/)
+    expect(alert.textContent).not.toContain('Fix these problems')
   })
 })
 

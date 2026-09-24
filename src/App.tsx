@@ -155,8 +155,11 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
 
   const importFile = async (file: File) => {
     const result = parseHexa(await file.text())
-    if (result.ok) swap(result.map, `Opened ${file.name}.`)
-    else show({ tone: 'error', message: `${file.name} could not be opened. Fix these problems and try again:`, details: result.errors })
+    if (result.ok) return swap(result.map, `Opened ${file.name}.`)
+    // A newer-version file isn't broken (REQ-03.1) — nothing to "fix", so it gets its own headline, no fix-it framing.
+    const message =
+      result.reason === 'newer' ? `${file.name} was made by a newer version of domainrings.` : `${file.name} could not be opened. Fix these problems and try again:`
+    show({ tone: 'error', message, details: result.errors })
   }
 
   const exportAs = async (format: 'hexa' | 'svg' | 'png') => {
