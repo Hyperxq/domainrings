@@ -2,14 +2,14 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createRef, useState } from 'react'
 import { Stage } from './Stage'
-import { layoutMap } from '../layout/map'
+import { currentHexagon, hexagonBounds, layoutMap } from '../layout/map'
 import { legendFor } from '../layout/legend'
 import { EXAMPLE_DIAGRAM } from '../model/example'
 import { toMap } from '../model/hexa'
 import { contextName, diagramOf, freeSides, neighbour, SIDE_ORDER } from '../model/map'
 import { useMapStore } from '../model/store'
 import { hexGroup, twoHexMap } from '../test/fixtures'
-import { fitTo, islandInset, MIN_SCALE } from './viewport'
+import { fitMap, fitTo, islandInset } from './viewport'
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class {
@@ -301,7 +301,9 @@ describe('Stage "Fit all" (FIT-01, ADR-05)', () => {
     expect(actual.scale).toBeCloseTo(expected.scale, 6)
   }
 
-  it('fits the whole map at whatever zoom that takes, below the MIN_SCALE floor "auto" would clamp to, and keeps following the map as it grows', () => {
+  // fitTo's own unit tests (viewport.test.ts) prove minScale: 0 goes below MIN_SCALE for a huge map — this test's
+  // job is the WIRING: "Fit all" drives that exact formula, and the result keeps following the map as it grows.
+  it('fits the whole map via fitTo(mapBounds, …, minScale: 0), and keeps following the map as it grows', () => {
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<Harness />)
 
@@ -311,9 +313,6 @@ describe('Stage "Fit all" (FIT-01, ADR-05)', () => {
     const model1 = layoutMap(useMapStore.getState().map)
     const expected1 = fitTo(model1.bounds, model1.bounds.width, model1.bounds.height, inset, 0)
     expectViewport(container, expected1)
-    // Never falls back to a partial view (FIT-01.1/01.2): the fitted scale is allowed BELOW the floor an
-    // explicit fit used to clamp to.
-    expect(expected1.scale).toBeLessThan(MIN_SCALE)
 
     act(() => {
       useMapStore.getState().addHexagon('h1', { context: 'same' })
@@ -322,6 +321,116 @@ describe('Stage "Fit all" (FIT-01, ADR-05)', () => {
     const model2 = layoutMap(useMapStore.getState().map)
     const expected2 = fitTo(model2.bounds, model2.bounds.width, model2.bounds.height, inset, 0)
     expectViewport(container, expected2)
+  })
+})
+
+describe('Stage — auto-fit after a map-shape change (FIT-02, ADR-05)', () => {
+  const inset = islandInset({ width: 0, height: 0 }, false, false)
+  const autoFitOf = () => {
+    const model = layoutMap(useMapStore.getState().map)
+    return fitMap(model.bounds, hexagonBounds(currentHexagon(model, useMapStore.getState().focus)), model.bounds.width, model.bounds.height, inset)
+  }
+  const viewportOf = (container: HTMLElement) => {
+    const style = (container.querySelector('main') as HTMLElement).style
+    const scale = parseFloat(style.backgroundSize) / 20
+    const [px, py] = style.backgroundPosition.split(' ').map(parseFloat)
+    return { x: -px / scale, y: -py / scale, scale }
+  }
+  /** A pan of `dx`/`dy` screen px, past PAN_SLOP so it actually engages (matches "Stage panning"'s own gesture). */
+  const pan = (container: HTMLElement, dx: number, dy: number) => {
+    const main = container.querySelector('main') as HTMLElement
+    main.setPointerCapture = () => {}
+    fireEvent.pointerDown(svg(container), { button: 0, buttons: 1, clientX: 0, clientY: 0 })
+    fireEvent.pointerMove(main, { buttons: 1, clientX: dx, clientY: dy })
+  }
+  // A tight "fit" leaves zero margin by construction, so a genuine "still contains the change" scenario needs a
+  // manual viewport with actual slack first: zoom out (positive deltaY) anchored at the visible area's own
+  // top-left corner (screen `inset.left`/`inset.top`, not raw (0,0)) — zoomAt keeps whatever diagram point sits
+  // under the anchor fixed, so anchoring there keeps the CURRENTLY visible top-left corner fixed while the
+  // bottom-right one grows outward with the zoom, matching the direction real growth actually happens in.
+  const zoomOut = (container: HTMLElement) => fireEvent.wheel(container.querySelector('main')!, { deltaY: 600, clientX: inset.left, clientY: inset.top })
+
+  const actions: [string, () => void][] = [
+    ['grow', () => void useMapStore.getState().addHexagon('h1', { context: 'same' })],
+    ['import', () => void useMapStore.getState().importHexagon(toMap(EXAMPLE_DIAGRAM), { context: 'same' })],
+    ['delete', () => void useMapStore.getState().removeHexagon('h2')],
+  ]
+
+  it.each(actions)('a manual viewport stays exactly where it was when %s keeps the change on screen', (_label, change) => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+    zoomOut(container)
+    const before = viewportOf(container)
+
+    act(change)
+
+    const after = viewportOf(container)
+    expect(after.x).toBeCloseTo(before.x, 6)
+    expect(after.y).toBeCloseTo(before.y, 6)
+    expect(after.scale).toBeCloseTo(before.scale, 6)
+  })
+
+  it.each(actions)('a manual viewport falls back to "auto" when %s moves the change out of view', (_label, change) => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+    pan(container, 100000, 100000) // Far pan: the whole map, and anywhere it could grow, is now off screen.
+
+    act(change)
+
+    const expected = autoFitOf()
+    const after = viewportOf(container)
+    expect(after.x).toBeCloseTo(expected.x, 6)
+    expect(after.y).toBeCloseTo(expected.y, 6)
+    expect(after.scale).toBeCloseTo(expected.scale, 6)
+  })
+
+  it('undo restores the pre-change hexagon set, which the same visibility rule then re-evaluates', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+    pan(container, 100000, 100000)
+    const before = { map: useMapStore.getState().map, focus: useMapStore.getState().focus }
+
+    act(() => useMapStore.getState().addHexagon('h1', { context: 'same' }))
+    // The grow already fell out of view above — confirms the premise before undoing it.
+    expect(viewportOf(container).scale).toBeCloseTo(autoFitOf().scale, 6)
+
+    act(() => useMapStore.getState().restore(before))
+
+    const expected = autoFitOf()
+    const after = viewportOf(container)
+    expect(after.x).toBeCloseTo(expected.x, 6)
+    expect(after.y).toBeCloseTo(expected.y, 6)
+    expect(after.scale).toBeCloseTo(expected.scale, 6)
+  })
+
+  it('a "whole" fit is unaffected by any of this — it keeps recomputing against the live bounds every render', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+    fireEvent.click(screen.getByRole('button', { name: 'Fit all' }))
+
+    act(() => useMapStore.getState().addHexagon('h1', { context: 'same' }))
+
+    const model = layoutMap(useMapStore.getState().map)
+    const expected = fitTo(model.bounds, model.bounds.width, model.bounds.height, inset, 0)
+    const after = viewportOf(container)
+    expect(after.x).toBeCloseTo(expected.x, 6)
+    expect(after.y).toBeCloseTo(expected.y, 6)
+    expect(after.scale).toBeCloseTo(expected.scale, 6)
+  })
+
+  it('does not disturb link mode when the current hexagon does not change (delete of a non-current hexagon)', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+    const revisionBefore = useMapStore.getState().revision
+    const adapter = EXAMPLE_DIAGRAM.adapters.find((a) => EXAMPLE_DIAGRAM.ports.find((p) => p.id === a.portId)?.side === 'driven')!
+    fireEvent.click(hexGroup(container, 'h1').querySelector(`[data-ref="${adapter.id}"]`)!)
+    fireEvent.keyDown(document.body, { key: 'l' })
+    expect(svg(container).hasAttribute('data-link-mode')).toBe(true)
+
+    act(() => useMapStore.getState().removeHexagon('h2'))
+
+    expect(useMapStore.getState().revision).toBe(revisionBefore)
+    expect(svg(container).hasAttribute('data-link-mode')).toBe(true)
   })
 })
 

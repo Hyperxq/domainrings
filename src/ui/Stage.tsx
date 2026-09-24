@@ -13,7 +13,7 @@ import { Affordances, InlineName } from './Affordances'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
 import { typing } from './keys'
-import { fitMap, islandInset, panBy, pinch, zoomAt, type Viewport } from './viewport'
+import { contains, fitMap, fitTo, islandInset, MIN_SCALE, panBy, pinch, visibleRect, zoomAt, type Viewport } from './viewport'
 
 /** Lowercase, hyphenated compass names for the grow "+" aria-label ("Add hexagon to the {…} of {title}"). */
 const SIDE_NAME: Record<Wall, string> = { e: 'east', se: 'south-east', sw: 'south-west', w: 'west', nw: 'north-west', ne: 'north-east' }
@@ -89,8 +89,10 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
   // only a real keyboard focus should. `pointerdown`/`pointerup` on the stage bracket every such press.
   const pointerPressed = useRef(false)
   const [size, setSize] = useState({ width: 0, height: 0 })
-  // null means "fitted": the viewport follows the diagram bounds until the user pans or zooms.
-  const [view, setView] = useState<Viewport | null>(null)
+  // 'auto' follows the diagram bounds, falling back to the current hexagon when the whole map doesn't fit at a
+  // usable scale (CANVAS-04); 'whole' always shows every hexagon, at whatever zoom that takes, never falling back
+  // (FIT-01); a concrete Viewport is whatever the author panned/zoomed to (ADR-05).
+  const [view, setView] = useState<'auto' | 'whole' | Viewport>('auto')
   const [dragging, setDragging] = useState(false)
   // The layer under the pointer (or keyboard focus); CSS does the highlighting from data-hover on the current [data-hex] group.
   const [hovered, setHovered] = useState<string | null>(null)
@@ -101,12 +103,13 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
   const [editing, setEditing] = useState<{ id: string; collection: CollectionKey; name: string; at: Point; hexId: string } | null>(null)
   const [fullscreen, setFullscreen] = useState(false)
   const [announcement, setAnnouncement] = useState('')
-  // A new diagram, or the legend opening or closing, refits.
+  // A new diagram, or the legend opening or closing, refits (unfreezes a manual viewport back to 'auto') — unlike
+  // grow/import/delete, these bump `revision`, so this key alone can never see the map-shape changes FIT-02 covers.
   const fitKey = `${revision}:${legendOpen}`
   const [seenFitKey, setSeenFitKey] = useState(fitKey)
   if (fitKey !== seenFitKey) {
     setSeenFitKey(fitKey)
-    setView(null)
+    setView('auto')
   }
 
   // Whatever moves the store's focus — a click/keyboard switch (also handled in focusHexagon) or an Undo outside
@@ -120,9 +123,29 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hexId])
 
-  const viewport =
-    view ?? fitMap(model.bounds, hexagonBounds(hex), size.width || model.bounds.width, size.height || model.bounds.height, islandInset(size, panelOpen, legendOpen))
+  const inset = islandInset(size, panelOpen, legendOpen)
+  const effectiveSize = { width: size.width || model.bounds.width, height: size.height || model.bounds.height }
+  const autoFit = fitMap(model.bounds, hexagonBounds(hex), effectiveSize.width, effectiveSize.height, inset)
+  const wholeFit = fitTo(model.bounds, effectiveSize.width, effectiveSize.height, inset, 0)
+  const viewport = view === 'auto' ? autoFit : view === 'whole' ? wholeFit : view
   const centre = { x: size.width / 2, y: size.height / 2 }
+  // The floor a manual zoom (wheel or button) can reach: never above MIN_SCALE, but never above what "Fit all"
+  // itself needs either, so a view already fitted to the whole map never snaps back in (FIT-01, ADR-05).
+  const zoomFloor = Math.min(MIN_SCALE, wholeFit.scale)
+
+  // Grow/import/delete/undo never bump `revision` (ADR-02/ADR-05), so the fitKey reset above can't see them — this
+  // tracks the hexagon id set instead. A `Viewport` the author set stays iff every added/removed box is still fully
+  // on screen (FIT-02.2); otherwise it — like 'auto', which already tracks live — falls back to 'auto' (FIT-02.3).
+  // 'whole' always stays: it recomputes against the new bounds every render, never frozen (FIT-02.1).
+  const hexKey = model.hexagons.map((h) => h.id).join(',')
+  const [seenHexagons, setSeenHexagons] = useState({ key: hexKey, hexagons: model.hexagons })
+  if (hexKey !== seenHexagons.key) {
+    const nextIds = new Set(model.hexagons.map((h) => h.id))
+    const prevIds = new Set(seenHexagons.hexagons.map((h) => h.id))
+    const changed = [...model.hexagons.filter((h) => !prevIds.has(h.id)), ...seenHexagons.hexagons.filter((h) => !nextIds.has(h.id))]
+    setSeenHexagons({ key: hexKey, hexagons: model.hexagons })
+    if (typeof view !== 'string' && !changed.every((h) => contains(visibleRect(view, effectiveSize, inset), hexagonBounds(h)))) setView('auto')
+  }
 
   useEffect(() => {
     const el = mainRef.current
@@ -142,11 +165,11 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
       e.preventDefault()
       const rect = el.getBoundingClientRect()
       const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY
-      setView(zoomAt(viewport, Math.exp(-delta * 0.0015), { x: e.clientX - rect.left, y: e.clientY - rect.top }))
+      setView(zoomAt(viewport, Math.exp(-delta * 0.0015), { x: e.clientX - rect.left, y: e.clientY - rect.top }, zoomFloor))
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [viewport])
+  }, [viewport, zoomFloor])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -208,7 +231,9 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
    * hexagon's first tabbable element and announces the change (FOCUS-05). */
   const focusHexagon = (id: string, opts: { moveKeyboardFocus?: boolean } = {}) => {
     settleFocusSwitch()
-    setView(viewport)
+    // Only 'auto' needs freezing: its current-hexagon fallback (CANVAS-04) would otherwise jump to frame the NEW
+    // current hexagon. 'whole' never falls back (FIT-01) and a concrete Viewport is already frozen.
+    if (view === 'auto') setView(viewport)
     flushSync(() => setFocus(id))
     if (opts.moveKeyboardFocus) {
       setAnnouncement(`${hexagonTitle(currentHexagon(model, id).model)} is now the current hexagon`)
@@ -463,16 +488,19 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
       )}
 
       <div className="island zoom" role="group" aria-label="Zoom">
-        <button type="button" className="icon-button" aria-label="Zoom out" title="Zoom out" onClick={() => setView(zoomAt(viewport, 1 / 1.2, centre))}>
+        <button type="button" className="icon-button" aria-label="Zoom out" title="Zoom out" onClick={() => setView(zoomAt(viewport, 1 / 1.2, centre, zoomFloor))}>
           <Icon name="minus" />
         </button>
-        <button type="button" className="zoom-level" aria-label="Reset zoom to 100%" title="Reset zoom" onClick={() => setView(zoomAt(viewport, 1 / viewport.scale, centre))}>
+        <button type="button" className="zoom-level" aria-label="Reset zoom to 100%" title="Reset zoom" onClick={() => setView(zoomAt(viewport, 1 / viewport.scale, centre, zoomFloor))}>
           {Math.round(viewport.scale * 100)}%
         </button>
-        <button type="button" className="icon-button" aria-label="Zoom in" title="Zoom in" onClick={() => setView(zoomAt(viewport, 1.2, centre))}>
+        <button type="button" className="icon-button" aria-label="Zoom in" title="Zoom in" onClick={() => setView(zoomAt(viewport, 1.2, centre, zoomFloor))}>
           <Icon name="plus" />
         </button>
-        <button type="button" className="icon-button" aria-label="Fit diagram to screen" title="Fit to screen" onClick={() => setView(null)}>
+        <button type="button" className="icon-button" aria-label="Fit diagram to screen" title="Fit to screen" onClick={() => setView('auto')}>
+          <Icon name="fit" />
+        </button>
+        <button type="button" className="icon-button" aria-label="Fit all" title="Fit all" onClick={() => setView('whole')}>
           <Icon name="fit" />
         </button>
         <button
