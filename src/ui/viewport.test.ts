@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { EDITOR_CHIP_BOTTOM, fitMap, fitTo, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, MIN_FIT_SCALE, panBy, toDiagram, zoomAt } from './viewport'
+import { EDITOR_CHIP_BOTTOM, fitMap, fitTo, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, MIN_FIT_SCALE, MIN_SCALE, panBy, pinch, toDiagram, zoomAt } from './viewport'
 import { currentHexagon, hexagonBounds, layoutMap } from '../layout/map'
 import { TWO_SLICES_MAP } from '../model/example'
+import type { Point } from '../layout/layout'
 
 describe('viewport', () => {
   const v = { x: -100, y: -50, scale: 2 }
@@ -92,6 +93,36 @@ describe('viewport', () => {
       expect(bottomRight.x).toBeGreaterThanOrEqual(bounds.x + bounds.width - 1e-9)
       expect(bottomRight.y).toBeGreaterThanOrEqual(bounds.y + bounds.height - 1e-9)
     }
+  })
+
+  it('zooms in when the fingers spread and out when they close, around the same midpoint', () => {
+    const from: [Point, Point] = [{ x: 400, y: 300 }, { x: 600, y: 300 }]
+    const spread = pinch(v, from, [{ x: 300, y: 300 }, { x: 700, y: 300 }])
+    expect(spread.scale).toBeGreaterThan(v.scale)
+    const closed = pinch(v, from, [{ x: 450, y: 300 }, { x: 550, y: 300 }])
+    expect(closed.scale).toBeLessThan(v.scale)
+  })
+
+  it('keeps the diagram point under the midpoint fixed when the midpoint itself does not move', () => {
+    const mid = { x: 500, y: 300 }
+    const from: [Point, Point] = [{ x: 400, y: 300 }, { x: 600, y: 300 }]
+    const to: [Point, Point] = [{ x: 320, y: 300 }, { x: 680, y: 300 }]
+    const before = toDiagram(v, mid)
+    const after = toDiagram(pinch(v, from, to), mid)
+    expect(after.x).toBeCloseTo(before.x, 9)
+    expect(after.y).toBeCloseTo(before.y, 9)
+  })
+
+  it('is exactly a pan when the finger distance does not change', () => {
+    const from: [Point, Point] = [{ x: 400, y: 300 }, { x: 600, y: 340 }]
+    const to: [Point, Point] = [{ x: 440, y: 320 }, { x: 640, y: 360 }]
+    expect(pinch(v, from, to)).toEqual(panBy(v, 40, 20))
+  })
+
+  it('clamps at the zoom limits like zoomAt', () => {
+    const from: [Point, Point] = [{ x: 490, y: 300 }, { x: 510, y: 300 }]
+    expect(pinch(v, from, [{ x: 0, y: 300 }, { x: 1000, y: 300 }]).scale).toBe(MAX_SCALE)
+    expect(pinch(v, from, [{ x: 499.5, y: 300 }, { x: 500.5, y: 300 }]).scale).toBe(MIN_SCALE)
   })
 
   it('fits inside the area left free by floating panels', () => {

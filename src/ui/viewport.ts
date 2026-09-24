@@ -29,6 +29,20 @@ export const panBy = (v: Viewport, dx: number, dy: number): Viewport => ({
   scale: v.scale,
 })
 
+const midpoint = ([a, b]: [Point, Point]): Point => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
+const distance = ([a, b]: [Point, Point]) => Math.hypot(b.x - a.x, b.y - a.y)
+
+/** Two-finger pinch: the finger-distance ratio zooms around the gesture's starting midpoint (keeping the diagram
+ * point under it fixed, like `zoomAt`), then the midpoint's own movement pans the result. */
+export function pinch(v: Viewport, from: [Point, Point], to: [Point, Point]): Viewport {
+  const fromDistance = distance(from)
+  const factor = fromDistance > 0 ? distance(to) / fromDistance : 1
+  const fromMid = midpoint(from)
+  const toMid = midpoint(to)
+  const zoomed = zoomAt(v, factor, fromMid)
+  return panBy(zoomed, toMid.x - fromMid.x, toMid.y - fromMid.y)
+}
+
 export interface Inset {
   top: number
   right: number

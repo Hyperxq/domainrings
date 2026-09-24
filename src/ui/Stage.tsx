@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type Ref } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type Ref } from 'react'
 import { flushSync } from 'react-dom'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
 import type { LayoutMode, LayoutNode, Point } from '../layout/layout'
@@ -11,7 +11,7 @@ import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
 import { Icon } from './Icon'
 import { typing } from './keys'
-import { fitMap, islandInset, panBy, zoomAt, type Viewport } from './viewport'
+import { fitMap, islandInset, panBy, pinch, zoomAt, type Viewport } from './viewport'
 
 interface StageProps {
   model: MapLayout
@@ -63,6 +63,9 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
   const hexModel = hex.model
   const mainRef = useRef<HTMLElement>(null)
   const drag = useRef<{ x: number; y: number; panning: boolean } | null>(null)
+  // Active touches on the stage itself, screen coordinates relative to its rect (same frame the wheel handler
+  // anchors zoomAt with). A third finger is never added: it neither joins nor disturbs an ongoing pinch.
+  const pointers = useRef<Map<number, Point>>(new Map())
   // The first click of a real click/click/dblclick gesture can already flip the current hexagon (via
   // flushSync), so by the time dblclick fires `hexId` no longer reflects what was current when the gesture
   // began. `detail === 1` is a real click's own gesture start (browsers never send 0 or repeat 1), so it is
@@ -245,6 +248,23 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
   const height = size.height / viewport.scale
   const gridStep = GRID * viewport.scale
 
+  /** A finger lifts (up or cancel, same cleanup either way): dropping out of a pinch hands off to a one-finger
+   * pan from the remaining finger's current position, so the diagram never jumps. */
+  const liftPointer = (e: ReactPointerEvent<HTMLElement>) => {
+    pointerPressed.current = false
+    if (!pointers.current.has(e.pointerId)) return
+    const wasPinching = pointers.current.size === 2
+    pointers.current.delete(e.pointerId)
+    if (wasPinching && pointers.current.size === 1) {
+      const rect = e.currentTarget.getBoundingClientRect()
+      const [remaining] = pointers.current.values()
+      drag.current = { x: remaining.x + rect.left, y: remaining.y + rect.top, panning: true }
+      return
+    }
+    drag.current = null
+    setDragging(false)
+  }
+
   return (
     <main
       ref={mainRef}
@@ -254,12 +274,41 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
         backgroundPosition: `${-viewport.x * viewport.scale}px ${-viewport.y * viewport.scale}px`,
       }}
       onPointerDown={(e) => {
-        panned.current = false
         pointerPressed.current = true
         if (e.button !== 0 || (e.target as Element).closest('.island, [data-plus], .inline-name')) return
-        drag.current = { x: e.clientX, y: e.clientY, panning: false }
+        if (pointers.current.size >= 2) return // a third finger never joins the gesture
+        const wasEmpty = pointers.current.size === 0
+        const rect = e.currentTarget.getBoundingClientRect()
+        pointers.current.set(e.pointerId, { x: e.clientX - rect.left, y: e.clientY - rect.top })
+        if (wasEmpty) {
+          panned.current = false
+          drag.current = { x: e.clientX, y: e.clientY, panning: false }
+          return
+        }
+        // The second finger turns this into a pinch: it never selects, links, or counts as a click.
+        e.currentTarget.setPointerCapture(e.pointerId)
+        drag.current = null
+        panned.current = true
+        setDragging(true)
+        setHovered(null)
       }}
       onPointerMove={(e) => {
+        if (pointers.current.has(e.pointerId)) {
+          const rect = e.currentTarget.getBoundingClientRect()
+          const point = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+          if (pointers.current.size === 2) {
+            const [idA, idB] = pointers.current.keys()
+            const from: [Point, Point] = [pointers.current.get(idA)!, pointers.current.get(idB)!]
+            pointers.current.set(e.pointerId, point)
+            const to: [Point, Point] = [pointers.current.get(idA)!, pointers.current.get(idB)!]
+            // The functional updater is required: the browser can dispatch each finger's pointermove
+            // synchronously in the same tick, and React batches both setView calls into one render, so the
+            // second call's `viewport` closure would otherwise be stale relative to the first.
+            setView((prev) => pinch(prev ?? viewport, from, to))
+            return
+          }
+          pointers.current.set(e.pointerId, point)
+        }
         const d = drag.current
         if (!d) return
         if (!(e.buttons & 1)) {
@@ -278,16 +327,8 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
         setView(panBy(viewport, e.clientX - d.x, e.clientY - d.y))
         drag.current = { x: e.clientX, y: e.clientY, panning: true }
       }}
-      onPointerUp={() => {
-        drag.current = null
-        setDragging(false)
-        pointerPressed.current = false
-      }}
-      onPointerCancel={() => {
-        drag.current = null
-        setDragging(false)
-        pointerPressed.current = false
-      }}
+      onPointerUp={liftPointer}
+      onPointerCancel={liftPointer}
     >
       <svg
         ref={svgRef}
