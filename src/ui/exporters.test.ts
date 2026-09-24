@@ -145,6 +145,25 @@ describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {
     }
   })
 
+  it('exports a still picture: no transition, animation or keyframes text, and no class or inline style to carry one', async () => {
+    const styleTag = document.createElement('style')
+    styleTag.textContent = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf-8')
+    document.head.appendChild(styleTag)
+    try {
+      const svg = mapCanvas()
+      svg.querySelector('[data-cue]')!.setAttribute('class', 'hex-cue')
+      const marker = svg.querySelector('[data-hex="h1"] text')!
+      marker.setAttribute('class', 'ring-label')
+      marker.setAttribute('style', 'transition: opacity 150ms; animation: enter 150ms')
+      const markup = await svgMarkup(svg, bounds, 'Map title', { legend: false, legendHeight: 0 })
+      expect(markup).toContain('H1 marker')
+      expect(markup).not.toMatch(/transition|animation|@keyframes/)
+      expect(markup).not.toMatch(/\s(class|style)=/)
+    } finally {
+      styleTag.remove()
+    }
+  })
+
   it('clears the current hexagon’s hover before exporting, and restores it on the live canvas afterward', async () => {
     const svg = mapCanvas()
     const group = svg.querySelector('[data-hex="h1"]')!

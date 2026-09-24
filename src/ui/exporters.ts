@@ -57,8 +57,9 @@ export const exportBounds = (bounds: Box, options: ExportOptions): Box =>
 export const legendDrawn = (svg: SVGSVGElement, options: ExportOptions): boolean =>
   options.legend && !(!options.only && svg.querySelectorAll('[data-hex]').length > 1)
 
-// Hooks for styling and editing on the canvas; an exported file is a picture, not a control.
-const CANVAS_ONLY = ['class', 'tabindex', 'role', 'aria-label', 'data-ref', 'data-band', 'data-layer', 'data-selected', 'data-link-target']
+// Hooks for styling and editing on the canvas; an exported file is a picture, not a control. Inline styles go
+// too: the resolved paint is already inlined as attributes, and a style could carry canvas motion into the file.
+const CANVAS_ONLY = ['class', 'style', 'tabindex', 'role', 'aria-label', 'data-ref', 'data-band', 'data-layer', 'data-selected', 'data-link-target']
 // Map-scoping attributes (SEAM-07): stripped in a SECOND pass, after the `only` filter and the cue removal have
 // used `data-hex`/`data-map-link`/`data-map-title` as selectors — stripping them earlier would leave nothing to select.
 const SCOPE_ONLY = ['data-hex', 'aria-current', 'aria-hidden', 'data-map-link', 'data-map-title', 'data-hover']
