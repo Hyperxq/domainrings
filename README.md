@@ -69,6 +69,8 @@ The legend shows only the types your diagram uses, and it is drawn into SVG and 
 
 **Detailed** (the default) shows type tags, notes, use-case buses, ownership links and the composition root. **Overview** keeps names and the main flow only; a port becomes a notch on the ring with its name written beside it, and the rings shrink to fit. **Guides** draws the dashed spokes between the hexagon's corners, and **Highlight** turns the layer hover on and off. All of these are remembered, and exports use whatever is on screen. On narrower screens the toolbar folds these controls into a **View** menu and the exports into an **Export** menu.
 
+The **Appearance** menu (the moon or sun at the end of the toolbar) switches between light, dark and your system's theme, and offers two alternative palettes, Ink and Moss, if you'd rather not draw in indigo and rust. Both are remembered in this browser, and exports use the palette on screen.
+
 ### Layer hover
 
 Hovering a ring or an element, or tabbing to it, brightens that layer and dims the rest. Esc or leaving the canvas clears it, and exports never carry it. With **Highlight** off the dimming stops, but the **+** buttons still appear.
