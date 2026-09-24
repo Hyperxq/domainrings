@@ -1,0 +1,208 @@
+{
+  "app": "domainrings",
+  "version": 2,
+  "kind": "hexagonal",
+  "title": "Honeycomb corpus",
+  "contexts": [
+    {
+      "id": "c1",
+      "name": "Core"
+    },
+    {
+      "id": "c2"
+    }
+  ],
+  "hexagons": [
+    {
+      "id": "h1",
+      "contextId": "c1",
+      "cell": {
+        "q": 1,
+        "r": 0
+      },
+      "title": "East",
+      "domain": [],
+      "useCases": [],
+      "ports": [
+        {
+          "id": "p-out",
+          "name": "out",
+          "side": "driven"
+        }
+      ],
+      "adapters": [],
+      "actors": [],
+      "externals": []
+    },
+    {
+      "id": "h2",
+      "contextId": "c1",
+      "cell": {
+        "q": 1,
+        "r": -1
+      },
+      "title": "Northeast",
+      "domain": [],
+      "useCases": [],
+      "ports": [],
+      "adapters": [],
+      "actors": [],
+      "externals": []
+    },
+    {
+      "id": "h3",
+      "contextId": "c1",
+      "cell": {
+        "q": 0,
+        "r": -1
+      },
+      "title": "Northwest",
+      "domain": [],
+      "useCases": [],
+      "ports": [],
+      "adapters": [],
+      "actors": [],
+      "externals": []
+    },
+    {
+      "id": "h4",
+      "contextId": "c1",
+      "cell": {
+        "q": -1,
+        "r": 0
+      },
+      "title": "West",
+      "domain": [],
+      "useCases": [],
+      "ports": [
+        {
+          "id": "p-in",
+          "name": "in",
+          "side": "driving"
+        }
+      ],
+      "adapters": [],
+      "actors": [],
+      "externals": []
+    },
+    {
+      "id": "h5",
+      "contextId": "c1",
+      "cell": {
+        "q": -1,
+        "r": 1
+      },
+      "title": "Southwest",
+      "domain": [],
+      "useCases": [],
+      "ports": [],
+      "adapters": [],
+      "actors": [],
+      "externals": []
+    },
+    {
+      "id": "h6",
+      "contextId": "c1",
+      "cell": {
+        "q": 0,
+        "r": 1
+      },
+      "title": "Southeast",
+      "domain": [],
+      "useCases": [],
+      "ports": [],
+      "adapters": [],
+      "actors": [],
+      "externals": []
+    },
+    {
+      "id": "h7",
+      "contextId": "c2",
+      "cell": {
+        "q": 0,
+        "r": 0
+      },
+      "title": "Foreign centre",
+      "domain": [],
+      "useCases": [],
+      "ports": [],
+      "adapters": [],
+      "actors": [],
+      "externals": []
+    },
+    {
+      "id": "h8",
+      "contextId": "c2",
+      "cell": {
+        "q": 5,
+        "r": 5
+      },
+      "title": "Stress-like slice",
+      "subtitle": "Ten domain items, three use cases, ports on all six walls",
+      "domain": [
+        { "id": "g-order", "name": "Order", "type": "aggregate" },
+        { "id": "e-line", "name": "OrderLine", "type": "entity", "parentId": "g-order" },
+        { "id": "v-money", "name": "Money", "type": "valueObject", "parentId": "e-line" },
+        { "id": "v-qty", "name": "Quantity", "type": "valueObject", "parentId": "e-line" },
+        { "id": "v-address", "name": "ShippingAddress", "type": "valueObject", "parentId": "g-order" },
+        { "id": "g-customer", "name": "Customer", "type": "aggregate" },
+        { "id": "e-account", "name": "Account", "type": "entity", "parentId": "g-customer" },
+        { "id": "v-email", "name": "Email", "type": "valueObject", "parentId": "e-account" },
+        { "id": "e-loyalty", "name": "LoyaltyCard", "type": "entity", "parentId": "g-customer" },
+        { "id": "v-points", "name": "Points", "type": "valueObject", "parentId": "e-loyalty" }
+      ],
+      "useCases": [
+        { "id": "uc-place", "name": "PlaceOrder" },
+        { "id": "uc-cancel", "name": "CancelOrder" },
+        { "id": "uc-earn", "name": "EarnPoints", "placement": "nw" }
+      ],
+      "ports": [
+        { "id": "p-orders", "name": "ordersApi", "side": "driving", "wall": "w", "useCaseId": "uc-place" },
+        { "id": "p-events", "name": "loyaltyEvents", "side": "driving", "wall": "nw", "useCaseId": "uc-earn" },
+        { "id": "p-admin", "name": "adminCommands", "side": "driving", "wall": "sw", "useCaseId": "uc-cancel" },
+        { "id": "p-order-repo", "name": "OrderRepository", "side": "driven", "wall": "ne", "useCaseId": "uc-place" },
+        { "id": "p-payments", "name": "PaymentGateway", "side": "driven", "wall": "ne", "useCaseId": "uc-place" },
+        { "id": "p-stock", "name": "StockLevels", "side": "driven", "wall": "e", "useCaseId": "uc-place" },
+        { "id": "p-notify", "name": "CustomerNotifier", "side": "driven", "wall": "e", "useCaseId": "uc-cancel" },
+        { "id": "p-customer-repo", "name": "CustomerRepository", "side": "driven", "wall": "se", "useCaseId": "uc-earn" },
+        { "id": "p-clock", "name": "Clock", "side": "driven", "wall": "se", "useCaseId": "uc-earn" }
+      ],
+      "adapters": [
+        { "id": "a-rest", "name": "orders.routes", "portId": "p-orders" },
+        { "id": "a-queue", "name": "loyalty.consumer", "portId": "p-events" },
+        { "id": "a-admin", "name": "admin.cli", "portId": "p-admin" },
+        { "id": "a-order-repo", "name": "KnexOrderRepository", "portId": "p-order-repo" },
+        { "id": "a-stripe", "name": "StripePaymentGateway", "portId": "p-payments" },
+        { "id": "a-stock", "name": "WarehouseStockClient", "portId": "p-stock" },
+        { "id": "a-ses", "name": "SesCustomerNotifier", "portId": "p-notify" },
+        { "id": "a-customer-repo", "name": "KnexCustomerRepository", "portId": "p-customer-repo" },
+        { "id": "a-clock", "name": "SystemClock", "portId": "p-clock" }
+      ],
+      "actors": [
+        { "id": "act-web", "name": "Web shop", "adapterId": "a-rest" },
+        { "id": "act-bus", "name": "Event bus", "adapterId": "a-queue" },
+        { "id": "act-ops", "name": "Ops", "adapterId": "a-admin" }
+      ],
+      "externals": [
+        { "id": "ext-orders-db", "name": "Postgres", "adapterId": "a-order-repo" },
+        { "id": "ext-stripe", "name": "Stripe", "adapterId": "a-stripe" },
+        { "id": "ext-warehouse", "name": "Warehouse API", "adapterId": "a-stock" },
+        { "id": "ext-ses", "name": "AWS SES", "adapterId": "a-ses" },
+        { "id": "ext-customers-db", "name": "Postgres", "adapterId": "a-customer-repo" }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "id": "link-1",
+      "from": {
+        "hexagonId": "h1",
+        "portId": "p-out"
+      },
+      "to": {
+        "hexagonId": "h4",
+        "portId": "p-in"
+      }
+    }
+  ]
+}

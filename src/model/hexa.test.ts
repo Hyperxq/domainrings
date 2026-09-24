@@ -6,6 +6,8 @@ import { HexaFileV2Schema, VERSION, type Diagram, type HexaMap } from './schema'
 import v1Minimal from './fixtures/v1-minimal.hexa?raw'
 import v1Maximal from './fixtures/v1-maximal.hexa?raw'
 import v2TwoSlices from './fixtures/v2-two-slices.hexa?raw'
+import v2Honeycomb from './fixtures/v2-honeycomb.hexa?raw'
+import v2EmptyContext from './fixtures/v2-empty-context.hexa?raw'
 import v2SchemaSnapshot from './fixtures/v2.schema.json?raw'
 
 const errorsOf = (text: string) => {
@@ -117,6 +119,19 @@ describe('committed v1 fixtures (MIG-01.1, 01.2, 01.4, 04.1)', () => {
 describe('committed v2 corpus (MIG-03.2)', () => {
   it('every fixtures/v2-*.hexa file parses ok', () => {
     expect(parseHexa(v2TwoSlices)).toEqual({ ok: true, map: TWO_SLICES_MAP })
+  })
+
+  // S-000.5: the honeycomb corpus fixture (8 hexagons, r≠0 cells, a split context, an unnamed context, a
+  // 6-ring around a foreign hexagon, a link, one named context, STRESS-like content) parses before any other
+  // slice builds on it — proving the schema/reader stayed untouched.
+  it('parses the honeycomb corpus fixture', () => {
+    const result = parseHexa(v2Honeycomb)
+    expect(result.ok).toBe(true)
+  })
+
+  it('parses the empty-context fixture', () => {
+    const result = parseHexa(v2EmptyContext)
+    expect(result.ok).toBe(true)
   })
 
   it('the v2 JSON-schema snapshot matches z.toJSONSchema(HexaFileV2Schema) while VERSION === 2', () => {

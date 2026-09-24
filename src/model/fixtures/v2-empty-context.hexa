@@ -1,0 +1,44 @@
+{
+  "app": "domainrings",
+  "version": 2,
+  "kind": "onion",
+  "title": "Legacy System",
+  "contexts": [
+    {
+      "id": "c1",
+      "name": "Ledger"
+    },
+    {
+      "id": "c2"
+    }
+  ],
+  "hexagons": [
+    {
+      "id": "h1",
+      "contextId": "c1",
+      "cell": {
+        "q": 0,
+        "r": 0
+      },
+      "title": "Invoicing",
+      "subtitle": "Raises and settles invoices",
+      "domain": [
+        { "id": "d-invoice", "name": "Invoice", "type": "aggregate" }
+      ],
+      "useCases": [
+        { "id": "uc-raise", "name": "RaiseInvoice" }
+      ],
+      "ports": [
+        { "id": "p-raised", "name": "InvoiceRaised", "side": "driven" }
+      ],
+      "adapters": [
+        { "id": "a-raised", "name": "InvoiceRaisedPublisher", "portId": "p-raised" }
+      ],
+      "actors": [],
+      "externals": [
+        { "id": "ext-ledger-db", "name": "Postgres", "adapterId": "a-raised" }
+      ]
+    }
+  ],
+  "links": []
+}
