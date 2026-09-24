@@ -7,6 +7,7 @@ import { EXAMPLE_DIAGRAM } from '../model/example'
 import { legendFor } from '../layout/legend'
 import { diagramOf } from '../model/map'
 import type { HexaMap } from '../model/schema'
+import { twoHexagonMap } from '../test/fixtures'
 
 const NO_TARGETS = new Set<string>()
 
@@ -46,21 +47,6 @@ describe('MapDiagram — one hexagon (MIG-05.2 equivalence)', () => {
     expect(container.querySelectorAll('[data-cue]')).toHaveLength(0)
   })
 })
-
-/** One context, cells {0,0}/{1,0}: h1's driven port links to h2's driving port. */
-function twoHexagonMap(): HexaMap {
-  return {
-    version: 2,
-    kind: 'hexagonal',
-    title: 'Two slices, one link',
-    contexts: [{ id: 'c1' }],
-    hexagons: [
-      { id: 'h1', contextId: 'c1', cell: { q: 0, r: 0 }, title: 'Slice A', domain: [], useCases: [], ports: [{ id: 'p-out', name: 'out', side: 'driven' }], adapters: [], actors: [], externals: [] },
-      { id: 'h2', contextId: 'c1', cell: { q: 1, r: 0 }, title: 'Slice B', domain: [], useCases: [], ports: [{ id: 'p-in', name: 'in', side: 'driving' }], adapters: [], actors: [], externals: [] },
-    ],
-    links: [{ id: 'l1', from: { hexagonId: 'h1', portId: 'p-out' }, to: { hexagonId: 'h2', portId: 'p-in' } }],
-  }
-}
 
 describe('MapDiagram — two hexagons (CANVAS-01, CANVAS-02)', () => {
   it('renders one defs, one legend, one group per hexagon and one link line', () => {

@@ -5,6 +5,7 @@ import { readPref } from '../ui/prefs'
 import { parseHexa, toHexa, toMap } from './hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, SEED_VERSION, TWO_SLICES_MAP } from './example'
 import { useMapStore } from './store'
+import { twoHexagonMap } from '../test/fixtures'
 import type { Diagram, HexaMap } from './schema'
 
 const memoryStorage = (initial: Record<string, string> = {}) => {
@@ -190,21 +191,6 @@ describe('autosave', () => {
     expect(storage.getItem(MAP_KEY)).toBeNull()
   })
 })
-
-/** One context, cells {0,0}/{1,0}: h1's driven port links to h2's driving port. */
-function twoHexagonMap(): HexaMap {
-  return {
-    version: 2,
-    kind: 'hexagonal',
-    title: 'Two slices, one link',
-    contexts: [{ id: 'c1' }],
-    hexagons: [
-      { id: 'h1', contextId: 'c1', cell: { q: 0, r: 0 }, title: 'Slice A', domain: [], useCases: [], ports: [{ id: 'p-out', name: 'out', side: 'driven' }], adapters: [], actors: [], externals: [] },
-      { id: 'h2', contextId: 'c1', cell: { q: 1, r: 0 }, title: 'Slice B', domain: [], useCases: [], ports: [{ id: 'p-in', name: 'in', side: 'driving' }], adapters: [], actors: [], externals: [] },
-    ],
-    links: [{ id: 'l1', from: { hexagonId: 'h1', portId: 'p-out' }, to: { hexagonId: 'h2', portId: 'p-in' } }],
-  }
-}
 
 describe('a two-hexagon map round-trips through autosave and reload', () => {
   afterEach(() => vi.useRealTimers())

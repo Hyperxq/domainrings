@@ -3,10 +3,8 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { Editor, revealInEditor } from './Editor'
 import { EXAMPLE_DIAGRAM } from '../model/example'
 import { toMap } from '../model/hexa'
-import { diagramOf } from '../model/map'
 import { useMapStore } from '../model/store'
-
-const currentDiagram = () => diagramOf(useMapStore.getState().map, useMapStore.getState().focus)
+import { card, currentDiagram } from '../test/fixtures'
 
 const SECTIONS_KEY = 'domainrings:editor-sections'
 
@@ -19,7 +17,6 @@ afterEach(cleanup)
 const renderEditor = () => render(<Editor open onToggle={() => {}} onPrune={() => {}} />)
 const section = (container: HTMLElement, title: string) =>
   [...container.querySelectorAll('details')].find((d) => d.querySelector(':scope > summary h2')?.textContent === title) as HTMLDetailsElement
-const card = (container: HTMLElement, id: string) => container.querySelector<HTMLElement>(`[data-item-id="${id}"]`)!
 const port = EXAMPLE_DIAGRAM.ports[0]
 
 describe('collapsible editor sections', () => {

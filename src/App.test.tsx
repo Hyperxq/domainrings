@@ -4,11 +4,9 @@ import { App } from './App'
 import { EXAMPLE_DIAGRAM, TWO_SLICES_MAP } from './model/example'
 import { toHexa, toMap } from './model/hexa'
 import { diagramOf } from './model/map'
-import type { HexaMap, Link } from './model/schema'
 import { useMapStore } from './model/store'
 import { fileSlug } from './ui/exporters'
-
-const currentDiagram = () => diagramOf(useMapStore.getState().map, useMapStore.getState().focus)
+import { card, currentDiagram, hexGroup, linkedTwoHexMap, twoHexMap } from './test/fixtures'
 
 const scrollIntoView = vi.fn()
 
@@ -32,7 +30,6 @@ beforeEach(() => {
 afterEach(cleanup)
 
 const onCanvas = (container: HTMLElement, ref: string) => container.querySelector(`svg.canvas [data-ref="${ref}"]`)!
-const card = (container: HTMLElement, id: string) => container.querySelector<HTMLElement>(`[data-item-id="${id}"]`)!
 
 describe('double-click to edit', () => {
   const useCase = EXAMPLE_DIAGRAM.useCases[0]
@@ -457,13 +454,6 @@ describe('linking on the canvas', () => {
 })
 
 describe('current hexagon (FOCUS-03, FOCUS-06)', () => {
-  const twoHexMap = (): HexaMap => {
-    const base = toMap(EXAMPLE_DIAGRAM)
-    const h1 = base.hexagons[0]
-    return { ...base, links: [], hexagons: [{ ...h1, cell: { q: 0, r: 0 } }, { ...h1, id: 'h2', cell: { q: 1, r: 0 }, title: 'Second slice' }] }
-  }
-  const hexGroup = (container: HTMLElement, hexId: string) => container.querySelector(`[data-hex="${hexId}"]`)!
-
   it('double-clicking a non-current hexagon focuses it and puts the caret in its Hexagon title field (FOCUS-03.1)', () => {
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<App />)
@@ -497,14 +487,6 @@ describe('current hexagon (FOCUS-03, FOCUS-06)', () => {
 })
 
 describe('link pruning (LINK-01, LINK-02)', () => {
-  const link: Link = { id: 'link-1', from: { hexagonId: 'h1', portId: 'p-repo' }, to: { hexagonId: 'h2', portId: 'p-submit' } }
-  const linkedTwoHexMap = (): HexaMap => {
-    const base = toMap(EXAMPLE_DIAGRAM)
-    const h1 = base.hexagons[0]
-    return { ...base, hexagons: [{ ...h1, cell: { q: 0, r: 0 } }, { ...h1, id: 'h2', cell: { q: 1, r: 0 }, title: 'Second slice' }], links: [link] }
-  }
-  const hexGroup = (container: HTMLElement, hexId: string) => container.querySelector(`[data-hex="${hexId}"]`)!
-
   it('deleting the linked port removes the link, shows the deletion toast naming both, and Undo restores port + link + focus (LINK-01.1, 01.5)', () => {
     useMapStore.getState().replace(linkedTwoHexMap())
     const { container } = render(<App />)
@@ -565,11 +547,6 @@ describe('link pruning (LINK-01, LINK-02)', () => {
 })
 
 describe('kind lock on a multi-hexagon map (MIG-04.2)', () => {
-  const twoHexMap = (): HexaMap => {
-    const base = toMap(EXAMPLE_DIAGRAM)
-    const h1 = base.hexagons[0]
-    return { ...base, links: [], hexagons: [{ ...h1, cell: { q: 0, r: 0 } }, { ...h1, id: 'h2', cell: { q: 1, r: 0 }, title: 'Second slice' }] }
-  }
 
   it('disables the kind radios with a hint, and clicking one still leaves the map hexagonal', () => {
     useMapStore.getState().replace(twoHexMap())
@@ -647,11 +624,6 @@ describe('boot recovery notice', () => {
 })
 
 describe('export scope (EXPORT-03)', () => {
-  const twoHexMap = (): HexaMap => {
-    const base = toMap(EXAMPLE_DIAGRAM)
-    const h1 = base.hexagons[0]
-    return { ...base, links: [], hexagons: [{ ...h1, cell: { q: 0, r: 0 } }, { ...h1, id: 'h2', cell: { q: 1, r: 0 }, title: 'Second slice' }] }
-  }
 
   it('hides the Export scope choice on a single-hexagon map', () => {
     render(<App />)
@@ -710,7 +682,6 @@ describe('export scope (EXPORT-03)', () => {
   it('anchors the legend to the current hexagon, not always the first, on screen and in a hexagon-scope export (EXPORT-02)', async () => {
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<App />)
-    const hexGroup = (hexId: string) => container.querySelector(`[data-hex="${hexId}"]`)!
     const translateOf = (el: Element) => {
       const [, x, y] = /translate\(([-\d.]+) ([-\d.]+)\)/.exec(el.getAttribute('transform')!)!
       return { x: Number(x), y: Number(y) }
@@ -720,10 +691,10 @@ describe('export scope (EXPORT-03)', () => {
     // On screen: switching the current hexagon must move the legend by the same amount the hexagons
     // themselves are shifted apart — anchoring it under h1 forever would leave it stuck in place.
     const legendUnderH1 = legendTranslate()
-    fireEvent.click(hexGroup('h2'))
+    fireEvent.click(hexGroup(container, 'h2'))
     expect(useMapStore.getState().focus).toBe('h2')
     const legendUnderH2 = legendTranslate()
-    const centreShift = translateOf(hexGroup('h2')).x - translateOf(hexGroup('h1')).x
+    const centreShift = translateOf(hexGroup(container, 'h2')).x - translateOf(hexGroup(container, 'h1')).x
     expect(centreShift).toBeGreaterThan(0)
     expect(legendUnderH2.x - legendUnderH1.x).toBeCloseTo(centreShift, 5)
 

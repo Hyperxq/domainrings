@@ -3,7 +3,8 @@ import { layoutMap } from './map'
 import { layoutDiagram, type LayoutMode } from './layout'
 import { toMap } from '../model/hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM } from '../model/example'
-import type { Diagram, HexaMap } from '../model/schema'
+import type { Diagram } from '../model/schema'
+import { twoHexagonMap } from '../test/fixtures'
 
 const CORPUS: Array<[string, Diagram]> = [
   ['the seeded example', EXAMPLE_DIAGRAM],
@@ -29,21 +30,6 @@ describe('layoutMap — one-hexagon equivalence (MIG-05)', () => {
     }
   }
 })
-
-/** One context, cells {0,0}/{1,0}: h1's driven port links to h2's driving port — the shape of the shipped example. */
-function twoHexagonMap(): HexaMap {
-  return {
-    version: 2,
-    kind: 'hexagonal',
-    title: 'Two slices, one link',
-    contexts: [{ id: 'c1' }],
-    hexagons: [
-      { id: 'h1', contextId: 'c1', cell: { q: 0, r: 0 }, title: 'Slice A', domain: [], useCases: [], ports: [{ id: 'p-out', name: 'out', side: 'driven' }], adapters: [], actors: [], externals: [] },
-      { id: 'h2', contextId: 'c1', cell: { q: 1, r: 0 }, title: 'Slice B', domain: [], useCases: [], ports: [{ id: 'p-in', name: 'in', side: 'driving' }], adapters: [], actors: [], externals: [] },
-    ],
-    links: [{ id: 'l1', from: { hexagonId: 'h1', portId: 'p-out' }, to: { hexagonId: 'h2', portId: 'p-in' } }],
-  }
-}
 
 describe('layoutMap — multi-hexagon placement (CANVAS-01, CANVAS-02)', () => {
   it('places two hexagons on a row without overlapping shifted bounds', () => {

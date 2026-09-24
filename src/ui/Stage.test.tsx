@@ -7,8 +7,8 @@ import { legendFor } from '../layout/legend'
 import { EXAMPLE_DIAGRAM } from '../model/example'
 import { toMap } from '../model/hexa'
 import { diagramOf } from '../model/map'
-import type { HexaMap } from '../model/schema'
 import { useMapStore } from '../model/store'
+import { hexGroup, twoHexMap } from '../test/fixtures'
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class {
@@ -52,14 +52,6 @@ function Harness({ highlight = true, onReveal = () => {} }: { highlight?: boolea
 
 const svg = (container: HTMLElement) => container.querySelector('svg.canvas')!
 const hover = (container: HTMLElement, layer: string) => fireEvent.pointerOver(container.querySelector(`[data-band="${layer}"]`)!)
-const hexGroup = (container: HTMLElement, hexId: string) => container.querySelector(`[data-hex="${hexId}"]`)!
-
-/** Two independent hexagons, each shaped like the example diagram (ids collide by design: EDIT-01 scoping must hold regardless). */
-function twoHexMap(): HexaMap {
-  const base = toMap(EXAMPLE_DIAGRAM)
-  const h1 = base.hexagons[0]
-  return { ...base, links: [], hexagons: [{ ...h1, cell: { q: 0, r: 0 } }, { ...h1, id: 'h2', cell: { q: 1, r: 0 }, title: 'Second slice' }] }
-}
 
 describe('Stage layer hover', () => {
   // Single-hexagon Harness: its one group is always current, so data-hover (scoped to the current group, CANVAS-03) lands on it.
