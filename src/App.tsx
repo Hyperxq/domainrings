@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import type { LayoutMode } from './layout/layout'
-import { hexagonBounds, layoutMap } from './layout/map'
+import { currentHexagon, hexagonBounds, layoutMap } from './layout/map'
 import { legendFor, legendSize } from './layout/legend'
 import { EXAMPLES } from './model/example'
 import { parseHexa, toHexa, toMap } from './model/hexa'
 import { collectionOf, type LinkTarget } from './model/links'
-import { diagramOf } from './model/map'
+import { diagramOf, UNTITLED_HEXAGON } from './model/map'
 import type { Recovery } from './model/persistence'
 import type { HexaMap, Link } from './model/schema'
 import { useMapStore } from './model/store'
@@ -60,6 +60,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const hexId = useMapStore((s) => s.focus)
   const revision = useMapStore((s) => s.revision)
   const diagram = diagramOf(map, hexId)
+  const multiHexagon = map.hexagons.length > 1
   const [mode, setMode] = useState<LayoutMode>(() => (readPref(OVERVIEW_KEY, false) ? 'overview' : 'detailed'))
   const [guides, setGuides] = useState(() => readPref(GUIDES_KEY, true))
   const [highlight, setHighlight] = useState(() => readPref(HIGHLIGHT_KEY, true))
@@ -106,7 +107,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     const editedEnd = (l: Link) => (l.from.hexagonId === before.focus ? l.from : l.to)
     const otherHexagonTitle = (l: Link) => {
       const end = l.from.hexagonId === before.focus ? l.to : l.from
-      return before.map.hexagons.find((h) => h.id === end.hexagonId)?.title || 'Untitled hexagon'
+      return before.map.hexagons.find((h) => h.id === end.hexagonId)?.title || UNTITLED_HEXAGON
     }
     const portId = editedEnd(pruned[0]).portId
     const portName = beforeHexagon.ports.find((p) => p.id === portId)?.name ?? 'the port'
@@ -160,8 +161,8 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       if (format === 'hexa') return download(toHexa(map), `${fileSlug(map.title)}.hexa`, 'application/json')
       if (!svgRef.current) return
       // Only a multi-hexagon map has a scope to honour — a single hexagon always exports map-shaped (EXPORT-03.1).
-      const scoped = exportScope === 'hexagon' && map.hexagons.length > 1
-      const frame = scoped ? hexagonBounds(model.hexagons.find((h) => h.id === hexId)!) : model.bounds
+      const scoped = exportScope === 'hexagon' && multiHexagon
+      const frame = scoped ? hexagonBounds(currentHexagon(model, hexId)) : model.bounds
       const exportTitle = scoped ? diagram.title : map.title
       const name = fileSlug(exportTitle)
       const options = { legend: legendInExport, legendHeight: legendSize(legend).height, only: scoped ? hexId : undefined }
@@ -188,8 +189,8 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     <>
       <Toolbar
         kind={map.kind}
-        kindLocked={map.hexagons.length > 1}
-        showScope={map.hexagons.length > 1}
+        kindLocked={multiHexagon}
+        showScope={multiHexagon}
         exportScope={exportScope}
         onExportScope={setExportScope}
         theme={theme}

@@ -1,4 +1,4 @@
-import { diagramOf } from '../model/map'
+import { diagramOf, UNTITLED_HEXAGON } from '../model/map'
 import type { HexaMap, Link } from '../model/schema'
 import { layoutDiagram, type Box, type LayoutModel, type LayoutOptions, type LayoutText, type Point } from './layout'
 
@@ -44,6 +44,14 @@ export const hexagonBounds = (hex: Pick<MapHexagonLayout, 'model' | 'centre'>): 
   width: hex.model.bounds.width,
   height: hex.model.bounds.height,
 })
+
+/** A hexagon's laid-out title, falling back like every other untitled-hexagon display. */
+export const hexagonTitle = (model: LayoutModel): string => model.texts.find((t) => t.key === 'title')?.text || UNTITLED_HEXAGON
+
+/** Resolves the map's current hexagon by id, defensively falling back to the first one so no caller can crash
+ * on a stale or unknown id. */
+export const currentHexagon = (layout: MapLayout, hexId: string): MapHexagonLayout =>
+  layout.hexagons.find((h) => h.id === hexId) ?? layout.hexagons[0]
 
 /** The centre of a port's `kind:'port'` layout node, shifted from hexagon-local space onto the map. */
 function portPoint(model: LayoutModel, portId: string, centre: Point): Point {

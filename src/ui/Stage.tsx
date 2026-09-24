@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
 import type { LayoutMode, LayoutNode, Point } from '../layout/layout'
 import type { LegendModel } from '../layout/legend'
-import { hexagonBounds, type MapLayout } from '../layout/map'
+import { currentHexagon, hexagonBounds, hexagonTitle, type MapLayout } from '../layout/map'
 import { collectionOf, linkTargets, type LinkTarget } from '../model/links'
 import type { CollectionKey, Diagram as DiagramModel, DomainType } from '../model/schema'
 import { useMapStore } from '../model/store'
@@ -59,7 +59,7 @@ const layerOf = (target: Element) =>
   target.closest('[data-band]')?.getAttribute('data-band') ?? target.closest('[data-layer]')?.getAttribute('data-layer') ?? null
 
 export function Stage({ model, hexId, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete, linking, onLinking, onLink }: StageProps) {
-  const hex = model.hexagons.find((h) => h.id === hexId)!
+  const hex = currentHexagon(model, hexId)
   const hexModel = hex.model
   const mainRef = useRef<HTMLElement>(null)
   const drag = useRef<{ x: number; y: number; panning: boolean } | null>(null)
@@ -157,8 +157,6 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
     }
   }, [fullscreen])
 
-  const titleOf = (id: string) => model.hexagons.find((h) => h.id === id)?.model.texts.find((t) => t.key === 'title')?.text || 'Untitled hexagon'
-
   /** Clears selection, ends link mode, and commits any inline name being typed — the settle-on-switch contract (FOCUS-04). */
   const settleFocusSwitch = () => {
     setSelected(null)
@@ -177,7 +175,7 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
     setView(viewport)
     flushSync(() => setFocus(id))
     if (opts.moveKeyboardFocus) {
-      setAnnouncement(`${titleOf(id)} is now the current hexagon`)
+      setAnnouncement(`${hexagonTitle(currentHexagon(model, id).model)} is now the current hexagon`)
       mainRef.current?.querySelector<HTMLElement | SVGElement>(`[data-hex="${id}"] [tabindex]`)?.focus()
     }
   }

@@ -1,5 +1,8 @@
 import { linkEndProblem, type Diagram, type HexaMap, type Hexagon, type Link, type LinkEnd } from './schema'
 
+/** Shown wherever a hexagon's title is displayed or exported but was left blank. */
+export const UNTITLED_HEXAGON = 'Untitled hexagon'
+
 /** The v1-shaped view of one hexagon, for every consumer still typed on `Diagram` (layout, insertion, links, legend). */
 export function diagramOf(map: HexaMap, hexId: string): Diagram {
   const hexagon = map.hexagons.find((h) => h.id === hexId)

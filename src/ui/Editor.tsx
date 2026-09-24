@@ -15,7 +15,7 @@ import {
   type Wall,
 } from '../model/schema'
 import { parentCandidates } from '../model/links'
-import { diagramOf } from '../model/map'
+import { diagramOf, UNTITLED_HEXAGON } from '../model/map'
 import { useMapStore, type Item } from '../model/store'
 import { Icon } from './Icon'
 
@@ -223,7 +223,7 @@ export function Editor({ open, onToggle, onPrune }: { open: boolean; onToggle: (
   return (
     <aside className={`island editor${open ? '' : ' is-collapsed'}`} aria-label="Diagram editor">
       <header className="editor-head">
-        <h2>{d.title || 'Untitled hexagon'}</h2>
+        <h2>{d.title || UNTITLED_HEXAGON}</h2>
         <button type="button" className="icon-button" aria-expanded={open} aria-controls="editor-body" aria-label={open ? 'Collapse editor' : 'Expand editor'} title={open ? 'Collapse editor' : 'Expand editor'} onClick={onToggle}>
           <Icon name="panel" />
         </button>

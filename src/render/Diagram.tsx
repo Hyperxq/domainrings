@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { hexagonBounds, type MapLayout } from '../layout/map'
+import { currentHexagon, hexagonBounds, hexagonTitle, type MapLayout } from '../layout/map'
 import type { Shape } from '../model/kinds'
 import { bandPath } from './band'
 import type { LayoutEdge, LayoutModel, LayoutNode, LayoutRing, LayoutText, Point } from '../layout/layout'
@@ -234,7 +234,6 @@ function HexCue({ model }: { model: LayoutModel }) {
 }
 
 const NO_TARGETS = new Set<string>()
-const titleOf = (model: LayoutModel) => model.texts.find((t) => t.key === 'title')?.text || 'Untitled hexagon'
 
 interface MapDiagramProps {
   map: MapLayout
@@ -253,13 +252,13 @@ interface MapDiagramProps {
  * drawn above them, an optional map title, and the legend once — under the current hexagon. */
 export function MapDiagram({ map, legend, showGuides, focus, selected, linkTargets, hovered }: MapDiagramProps) {
   const first = map.hexagons[0]
-  const current = map.hexagons.find((h) => h.id === focus) ?? first
+  const current = currentHexagon(map, focus)
   return (
     <>
       <Defs rings={first.model.rings} />
       {map.hexagons.map((hex) => {
         const isCurrent = hex.id === focus
-        const title = titleOf(hex.model)
+        const title = hexagonTitle(hex.model)
         return (
           <g
             key={hex.id}
