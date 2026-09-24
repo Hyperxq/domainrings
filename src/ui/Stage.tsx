@@ -181,7 +181,7 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
     flushSync(() => setFocus(id))
     if (opts.moveKeyboardFocus) {
       setAnnouncement(`${hexagonTitle(currentHexagon(model, id).model)} is now the current hexagon`)
-      mainRef.current?.querySelector<HTMLElement | SVGElement>(`[data-hex="${id}"] [tabindex]`)?.focus()
+      mainRef.current?.querySelector<HTMLElement | SVGElement>(`[data-hex="${CSS.escape(id)}"] [tabindex]`)?.focus()
     }
   }
 

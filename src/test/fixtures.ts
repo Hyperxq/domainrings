@@ -33,6 +33,6 @@ export function linkedTwoHexMap(): HexaMap {
   return { ...twoHexMap(), links: [TWO_HEX_LINK] }
 }
 
-export const hexGroup = (container: HTMLElement, hexId: string) => container.querySelector(`[data-hex="${hexId}"]`)!
+export const hexGroup = (container: HTMLElement, hexId: string) => container.querySelector(`[data-hex="${CSS.escape(hexId)}"]`)!
 export const card = (container: HTMLElement, id: string) => container.querySelector<HTMLElement>(`[data-item-id="${id}"]`)!
 export const currentDiagram = () => diagramOf(useMapStore.getState().map, useMapStore.getState().focus)

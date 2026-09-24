@@ -215,6 +215,19 @@ describe('Stage current-hexagon focus (FOCUS-01, 03, 04, 05, CANVAS-03)', () => 
     expect(status.textContent).toBe('Second slice is now the current hexagon')
   })
 
+  it('switches to a hexagon whose id contains a double quote without breaking the DOM selector', () => {
+    const base = twoHexMap()
+    useMapStore.getState().replace({ ...base, hexagons: [base.hexagons[0], { ...base.hexagons[1], id: 'h"2' }] })
+    const { container } = render(<Harness />)
+    const group = hexGroup(container, 'h"2')
+    expect(group.getAttribute('tabindex')).toBe('0')
+
+    fireEvent.keyDown(group, { key: 'Enter' })
+
+    expect(useMapStore.getState().focus).toBe('h"2')
+    expect(hexGroup(container, 'h"2').contains(document.activeElement)).toBe(true)
+  })
+
   it.each([{ key: 'Enter' }, { key: ' ' }])('makes a non-current hexagon current on %o, moves keyboard focus to its first item, and announces it', ({ key }) => {
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<Harness />)
