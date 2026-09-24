@@ -46,6 +46,10 @@ interface MapState {
    * the deleted one was current. No-op ([]), leaving the map untouched, on the map's last hexagon (DEL-01) — a
    * map is never left with zero. Never bumps `revision`. */
   removeHexagon: (hexId: string) => Link[]
+  /** Sets or clears `contextId`'s display name; `''` removes the `name` key entirely rather than storing an empty
+   * string, so a cleared context falls back to its "Context {n}" placeholder (NAME-02.3). Every other context is
+   * untouched; never bumps `revision`. */
+  setContextName: (contextId: string, name: string) => void
 }
 
 // Computed keys widen to an index signature; this is the one place the collection type is re-asserted.
@@ -120,5 +124,12 @@ export const useMapStore = create<MapState>()((set, get) => {
       set({ map: next, focus: get().focus === hexId ? next.hexagons[0].id : get().focus })
       return pruned
     },
+    setContextName: (contextId, name) =>
+      set((s) => ({
+        map: {
+          ...s.map,
+          contexts: s.map.contexts.map((c) => (c.id !== contextId ? c : name ? { ...c, name } : { id: c.id })),
+        },
+      })),
   }
 })

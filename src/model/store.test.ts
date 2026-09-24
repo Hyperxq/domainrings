@@ -425,4 +425,41 @@ describe('map store', () => {
       expect(MapSchema.safeParse(state().map).success).toBe(true)
     })
   })
+
+  describe('setContextName (NAME-01, NAME-02)', () => {
+    it('names an unnamed context', () => {
+      const contextId = state().map.contexts[0].id
+      state().setContextName(contextId, 'Billing')
+      expect(state().map.contexts.find((c) => c.id === contextId)?.name).toBe('Billing')
+    })
+
+    it('renames an already-named context', () => {
+      const contextId = state().map.contexts[0].id
+      state().setContextName(contextId, 'Billing')
+      state().setContextName(contextId, 'Payments')
+      expect(state().map.contexts.find((c) => c.id === contextId)?.name).toBe('Payments')
+    })
+
+    it('an empty string clears the name key entirely, not just to an empty string', () => {
+      const contextId = state().map.contexts[0].id
+      state().setContextName(contextId, 'Billing')
+      state().setContextName(contextId, '')
+      const context = state().map.contexts.find((c) => c.id === contextId)!
+      expect('name' in context).toBe(false)
+    })
+
+    it('leaves every other context untouched and never bumps the revision', () => {
+      const hexId = state().focus
+      state().addHexagon(hexId, { side: 'e', context: 'new' })
+      const [c1, c2] = state().map.contexts
+      const revisionBefore = state().revision
+
+      state().setContextName(c2.id, 'Billing')
+
+      expect(state().map.contexts.find((c) => c.id === c1.id)).toStrictEqual(c1)
+      expect(state().map.contexts.find((c) => c.id === c2.id)?.name).toBe('Billing')
+      expect(state().revision).toBe(revisionBefore)
+      expect(MapSchema.safeParse(state().map).success).toBe(true)
+    })
+  })
 })

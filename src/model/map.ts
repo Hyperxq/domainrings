@@ -52,14 +52,18 @@ export function nextId(ids: readonly string[], prefix: 'h' | 'c'): string {
   return `${prefix}${max + 1}`
 }
 
-/** A context's display name: its own name, else "Context {n}" from its id's numeric suffix, else its 1-based
- * position among the map's contexts (ADR-03) — stable while the context exists (CB-03.2). */
-export function contextName(map: Pick<HexaMap, 'contexts'>, contextId: string): string {
+/** The stable "Context {n}" placeholder for a context: its id's numeric suffix, else its 1-based position among
+ * the map's contexts (ADR-03) — fixed while the context exists (CB-03.2), regardless of whether it has a name. */
+export function contextOrdinal(map: Pick<HexaMap, 'contexts'>, contextId: string): string {
   const index = map.contexts.findIndex((c) => c.id === contextId)
-  const context = map.contexts[index]
-  if (context?.name) return context.name
   const suffix = /^c(\d+)$/.exec(contextId)?.[1]
   return `Context ${suffix ?? index + 1}`
+}
+
+/** A context's display name: its own name, else its ordinal placeholder (ADR-03). */
+export function contextName(map: Pick<HexaMap, 'contexts'>, contextId: string): string {
+  const context = map.contexts.find((c) => c.id === contextId)
+  return context?.name || contextOrdinal(map, contextId)
 }
 
 /** Appends a hexagon built from a Diagram view (version/kind dropped, like `putDiagram`) on `at.cell`, in the
