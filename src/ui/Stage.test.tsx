@@ -203,6 +203,18 @@ describe('Stage current-hexagon focus (FOCUS-01, 03, 04, 05, CANVAS-03)', () => 
     expect(hexGroup(container, 'h2').hasAttribute('data-hover')).toBe(false)
   })
 
+  it('mounts the live region before any switch, so the first announcement is spoken, not missed by a region appearing with it already set', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+    const status = screen.getByRole('status')
+    expect(status.textContent).toBe('')
+
+    fireEvent.keyDown(hexGroup(container, 'h2'), { key: 'Enter' })
+
+    expect(screen.getByRole('status')).toBe(status)
+    expect(status.textContent).toBe('Second slice is now the current hexagon')
+  })
+
   it.each([{ key: 'Enter' }, { key: ' ' }])('makes a non-current hexagon current on %o, moves keyboard focus to its first item, and announces it', ({ key }) => {
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<Harness />)

@@ -30,6 +30,10 @@ beforeEach(() => {
 afterEach(cleanup)
 
 const onCanvas = (container: HTMLElement, ref: string) => container.querySelector(`svg.canvas [data-ref="${ref}"]`)!
+// The stage's own live region is mounted (usually empty) from the start (F-07) and shares role="status" with
+// the undo/status toast and the recovery notice, so a query for "the" status role must pick by class.
+const toastEl = () => screen.queryAllByRole('status').find((el) => el.classList.contains('toast')) ?? null
+const recoveryEl = () => screen.queryAllByRole('status').find((el) => el.classList.contains('notice')) ?? null
 
 describe('double-click to edit', () => {
   const useCase = EXAMPLE_DIAGRAM.useCases[0]
@@ -107,7 +111,7 @@ describe('selection and delete on the canvas', () => {
     expect(after.ports.some((p) => p.id === port.id)).toBe(false)
     expect(after.adapters.some((a) => a.portId === port.id)).toBe(false)
     expect(selected(container)).toEqual([])
-    expect(screen.getByRole('status').textContent).toContain(`Deleted ${port.name}`)
+    expect(toastEl()!.textContent).toContain(`Deleted ${port.name}`)
 
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
     expect(currentDiagram()).toEqual(EXAMPLE_DIAGRAM)
@@ -137,7 +141,7 @@ describe('selection and delete on the canvas', () => {
     band.focus()
     fireEvent.keyDown(band, { key: 'Delete' })
     expect(currentDiagram()).toEqual(EXAMPLE_DIAGRAM)
-    expect(screen.queryByRole('status')).toBeNull()
+    expect(toastEl()).toBeNull()
   })
 
   it('does not select when the press turned into a pan', () => {
@@ -160,7 +164,9 @@ describe('undo toast', () => {
     fireEvent.keyDown(document.body, { key: 'Delete' })
   }
   const hasUseCase = () => currentDiagram().useCases.some((u) => u.id === useCase.id)
-  const toast = () => screen.queryByRole('status')
+  // The stage's own (usually empty) live region shares role="status" with the undo toast (F-07); the toast is
+  // the one that carries the `.toast` class.
+  const toast = () => screen.queryAllByRole('status').find((el) => el.classList.contains('toast')) ?? null
 
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
@@ -281,7 +287,7 @@ describe('the "Two slices, one link (preview)" example (EX-01, CANVAS-01/02/04, 
 
     expect(useMapStore.getState().map).toStrictEqual(TWO_SLICES_MAP)
     expect(useMapStore.getState().focus).toBe('h1')
-    expect(screen.getByRole('status').textContent).toContain('Loaded the Two slices, one link (preview) example.')
+    expect(toastEl()!.textContent).toContain('Loaded the Two slices, one link (preview) example.')
   })
 
   it('renders both hexagons of the example, non-overlapping, connected by exactly one link line', () => {
@@ -404,7 +410,7 @@ describe('linking on the canvas', () => {
     startWithL(container)
     expect(linking(container)).toBe(true)
     expect(targets(container).sort()).toEqual(others.map((p) => p.id).sort())
-    expect(screen.getByRole('status').textContent).toContain(`Choose a target for ${adapter.name} · Esc to cancel`)
+    expect(toastEl()!.textContent).toContain(`Choose a target for ${adapter.name} · Esc to cancel`)
   })
 
   it('enters link mode from the chip too', () => {
@@ -421,7 +427,7 @@ describe('linking on the canvas', () => {
     expect(currentDiagram().adapters.find((a) => a.id === adapter.id)!.portId).toBe(others[0].id)
     expect(linking(container)).toBe(false)
     expect(onCanvas(container, adapter.id).hasAttribute('data-selected')).toBe(true)
-    expect(screen.getByRole('status').textContent).toContain(`Linked ${adapter.name} → ${others[0].name}`)
+    expect(toastEl()!.textContent).toContain(`Linked ${adapter.name} → ${others[0].name}`)
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
     expect(currentDiagram()).toEqual(EXAMPLE_DIAGRAM)
   })
@@ -512,7 +518,7 @@ describe('link pruning (LINK-01, LINK-02)', () => {
     fireEvent.keyDown(document.body, { key: 'Delete' })
 
     expect(useMapStore.getState().map.links).toEqual([])
-    expect(screen.getByRole('status').querySelector('p')!.textContent).toBe('Deleted FeedbackRepository and its link to Second slice.')
+    expect(toastEl()!.querySelector('p')!.textContent).toBe('Deleted FeedbackRepository and its link to Second slice.')
 
     fireEvent.click(hexGroup(container, 'h2'))
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
@@ -530,7 +536,7 @@ describe('link pruning (LINK-01, LINK-02)', () => {
     fireEvent.change(select, { target: { value: 'driving' } })
 
     expect(useMapStore.getState().map.links).toEqual([])
-    expect(screen.getByRole('status').querySelector('p')!.textContent).toBe('Moved FeedbackRepository and removed its link to Second slice.')
+    expect(toastEl()!.querySelector('p')!.textContent).toBe('Moved FeedbackRepository and removed its link to Second slice.')
   })
 
   it('the map link never responds to hover, click, double-click or Delete (LINK-02.1)', () => {
@@ -600,7 +606,7 @@ describe('boot recovery notice', () => {
 
   it('shows the kept-copy notice as a status region, with a working Download saved copy action', async () => {
     render(<App boot={{ recovery: 'kept', unreadableText: '{not valid json' }} />)
-    const status = screen.getByRole('status')
+    const status = recoveryEl()!
     expect(status.querySelector('p')!.textContent).toBe(KEPT_MESSAGE)
 
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
@@ -623,7 +629,7 @@ describe('boot recovery notice', () => {
 
   it('shows the not-kept notice with no download action', () => {
     render(<App boot={{ recovery: 'not-kept' }} />)
-    expect(screen.getByRole('status').textContent).toBe(NOT_KEPT_MESSAGE)
+    expect(recoveryEl()!.textContent).toBe(NOT_KEPT_MESSAGE)
     expect(screen.queryByRole('button', { name: 'Download saved copy' })).toBeNull()
   })
 
@@ -631,10 +637,10 @@ describe('boot recovery notice', () => {
     vi.useFakeTimers()
     render(<App boot={{ recovery: 'kept', unreadableText: '{x' }} />)
     act(() => vi.advanceTimersByTime(20000))
-    expect(screen.getByRole('status')).toBeTruthy()
+    expect(recoveryEl()).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
-    expect(screen.queryByRole('status')).toBeNull()
+    expect(recoveryEl()).toBeNull()
     vi.useRealTimers()
   })
 

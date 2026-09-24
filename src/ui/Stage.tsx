@@ -325,11 +325,12 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
           hovered={highlight ? hovered : null}
         />
       </svg>
-      {announcement && (
-        <p className="visually-hidden" role="status" aria-live="polite">
-          {announcement}
-        </p>
-      )}
+      {/* Mounted from the start (not just once there is something to say): a screen reader only picks up
+          a live region's text changes after it exists, so a region that first appears WITH its text already
+          set is never announced. */}
+      <p className="visually-hidden" role="status" aria-live="polite">
+        {announcement}
+      </p>
 
       <Affordances points={visiblePoints} toScreen={toScreen} onPick={pick} onLayer={setHovered} />
       {linkable && (
