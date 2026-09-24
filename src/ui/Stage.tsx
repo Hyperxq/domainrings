@@ -424,7 +424,10 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
 
       <Affordances points={visiblePoints} toScreen={toScreen} onPick={pick} onLayer={setHovered} />
       {growSides.map(({ side, at }) => (
-        <span key={side} className="side-plus" style={{ left: at.x, top: at.y }}>
+        // No `transform` here (e.g. translate to centre): ChoiceMenu's own menu is `position: fixed` under the
+        // trigger, whose containing block a transformed ancestor would hijack — the half-button-size offset is
+        // baked into left/top instead, matching .plus's own 24px circle.
+        <span key={side} className="side-plus" style={{ left: at.x - 12, top: at.y - 12 }}>
           <ChoiceMenu
             label={<Icon name="plus" />}
             ariaLabel={`Add hexagon to the ${SIDE_NAME[side]} of ${title || UNTITLED_HEXAGON}`}

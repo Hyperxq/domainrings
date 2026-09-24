@@ -141,8 +141,10 @@
 }
 .plus-menu .text-button { justify-content: start; font-family: var(--font-mono); font-weight: 500; }
 
-/* Grow-the-map side "+": a ChoiceMenu (GROW-01) positioned at the shared cell-edge midpoint, styled to match .plus. */
-.side-plus { position: absolute; transform: translate(-50%, -50%); }
+/* Grow-the-map side "+": a ChoiceMenu (GROW-01) positioned at the shared cell-edge midpoint, styled to match .plus.
+   No `transform` here — ChoiceMenu's own menu relies on `position: fixed` resolving against the viewport, which a
+   transformed ancestor would hijack as its containing block instead; the centering offset is baked into left/top. */
+.side-plus { position: absolute; }
 .side-plus .choice-trigger {
   display: grid;
   place-items: center;
