@@ -191,23 +191,22 @@ export function Toolbar({ kind, kindLocked, themeChoice, palette, onKind, onNew,
 
       <span className="divider" aria-hidden="true" />
 
-      {showScope && roomy && (
-        <fieldset className="kinds">
-          <legend className="visually-hidden">Export scope</legend>
-          {(['map', 'hexagon'] as const).map((s) => (
-            <label key={s} className="kind">
-              <input type="radio" name="export-scope" value={s} checked={exportScope === s} onChange={() => onExportScope(s)} />
-              <span>{SCOPE_LABEL[s]}</span>
-            </label>
-          ))}
-        </fieldset>
-      )}
-
       {full ? (
         <span className="export">
           <span id="export-label" className="export-label">
             Export
           </span>
+          {showScope && (
+            <fieldset className="kinds">
+              <legend className="visually-hidden">Export scope</legend>
+              {(['map', 'hexagon'] as const).map((s) => (
+                <label key={s} className="kind">
+                  <input type="radio" name="export-scope" value={s} checked={exportScope === s} onChange={() => onExportScope(s)} />
+                  <span>{SCOPE_LABEL[s]}</span>
+                </label>
+              ))}
+            </fieldset>
+          )}
           <span className="segmented" role="group" aria-labelledby="export-label">
             <button type="button" className="text-button" aria-label="Save as .hexa file" onClick={() => onExport('hexa')}>.hexa</button>
             <button type="button" className="text-button" aria-label="Export as SVG" onClick={() => onExport('svg')}>SVG</button>
@@ -223,7 +222,7 @@ export function Toolbar({ kind, kindLocked, themeChoice, palette, onKind, onNew,
             </>
           }
           choices={[
-            ...(showScope && !roomy ? (['map', 'hexagon'] as const).map((s) => ({ id: s, label: SCOPE_LABEL[s], checked: exportScope === s })) : []),
+            ...(showScope ? (['map', 'hexagon'] as const).map((s) => ({ id: s, label: SCOPE_LABEL[s], checked: exportScope === s })) : []),
             ...EXPORT_CHOICES,
           ]}
           onChoose={(id) => (id === 'map' || id === 'hexagon' ? onExportScope(id) : onExport(id))}

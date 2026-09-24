@@ -74,6 +74,16 @@ describe('Toolbar at full width', () => {
     expect(screen.queryByRole('combobox', { name: 'Architecture style' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Export' })).toBeNull()
   })
+
+  it('seats the export scope between the Export label and the formats, so it reads as part of the export', () => {
+    renderToolbar({ showScope: true })
+    const scope = screen.getByRole('group', { name: 'Export scope' })
+    const exportGroup = screen.getByRole('group', { name: 'Export' })
+    const label = screen.getByText('Export')
+    expect(label.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(scope.compareDocumentPosition(exportGroup) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(scope.parentElement).toBe(exportGroup.parentElement)
+  })
 })
 
 describe('Toolbar below the full-width breakpoint', () => {
@@ -145,15 +155,22 @@ describe('Toolbar between the two breakpoints', () => {
     expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
   })
 
-  it('keeps the export scope as radios beside an Export menu of formats only', () => {
-    const { onExportScope } = renderToolbar({ showScope: true })
-    fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
-    expect(onExportScope).toHaveBeenCalledWith('hexagon')
+  it('folds the export scope into the Export menu as soon as the formats are a menu', () => {
+    const { onExportScope } = renderToolbar({ showScope: true, exportScope: 'map' })
+    expect(screen.queryByRole('radio', { name: 'Hexagon' })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Export' }))
+    const items = screen.getAllByRole('menu')[0].querySelectorAll('[role^="menuitem"]')
+    expect([...items].map((item) => [item.textContent, item.getAttribute('aria-checked')])).toEqual([
+      ['Map', 'true'],
+      ['Hexagon', 'false'],
+      ['.hexa', null],
+      ['SVG', null],
+      ['PNG', null],
+    ])
 
-    expect(screen.queryAllByRole('menuitemcheckbox')).toHaveLength(0)
-    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['.hexa', 'SVG', 'PNG'])
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Hexagon' }))
+    expect(onExportScope).toHaveBeenCalledWith('hexagon')
   })
 })
 
