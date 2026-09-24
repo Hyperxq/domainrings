@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useMapStore } from './store'
 import { toMap } from './hexa'
-import { diagramOf, freeSides, neighbour, SIDE_ORDER, UNTITLED_HEXAGON } from './map'
+import { diagramOf, freeCell, freeSides, neighbour, SIDE_ORDER, UNTITLED_HEXAGON } from './map'
 import { MapSchema, type HexaMap, type Link } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
 import { linkedTwoHexMap, twoHexMap } from '../test/fixtures'
@@ -268,6 +268,100 @@ describe('map store', () => {
       const grownFirst = state().addHexagon(before.focus, { side: 'e', context: 'same' })!
       const grownSecond = state().addHexagon(before.focus, { side: 'w', context: 'same' })!
       expect(state().map.hexagons.map((h) => h.id)).toEqual([firstId, grownFirst, grownSecond])
+    })
+  })
+
+  describe('importHexagon (ADR-02, SEAM-03, V3 destination choice)', () => {
+    const oneHexFile = (kind: 'hexagonal' | 'clean' | 'onion' = 'hexagonal') => toMap({ ...EXAMPLE_DIAGRAM, kind, title: 'Legacy System' })
+
+    it('returns undefined and leaves the map untouched when the file has more than one hexagon (IMP-04)', () => {
+      const before = state().map
+      const hexId = state().importHexagon(twoHexMap(), { context: 'same' })
+      expect(hexId).toBeUndefined()
+      expect(state().map).toBe(before)
+    })
+
+    it('imports into a fresh, unnamed context when context is "new", without touching the existing one', () => {
+      const before = state().map
+      const hexId = state().importHexagon(oneHexFile(), { context: 'new' })
+      expect(hexId).toBeDefined()
+      expect(state().map.contexts).toHaveLength(before.contexts.length + 1)
+      const newContext = state().map.contexts.at(-1)!
+      expect(newContext.name).toBeUndefined()
+      expect(state().map.hexagons.find((h) => h.id === hexId)?.contextId).toBe(newContext.id)
+      expect(state().map.contexts[0]).toStrictEqual(before.contexts[0])
+    })
+
+    it('imports into the current hexagon’s own context when context is "same", creating no new context (IMP-01.4)', () => {
+      const before = state()
+      const hexId = state().importHexagon(oneHexFile(), { context: 'same' })
+      expect(state().map.contexts).toStrictEqual(before.map.contexts)
+      expect(state().map.hexagons.find((h) => h.id === hexId)?.contextId).toBe(before.map.hexagons[0].contextId)
+    })
+
+    it('the imported hexagon’s content matches the source exactly, except id/contextId/cell (IMP-02.1)', () => {
+      const file = oneHexFile()
+      const hexId = state().importHexagon(file, { context: 'new' })
+      const { id: _id, contextId: _contextId, cell: _cell, ...sourceFields } = file.hexagons[0]
+      const { id: _importedId, contextId: _importedContextId, cell: _importedCell, ...importedFields } = state().map.hexagons.find((h) => h.id === hexId)!
+      expect(importedFields).toStrictEqual(sourceFields)
+    })
+
+    it('lands on the first free cell from the current hexagon (IMP-01)', () => {
+      const before = state().map
+      const expectedCell = freeCell(before, before.hexagons[0].cell)
+      const hexId = state().importHexagon(oneHexFile(), { context: 'same' })
+      expect(state().map.hexagons.find((h) => h.id === hexId)?.cell).toStrictEqual(expectedCell)
+    })
+
+    it('returns undefined on a non-hexagonal map without convert, leaving the map untouched', () => {
+      state().setMapMeta({ kind: 'clean' })
+      const map = state().map
+      const hexId = state().importHexagon(oneHexFile(), { context: 'same' })
+      expect(hexId).toBeUndefined()
+      expect(state().map).toBe(map)
+    })
+
+    it('with convert: true, imports into a non-hexagonal map and flips its kind to hexagonal in one notification', () => {
+      state().setMapMeta({ kind: 'onion' })
+      const hexId = state().importHexagon(oneHexFile(), { context: 'same', convert: true })
+      expect(hexId).toBeDefined()
+      expect(state().map.kind).toBe('hexagonal')
+    })
+
+    it('focuses the imported hexagon, leaving revision untouched', () => {
+      const revisionBefore = state().revision
+      const hexId = state().importHexagon(oneHexFile(), { context: 'new' })
+      expect(state().focus).toBe(hexId)
+      expect(state().revision).toBe(revisionBefore)
+    })
+
+    it('every output parses MapSchema', () => {
+      state().importHexagon(oneHexFile(), { context: 'new' })
+      expect(MapSchema.safeParse(state().map).success).toBe(true)
+    })
+
+    it('importing the same file twice, both times into a new context, creates two independent hexagons with distinct ids, cells and contexts (IMP-05.1)', () => {
+      const file = oneHexFile()
+      const first = state().importHexagon(file, { context: 'new' })!
+      const second = state().importHexagon(file, { context: 'new' })!
+      const firstHex = state().map.hexagons.find((h) => h.id === first)!
+      const secondHex = state().map.hexagons.find((h) => h.id === second)!
+      expect(first).not.toBe(second)
+      expect(firstHex.cell).not.toStrictEqual(secondHex.cell)
+      expect(firstHex.contextId).not.toBe(secondHex.contextId)
+    })
+
+    it('importing the same file twice, both times into "same", places both in the current hexagon’s context, still on distinct cells', () => {
+      const file = oneHexFile()
+      const contextBefore = state().map.hexagons[0].contextId
+      const first = state().importHexagon(file, { context: 'same' })!
+      const second = state().importHexagon(file, { context: 'same' })!
+      const firstHex = state().map.hexagons.find((h) => h.id === first)!
+      const secondHex = state().map.hexagons.find((h) => h.id === second)!
+      expect(firstHex.contextId).toBe(contextBefore)
+      expect(secondHex.contextId).toBe(contextBefore)
+      expect(firstHex.cell).not.toStrictEqual(secondHex.cell)
     })
   })
 

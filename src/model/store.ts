@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { diagramOf, freeSides, neighbour, placeHexagon, putDiagram, pruneLinks, removeHexagon as removeHexagonFromMap, UNTITLED_HEXAGON } from './map'
+import { diagramOf, freeCell, freeSides, neighbour, placeHexagon, putDiagram, pruneLinks, removeHexagon as removeHexagonFromMap, UNTITLED_HEXAGON } from './map'
 import { browserStorage, loadMap } from './persistence'
 import { REFERENCES, type CollectionKey, type Diagram, type HexaMap, type Hexagon, type Link, type Linkable, type Wall } from './schema'
 
@@ -37,6 +37,11 @@ interface MapState {
    * fresh one. Undefined — a no-op — when `from` has no free side, or the map isn't hexagonal and `convert` isn't
    * set (ADR-02). Focuses the new hexagon; never bumps `revision`. */
   addHexagon: (from: string, opts: { side?: Wall; context: 'same' | 'new'; convert?: boolean }) => string | undefined
+  /** Imports `file`'s one hexagon onto the first free cell from the current hexagon, into its own context or a
+   * fresh one — sharing `addHexagon`'s destination vocabulary and the same write path (ADR-02). Undefined when
+   * `file` does not hold exactly one hexagon (IMP-04), or the map isn't hexagonal and `convert` isn't set. Focuses
+   * the imported hexagon; never bumps `revision`. */
+  importHexagon: (file: HexaMap, opts: { context: 'same' | 'new'; convert?: boolean }) => string | undefined
   /** Removes `hexId`, pruning its links and dropping its own now-empty context; moves focus to `hexagons[0]` when
    * the deleted one was current. No-op ([]), leaving the map untouched, on the map's last hexagon (DEL-01) — a
    * map is never left with zero. Never bumps `revision`. */
@@ -95,6 +100,16 @@ export const useMapStore = create<MapState>()((set, get) => {
       if (growSide === undefined) return undefined
       const view: Diagram = { version: 1, kind: 'hexagonal', title: UNTITLED_HEXAGON, domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }
       const { map: next, hexId } = placeHexagon(map, view, { cell: neighbour(source.cell, growSide), contextId: context === 'same' ? source.contextId : undefined })
+      set({ map: next, focus: hexId })
+      return hexId
+    },
+    importHexagon: (file, { context, convert }) => {
+      if (file.hexagons.length !== 1) return undefined
+      const map = get().map
+      if (map.kind !== 'hexagonal' && !convert) return undefined
+      const current = map.hexagons.find((h) => h.id === get().focus)!
+      const view = diagramOf(file, file.hexagons[0].id)
+      const { map: next, hexId } = placeHexagon(map, view, { cell: freeCell(map, current.cell), contextId: context === 'same' ? current.contextId : undefined })
       set({ map: next, focus: hexId })
       return hexId
     },
