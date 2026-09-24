@@ -466,6 +466,22 @@ describe('current hexagon (FOCUS-03, FOCUS-06)', () => {
     expect(input.value).toBe('Second slice')
   })
 
+  it('a real double-click gesture (click, click, dblclick) on a non-current hexagon reveals the Hexagon title field, not the item under the pointer (FOCUS-03.1)', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<App />)
+    const target = hexGroup(container, 'h2').querySelector('.node[data-ref]')!
+
+    fireEvent.click(target, { detail: 1 })
+    fireEvent.click(target, { detail: 2 })
+    fireEvent.doubleClick(target)
+
+    expect(useMapStore.getState().focus).toBe('h2')
+    const input = screen.getByLabelText('Hexagon title') as HTMLInputElement
+    expect(document.activeElement).toBe(input)
+    expect(input.value).toBe('Second slice')
+    expect(container.querySelectorAll('[data-selected]')).toHaveLength(0)
+  })
+
   it('undo restores both the map and whichever hexagon was current at edit time (FOCUS-06.1)', () => {
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<App />)

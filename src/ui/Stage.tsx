@@ -63,6 +63,11 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
   const hexModel = hex.model
   const mainRef = useRef<HTMLElement>(null)
   const drag = useRef<{ x: number; y: number; panning: boolean } | null>(null)
+  // The first click of a real click/click/dblclick gesture can already flip the current hexagon (via
+  // flushSync), so by the time dblclick fires `hexId` no longer reflects what was current when the gesture
+  // began. `detail === 1` is a real click's own gesture start (browsers never send 0 or repeat 1), so it is
+  // the anchor to remember, not the live `hexId`.
+  const gestureAnchorHexId = useRef(hexId)
   const [size, setSize] = useState({ width: 0, height: 0 })
   // null means "fitted": the viewport follows the diagram bounds until the user pans or zooms.
   const [view, setView] = useState<Viewport | null>(null)
@@ -278,6 +283,7 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
           const target = e.target as Element
           // The map link is inert by handler, not by pointer-events:none (ADR-05): it must never select, focus-switch or reveal.
           if (target.closest('[data-map-link]')) return
+          if (e.detail === 1) gestureAnchorHexId.current = hexId
           const clickedHexId = target.closest('[data-hex]')?.getAttribute('data-hex') ?? null
           if (clickedHexId && clickedHexId !== hexId) return focusHexagon(clickedHexId)
           const ref = target.closest('.node')?.getAttribute('data-ref') ?? null
@@ -291,7 +297,7 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
           const target = e.target as Element
           if (target.closest('[data-map-link]')) return
           const clickedHexId = target.closest('[data-hex]')?.getAttribute('data-hex') ?? null
-          if (clickedHexId && clickedHexId !== hexId) {
+          if (clickedHexId && clickedHexId !== gestureAnchorHexId.current) {
             focusHexagon(clickedHexId)
             onReveal('hexagon', true)
             return

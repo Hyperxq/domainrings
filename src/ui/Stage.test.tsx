@@ -229,6 +229,24 @@ describe('Stage current-hexagon focus (FOCUS-01, 03, 04, 05, CANVAS-03)', () => 
     expect(onReveal).toHaveBeenCalledWith('hexagon', true)
   })
 
+  it('a real double-click gesture on a non-current hexagon still reveals the hexagon card, not the item the pointer lands on (FOCUS-03.1)', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const onReveal = vi.fn()
+    const { container } = render(<Harness onReveal={onReveal} />)
+    // A real gesture: click, click, dblclick — the first click already switches the current hexagon via
+    // flushSync, so by the time dblclick fires, clickedHexId === hexId unless the code remembers which
+    // hexagon was current when the gesture began.
+    const target = hexGroup(container, 'h2').querySelector('.node')!
+
+    fireEvent.click(target, { detail: 1 })
+    fireEvent.click(target, { detail: 2 })
+    fireEvent.doubleClick(target)
+
+    expect(useMapStore.getState().focus).toBe('h2')
+    expect(onReveal).toHaveBeenCalledWith('hexagon', true)
+    expect(onReveal).not.toHaveBeenCalledWith(target.getAttribute('data-ref'), true)
+  })
+
   it('switching the current hexagon clears the selection and ends link mode, without moving the view (FOCUS-04.1)', () => {
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<Harness />)
