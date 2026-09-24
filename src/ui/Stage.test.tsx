@@ -237,9 +237,11 @@ describe('Stage current-hexagon focus (FOCUS-01, 03, 04, 05, CANVAS-03)', () => 
     fireEvent.keyDown(group, { key })
 
     expect(useMapStore.getState().focus).toBe('h2')
-    const firstTabbable = hexGroup(container, 'h2').querySelector('[tabindex="0"]')
-    expect(firstTabbable).not.toBeNull()
-    expect(document.activeElement).toBe(firstTabbable)
+    // REQ-05.1: focus moves to the switched hexagon's first ITEM — not whatever tabbable element happens to
+    // come first in DOM order, which is the outer ring (rendered before any node).
+    const firstItem = hexGroup(container, 'h2').querySelector('.node[tabindex]')
+    expect(firstItem).not.toBeNull()
+    expect(document.activeElement).toBe(firstItem)
     expect(screen.getByRole('status').textContent).toBe('Second slice is now the current hexagon')
   })
 

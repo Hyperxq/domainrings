@@ -181,7 +181,11 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
     flushSync(() => setFocus(id))
     if (opts.moveKeyboardFocus) {
       setAnnouncement(`${hexagonTitle(currentHexagon(model, id).model)} is now the current hexagon`)
-      mainRef.current?.querySelector<HTMLElement | SVGElement>(`[data-hex="${CSS.escape(id)}"] [tabindex]`)?.focus()
+      const group = mainRef.current?.querySelector<SVGGElement>(`[data-hex="${CSS.escape(id)}"]`)
+      // The outer ring is also tabbable and comes first in DOM order; REQ-05.1 wants the first ITEM instead,
+      // falling back to whatever is tabbable when the hexagon has no items at all.
+      const target = group?.querySelector<HTMLElement | SVGElement>('.node[tabindex]') ?? group?.querySelector<HTMLElement | SVGElement>('[tabindex]')
+      target?.focus()
     }
   }
 
