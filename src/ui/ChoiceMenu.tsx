@@ -4,6 +4,8 @@ export interface Choice<Id extends string> {
   id: Id
   label: string
   description?: string
+  /** Present only on a toggle: the item becomes a `menuitemcheckbox` showing this state. */
+  checked?: boolean
 }
 
 interface ChoiceMenuProps<Id extends string> {
@@ -24,7 +26,7 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
   const trigger = useRef<HTMLButtonElement>(null)
   const triggerId = useId()
   const menuId = useId()
-  const items = () => [...(root.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [])]
+  const items = () => [...(root.current?.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]') ?? [])]
 
   useEffect(() => {
     if (!at) return
@@ -91,7 +93,8 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
             <button
               key={choice.id}
               type="button"
-              role="menuitem"
+              role={choice.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+              aria-checked={choice.checked}
               tabIndex={-1}
               className="text-button"
               onClick={() => {

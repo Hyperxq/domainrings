@@ -101,6 +101,42 @@ describe('ChoiceMenu', () => {
     expect(document.activeElement).toBe(trigger)
   })
 
+  it('renders a choice with `checked` as a menuitemcheckbox carrying its state, and leaves the others plain', () => {
+    render(
+      <ChoiceMenu
+        label="View"
+        choices={[
+          { id: 'guides', label: 'Guides', checked: true },
+          { id: 'highlight', label: 'Highlight', checked: false },
+          { id: 'reset', label: 'Reset' },
+        ]}
+        onChoose={() => {}}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'View' }))
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Guides' }).getAttribute('aria-checked')).toBe('true')
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Highlight' }).getAttribute('aria-checked')).toBe('false')
+    expect(screen.getByRole('menuitem', { name: 'Reset' }).hasAttribute('aria-checked')).toBe(false)
+  })
+
+  it('moves focus across checkbox and plain items alike, starting on the first', () => {
+    render(
+      <ChoiceMenu
+        label="View"
+        choices={[
+          { id: 'guides', label: 'Guides', checked: true },
+          { id: 'reset', label: 'Reset' },
+        ]}
+        onChoose={() => {}}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'View' }))
+    const guides = screen.getByRole('menuitemcheckbox', { name: 'Guides' })
+    expect(document.activeElement).toBe(guides)
+    fireEvent.keyDown(guides, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Reset' }))
+  })
+
   it('toggles closed when the trigger is pressed again', () => {
     const { trigger } = renderMenu()
     fireEvent.click(trigger)

@@ -397,6 +397,7 @@ label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
   animation: enter var(--motion-base) var(--motion-ease);
 }
 .choice-menu .text-button { justify-items: start; height: auto; min-height: 32px; padding: 4px 8px; font-size: 13px; }
+.choice-menu [aria-checked='true'] { background: var(--teal-soft); color: var(--teal); }
 .choice-description { color: var(--muted); font-size: 12px; font-weight: 400; }
 
 .editor {
