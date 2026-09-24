@@ -1,7 +1,8 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { App } from './App'
-import { EXAMPLE_DIAGRAM, TWO_SLICES_MAP } from './model/example'
+import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM, TWO_SLICES_MAP } from './model/example'
+import { layoutDiagram } from './layout/layout'
 import { toHexa, toMap } from './model/hexa'
 import { diagramOf, UNTITLED_HEXAGON } from './model/map'
 import { useMapStore } from './model/store'
@@ -433,6 +434,24 @@ describe('linking on the canvas', () => {
     expect(linking(container)).toBe(true)
     expect(targets(container).sort()).toEqual(others.map((p) => p.id).sort())
     expect(toastEl()!.textContent).toContain(`Choose a target for ${adapter.name} · Esc to cancel`)
+  })
+
+  it('hangs the chip off the port box, not off the port\'s declaration in the domain', () => {
+    // A driven port is laid out twice under one ref: its `driven-ports/` declaration in the domain and the box on the wall.
+    const port = STRESS_DIAGRAM.ports.find((p) => p.side === 'driven')!
+    act(() => useMapStore.getState().restore({ map: toMap(STRESS_DIAGRAM), focus: toMap(STRESS_DIAGRAM).hexagons[0].id }))
+    const { container } = render(<App />)
+    fireEvent.click(onCanvas(container, port.id))
+    const chip = screen.getByRole('button', { name: `Link ${port.name} to…` })
+    const stage = container.querySelector<HTMLElement>('main.stage')!.style
+    const scale = parseFloat(stage.backgroundSize) / 20
+    const toScreenX = (x: number) => x * scale + parseFloat(stage.backgroundPosition)
+    const nodes = layoutDiagram(STRESS_DIAGRAM).nodes.filter((n) => n.ref === port.id)
+    const box = nodes.find((n) => n.kind === 'port')!
+    const declaration = nodes.find((n) => n.kind === 'portDecl')!
+    const left = parseFloat(chip.style.left)
+    expect(Math.abs(left - toScreenX(box.x))).toBeLessThan(box.width * scale)
+    expect(Math.abs(left - toScreenX(declaration.x))).toBeGreaterThan(box.width * scale)
   })
 
   it('enters link mode from the chip too', () => {

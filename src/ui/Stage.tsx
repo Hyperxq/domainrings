@@ -217,7 +217,11 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
     return items.find((i) => i.id === ref)?.name ?? ''
   }
   // The "Link to…" chip hangs off the selection's top-right corner, for a selection that has something to link to.
-  const linkable = selected && !linking && linkTargets(diagram, selected).length ? hexModel.nodes.find((n) => n.ref === selected) : undefined
+  // A port is laid out twice under one ref (its declaration in the domain and the box on the wall): anchor to the box.
+  const linkable =
+    selected && !linking && linkTargets(diagram, selected).length
+      ? hexModel.nodes.find((n) => n.ref === selected && n.kind === NODE_KIND[collectionOf(diagram, selected)!])
+      : undefined
   const chipAt = (n: LayoutNode) => {
     const a = ((n.rotation ?? 0) * Math.PI) / 180
     const [c, s] = [Math.abs(Math.cos(a)), Math.abs(Math.sin(a))]
