@@ -45,7 +45,7 @@ function renderToolbar(
     onKind: vi.fn(),
     onNew: vi.fn(),
     onExample: vi.fn(),
-    onImport: vi.fn(),
+    onOpen: vi.fn(),
     onExport: vi.fn(),
     onTheme: vi.fn(),
     onPalette: vi.fn(),
@@ -149,7 +149,7 @@ describe('Toolbar between the two breakpoints', () => {
 
   it('keeps the file buttons labelled and the detail level and toggles in the bar', () => {
     renderToolbar()
-    for (const text of ['New', 'Example', 'Import']) expect(screen.getByText(text)).toBeTruthy()
+    for (const text of ['New', 'Example', 'Open…']) expect(screen.getByText(text)).toBeTruthy()
     expect(screen.getByRole('radio', { name: 'Overview' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Guides' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
@@ -183,10 +183,10 @@ describe('Toolbar below the compact breakpoint', () => {
 
   it('shows the file actions as icons that keep their accessible names and tooltips', () => {
     renderToolbar()
-    for (const text of ['New', 'Example', 'Import']) expect(screen.queryByText(text)).toBeNull()
+    for (const text of ['New', 'Example', 'Open…']) expect(screen.queryByText(text)).toBeNull()
     expect(screen.getByRole('button', { name: 'New diagram' }).getAttribute('title')).toBe('New diagram')
     expect(screen.getByRole('combobox', { name: 'Load an example' }).closest('label')!.getAttribute('title')).toBe('Load an example')
-    expect(screen.getByLabelText('Import a .hexa file').closest('label')!.getAttribute('title')).toBe('Import a .hexa file')
+    expect(screen.getByLabelText('Open a .hexa file, replacing the map').closest('label')!.getAttribute('title')).toBe('Open a .hexa file, replacing the map')
   })
 
   it('moves the detail level and the toggles into a View menu that shows their state', () => {

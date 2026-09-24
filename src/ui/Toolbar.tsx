@@ -22,7 +22,8 @@ interface ToolbarProps {
   onKind: (kind: ArchitectureKind) => void
   onNew: () => void
   onExample: (id: (typeof EXAMPLES)[number]['id']) => void
-  onImport: (file: File) => void
+  /** Replaces the whole map (S-003, U2) — distinct from Editor's "Add hexagon from file…", which adds one hexagon. */
+  onOpen: (file: File) => void
   onExport: (format: 'hexa' | 'svg' | 'png') => void
   onTheme: (choice: ThemeChoice) => void
   onPalette: (id: PaletteId) => void
@@ -66,7 +67,7 @@ const fullMedia = media(FULL_TOOLBAR)
 const roomyMedia = media(ROOMY_TOOLBAR)
 const darkMedia = media('(prefers-color-scheme: dark)')
 
-export function Toolbar({ kind, kindLocked, themeChoice, palette, onKind, onNew, onExample, onImport, onExport, onTheme, onPalette, mode, onMode, guides, onGuides, highlight, onHighlight, showScope, exportScope, onExportScope }: ToolbarProps) {
+export function Toolbar({ kind, kindLocked, themeChoice, palette, onKind, onNew, onExample, onOpen, onExport, onTheme, onPalette, mode, onMode, guides, onGuides, highlight, onHighlight, showScope, exportScope, onExportScope }: ToolbarProps) {
   const full = useSyncExternalStore(fullMedia.subscribe, fullMedia.matches)
   const roomy = useSyncExternalStore(roomyMedia.subscribe, roomyMedia.matches)
   const systemDark = useSyncExternalStore(darkMedia.subscribe, darkMedia.matches)
@@ -173,20 +174,20 @@ export function Toolbar({ kind, kindLocked, themeChoice, palette, onKind, onNew,
           ))}
         </select>
       </label>
-      <label className={tool} title="Import a .hexa file">
+      <label className={tool} title="Open a .hexa file, replacing the map">
         <input
           type="file"
           accept=".hexa,application/json"
           className="visually-hidden"
-          aria-label="Import a .hexa file"
+          aria-label="Open a .hexa file, replacing the map"
           onChange={(e) => {
             const file = e.currentTarget.files?.[0]
-            if (file) onImport(file)
+            if (file) onOpen(file)
             e.currentTarget.value = ''
           }}
         />
         <Icon name="upload" />
-        {roomy && 'Import'}
+        {roomy && 'Open…'}
       </label>
 
       <span className="divider" aria-hidden="true" />
