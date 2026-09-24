@@ -22,6 +22,9 @@ export interface MapLayout {
   bounds: Box
   /** Only present when the map holds more than one hexagon, so a single-hexagon map's bounds equal `layoutDiagram`'s. */
   title?: LayoutText
+  /** The lattice spacing this layout used (ADR-01) — lets a caller place a not-yet-existing neighbour cell, such
+   * as the grow-menu anchor on a free side (SEAM-04). */
+  pitch: Point
 }
 
 /** Gap kept between two adjacent hexagons' outer edges, on top of their content width. */
@@ -105,5 +108,5 @@ export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout 
     title = { key: 'map-title', text: map.title, x: bounds.x, y: bounds.y - MAP_TITLE_GAP, style: 'title' }
     bounds = { x: bounds.x, y: bounds.y - MAP_TITLE_GAP - MAP_TITLE_SIZE, width: bounds.width, height: bounds.height + MAP_TITLE_GAP + MAP_TITLE_SIZE }
   }
-  return { hexagons, links, bounds, title }
+  return { hexagons, links, bounds, title, pitch }
 }

@@ -165,6 +165,13 @@ describe('layoutMap — honeycomb lattice placement (ADR-01)', () => {
     expect(boxB.y - (boxA.y + boxA.height)).toBeGreaterThanOrEqual(MAP_GAP)
   })
 
+  it('exposes the pitch it computed, so a caller can place a not-yet-existing neighbour cell (SEAM-04)', () => {
+    const result = layoutMap(twoCellColumn())
+    const [, b] = result.hexagons
+    // b sits at cell {0,1} = cellCentre({0,1}, pitch); reading the pitch back off that relation, independent of cellCentre itself.
+    expect(result.pitch).toStrictEqual({ x: b.centre.x * 2, y: b.centre.y })
+  })
+
   // Hardening for a coverage gap verify-in-loop-1 flagged: the two prior tests use hexagons with IDENTICAL
   // (empty) content, so a pitch computed from `perHexagon[0]`'s extents alone happens to match `Math.max(...)`
   // over every hexagon — neither test can tell the two implementations apart. Here h1 (first in the array) is
