@@ -1,6 +1,6 @@
 /**
- * The single source of the colour tokens. `paletteCss` turns this table into the theme CSS (system default plus
- * the explicit data-theme override), and the contrast test reads the same table.
+ * The single source of the colour tokens. `paletteCss` turns these tables into the theme CSS (system default plus
+ * the explicit data-theme override, per palette), and the contrast test reads the same tables.
  */
 const LIGHT = {
   bg: '#F3F4F1',
@@ -46,7 +46,105 @@ const DARK: Record<Token, string> = {
   error: '#F97066',
 }
 
-export const PALETTE = { light: LIGHT, dark: DARK } satisfies Record<'light' | 'dark', Record<Token, string>>
+type Theme = 'light' | 'dark'
+
+/**
+ * Curated alternatives keep every token's role: driving and driven stay two distinct hues apart from the accent,
+ * the accent's `teal-deep` stays its deepest solid, `slate` stays neutral. The first entry is the default.
+ */
+export const PALETTES = {
+  default: { label: 'Default', description: 'Indigo, rust and teal', light: LIGHT, dark: DARK },
+  ink: {
+    label: 'Ink',
+    description: 'Cobalt, copper and forest',
+    light: {
+      bg: '#F5F2EC',
+      ink: '#1A1814',
+      muted: '#655E54',
+      line: '#D8D1C5',
+      teal: '#2D6247',
+      'teal-soft': '#E1EADF',
+      'teal-deep': '#2F5A44',
+      slate: '#5B544A',
+      'slate-soft': '#EAE5DC',
+      card: '#FCFAF6',
+      'domain-ink': '#F8F6F0',
+      'driving-fill': '#2F4C8C',
+      'driving-line': '#4D68A8',
+      'driving-ink': '#F7F9FF',
+      'driven-fill': '#A5542A',
+      'driven-line': '#C06E40',
+      'driven-ink': '#FFF8F2',
+      error: '#B42318',
+    },
+    dark: {
+      bg: '#14120F',
+      ink: '#EFEBE3',
+      muted: '#A39B8E',
+      line: '#3A352E',
+      teal: '#86C39E',
+      'teal-soft': '#1E3328',
+      'teal-deep': '#2B5840',
+      slate: '#C4BCAF',
+      'slate-soft': '#26231E',
+      card: '#1C1A16',
+      'domain-ink': '#EFEBE3',
+      'driving-fill': '#2E4682',
+      'driving-line': '#4A63A3',
+      'driving-ink': '#F2F5FF',
+      'driven-fill': '#8C4622',
+      'driven-line': '#AA5D34',
+      'driven-ink': '#FFF5EE',
+      error: '#F97066',
+    },
+  },
+  moss: {
+    label: 'Moss',
+    description: 'Plum, ochre and moss',
+    light: {
+      bg: '#F2F3F4',
+      ink: '#15191C',
+      muted: '#5A636A',
+      line: '#CDD2D6',
+      teal: '#4B6428',
+      'teal-soft': '#E5EBDA',
+      'teal-deep': '#465C28',
+      slate: '#525B63',
+      'slate-soft': '#E4E7E9',
+      card: '#FAFBFB',
+      'domain-ink': '#F6F7F2',
+      'driving-fill': '#6A3E6D',
+      'driving-line': '#88598B',
+      'driving-ink': '#FCF6FC',
+      'driven-fill': '#9A5618',
+      'driven-line': '#B8732F',
+      'driven-ink': '#FFF8EF',
+      error: '#B42318',
+    },
+    dark: {
+      bg: '#121517',
+      ink: '#ECEFF0',
+      muted: '#98A2A8',
+      line: '#323A40',
+      teal: '#A6C173',
+      'teal-soft': '#283221',
+      'teal-deep': '#3E5126',
+      slate: '#B7C0C5',
+      'slate-soft': '#20262A',
+      card: '#191D20',
+      'domain-ink': '#ECEFF0',
+      'driving-fill': '#5E3A63',
+      'driving-line': '#7A5280',
+      'driving-ink': '#FAF2FB',
+      'driven-fill': '#854B16',
+      'driven-line': '#A6652A',
+      'driven-ink': '#FFF6EC',
+      error: '#F97066',
+    },
+  },
+} satisfies Record<string, { label: string; description: string } & Record<Theme, Record<Token, string>>>
+
+export type PaletteId = keyof typeof PALETTES
 
 /** Every text colour the diagram draws on a fill, as [text, fill]; each pair must reach WCAG AA. */
 export const TEXT_PAIRS: [Token, Token][] = [
@@ -97,7 +195,7 @@ const chevron = (stroke: string) =>
   `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%23${stroke.slice(1)}' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`
 
 /** Mixes a colour toward white (dark theme) or black (light theme): the one-step brighter fill of a hovered ring. */
-function hoverTint(hex: string, theme: 'light' | 'dark') {
+function hoverTint(hex: string, theme: Theme) {
   const [target, amount] = theme === 'dark' ? [255, 0.06] : [0, 0.04]
   const mix = (i: number) => Math.round(parseInt(hex.slice(1 + 2 * i, 3 + 2 * i), 16) * (1 - amount) + target * amount)
   return `#${[0, 1, 2].map((i) => mix(i).toString(16).padStart(2, '0')).join('')}`
@@ -105,19 +203,29 @@ function hoverTint(hex: string, theme: 'light' | 'dark') {
 
 const RING_FILLS = ['card', 'slate-soft', 'teal-soft', 'teal-deep'] as const
 
-function block(theme: 'light' | 'dark') {
+function block(id: PaletteId, theme: Theme) {
+  const table: Record<Token, string> = PALETTES[id][theme]
   const colours = [
-    ...Object.entries(PALETTE[theme]).map(([k, v]) => `--${k}: ${v};`),
-    ...RING_FILLS.map((k) => `--${k}-hover: ${hoverTint(PALETTE[theme][k], theme)};`),
+    ...Object.entries(table).map(([k, v]) => `--${k}: ${v};`),
+    ...RING_FILLS.map((k) => `--${k}-hover: ${hoverTint(table[k], theme)};`),
     `--guide-opacity: ${GUIDE_OPACITY[theme]};`,
   ]
-  return [`color-scheme: ${theme};`, ...colours, `--shadow: ${SHADOW[theme]};`, `--chevron: ${chevron(PALETTE[theme].muted)};`].join('\n  ')
+  return [`color-scheme: ${theme};`, ...colours, `--shadow: ${SHADOW[theme]};`, `--chevron: ${chevron(table.muted)};`].join('\n  ')
 }
 
+/**
+ * The default palette sits on bare `:root`; every other one repeats the three theme blocks with a `data-palette`
+ * attribute added, so each of its selectors is exactly one attribute more specific than the default's counterpart.
+ */
 export function paletteCss(): string {
-  return [
-    `:root {\n  ${block('light')}\n}`,
-    `@media (prefers-color-scheme: dark) {\n  :root:not([data-theme='light']) {\n  ${block('dark')}\n  }\n}`,
-    `:root[data-theme='dark'] {\n  ${block('dark')}\n}`,
-  ].join('\n')
+  return (Object.keys(PALETTES) as PaletteId[])
+    .flatMap((id) => {
+      const root = id === 'default' ? ':root' : `:root[data-palette='${id}']`
+      return [
+        `${root} {\n  ${block(id, 'light')}\n}`,
+        `@media (prefers-color-scheme: dark) {\n  ${root}:not([data-theme='light']) {\n  ${block(id, 'dark')}\n  }\n}`,
+        `${root}[data-theme='dark'] {\n  ${block(id, 'dark')}\n}`,
+      ]
+    })
+    .join('\n')
 }
