@@ -5,6 +5,7 @@ import { EXAMPLE_DIAGRAM } from '../model/example'
 import { toMap } from '../model/hexa'
 import { neighbour, SIDE_ORDER } from '../model/map'
 import { useMapStore } from '../model/store'
+import type { HexaMap } from '../model/schema'
 import { card, currentDiagram, twoHexMap } from '../test/fixtures'
 
 const SECTIONS_KEY = 'domainrings:editor-sections'
@@ -20,6 +21,7 @@ const renderEditor = (
   onDeleteHexagon: () => void = () => {},
   onAddFromFile: (file: File, context: 'same' | 'new', opener: HTMLElement | null) => void = () => {},
   contextLabel = 'Context 1',
+  onRenameContext: (before: HexaMap, contextId: string) => void = () => {},
 ) =>
   render(
     <Editor
@@ -30,6 +32,7 @@ const renderEditor = (
       onDeleteHexagon={onDeleteHexagon}
       onAddFromFile={onAddFromFile}
       contextLabel={contextLabel}
+      onRenameContext={onRenameContext}
     />,
   )
 const section = (container: HTMLElement, title: string) =>
@@ -170,6 +173,59 @@ describe('"Delete hexagon" button in the Hexagon section (DEL-01)', () => {
 
     fireEvent.click(button)
     expect(onDeleteHexagon).not.toHaveBeenCalled()
+  })
+})
+
+describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
+  it('shows one input per context, labelled by its stable ordinal, with the name (or none) as its value', () => {
+    const { container } = renderEditor()
+    const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1') as HTMLInputElement
+    expect(input.value).toBe('')
+  })
+
+  it('typing a name updates the store immediately, so the chip can follow live (NAME-02.1)', () => {
+    const contextId = useMapStore.getState().map.contexts[0].id
+    const { container } = renderEditor()
+    const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1')
+
+    fireEvent.change(input, { target: { value: 'Billing' } })
+
+    expect(useMapStore.getState().map.contexts.find((c) => c.id === contextId)?.name).toBe('Billing')
+  })
+
+  it('reports the pre-edit map on blur when the name actually changed (NAME-03.1)', () => {
+    const onRenameContext = vi.fn()
+    const contextId = useMapStore.getState().map.contexts[0].id
+    const beforeMap = useMapStore.getState().map
+    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', onRenameContext)
+    const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1')
+
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Billing' } })
+    expect(onRenameContext).not.toHaveBeenCalled()
+
+    fireEvent.blur(input)
+
+    expect(onRenameContext).toHaveBeenCalledOnce()
+    expect(onRenameContext).toHaveBeenCalledWith(beforeMap, contextId)
+  })
+
+  it('does not report a blur that never changed the name', () => {
+    const onRenameContext = vi.fn()
+    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', onRenameContext)
+    const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1')
+
+    fireEvent.focus(input)
+    fireEvent.blur(input)
+
+    expect(onRenameContext).not.toHaveBeenCalled()
+  })
+
+  it('the Hexagon section shows the current hexagon’s bounded context as read-only text, with no rename input', () => {
+    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Billing')
+    const hexagonSection = section(container, 'Hexagon')
+    expect(within(hexagonSection).getByText('Billing')).toBeTruthy()
+    expect(within(hexagonSection).queryByLabelText('Name for Context 1')).toBeNull()
   })
 })
 

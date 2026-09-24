@@ -524,6 +524,9 @@ label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
 .field { display: grid; gap: 3px; }
 .field > span, .note summary, .empty { color: var(--muted); font-size: 12px; }
 .empty { margin: 0; }
+/* Read-only value, styled like .field but the second span keeps normal text (CB-05.2). */
+.field-static { display: grid; gap: 3px; }
+.field-static > span:first-child { color: var(--muted); font-size: 12px; }
 
 input, select, textarea {
   min-width: 0;

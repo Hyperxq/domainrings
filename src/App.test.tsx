@@ -3,9 +3,9 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { App } from './App'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM, TWO_SLICES_MAP } from './model/example'
 import { layoutDiagram } from './layout/layout'
-import { toHexa, toMap } from './model/hexa'
+import { parseHexa, toHexa, toMap } from './model/hexa'
 import { diagramOf, UNTITLED_HEXAGON } from './model/map'
-import { autosave } from './model/persistence'
+import { autosave, MAP_KEY } from './model/persistence'
 import { useMapStore } from './model/store'
 import { fileSlug } from './ui/exporters'
 import { card, currentDiagram, hexGroup, linkedTwoHexMap, twoHexMap } from './test/fixtures'
@@ -1081,6 +1081,70 @@ describe('grow the map (GROW-01..04, ADR-02)', () => {
     // Both the canvas's inline naming field and the Editor's own Hexagon-title field share the "Hexagon title"
     // accessible name (the same underlying value, shown in two places at once) — scope to the canvas-only one.
     expect(container.querySelector('main.stage .inline-name')).toBeTruthy()
+  })
+})
+
+describe('renaming a bounded context (NAME-01..03)', () => {
+  /** Grows into a new context (via the canvas) and commits the new hexagon's default title, so a second context
+   * exists — the chip only renders from two contexts up (CB-01.1) — without leaving any toast/undo state behind. */
+  const growSecondContext = () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Add hexagon to the east of Chat feedback slice' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in a new bounded context' }))
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Hexagon title' }), { key: 'Enter' })
+  }
+
+  it('updates the chip immediately and is undoable in one step (NAME-02.1, NAME-03.1)', () => {
+    render(<App />)
+    growSecondContext()
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    const contextId = useMapStore.getState().map.contexts[0].id
+    const beforeMap = useMapStore.getState().map
+    const input = screen.getByLabelText('Name for Context 1')
+
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Billing' } })
+
+    expect(document.querySelector(`[data-chip="${contextId}"]`)!.textContent).toBe('Billing')
+
+    fireEvent.blur(input)
+
+    expect(toastEl()!.textContent).toContain('Renamed Context 1 to Billing.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useMapStore.getState().map).toStrictEqual(beforeMap)
+    expect(document.querySelector(`[data-chip="${contextId}"]`)!.textContent).toBe('Context 1')
+  })
+
+  it('does not toast or offer undo when a blur never changed the name', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    const input = screen.getByLabelText('Name for Context 1')
+
+    fireEvent.focus(input)
+    fireEvent.blur(input)
+
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
+  })
+
+  it('survives a real autosave/reload cycle (NAME-02.2)', () => {
+    vi.useFakeTimers()
+    const storage = { setItem: vi.fn() }
+    autosave(useMapStore, storage, 'none', 400)
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    const input = screen.getByLabelText('Name for Context 1')
+
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Billing' } })
+    fireEvent.blur(input)
+    act(() => vi.advanceTimersByTime(1000))
+
+    expect(storage.setItem).toHaveBeenCalledWith(MAP_KEY, expect.stringContaining('Billing'))
+    const written = storage.setItem.mock.calls.at(-1)![1] as string
+    const reopened = parseHexa(written)
+    expect(reopened.ok && reopened.map.contexts.find((c) => c.name === 'Billing')).toBeTruthy()
+    vi.useRealTimers()
   })
 })
 

@@ -15,12 +15,12 @@ import {
   type Wall,
 } from '../model/schema'
 import { parentCandidates } from '../model/links'
-import { diagramOf, freeSides, UNTITLED_HEXAGON } from '../model/map'
+import { contextName, contextOrdinal, diagramOf, freeSides, UNTITLED_HEXAGON } from '../model/map'
 import { useMapStore, type Item } from '../model/store'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
 
-const { addItem, updateItem, removeItem, setMeta, setMapMeta } = useMapStore.getState()
+const { addItem, updateItem, removeItem, setMeta, setMapMeta, setContextName } = useMapStore.getState()
 
 type Patch<K extends CollectionKey> = Partial<Omit<Item<K>, 'id'>>
 
@@ -218,6 +218,7 @@ export function Editor({
   onDeleteHexagon,
   onAddFromFile,
   contextLabel,
+  onRenameContext,
 }: {
   open: boolean
   onToggle: () => void
@@ -229,6 +230,9 @@ export function Editor({
   onAddFromFile: (file: File, context: 'same' | 'new', opener: HTMLElement | null) => void
   /** The current hexagon's own bounded context, for the import menu's "Import into {context}" choice. */
   contextLabel: string
+  /** Reports a context rename/clear session (focus → blur) that actually changed the name, with the map from
+   * just before it started — the toast/undo snapshot (NAME-03). Not called when a blur never changed anything. */
+  onRenameContext: (before: HexaMap, contextId: string) => void
 }) {
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
@@ -242,6 +246,9 @@ export function Editor({
   const importContext = useRef<'same' | 'new'>('same')
   const importOpener = useRef<HTMLElement | null>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
+  // Keyed by contextId, so renaming two contexts in the same session (unlikely, but never concurrent within one
+  // input) each keeps its own pre-edit snapshot from focus to blur.
+  const contextRenameBefore = useRef(new Map<string, HexaMap>())
 
   return (
     <aside className={`island editor${open ? '' : ' is-collapsed'}`} aria-label="Diagram editor">
@@ -284,7 +291,36 @@ export function Editor({
           />
         </Fold>
 
+        <Fold id="contexts" title="Bounded contexts" count={map.contexts.length}>
+          <ul className="items">
+            {map.contexts.map((ctx) => {
+              const ordinal = contextOrdinal(map, ctx.id)
+              return (
+                <li key={ctx.id} className="item">
+                  <input
+                    className="name"
+                    aria-label={`Name for ${ordinal}`}
+                    placeholder={ordinal}
+                    value={ctx.name ?? ''}
+                    onFocus={() => contextRenameBefore.current.set(ctx.id, map)}
+                    onChange={(e) => setContextName(ctx.id, e.target.value)}
+                    onBlur={() => {
+                      const before = contextRenameBefore.current.get(ctx.id)
+                      contextRenameBefore.current.delete(ctx.id)
+                      if (before && contextName(before, ctx.id) !== contextName(useMapStore.getState().map, ctx.id)) onRenameContext(before, ctx.id)
+                    }}
+                  />
+                </li>
+              )
+            })}
+          </ul>
+        </Fold>
+
         <Fold id="hexagon" title="Hexagon">
+          <p className="field-static">
+            <span>Bounded context</span>
+            <span>{contextLabel}</span>
+          </p>
           <label className="field" data-item-id="hexagon">
             <span>Hexagon title</span>
             <input value={d.title} onChange={(e) => setMeta(hexId, { title: e.target.value })} />

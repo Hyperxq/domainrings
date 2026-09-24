@@ -164,6 +164,15 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // A sticky toast (DEL-02) clears itself the moment the map next changes for any OTHER reason — not on a timer.
   if (notice?.sticky && notice.staleWhenMapIsnt && map !== notice.staleWhenMapIsnt) setNotice(null)
 
+  // Renaming a bounded context (NAME-01..03): the store already updated live (Editor calls setContextName on
+  // every keystroke, so the chip follows immediately) — this only fires once, on blur, when the whole edit
+  // session actually changed the name, to toast one undoable step for it.
+  const handleRenameContext = (before: HexaMap, contextId: string) => {
+    const oldLabel = contextName(before, contextId)
+    const newLabel = contextName(map, contextId)
+    show({ tone: 'status', message: `Renamed ${oldLabel} to ${newLabel}.`, undo: { map: before, focus: hexId } })
+  }
+
   const handleDelete = () => {
     const before = { map, focus: hexId }
     const title = diagram.title || UNTITLED_HEXAGON
@@ -307,6 +316,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         onDeleteHexagon={handleDelete}
         onAddFromFile={handleAddFromFile}
         contextLabel={contextLabel}
+        onRenameContext={handleRenameContext}
       />
       <Legend
         legend={legend}
