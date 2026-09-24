@@ -278,6 +278,8 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
         onClick={(e) => {
           if (panned.current) return
           const target = e.target as Element
+          // The map link is inert by handler, not by pointer-events:none (ADR-05): it must never select, focus-switch or reveal.
+          if (target.closest('[data-map-link]')) return
           const clickedHexId = target.closest('[data-hex]')?.getAttribute('data-hex') ?? null
           if (clickedHexId && clickedHexId !== hexId) return focusHexagon(clickedHexId)
           const ref = target.closest('.node')?.getAttribute('data-ref') ?? null
@@ -289,6 +291,7 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
         onDoubleClick={(e) => {
           e.preventDefault()
           const target = e.target as Element
+          if (target.closest('[data-map-link]')) return
           const clickedHexId = target.closest('[data-hex]')?.getAttribute('data-hex') ?? null
           if (clickedHexId && clickedHexId !== hexId) {
             focusHexagon(clickedHexId)

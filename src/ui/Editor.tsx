@@ -9,6 +9,8 @@ import {
   WallSchema,
   type CollectionKey,
   type Diagram,
+  type HexaMap,
+  type Link,
   type Side,
   type Wall,
 } from '../model/schema'
@@ -20,6 +22,10 @@ import { Icon } from './Icon'
 const { addItem, updateItem, removeItem, setMeta } = useMapStore.getState()
 
 type Patch<K extends CollectionKey> = Partial<Omit<Item<K>, 'id'>>
+
+/** Reports the links a port change/removal broke (SEAM-06), with the map/focus from just before the edit, so the
+ * caller can toast and offer undo — Section calls the store directly, so this is how App finds out. */
+type OnPrune = (pruned: Link[], before: { map: HexaMap; focus: string }) => void
 
 const WALL_LABEL: Record<Wall, string> = { nw: 'North-west', w: 'West', sw: 'South-west', ne: 'North-east', e: 'East', se: 'South-east' }
 
@@ -117,6 +123,8 @@ function Fold({ id, title, count, actions, children }: FoldProps) {
 
 interface SectionProps<K extends CollectionKey> {
   hexId: string
+  map: HexaMap
+  onPrune: OnPrune
   collection: K
   items: Item<K>[]
   title: string
@@ -129,7 +137,7 @@ interface SectionProps<K extends CollectionKey> {
   groups?: { key: string; title: string; items: Item<K>[] }[]
 }
 
-function Section<K extends CollectionKey>({ hexId, collection, items, title, noun, empty, fields, actions, groups }: SectionProps<K>) {
+function Section<K extends CollectionKey>({ hexId, map, onPrune, collection, items, title, noun, empty, fields, actions, groups }: SectionProps<K>) {
   const add = (
     <button type="button" className="icon-button small" aria-label={`Add ${noun}`} title={`Add ${noun}`} onClick={() => addItem(hexId, collection)}>
       <Icon name="plus" />
@@ -138,11 +146,23 @@ function Section<K extends CollectionKey>({ hexId, collection, items, title, nou
   const cards = (list: Item<K>[]) => (
         <ul className="items">
           {list.map((item) => {
-            const update = (patch: Patch<K>) => updateItem(hexId, collection, item.id, patch)
+            const update = (patch: Patch<K>) => {
+              const pruned = updateItem(hexId, collection, item.id, patch)
+              if (pruned.length) onPrune(pruned, { map, focus: hexId })
+            }
             return (
               <li key={item.id} className="item" data-item-id={item.id}>
                 <input className="name" aria-label={`${noun} name`} value={item.name} onChange={(e) => update({ name: e.target.value } as Patch<K>)} />
-                <button type="button" className="icon-button small remove" aria-label={`Remove ${noun} ${item.name}`} title={`Remove ${noun}`} onClick={() => removeItem(hexId, collection, item.id)}>
+                <button
+                  type="button"
+                  className="icon-button small remove"
+                  aria-label={`Remove ${noun} ${item.name}`}
+                  title={`Remove ${noun}`}
+                  onClick={() => {
+                    const pruned = removeItem(hexId, collection, item.id)
+                    if (pruned.length) onPrune(pruned, { map, focus: hexId })
+                  }}
+                >
                   <Icon name="close" />
                 </button>
                 {fields?.(item, update)}
@@ -192,7 +212,7 @@ function adaptersBySide(d: Diagram) {
   return (side: Side) => d.adapters.filter((a) => (a.portId ? portSide.get(a.portId) === side : true))
 }
 
-export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+export function Editor({ open, onToggle, onPrune }: { open: boolean; onToggle: () => void; onPrune: OnPrune }) {
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   const d = diagramOf(map, hexId)
@@ -256,6 +276,8 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
 
         <Section
           hexId={hexId}
+          map={map}
+          onPrune={onPrune}
           collection="domain"
           items={d.domain}
           title="Domain"
@@ -276,6 +298,8 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
 
         <Section
           hexId={hexId}
+          map={map}
+          onPrune={onPrune}
           collection="useCases"
           items={d.useCases}
           title="Use cases"
@@ -296,6 +320,8 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
 
         <Section
           hexId={hexId}
+          map={map}
+          onPrune={onPrune}
           collection="ports"
           items={d.ports}
           title="Ports"
@@ -340,6 +366,8 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
 
         <Section
           hexId={hexId}
+          map={map}
+          onPrune={onPrune}
           collection="adapters"
           items={d.adapters}
           title="Adapters"
@@ -352,6 +380,8 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
 
         <Section
           hexId={hexId}
+          map={map}
+          onPrune={onPrune}
           collection="actors"
           items={d.actors}
           title="Actors"
@@ -364,6 +394,8 @@ export function Editor({ open, onToggle }: { open: boolean; onToggle: () => void
 
         <Section
           hexId={hexId}
+          map={map}
+          onPrune={onPrune}
           collection="externals"
           items={d.externals}
           title="External systems"

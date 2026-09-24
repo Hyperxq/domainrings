@@ -8,7 +8,7 @@ import { parseHexa, toHexa, toMap } from './model/hexa'
 import { collectionOf, type LinkTarget } from './model/links'
 import { diagramOf } from './model/map'
 import type { Recovery } from './model/persistence'
-import type { HexaMap } from './model/schema'
+import type { HexaMap, Link } from './model/schema'
 import { useMapStore } from './model/store'
 import { Editor, revealInEditor } from './ui/Editor'
 import { download, exportBounds, fileSlug, pngBlob, svgMarkup } from './ui/exporters'
@@ -94,11 +94,34 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     return items.find((i) => i.id === ref)?.name ?? ''
   }
 
+  // The toast for an edit that pruned one or more links (LINK-01): "Deleted"/"Moved" is told apart by whether the
+  // edited end's port still exists after the edit — the only two ways pruneLinks ever fires. `onPrune` is passed
+  // to Editor too, since its own remove/update handlers call the store directly, bypassing deleteItem/link below.
+  const pruneToast = (pruned: Link[], before: { map: HexaMap; focus: string }) => {
+    if (!pruned.length) return
+    const beforeHexagon = before.map.hexagons.find((h) => h.id === before.focus)!
+    const afterHexagon = useMapStore.getState().map.hexagons.find((h) => h.id === before.focus)
+    const editedEnd = (l: Link) => (l.from.hexagonId === before.focus ? l.from : l.to)
+    const otherHexagonTitle = (l: Link) => {
+      const end = l.from.hexagonId === before.focus ? l.to : l.from
+      return before.map.hexagons.find((h) => h.id === end.hexagonId)?.title || 'Untitled hexagon'
+    }
+    const portId = editedEnd(pruned[0]).portId
+    const portName = beforeHexagon.ports.find((p) => p.id === portId)?.name ?? 'the port'
+    const stillExists = afterHexagon?.ports.some((p) => p.id === portId) ?? false
+    const plural = pruned.length > 1 ? 's' : ''
+    const hexes = pruned.map(otherHexagonTitle).join(' and ')
+    const message = stillExists ? `Moved ${portName} and removed its link${plural} to ${hexes}.` : `Deleted ${portName} and its link${plural} to ${hexes}.`
+    show({ tone: 'status', message, undo: before })
+  }
+
   const deleteItem = (ref: string) => {
     const collection = collectionOf(diagram, ref)
     if (!collection) return false
-    show({ tone: 'status', message: `Deleted ${nameOf(ref)}.`, undo: { map, focus: hexId } })
-    removeItem(hexId, collection, ref)
+    const before = { map, focus: hexId }
+    const pruned = removeItem(hexId, collection, ref)
+    if (pruned.length) pruneToast(pruned, before)
+    else show({ tone: 'status', message: `Deleted ${nameOf(ref)}.`, undo: before })
     return true
   }
 
@@ -185,7 +208,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           setHighlight(on)
         }}
       />
-      <Editor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} />
+      <Editor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} onPrune={pruneToast} />
       <Legend
         legend={legend}
         open={legendOpen}

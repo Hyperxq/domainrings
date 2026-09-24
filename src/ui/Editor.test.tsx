@@ -16,7 +16,7 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-const renderEditor = () => render(<Editor open onToggle={() => {}} />)
+const renderEditor = () => render(<Editor open onToggle={() => {}} onPrune={() => {}} />)
 const section = (container: HTMLElement, title: string) =>
   [...container.querySelectorAll('details')].find((d) => d.querySelector(':scope > summary h2')?.textContent === title) as HTMLDetailsElement
 const port = EXAMPLE_DIAGRAM.ports[0]

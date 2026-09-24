@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { diagramOf, putDiagram } from './map'
+import { diagramOf, putDiagram, pruneLinks } from './map'
 import { browserStorage, loadMap } from './persistence'
 import { REFERENCES, type CollectionKey, type Diagram, type HexaMap, type Hexagon, type Link, type Linkable } from './schema'
 
@@ -57,10 +57,13 @@ export const useMapStore = create<MapState>()((set, get) => {
       editHexagon(hexId, (d) => withCollection(d, key, [...d[key], { ...NEW_ITEM[key], ...patch, id } as Item<typeof key>]))
       return id
     },
-    // Pruning links broken by this edit (SEAM-06) is a later slice's job — every edit returns no pruned links yet.
+    // Pruning links broken by this edit (SEAM-06): every hexId edit that can invalidate a port re-checks the
+    // map's links afterward, dropping the ones that no longer stand and reporting them to the caller.
     updateItem: (hexId, key, id, patch) => {
       editHexagon(hexId, (d) => withCollection(d, key, (d[key] as Item<typeof key>[]).map((i) => (i.id === id ? { ...i, ...patch } : i))))
-      return []
+      const { map, pruned } = pruneLinks(get().map, hexId)
+      set({ map })
+      return pruned
     },
     removeItem: (hexId, key, id) => {
       editHexagon(hexId, (d) => {
@@ -72,7 +75,9 @@ export const useMapStore = create<MapState>()((set, get) => {
         }
         return next
       })
-      return []
+      const { map, pruned } = pruneLinks(get().map, hexId)
+      set({ map })
+      return pruned
     },
   }
 })

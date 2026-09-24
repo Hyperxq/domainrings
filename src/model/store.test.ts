@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useMapStore } from './store'
 import { toMap } from './hexa'
 import { diagramOf } from './map'
-import { MapSchema } from './schema'
+import { MapSchema, type HexaMap, type Link } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
 
 const state = () => useMapStore.getState()
@@ -121,5 +121,35 @@ describe('map store', () => {
     const before = state().focus
     state().setFocus('does-not-exist')
     expect(state().focus).toBe(before)
+  })
+
+  describe('link pruning wired into updateItem/removeItem (SEAM-06)', () => {
+    const linkedTwoHex = (): HexaMap => {
+      const base = toMap(EXAMPLE_DIAGRAM)
+      const h1 = base.hexagons[0]
+      const link: Link = { id: 'link-1', from: { hexagonId: 'h1', portId: 'p-repo' }, to: { hexagonId: 'h2', portId: 'p-submit' } }
+      return { ...base, hexagons: [{ ...h1, cell: { q: 0, r: 0 } }, { ...h1, id: 'h2', cell: { q: 1, r: 0 } }], links: [link] }
+    }
+
+    it('removeItem returns the links it pruned, and removes them from the map', () => {
+      state().replace(linkedTwoHex())
+      const pruned = state().removeItem('h1', 'ports', 'p-repo')
+      expect(pruned).toEqual([{ id: 'link-1', from: { hexagonId: 'h1', portId: 'p-repo' }, to: { hexagonId: 'h2', portId: 'p-submit' } }])
+      expect(state().map.links).toEqual([])
+    })
+
+    it('updateItem returns the links a side flip broke, and removes them from the map', () => {
+      state().replace(linkedTwoHex())
+      const pruned = state().updateItem('h1', 'ports', 'p-repo', { side: 'driving', wall: undefined })
+      expect(pruned).toHaveLength(1)
+      expect(state().map.links).toEqual([])
+    })
+
+    it('updateItem returns no pruned links for an edit that does not touch a linked port', () => {
+      state().replace(linkedTwoHex())
+      const pruned = state().updateItem('h1', 'adapters', 'a-knex', { name: 'Renamed' })
+      expect(pruned).toEqual([])
+      expect(state().map.links).toHaveLength(1)
+    })
   })
 })

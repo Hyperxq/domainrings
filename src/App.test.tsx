@@ -4,7 +4,7 @@ import { App } from './App'
 import { EXAMPLE_DIAGRAM } from './model/example'
 import { toMap } from './model/hexa'
 import { diagramOf } from './model/map'
-import type { HexaMap } from './model/schema'
+import type { HexaMap, Link } from './model/schema'
 import { useMapStore } from './model/store'
 
 const currentDiagram = () => diagramOf(useMapStore.getState().map, useMapStore.getState().focus)
@@ -426,6 +426,74 @@ describe('current hexagon (FOCUS-03, FOCUS-06)', () => {
 
     expect(useMapStore.getState().map).toBe(beforeEdit)
     expect(useMapStore.getState().focus).toBe('h1')
+  })
+})
+
+describe('link pruning (LINK-01, LINK-02)', () => {
+  const link: Link = { id: 'link-1', from: { hexagonId: 'h1', portId: 'p-repo' }, to: { hexagonId: 'h2', portId: 'p-submit' } }
+  const linkedTwoHexMap = (): HexaMap => {
+    const base = toMap(EXAMPLE_DIAGRAM)
+    const h1 = base.hexagons[0]
+    return { ...base, hexagons: [{ ...h1, cell: { q: 0, r: 0 } }, { ...h1, id: 'h2', cell: { q: 1, r: 0 }, title: 'Second slice' }], links: [link] }
+  }
+  const hexGroup = (container: HTMLElement, hexId: string) => container.querySelector(`[data-hex="${hexId}"]`)!
+
+  it('deleting the linked port removes the link, shows the deletion toast naming both, and Undo restores port + link + focus (LINK-01.1, 01.5)', () => {
+    useMapStore.getState().replace(linkedTwoHexMap())
+    const { container } = render(<App />)
+    const beforeEdit = useMapStore.getState().map
+
+    fireEvent.click(onCanvas(container, 'p-repo'))
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+
+    expect(useMapStore.getState().map.links).toEqual([])
+    expect(screen.getByRole('status').querySelector('p')!.textContent).toBe('Deleted FeedbackRepository and its link to Second slice.')
+
+    fireEvent.click(hexGroup(container, 'h2'))
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useMapStore.getState().map).toBe(beforeEdit)
+    expect(useMapStore.getState().focus).toBe('h1')
+  })
+
+  it('moving the linked port to the other side removes the link and shows the move toast (LINK-01.2)', () => {
+    useMapStore.getState().replace(linkedTwoHexMap())
+    const { container } = render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    const select = container.querySelector(`[data-item-id="p-repo"] select`) as HTMLSelectElement
+
+    fireEvent.change(select, { target: { value: 'driving' } })
+
+    expect(useMapStore.getState().map.links).toEqual([])
+    expect(screen.getByRole('status').querySelector('p')!.textContent).toBe('Moved FeedbackRepository and removed its link to Second slice.')
+  })
+
+  it('the map link never responds to hover, click, double-click or Delete (LINK-02.1)', () => {
+    useMapStore.getState().replace(linkedTwoHexMap())
+    const { container } = render(<App />)
+    const line = container.querySelector('svg.canvas [data-map-link]')!
+    const selectedRefs = () => [...container.querySelectorAll('svg.canvas [data-selected]')].map((n) => n.getAttribute('data-ref'))
+    const useCase = EXAMPLE_DIAGRAM.useCases[0]
+
+    fireEvent.click(onCanvas(container, useCase.id))
+    expect(selectedRefs()).toEqual([useCase.id])
+
+    fireEvent.pointerOver(line)
+    expect(hexGroup(container, 'h1').hasAttribute('data-hover')).toBe(false)
+
+    fireEvent.click(line)
+    expect(selectedRefs()).toEqual([useCase.id])
+
+    fireEvent.doubleClick(line)
+    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(selectedRefs()).toEqual([])
+    const beforeMap = useMapStore.getState().map
+
+    fireEvent.click(line)
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+    expect(useMapStore.getState().map).toBe(beforeMap)
   })
 })
 
