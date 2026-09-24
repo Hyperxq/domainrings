@@ -15,3 +15,19 @@ export function writePref(key: string, value: boolean) {
     // The switch still applies for this session.
   }
 }
+
+/**
+ * A preference the page applies as a `data-*` attribute on <html> (read back at boot by main.tsx, stored under
+ * `domainrings:<name>`). `undefined` removes both the attribute and the stored value, so the default applies again.
+ */
+export function setRootPref(name: 'theme' | 'palette', value: string | undefined) {
+  const { dataset } = document.documentElement
+  if (value === undefined) delete dataset[name]
+  else dataset[name] = value
+  try {
+    if (value === undefined) localStorage.removeItem(`domainrings:${name}`)
+    else localStorage.setItem(`domainrings:${name}`, value)
+  } catch {
+    // The choice still applies for this session.
+  }
+}

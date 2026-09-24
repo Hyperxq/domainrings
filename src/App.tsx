@@ -14,12 +14,12 @@ import { Editor, revealInEditor } from './ui/Editor'
 import { download, exportBounds, fileSlug, legendDrawn, pngBlob, svgMarkup } from './ui/exporters'
 import { Icon } from './ui/Icon'
 import { Legend } from './ui/Legend'
-import { readPref, writePref } from './ui/prefs'
+import type { PaletteId } from './ui/palette'
+import { readPref, setRootPref, writePref } from './ui/prefs'
 import { Stage } from './ui/Stage'
 import { Toast } from './ui/Toast'
-import { Toolbar, type ExportScope } from './ui/Toolbar'
+import { Toolbar, type ExportScope, type ThemeChoice } from './ui/Toolbar'
 
-type Theme = 'light' | 'dark'
 
 interface Notice {
   /** A new notice restarts the toast's countdown even when its text repeats. */
@@ -37,19 +37,12 @@ const RECOVERY_MESSAGE: Record<'kept' | 'not-kept', string> = {
   'not-kept': "Your last session couldn't be restored and a copy couldn't be kept, so autosave is off.",
 }
 
-const THEME_KEY = 'domainrings:theme'
 const LEGEND_EXPORT_KEY = 'domainrings:legend-export'
 const OVERVIEW_KEY = 'domainrings:overview'
 const GUIDES_KEY = 'domainrings:guides'
 const HIGHLIGHT_KEY = 'domainrings:highlight'
 const LEGEND_OPEN_KEY = 'domainrings:legend-open'
 const { replace, restore, setMapMeta, removeItem, updateItem } = useMapStore.getState()
-
-function currentTheme(): Theme {
-  const explicit = document.documentElement.dataset.theme
-  if (explicit === 'light' || explicit === 'dark') return explicit
-  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-}
 
 interface AppProps {
   boot?: { recovery: Recovery; unreadableText?: string }
@@ -72,7 +65,9 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     flushSync(() => setEditorOpen(true))
     revealInEditor(ref, focus)
   }
-  const [theme, setTheme] = useState(currentTheme)
+  // main.tsx applies only valid stored values to the document before the first render.
+  const [themeChoice, setThemeChoice] = useState(() => (document.documentElement.dataset.theme ?? 'system') as ThemeChoice)
+  const [palette, setPalette] = useState(() => (document.documentElement.dataset.palette ?? 'default') as PaletteId)
   const [notice, setNotice] = useState<Notice | null>(null)
   // Its own slot, never touched by show()/startLinking: it stays until the user dismisses it (REQ-03.2),
   // whatever status toasts or link-mode hints come and go in the meantime.
@@ -180,17 +175,6 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     }
   }
 
-  const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark'
-    document.documentElement.dataset.theme = next
-    try {
-      localStorage.setItem(THEME_KEY, next)
-    } catch {
-      // The theme still applies for this session.
-    }
-    setTheme(next)
-  }
-
   return (
     <>
       <Toolbar
@@ -199,7 +183,8 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         showScope={multiHexagon}
         exportScope={exportScope}
         onExportScope={setExportScope}
-        theme={theme}
+        themeChoice={themeChoice}
+        palette={palette}
         onKind={(kind) => setMapMeta({ kind })}
         onNew={() => swap(toMap({ version: 1, kind: map.kind, title: 'Untitled architecture', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }), 'Started a new diagram.')}
         onExample={(id) => {
@@ -208,7 +193,14 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         }}
         onImport={importFile}
         onExport={exportAs}
-        onTheme={toggleTheme}
+        onTheme={(choice) => {
+          setRootPref('theme', choice === 'system' ? undefined : choice)
+          setThemeChoice(choice)
+        }}
+        onPalette={(id) => {
+          setRootPref('palette', id === 'default' ? undefined : id)
+          setPalette(id)
+        }}
         mode={mode}
         onMode={(next) => {
           writePref(OVERVIEW_KEY, next === 'overview')

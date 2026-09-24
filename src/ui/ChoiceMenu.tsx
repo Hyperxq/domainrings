@@ -14,14 +14,18 @@ interface ChoiceMenuProps<Id extends string> {
   ariaLabel?: string
   choices: readonly Choice<Id>[]
   onChoose: (id: Id) => void
+  /** Extra classes on the trigger. */
+  className?: string
+  /** `end` aligns the menu's right edge with the trigger's, for a trigger near the viewport's right edge. */
+  align?: 'start' | 'end'
 }
 
 /**
  * A button that opens a menu of labelled choices. The menu is `position: fixed` under the trigger, so a scrolling
  * or clipping ancestor (the toolbar, the editor) never cuts it off — which holds only while no ancestor is transformed.
  */
-export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onChoose }: ChoiceMenuProps<Id>) {
-  const [at, setAt] = useState<{ top: number; left: number } | null>(null)
+export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onChoose, className, align = 'start' }: ChoiceMenuProps<Id>) {
+  const [at, setAt] = useState<{ top: number; left?: number; right?: number } | null>(null)
   const root = useRef<HTMLSpanElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const triggerId = useId()
@@ -38,7 +42,7 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
 
   const open = () => {
     const rect = trigger.current!.getBoundingClientRect()
-    setAt({ top: rect.bottom + 4, left: rect.left })
+    setAt(align === 'end' ? { top: rect.bottom + 4, right: innerWidth - rect.right } : { top: rect.bottom + 4, left: rect.left })
   }
   const close = () => {
     setAt(null)
@@ -51,7 +55,7 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
         ref={trigger}
         id={triggerId}
         type="button"
-        className="text-button choice-trigger"
+        className={className ? `text-button choice-trigger ${className}` : 'text-button choice-trigger'}
         aria-label={ariaLabel}
         aria-haspopup="menu"
         aria-expanded={!!at}

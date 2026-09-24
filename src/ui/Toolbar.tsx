@@ -5,22 +5,27 @@ import { useSyncExternalStore } from 'react'
 import { KindSchema, type ArchitectureKind } from '../model/schema'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
+import { PALETTES, type PaletteId } from './palette'
 
 const REPOSITORY_URL = 'https://github.com/Hyperxq/domainrings'
 
 export type ExportScope = 'map' | 'hexagon'
+/** `system` means no stored preference: the OS decides. */
+export type ThemeChoice = 'light' | 'dark' | 'system'
 
 interface ToolbarProps {
   kind: ArchitectureKind
   /** A map with more than one hexagon is always hexagonal (MIG-04) — the kind radios go inert and explain why. */
   kindLocked: boolean
-  theme: 'light' | 'dark'
+  themeChoice: ThemeChoice
+  palette: PaletteId
   onKind: (kind: ArchitectureKind) => void
   onNew: () => void
   onExample: (id: (typeof EXAMPLES)[number]['id']) => void
   onImport: (file: File) => void
   onExport: (format: 'hexa' | 'svg' | 'png') => void
-  onTheme: () => void
+  onTheme: (choice: ThemeChoice) => void
+  onPalette: (id: PaletteId) => void
   mode: LayoutMode
   onMode: (mode: LayoutMode) => void
   guides: boolean
@@ -36,6 +41,7 @@ interface ToolbarProps {
 const KIND_LOCK_HINT = 'A map with more than one hexagon is always hexagonal.'
 const SCOPE_LABEL: Record<ExportScope, string> = { map: 'Map', hexagon: 'Hexagon' }
 const MODE_LABEL: Record<LayoutMode, string> = { overview: 'Overview', detailed: 'Detailed' }
+const THEME_LABEL: Record<ThemeChoice, string> = { light: 'Light', dark: 'Dark', system: 'System' }
 const EXPORT_CHOICES = [
   { id: 'hexa', label: '.hexa' },
   { id: 'svg', label: 'SVG' },
@@ -58,10 +64,13 @@ const media = (query: string) => ({
 })
 const fullMedia = media(FULL_TOOLBAR)
 const roomyMedia = media(ROOMY_TOOLBAR)
+const darkMedia = media('(prefers-color-scheme: dark)')
 
-export function Toolbar({ kind, kindLocked, theme, onKind, onNew, onExample, onImport, onExport, onTheme, mode, onMode, guides, onGuides, highlight, onHighlight, showScope, exportScope, onExportScope }: ToolbarProps) {
+export function Toolbar({ kind, kindLocked, themeChoice, palette, onKind, onNew, onExample, onImport, onExport, onTheme, onPalette, mode, onMode, guides, onGuides, highlight, onHighlight, showScope, exportScope, onExportScope }: ToolbarProps) {
   const full = useSyncExternalStore(fullMedia.subscribe, fullMedia.matches)
   const roomy = useSyncExternalStore(roomyMedia.subscribe, roomyMedia.matches)
+  const systemDark = useSyncExternalStore(darkMedia.subscribe, darkMedia.matches)
+  const dark = themeChoice === 'system' ? systemDark : themeChoice === 'dark'
   const lock = {
     title: kindLocked ? KIND_LOCK_HINT : undefined,
     'aria-disabled': kindLocked || undefined,
@@ -223,15 +232,17 @@ export function Toolbar({ kind, kindLocked, theme, onKind, onNew, onExample, onI
 
       <span className="divider" aria-hidden="true" />
 
-      <button
-        type="button"
-        className="icon-button"
-        aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-        title="Toggle theme"
-        onClick={onTheme}
-      >
-        <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
-      </button>
+      <ChoiceMenu
+        label={<Icon name={dark ? 'sun' : 'moon'} />}
+        ariaLabel="Appearance"
+        className="icon-trigger"
+        align="end"
+        choices={[
+          ...(['light', 'dark', 'system'] as const).map((id) => ({ id, label: THEME_LABEL[id], checked: themeChoice === id })),
+          ...(Object.keys(PALETTES) as PaletteId[]).map((id) => ({ id, label: PALETTES[id].label, description: PALETTES[id].description, checked: palette === id })),
+        ]}
+        onChoose={(id) => (id === 'light' || id === 'dark' || id === 'system' ? onTheme(id) : onPalette(id))}
+      />
       <a className="icon-button" href={REPOSITORY_URL} target="_blank" rel="noreferrer" aria-label="View the source on GitHub" title="Source on GitHub">
         <Icon name="github" />
       </a>

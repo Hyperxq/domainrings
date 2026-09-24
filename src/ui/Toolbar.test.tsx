@@ -7,14 +7,16 @@ const minWidth = (query: string) => Number(/min-width: (\d+)px/.exec(query)![1])
 const FULL = minWidth(FULL_TOOLBAR)
 const ROOMY = minWidth(ROOMY_TOOLBAR)
 let viewport = FULL
+let systemDark = false
 const listeners = new Set<Listener>()
 
 beforeEach(() => {
   viewport = FULL
+  systemDark = false
   listeners.clear()
   window.matchMedia = ((media: string) => ({
     get matches() {
-      return viewport >= minWidth(media)
+      return media === '(prefers-color-scheme: dark)' ? systemDark : viewport >= minWidth(media)
     },
     media,
     addEventListener: (_: string, l: Listener) => listeners.add(l),
@@ -24,18 +26,29 @@ beforeEach(() => {
 afterEach(cleanup)
 
 function renderToolbar(
-  overrides: { kindLocked?: boolean; mode?: 'overview' | 'detailed'; guides?: boolean; highlight?: boolean; showScope?: boolean; exportScope?: 'map' | 'hexagon' } = {},
+  overrides: {
+    kindLocked?: boolean
+    mode?: 'overview' | 'detailed'
+    guides?: boolean
+    highlight?: boolean
+    showScope?: boolean
+    exportScope?: 'map' | 'hexagon'
+    themeChoice?: 'light' | 'dark' | 'system'
+    palette?: 'default' | 'ink' | 'moss'
+  } = {},
 ) {
   const props = {
     kind: 'hexagonal' as const,
     kindLocked: false,
-    theme: 'light' as const,
+    themeChoice: 'system' as 'light' | 'dark' | 'system',
+    palette: 'default' as 'default' | 'ink' | 'moss',
     onKind: vi.fn(),
     onNew: vi.fn(),
     onExample: vi.fn(),
     onImport: vi.fn(),
     onExport: vi.fn(),
     onTheme: vi.fn(),
+    onPalette: vi.fn(),
     mode: 'detailed' as const,
     onMode: vi.fn(),
     guides: true,
@@ -239,5 +252,68 @@ describe('Toolbar below the compact breakpoint', () => {
     openExport()
     expect(screen.queryAllByRole('menuitemcheckbox')).toHaveLength(0)
     expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['.hexa', 'SVG', 'PNG'])
+  })
+})
+
+describe('Toolbar appearance menu', () => {
+  const openAppearance = () => fireEvent.click(screen.getByRole('button', { name: 'Appearance' }))
+  const iconPath = () => screen.getByRole('button', { name: 'Appearance' }).querySelector('path')!.getAttribute('d')!
+  const MOON = /^M21 12\.8/
+  const SUN = /^M12 8a4/
+
+  it.each([FULL, FULL - 1, ROOMY - 1])('is one icon-sized trigger at a %ipx viewport', (width) => {
+    viewport = width
+    renderToolbar()
+    const trigger = screen.getByRole('button', { name: 'Appearance' })
+    expect(trigger.classList.contains('icon-trigger')).toBe(true)
+    expect(trigger.textContent).toBe('')
+  })
+
+  it('lists the theme choices and then the palettes, checking the stored theme and the active palette', () => {
+    renderToolbar({ themeChoice: 'dark', palette: 'ink' })
+    openAppearance()
+    const state = screen.getAllByRole('menuitemcheckbox').map((item) => [item.firstChild!.textContent, item.getAttribute('aria-checked')])
+    expect(state).toEqual([
+      ['Light', 'false'],
+      ['Dark', 'true'],
+      ['System', 'false'],
+      ['Default', 'false'],
+      ['Ink', 'true'],
+      ['Moss', 'false'],
+    ])
+  })
+
+  it('checks System and Default when nothing is chosen', () => {
+    renderToolbar()
+    openAppearance()
+    expect(screen.getByRole('menuitemcheckbox', { name: 'System' }).getAttribute('aria-checked')).toBe('true')
+    expect(screen.getByRole('menuitemcheckbox', { name: /^Default/ }).getAttribute('aria-checked')).toBe('true')
+  })
+
+  it.each([
+    ['Light', 'onTheme', 'light'],
+    ['Dark', 'onTheme', 'dark'],
+    ['System', 'onTheme', 'system'],
+    ['Default', 'onPalette', 'default'],
+    ['Moss', 'onPalette', 'moss'],
+  ] as const)('choosing %s calls %s with %s and nothing else', (name, handler, value) => {
+    const props = renderToolbar({ themeChoice: 'light', palette: 'ink' })
+    openAppearance()
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: new RegExp(`^${name}`) }))
+    expect(props[handler]).toHaveBeenCalledTimes(1)
+    expect(props[handler]).toHaveBeenCalledWith(value)
+    expect(props[handler === 'onTheme' ? 'onPalette' : 'onTheme']).not.toHaveBeenCalled()
+  })
+
+  it('shows the moon on a light page and the sun on a dark one, resolving System from the OS', () => {
+    renderToolbar({ themeChoice: 'light' })
+    expect(iconPath()).toMatch(MOON)
+    cleanup()
+    renderToolbar({ themeChoice: 'dark' })
+    expect(iconPath()).toMatch(SUN)
+    cleanup()
+    systemDark = true
+    renderToolbar({ themeChoice: 'system' })
+    expect(iconPath()).toMatch(SUN)
   })
 })

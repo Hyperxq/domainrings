@@ -408,6 +408,66 @@ describe('legend island', () => {
   })
 })
 
+describe('appearance menu', () => {
+  const root = document.documentElement
+  const choose = (name: RegExp) => {
+    fireEvent.click(screen.getByRole('button', { name: 'Appearance' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name }))
+  }
+  const checked = (name: RegExp) => {
+    fireEvent.click(screen.getByRole('button', { name: 'Appearance' }))
+    const state = screen.getByRole('menuitemcheckbox', { name }).getAttribute('aria-checked')
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    return state
+  }
+
+  afterEach(() => {
+    delete root.dataset.theme
+    delete root.dataset.palette
+    localStorage.removeItem('domainrings:theme')
+    localStorage.removeItem('domainrings:palette')
+  })
+
+  it('starts from what the boot script applied to the document', () => {
+    root.dataset.theme = 'light'
+    root.dataset.palette = 'moss'
+    render(<App />)
+    expect(checked(/^Light/)).toBe('true')
+    expect(checked(/^Moss/)).toBe('true')
+  })
+
+  it('choosing Dark sets data-theme and remembers it', () => {
+    render(<App />)
+    choose(/^Dark/)
+    expect(root.dataset.theme).toBe('dark')
+    expect(localStorage.getItem('domainrings:theme')).toBe('dark')
+    expect(checked(/^Dark/)).toBe('true')
+  })
+
+  it('choosing System drops both the attribute and the stored theme, so the OS decides again', () => {
+    root.dataset.theme = 'light'
+    localStorage.setItem('domainrings:theme', 'light')
+    render(<App />)
+    choose(/^System/)
+    expect(root.dataset.theme).toBeUndefined()
+    expect(localStorage.getItem('domainrings:theme')).toBeNull()
+    expect(checked(/^System/)).toBe('true')
+  })
+
+  it('choosing a palette sets data-palette and remembers it; Default drops both', () => {
+    render(<App />)
+    choose(/^Ink/)
+    expect(root.dataset.palette).toBe('ink')
+    expect(localStorage.getItem('domainrings:palette')).toBe('ink')
+    expect(checked(/^Ink/)).toBe('true')
+
+    choose(/^Default/)
+    expect(root.dataset.palette).toBeUndefined()
+    expect(localStorage.getItem('domainrings:palette')).toBeNull()
+    expect(checked(/^Default/)).toBe('true')
+  })
+})
+
 describe('linking on the canvas', () => {
   const adapter = EXAMPLE_DIAGRAM.adapters.find((a) => EXAMPLE_DIAGRAM.ports.find((p) => p.id === a.portId)?.side === 'driven')!
   const current = EXAMPLE_DIAGRAM.ports.find((p) => p.id === adapter.portId)!

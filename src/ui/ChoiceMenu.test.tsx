@@ -143,4 +143,22 @@ describe('ChoiceMenu', () => {
     fireEvent.click(trigger)
     expect(screen.queryByRole('menu')).toBeNull()
   })
+
+  it('opens under the trigger’s left edge by default', () => {
+    const { trigger } = renderMenu()
+    trigger.getBoundingClientRect = () => ({ left: 100, right: 132, bottom: 40 }) as DOMRect
+    fireEvent.click(trigger)
+    const menu = screen.getByRole('menu')
+    expect([menu.style.top, menu.style.left, menu.style.right]).toEqual(['44px', '100px', ''])
+  })
+
+  it('with align="end", pins the menu’s right edge to the trigger’s so a trigger near the viewport edge keeps it on screen', () => {
+    render(<ChoiceMenu label="Appearance" align="end" className="icon-trigger" choices={CHOICES} onChoose={() => {}} />)
+    const trigger = screen.getByRole('button', { name: 'Appearance' })
+    expect(trigger.classList.contains('icon-trigger')).toBe(true)
+    trigger.getBoundingClientRect = () => ({ left: 900, right: 932, bottom: 40 }) as DOMRect
+    fireEvent.click(trigger)
+    const menu = screen.getByRole('menu')
+    expect([menu.style.top, menu.style.left, menu.style.right]).toEqual(['44px', '', `${innerWidth - 932}px`])
+  })
 })
