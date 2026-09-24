@@ -252,36 +252,39 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           onClose={() => setNotice(null)}
         />
       )}
-      {notice?.tone === 'error' && (
-        <section className="island notice notice-error" role="alert">
-          <p>{notice.message}</p>
-          {notice.details && (
-            <ul>
-              {notice.details.map((d) => <li key={d}>{d}</li>)}
-            </ul>
-          )}
-          <div className="notice-actions">
-            <button type="button" className="icon-button small" aria-label="Dismiss" onClick={() => setNotice(null)}>
-              <Icon name="close" />
-            </button>
-          </div>
-        </section>
-      )}
-      {recoveryNotice && (
-        <section className="island notice" role="status" aria-live="polite">
-          <p>{recoveryNotice.message}</p>
-          <div className="notice-actions">
-            {recoveryNotice.download !== undefined && (
-              <button type="button" className="text-button" onClick={() => download(recoveryNotice.download!, 'unreadable-session.hexa', 'application/json')}>
-                Download saved copy
-              </button>
+      {/* One positioned column for both — two independently fixed-position notices could sit at the same spot. */}
+      <div className="notices">
+        {notice?.tone === 'error' && (
+          <section className="island notice notice-error" role="alert">
+            <p>{notice.message}</p>
+            {notice.details && (
+              <ul>
+                {notice.details.map((d) => <li key={d}>{d}</li>)}
+              </ul>
             )}
-            <button type="button" className="icon-button small" aria-label="Dismiss" onClick={() => setRecoveryNotice(null)}>
-              <Icon name="close" />
-            </button>
-          </div>
-        </section>
-      )}
+            <div className="notice-actions">
+              <button type="button" className="icon-button small" aria-label="Dismiss" onClick={() => setNotice(null)}>
+                <Icon name="close" />
+              </button>
+            </div>
+          </section>
+        )}
+        {recoveryNotice && (
+          <section className="island notice" role="status" aria-live="polite">
+            <p>{recoveryNotice.message}</p>
+            <div className="notice-actions">
+              {recoveryNotice.download !== undefined && (
+                <button type="button" className="text-button" onClick={() => download(recoveryNotice.download!, 'unreadable-session.hexa', 'application/json')}>
+                  Download saved copy
+                </button>
+              )}
+              <button type="button" className="icon-button small" aria-label="Dismiss" onClick={() => setRecoveryNotice(null)}>
+                <Icon name="close" />
+              </button>
+            </div>
+          </section>
+        )}
+      </div>
     </>
   )
 }

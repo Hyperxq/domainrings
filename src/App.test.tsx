@@ -342,6 +342,26 @@ describe('refused imports leave the current map untouched (MIG-02, MIG-03)', () 
   })
 })
 
+describe('notices never overlap', () => {
+  it('stacks the recovery and error notices as siblings in one positioned column instead of overlapping', async () => {
+    render(<App boot={{ recovery: 'kept', unreadableText: '{not valid json' }} />)
+    const broken = JSON.stringify({ app: 'domainrings', version: 2, kind: 'hexagonal', title: 'Bad', contexts: [{ id: 'c1' }], hexagons: [], links: [] })
+    const file = new File([broken], 'broken.hexa', { type: 'application/json' })
+    fireEvent.change(screen.getByLabelText('Import a .hexa file'), { target: { files: [file] } })
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    const recovery = recoveryEl()!
+    const error = screen.getByRole('alert')
+    expect(error.textContent).not.toContain(recovery.textContent)
+    const column = recovery.closest('.notices')
+    expect(column).not.toBeNull()
+    expect(error.closest('.notices')).toBe(column)
+    expect([...column!.children]).toEqual([error, recovery])
+  })
+})
+
 describe('legend island', () => {
   const legendButton = () => document.querySelector<HTMLButtonElement>('.legend .legend-head')!
   const headings = () => [...document.querySelectorAll('.legend h3')].map((h) => h.textContent)
