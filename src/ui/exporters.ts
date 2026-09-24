@@ -51,6 +51,12 @@ export interface ExportOptions {
 export const exportBounds = (bounds: Box, options: ExportOptions): Box =>
   options.legend ? { ...bounds, height: bounds.height + options.legendHeight + LEGEND_GAP } : bounds
 
+/** Whether the legend actually ends up drawn for this export — the single source of truth `svgMarkup` (the
+ * strip and the viewBox) and the PNG size both defer to, so neither can grow the frame for a legend the map
+ * scope's multi-hexagon rule (EXPORT-01) has already dropped. */
+export const legendDrawn = (svg: SVGSVGElement, options: ExportOptions): boolean =>
+  options.legend && !(!options.only && svg.querySelectorAll('[data-hex]').length > 1)
+
 // Hooks for styling and editing on the canvas; an exported file is a picture, not a control.
 const CANVAS_ONLY = ['class', 'tabindex', 'role', 'aria-label', 'data-ref', 'data-band', 'data-layer', 'data-selected', 'data-link-target']
 // Map-scoping attributes (SEAM-07): stripped in a SECOND pass, after the `only` filter and the cue removal have
@@ -81,8 +87,8 @@ export async function svgMarkup(svg: SVGSVGElement, bounds: Box, title: string, 
 
   // Map scope never shows the legend, whatever the user's preference — a legend enumerates one hexagon's layers,
   // which is ambiguous once more than one hexagon shares the frame (EXPORT-01).
+  const showLegend = legendDrawn(svg, options)
   const hexGroups = clone.querySelectorAll('[data-hex]')
-  const mapScopeWithMultipleHexagons = !options.only && hexGroups.length > 1
 
   // Scope to one hexagon (EXPORT-02): every other hexagon's group, plus the map-level link and title that only
   // make sense across the whole map, are dropped entirely — not just stripped of their scoping attribute.
@@ -99,10 +105,10 @@ export async function svgMarkup(svg: SVGSVGElement, bounds: Box, title: string, 
   })
 
   // The live canvas hides the legend group; its classes are stripped above, so what stays in the clone shows.
-  if (!options.legend || mapScopeWithMultipleHexagons) clone.querySelector('[data-legend]')?.remove()
+  if (!showLegend) clone.querySelector('[data-legend]')?.remove()
 
   const ns = 'http://www.w3.org/2000/svg'
-  const { x, y, width, height } = exportBounds(bounds, options)
+  const { x, y, width, height } = exportBounds(bounds, { ...options, legend: showLegend })
   for (const attr of ['class', 'style', 'role', 'aria-label']) clone.removeAttribute(attr)
   clone.setAttribute('xmlns', ns)
   clone.setAttribute('viewBox', `${x} ${y} ${width} ${height}`)

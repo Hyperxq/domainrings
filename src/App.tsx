@@ -11,7 +11,7 @@ import type { Recovery } from './model/persistence'
 import type { HexaMap, Link } from './model/schema'
 import { useMapStore } from './model/store'
 import { Editor, revealInEditor } from './ui/Editor'
-import { download, exportBounds, fileSlug, pngBlob, svgMarkup } from './ui/exporters'
+import { download, exportBounds, fileSlug, legendDrawn, pngBlob, svgMarkup } from './ui/exporters'
 import { Icon } from './ui/Icon'
 import { Legend } from './ui/Legend'
 import { readPref, writePref } from './ui/prefs'
@@ -168,7 +168,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       const options = { legend: legendInExport, legendHeight: legendSize(legend).height, only: scoped ? hexId : undefined }
       const markup = await svgMarkup(svgRef.current, frame, exportTitle, options)
       if (format === 'svg') download(markup, `${name}.svg`, 'image/svg+xml')
-      else download(await pngBlob(markup, exportBounds(frame, options)), `${name}.png`)
+      else download(await pngBlob(markup, exportBounds(frame, { ...options, legend: legendDrawn(svgRef.current, options) })), `${name}.png`)
     } catch (error) {
       show({ tone: 'error', message: `Export failed: ${(error as Error).message}` })
     }

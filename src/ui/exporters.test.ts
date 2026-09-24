@@ -101,6 +101,12 @@ describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {
     expect(markup).not.toContain('data-legend')
   })
 
+  it('sizes the frame by the legend that is actually drawn, not the user preference alone (F-01)', async () => {
+    const markup = await svgMarkup(mapCanvas(), bounds, 'Map title', { legend: true, legendHeight: 120 })
+    expect(markup).not.toContain('data-legend')
+    expect(markup).toContain(`viewBox="${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}"`)
+  })
+
   it('hexagon scope (`only`) keeps just that hexagon, drops the map link and map title, and includes the legend (EXPORT-02.1)', async () => {
     const markup = await svgMarkup(mapCanvas(), bounds, 'H2', { legend: true, legendHeight: 40, only: 'h2' })
     expect(markup).not.toContain('H1 marker')
