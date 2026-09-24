@@ -60,32 +60,34 @@ function portPoint(model: LayoutModel, portId: string, centre: Point): Point {
   return { x: node.x + centre.x, y: node.y + centre.y }
 }
 
+/** A hexagon's position on the affine pointy-top lattice: {0,0} sits at the origin, `e` steps by `pitch.x`,
+ * `se`/`sw` by half that plus `pitch.y` down (ADR-01). */
+export function cellCentre(cell: { q: number; r: number }, pitch: Point): Point {
+  return { x: pitch.x * (cell.q + cell.r / 2), y: pitch.y * cell.r }
+}
+
 /**
  * Composes N untouched `layoutDiagram` outputs onto one map, by translation only — `layout.ts` itself never
- * changes. #1 places every hexagon on a single row keyed by `cell.q`; a honeycomb pitch for `cell.r !== 0` is a
- * later slice's job.
+ * changes. Every hexagon sits at `cellCentre(cell, pitch)`; `pitch` is the map's own maximum left/right/top/bottom
+ * extents over every hexagon (this mode) plus `MAP_GAP` — not each hexagon's own width — because a pitch sized
+ * for the widest hexagon still overlaps when one hexagon's content reaches unusually far right (e.g. a long-named
+ * external) while another's reaches unusually far left (e.g. a long-named actor): two cells one axial step apart
+ * are then guaranteed at least `MAP_GAP` apart, for any N (ADR-01).
  */
 export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout {
   const perHexagon = map.hexagons.map((hexagon) => ({ hexagon, model: layoutDiagram(diagramOf(map, hexagon.id), options) }))
 
-  // Places hexagons left-to-right by cell.q from their REAL extents, not a uniform width-based pitch: a pitch
-  // sized for the widest hexagon still overlaps when one hexagon's content reaches unusually far right (e.g. a
-  // long-named external) while its neighbour's reaches unusually far left (e.g. a long-named actor) — the two
-  // extents can out-grow the pitch even though neither hexagon's own width does.
-  const byQ = [...perHexagon].sort((a, b) => a.hexagon.cell.q - b.hexagon.cell.q)
-  const centreXOf = new Map<string, number>()
-  let previousRightEdge: number | undefined
-  for (const { hexagon, model } of byQ) {
-    const centreX = previousRightEdge === undefined ? 0 : previousRightEdge + MAP_GAP - model.bounds.x
-    centreXOf.set(hexagon.id, centreX)
-    previousRightEdge = centreX + model.bounds.x + model.bounds.width
-  }
+  const left = Math.max(...perHexagon.map(({ model }) => -model.bounds.x))
+  const right = Math.max(...perHexagon.map(({ model }) => model.bounds.x + model.bounds.width))
+  const top = Math.max(...perHexagon.map(({ model }) => -model.bounds.y))
+  const bottom = Math.max(...perHexagon.map(({ model }) => model.bounds.y + model.bounds.height))
+  const pitch: Point = { x: left + right + MAP_GAP, y: top + bottom + MAP_GAP }
 
   const hexagons: MapHexagonLayout[] = perHexagon.map(({ hexagon, model }) => ({
     id: hexagon.id,
     contextId: hexagon.contextId,
     cell: hexagon.cell,
-    centre: { x: centreXOf.get(hexagon.id)!, y: 0 },
+    centre: cellCentre(hexagon.cell, pitch),
     model,
   }))
   const centreOf = new Map(hexagons.map((h) => [h.id, h.centre]))
