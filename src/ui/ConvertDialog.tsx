@@ -28,6 +28,14 @@ export function ConvertDialog({ kind, action, onConfirm, onCancel }: ConvertDial
     cancelRef.current?.focus()
   }, [])
 
+  // Real-browser focus trapping keeps focus inside an open modal <dialog> — a caller's own `.focus()` on the
+  // opener (CONV-02.1) is silently blocked until the dialog itself closes, so `close()` runs first, synchronously,
+  // before either callback (found via s003-smoke.mjs; invisible in jsdom, which does not trap focus at all).
+  const settle = (callback: () => void) => {
+    dialogRef.current?.close()
+    callback()
+  }
+
   return (
     <dialog
       ref={dialogRef}
@@ -37,17 +45,17 @@ export function ConvertDialog({ kind, action, onConfirm, onCancel }: ConvertDial
       onKeyDown={(e) => {
         if (e.key !== 'Escape') return
         e.stopPropagation()
-        onCancel()
+        settle(onCancel)
       }}
     >
       <p id="convert-dialog-message">
         Maps with several hexagons are hexagonal. Convert this {KINDS[kind].label} map to hexagonal?
       </p>
       <div className="dialog-actions">
-        <button ref={cancelRef} type="button" className="text-button" onClick={onCancel}>
+        <button ref={cancelRef} type="button" className="text-button" onClick={() => settle(onCancel)}>
           Cancel
         </button>
-        <button type="button" className="text-button" onClick={onConfirm}>
+        <button type="button" className="text-button" onClick={() => settle(onConfirm)}>
           {ACTION_LABEL[action]}
         </button>
       </div>
