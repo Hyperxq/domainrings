@@ -52,11 +52,25 @@ function mapCanvas() {
   mapTitle.setAttribute('data-map-title', '')
   mapTitle.textContent = 'Map title'
 
+  const hulls = document.createElementNS(NS, 'g')
+  hulls.setAttribute('data-hulls', '')
+  hulls.setAttribute('aria-hidden', 'true')
+  const hull = document.createElementNS(NS, 'path')
+  hull.setAttribute('data-hull', 'c1')
+  hull.setAttribute('class', 'hull')
+  hulls.appendChild(hull)
+
+  const chip = document.createElementNS(NS, 'text')
+  chip.setAttribute('data-chip', 'c1')
+  chip.setAttribute('class', 'chip')
+  chip.setAttribute('aria-hidden', 'true')
+  chip.textContent = 'Context 1'
+
   const legend = document.createElementNS(NS, 'g')
   legend.setAttribute('data-legend', '')
   legend.appendChild(document.createElementNS(NS, 'text')).textContent = 'Legend'
 
-  svg.append(h1, h2, link, mapTitle, legend)
+  svg.append(h1, hulls, h2, link, chip, mapTitle, legend)
   document.body.appendChild(svg)
   return svg
 }
@@ -97,6 +111,20 @@ describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {
     expect(markup).toContain('H2 marker')
     expect(markup).toContain('Map title')
     expect(markup).not.toMatch(/data-hex|aria-current|data-cue|data-map-link|data-map-title|data-hover/)
+  })
+
+  it('map scope keeps every context hull and chip, including a placeholder chip, but strips their scoping attributes (EXPORT-01.2)', async () => {
+    const markup = await svgMarkup(mapCanvas(), bounds, 'Map title', { legend: false, legendHeight: 0 })
+    expect(markup).toMatch(/<path[^>]*\/>/) // the hull path survives (class is stripped like every other element's)
+    expect(markup).toContain('>Context 1<')
+    expect(markup).not.toMatch(/data-hull|data-chip|data-hulls/)
+  })
+
+  it('hexagon scope drops every context hull and chip entirely (EXPORT-02.1)', async () => {
+    const markup = await svgMarkup(mapCanvas(), bounds, 'H2', { legend: true, legendHeight: 40, only: 'h2' })
+    expect(markup).not.toMatch(/<path/)
+    expect(markup).not.toContain('Context 1')
+    expect(markup).not.toMatch(/data-hull|data-chip|data-hulls/)
   })
 
   it('drops the non-current hexagon’s canvas-only tooltip from a map-scope export (EXPORT-01.2)', async () => {

@@ -61,8 +61,9 @@ export const legendDrawn = (svg: SVGSVGElement, options: ExportOptions): boolean
 // too: the resolved paint is already inlined as attributes, and a style could carry canvas motion into the file.
 const CANVAS_ONLY = ['class', 'style', 'tabindex', 'role', 'aria-label', 'data-ref', 'data-band', 'data-layer', 'data-selected', 'data-link-target']
 // Map-scoping attributes (SEAM-07): stripped in a SECOND pass, after the `only` filter and the cue removal have
-// used `data-hex`/`data-map-link`/`data-map-title` as selectors — stripping them earlier would leave nothing to select.
-const SCOPE_ONLY = ['data-hex', 'aria-current', 'aria-hidden', 'data-map-link', 'data-map-title', 'data-hover']
+// used `data-hex`/`data-map-link`/`data-map-title`/`data-hull`/`data-chip`/`data-hulls` as selectors — stripping
+// them earlier would leave nothing to select.
+const SCOPE_ONLY = ['data-hex', 'aria-current', 'aria-hidden', 'data-map-link', 'data-map-title', 'data-hover', 'data-hull', 'data-chip', 'data-hulls']
 
 export async function svgMarkup(svg: SVGSVGElement, bounds: Box, title: string, options: ExportOptions): Promise<string> {
   // Exports ignore hover: drop it from the svg root and from whichever hexagon group carries it (CANVAS-03 scopes
@@ -91,13 +92,14 @@ export async function svgMarkup(svg: SVGSVGElement, bounds: Box, title: string, 
   const showLegend = legendDrawn(svg, options)
   const hexGroups = clone.querySelectorAll('[data-hex]')
 
-  // Scope to one hexagon (EXPORT-02): every other hexagon's group, plus the map-level link and title that only
-  // make sense across the whole map, are dropped entirely — not just stripped of their scoping attribute.
+  // Scope to one hexagon (EXPORT-02): every other hexagon's group, plus the map-level link, title and every
+  // context's hull/chip — none of which make sense scoped to one hexagon — are dropped entirely, not just
+  // stripped of their scoping attribute.
   if (options.only) {
     hexGroups.forEach((g) => {
       if (g.getAttribute('data-hex') !== options.only) g.remove()
     })
-    clone.querySelectorAll('[data-map-link], [data-map-title]').forEach((el) => el.remove())
+    clone.querySelectorAll('[data-map-link], [data-map-title], [data-hulls], [data-chip]').forEach((el) => el.remove())
   }
   // The current-hexagon cue is a canvas-only affordance, never part of an export, in either scope.
   clone.querySelectorAll('[data-cue]').forEach((el) => el.remove())
