@@ -236,9 +236,11 @@ describe('the 18-cell refusal matrix (MIG-02, MIG-03)', () => {
     ['unknown version number', 'invalid', 'Unknown file version "0"'],
     ['version 1 with a v2-shaped body', 'invalid', /Version 1 file/],
     ['zero hexagons', 'invalid', /hexagons/],
+    ['two contexts sharing an id', 'invalid', 'Duplicate context id "c1"'],
     ['two hexagons sharing an id', 'invalid', 'Duplicate hexagon id "h1"'],
     ['two hexagons sharing a cell', 'invalid', 'Two hexagons share cell (0, 0)'],
     ['a hexagon naming a context that does not exist', 'invalid', 'Unknown context id "nope"'],
+    ['two links sharing an id', 'invalid', 'Duplicate link id "l1"'],
     ['a link naming a hexagon that does not exist', 'invalid', 'Unknown hexagon id "nope"'],
     ['a link naming a port that does not exist', 'invalid', 'Unknown port id "nope" on hexagon "h1"'],
     ['a link\'s driven end pointing at a driving port', 'invalid', 'The from end of a link must be a driven port'],
@@ -246,6 +248,8 @@ describe('the 18-cell refusal matrix (MIG-02, MIG-03)', () => {
     ['a link\'s adapter attached to a different port', 'invalid', 'Adapter "a-extra" is not attached to port "p-out"'],
     ['more than one hexagon with a non-hexagonal kind', 'invalid', 'A map with more than one hexagon must be hexagonal'],
     ['a link joining a hexagon to itself', 'invalid', 'A link cannot join a hexagon to itself'],
+    ['two links between the same two ports', 'invalid', 'Duplicate link between the same two ports'],
+    ['a pattern on a link within the same context', 'invalid', 'A pattern only applies to a link crossing contexts'],
     ['made by a newer version', 'newer', /newer version/],
   ]
 
@@ -257,9 +261,11 @@ describe('the 18-cell refusal matrix (MIG-02, MIG-03)', () => {
     'unknown version number': JSON.stringify({ ...VALID_BASE, version: 0 }),
     'version 1 with a v2-shaped body': JSON.stringify({ app: 'domainrings', version: 1, kind: 'hexagonal', title: 'Base', contexts: VALID_BASE.contexts, hexagons: VALID_BASE.hexagons, links: VALID_BASE.links }),
     'zero hexagons': mutated((b) => ({ ...b, hexagons: [] })),
+    'two contexts sharing an id': mutated((b) => ({ ...b, contexts: [...b.contexts, { id: 'c1' }] })),
     'two hexagons sharing an id': mutated((b) => ({ ...b, hexagons: [...b.hexagons, { ...b.hexagons[0], id: 'h1', cell: { q: 2, r: 0 } }] })),
     'two hexagons sharing a cell': mutated((b) => ({ ...b, hexagons: [...b.hexagons, { ...b.hexagons[0], id: 'h3', cell: { q: 0, r: 0 } }] })),
     'a hexagon naming a context that does not exist': mutated((b) => ({ ...b, hexagons: [{ ...b.hexagons[0], contextId: 'nope' }, b.hexagons[1]] })),
+    'two links sharing an id': mutated((b) => ({ ...b, links: [b.links[0], { ...b.links[0], from: { hexagonId: 'h1', portId: 'p-extra', adapterId: 'a-extra' } }] })),
     'a link naming a hexagon that does not exist': mutated((b) => ({ ...b, links: [{ ...b.links[0], from: { hexagonId: 'nope', portId: 'p-out', adapterId: undefined } }] })),
     'a link naming a port that does not exist': mutated((b) => ({ ...b, links: [{ ...b.links[0], from: { hexagonId: 'h1', portId: 'nope', adapterId: undefined } }] })),
     "a link's driven end pointing at a driving port": mutated((b) => ({ ...b, links: [{ ...b.links[0], from: { hexagonId: 'h2', portId: 'p-in', adapterId: undefined } }] })),
@@ -267,6 +273,8 @@ describe('the 18-cell refusal matrix (MIG-02, MIG-03)', () => {
     "a link's adapter attached to a different port": mutated((b) => ({ ...b, links: [{ ...b.links[0], from: { ...b.links[0].from, adapterId: 'a-extra' } }] })),
     'more than one hexagon with a non-hexagonal kind': mutated((b) => ({ ...b, kind: 'clean' })),
     'a link joining a hexagon to itself': mutated((b) => ({ ...b, links: [{ ...b.links[0], to: { hexagonId: 'h1', portId: 'p-in-h1' } }] })),
+    'two links between the same two ports': mutated((b) => ({ ...b, links: [b.links[0], { id: 'l2', from: { hexagonId: 'h1', portId: 'p-out' }, to: { hexagonId: 'h2', portId: 'p-in' } }] })),
+    'a pattern on a link within the same context': mutated((b) => ({ ...b, links: [{ ...b.links[0], pattern: 'acl' }] })),
     'made by a newer version': mutated((b) => ({ ...b, version: 99 })),
   }
 
