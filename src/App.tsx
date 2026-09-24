@@ -197,7 +197,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         onNew={() => swap(toMap({ version: 1, kind: map.kind, title: 'Untitled architecture', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }), 'Started a new diagram.')}
         onExample={(id) => {
           const example = EXAMPLES.find((x) => x.id === id)!
-          swap(toMap(example.diagram), `Loaded the ${example.label} example.`)
+          swap(example.map, `Loaded the ${example.label} example.`)
         }}
         onImport={importFile}
         onExport={exportAs}

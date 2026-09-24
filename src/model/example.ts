@@ -1,4 +1,5 @@
-import type { Diagram } from './schema'
+import { toMap } from './hexa'
+import type { Diagram, HexaMap } from './schema'
 
 export const EXAMPLE_DIAGRAM: Diagram = {
   version: 1,
@@ -118,7 +119,54 @@ export const STRESS_DIAGRAM: Diagram = {
   composition: { name: 'composition.ts', note: 'wires adapters into the use cases' },
 }
 
+/**
+ * The only built-in way, in this release, to see a map with more than one hexagon: authoring one by hand
+ * arrives in a later change. One context; h1's driven port links to h2's driving port (EX-01).
+ */
+export const TWO_SLICES_MAP: HexaMap = {
+  version: 2,
+  kind: 'hexagonal',
+  title: 'Two slices, one link',
+  contexts: [{ id: 'c1' }],
+  hexagons: [
+    {
+      id: 'h1',
+      contextId: 'c1',
+      cell: { q: 0, r: 0 },
+      title: 'Orders',
+      subtitle: 'Places an order and announces it',
+      domain: [{ id: 'd-order', name: 'Order', type: 'aggregate' }],
+      useCases: [{ id: 'uc-place', name: 'PlaceOrder' }],
+      ports: [{ id: 'p-order-placed', name: 'OrderPlaced', side: 'driven' }],
+      adapters: [{ id: 'a-order-placed', name: 'OrderPlacedPublisher', portId: 'p-order-placed' }],
+      actors: [],
+      externals: [],
+    },
+    {
+      id: 'h2',
+      contextId: 'c1',
+      cell: { q: 1, r: 0 },
+      title: 'Shipping',
+      subtitle: 'Receives an order and ships it',
+      domain: [{ id: 'd-shipment', name: 'Shipment', type: 'aggregate' }],
+      useCases: [{ id: 'uc-receive', name: 'ReceiveOrder' }],
+      ports: [{ id: 'p-receive-order', name: 'ReceiveOrder', side: 'driving', useCaseId: 'uc-receive' }],
+      adapters: [{ id: 'a-receive-order', name: 'OrderPlacedSubscriber', portId: 'p-receive-order' }],
+      actors: [],
+      externals: [],
+    },
+  ],
+  links: [
+    {
+      id: 'link-order-placed',
+      from: { hexagonId: 'h1', portId: 'p-order-placed', adapterId: 'a-order-placed' },
+      to: { hexagonId: 'h2', portId: 'p-receive-order', adapterId: 'a-receive-order' },
+    },
+  ],
+}
+
 export const EXAMPLES = [
-  { id: 'feedback', label: 'Chat feedback slice', diagram: EXAMPLE_DIAGRAM },
-  { id: 'stress', label: 'Stress test', diagram: STRESS_DIAGRAM },
+  { id: 'feedback', label: 'Chat feedback slice', map: toMap(EXAMPLE_DIAGRAM) },
+  { id: 'stress', label: 'Stress test', map: toMap(STRESS_DIAGRAM) },
+  { id: 'two-slices', label: 'Two slices, one link (preview)', map: TWO_SLICES_MAP },
 ] as const

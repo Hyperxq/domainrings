@@ -89,7 +89,7 @@ Double-click any element (a domain item, use case, port, adapter, actor, externa
 
 ## Examples
 
-Load an example from the toolbar: the chat feedback slice, or a stress test (10 domain items, 3 use cases, 6 driven ports) that shows how the layout grows.
+Load an example from the toolbar: the chat feedback slice, a stress test (10 domain items, 3 use cases, 6 driven ports) that shows how the layout grows, or "Two slices, one link (preview)" — two hexagons connected by one link, previewing the context-map view. Adding a hexagon or editing a link from the UI arrives in a later release; for now the preview example is the only way to see a multi-hexagon map.
 
 ## File format
 

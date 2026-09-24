@@ -1,0 +1,107 @@
+{
+  "app": "domainrings",
+  "version": 2,
+  "kind": "hexagonal",
+  "title": "Two slices, one link",
+  "contexts": [
+    {
+      "id": "c1"
+    }
+  ],
+  "hexagons": [
+    {
+      "id": "h1",
+      "contextId": "c1",
+      "cell": {
+        "q": 0,
+        "r": 0
+      },
+      "title": "Orders",
+      "subtitle": "Places an order and announces it",
+      "domain": [
+        {
+          "id": "d-order",
+          "name": "Order",
+          "type": "aggregate"
+        }
+      ],
+      "useCases": [
+        {
+          "id": "uc-place",
+          "name": "PlaceOrder"
+        }
+      ],
+      "ports": [
+        {
+          "id": "p-order-placed",
+          "name": "OrderPlaced",
+          "side": "driven"
+        }
+      ],
+      "adapters": [
+        {
+          "id": "a-order-placed",
+          "name": "OrderPlacedPublisher",
+          "portId": "p-order-placed"
+        }
+      ],
+      "actors": [],
+      "externals": []
+    },
+    {
+      "id": "h2",
+      "contextId": "c1",
+      "cell": {
+        "q": 1,
+        "r": 0
+      },
+      "title": "Shipping",
+      "subtitle": "Receives an order and ships it",
+      "domain": [
+        {
+          "id": "d-shipment",
+          "name": "Shipment",
+          "type": "aggregate"
+        }
+      ],
+      "useCases": [
+        {
+          "id": "uc-receive",
+          "name": "ReceiveOrder"
+        }
+      ],
+      "ports": [
+        {
+          "id": "p-receive-order",
+          "name": "ReceiveOrder",
+          "side": "driving",
+          "useCaseId": "uc-receive"
+        }
+      ],
+      "adapters": [
+        {
+          "id": "a-receive-order",
+          "name": "OrderPlacedSubscriber",
+          "portId": "p-receive-order"
+        }
+      ],
+      "actors": [],
+      "externals": []
+    }
+  ],
+  "links": [
+    {
+      "id": "link-order-placed",
+      "from": {
+        "hexagonId": "h1",
+        "portId": "p-order-placed",
+        "adapterId": "a-order-placed"
+      },
+      "to": {
+        "hexagonId": "h2",
+        "portId": "p-receive-order",
+        "adapterId": "a-receive-order"
+      }
+    }
+  ]
+}
