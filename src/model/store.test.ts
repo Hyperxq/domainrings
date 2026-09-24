@@ -261,6 +261,14 @@ describe('map store', () => {
       state().addHexagon(before.focus, { side: 'e', context: 'new' })
       expect(state().map.hexagons[0]).toBe(untouched)
     })
+
+    it('growing twice appends both in creation order, keeping the first hexagon first (REQ-02.2 hardening)', () => {
+      const before = state()
+      const firstId = before.map.hexagons[0].id
+      const grownFirst = state().addHexagon(before.focus, { side: 'e', context: 'same' })!
+      const grownSecond = state().addHexagon(before.focus, { side: 'w', context: 'same' })!
+      expect(state().map.hexagons.map((h) => h.id)).toEqual([firstId, grownFirst, grownSecond])
+    })
   })
 
   describe('removeHexagon (ADR-02, DEL-01..04)', () => {
