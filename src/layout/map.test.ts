@@ -206,3 +206,46 @@ describe('layoutMap — honeycomb lattice placement (ADR-01)', () => {
     expect(boxB.x - (boxA.x + boxA.width)).toBeGreaterThanOrEqual(MAP_GAP)
   })
 })
+
+describe('layoutMap — contexts (CB-01.1, ADR-04, SEAM-04)', () => {
+  const oneContextMap = (): HexaMap => ({
+    version: 2,
+    kind: 'hexagonal',
+    title: 'One context',
+    contexts: [{ id: 'c1' }],
+    hexagons: [
+      { id: 'h1', contextId: 'c1', cell: { q: 0, r: 0 }, title: 'A', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] },
+      { id: 'h2', contextId: 'c1', cell: { q: 1, r: 0 }, title: 'B', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] },
+    ],
+    links: [],
+  })
+
+  const twoContextMap = (): HexaMap => ({
+    ...oneContextMap(),
+    contexts: [{ id: 'c1', name: 'Billing' }, { id: 'c2' }],
+    hexagons: [
+      { id: 'h1', contextId: 'c1', cell: { q: 0, r: 0 }, title: 'A', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] },
+      { id: 'h2', contextId: 'c2', cell: { q: 6, r: 6 }, title: 'B', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] },
+    ],
+  })
+
+  it('exposes no contexts below two (CB-01.1)', () => {
+    const result = layoutMap(oneContextMap())
+    expect(result.contexts).toEqual([])
+  })
+
+  it('exposes one entry per context, with its display label, from two contexts up', () => {
+    const result = layoutMap(twoContextMap())
+    expect(result.contexts.map((c) => c.id)).toEqual(['c1', 'c2'])
+    expect(result.contexts.find((c) => c.id === 'c1')?.label).toBe('Billing')
+    expect(result.contexts.find((c) => c.id === 'c2')?.label).toBe('Context 2')
+    for (const c of result.contexts) expect(c.loops.length).toBeGreaterThan(0)
+  })
+
+  it('grows bounds to include the hull loops and chips once contexts are drawn', () => {
+    const withoutContexts = layoutMap(oneContextMap())
+    const withContexts = layoutMap(twoContextMap())
+    // h2 sits at a distant cell {6,6} — its hull loop and chip push the bounds far beyond the two close hexagons alone.
+    expect(withContexts.bounds.width).toBeGreaterThan(withoutContexts.bounds.width * 3)
+  })
+})
