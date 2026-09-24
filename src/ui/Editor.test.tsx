@@ -15,8 +15,23 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-const renderEditor = (onAddHexagon: () => void = () => {}, onDeleteHexagon: () => void = () => {}) =>
-  render(<Editor open onToggle={() => {}} onPrune={() => {}} onAddHexagon={onAddHexagon} onDeleteHexagon={onDeleteHexagon} />)
+const renderEditor = (
+  onAddHexagon: () => void = () => {},
+  onDeleteHexagon: () => void = () => {},
+  onAddFromFile: (file: File, context: 'same' | 'new', opener: HTMLElement | null) => void = () => {},
+  contextLabel = 'Context 1',
+) =>
+  render(
+    <Editor
+      open
+      onToggle={() => {}}
+      onPrune={() => {}}
+      onAddHexagon={onAddHexagon}
+      onDeleteHexagon={onDeleteHexagon}
+      onAddFromFile={onAddFromFile}
+      contextLabel={contextLabel}
+    />,
+  )
 const section = (container: HTMLElement, title: string) =>
   [...container.querySelectorAll('details')].find((d) => d.querySelector(':scope > summary h2')?.textContent === title) as HTMLDetailsElement
 const port = EXAMPLE_DIAGRAM.ports[0]
@@ -155,6 +170,58 @@ describe('"Delete hexagon" button in the Hexagon section (DEL-01)', () => {
 
     fireEvent.click(button)
     expect(onDeleteHexagon).not.toHaveBeenCalled()
+  })
+})
+
+describe('"Add hexagon from file…" in the Map section (IMP-01, IMP-01.4)', () => {
+  const openMenu = (container: HTMLElement) =>
+    fireEvent.click(within(section(container, 'Map')).getByRole('button', { name: 'Add hexagon from file…' }))
+
+  it('offers "Import into {context}" and "Import into a new bounded context"', () => {
+    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Billing')
+    openMenu(container)
+    expect(within(section(container, 'Map')).getByRole('menuitem', { name: 'Import into Billing' })).toBeTruthy()
+    expect(within(section(container, 'Map')).getByRole('menuitem', { name: 'Import into a new bounded context' })).toBeTruthy()
+  })
+
+  it('choosing "Import into {context}" opens the hidden file input before onAddFromFile fires, then reports the picked file with "same"', () => {
+    const onAddFromFile = vi.fn()
+    const { container } = renderEditor(() => {}, () => {}, onAddFromFile, 'Billing')
+    const trigger = within(section(container, 'Map')).getByRole('button', { name: 'Add hexagon from file…' })
+    openMenu(container)
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Billing' }))
+    expect(onAddFromFile).not.toHaveBeenCalled()
+    const file = new File(['{}'], 'billing.hexa', { type: 'application/json' })
+    const input = screen.getByLabelText('Add hexagon from a .hexa file') as HTMLInputElement
+    fireEvent.change(input, { target: { files: [file] } })
+
+    expect(onAddFromFile).toHaveBeenCalledOnce()
+    expect(onAddFromFile).toHaveBeenCalledWith(file, 'same', trigger)
+    expect(input.value).toBe('')
+  })
+
+  it('choosing "Import into a new bounded context" reports the picked file with "new"', () => {
+    const onAddFromFile = vi.fn()
+    const { container } = renderEditor(() => {}, () => {}, onAddFromFile)
+    openMenu(container)
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
+    const file = new File(['{}'], 'billing.hexa', { type: 'application/json' })
+    fireEvent.change(screen.getByLabelText('Add hexagon from a .hexa file'), { target: { files: [file] } })
+
+    expect(onAddFromFile).toHaveBeenCalledWith(file, 'new', expect.anything())
+  })
+
+  it('does not call onAddFromFile when the file picker is cancelled (no file chosen)', () => {
+    const onAddFromFile = vi.fn()
+    const { container } = renderEditor(() => {}, () => {}, onAddFromFile)
+    openMenu(container)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
+
+    fireEvent.change(screen.getByLabelText('Add hexagon from a .hexa file'), { target: { files: [] } })
+
+    expect(onAddFromFile).not.toHaveBeenCalled()
   })
 })
 

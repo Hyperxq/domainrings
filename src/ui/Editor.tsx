@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { KINDS } from '../model/kinds'
 import {
@@ -17,6 +17,7 @@ import {
 import { parentCandidates } from '../model/links'
 import { diagramOf, freeSides, UNTITLED_HEXAGON } from '../model/map'
 import { useMapStore, type Item } from '../model/store'
+import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
 
 const { addItem, updateItem, removeItem, setMeta, setMapMeta } = useMapStore.getState()
@@ -215,12 +216,19 @@ export function Editor({
   onPrune,
   onAddHexagon,
   onDeleteHexagon,
+  onAddFromFile,
+  contextLabel,
 }: {
   open: boolean
   onToggle: () => void
   onPrune: OnPrune
   onAddHexagon: () => void
   onDeleteHexagon: () => void
+  /** Imports the chosen file's one hexagon (IMP-01); `opener` is whatever had focus when the destination was
+   * chosen — the trigger below — so the caller can restore it after a conversion question (CONV-02.1). */
+  onAddFromFile: (file: File, context: 'same' | 'new', opener: HTMLElement | null) => void
+  /** The current hexagon's own bounded context, for the import menu's "Import into {context}" choice. */
+  contextLabel: string
 }) {
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
@@ -231,6 +239,9 @@ export function Editor({
   const currentCell = map.hexagons.find((h) => h.id === hexId)?.cell
   const canGrow = !!currentCell && freeSides(map, currentCell).length > 0
   const canDelete = map.hexagons.length > 1
+  const importContext = useRef<'same' | 'new'>('same')
+  const importOpener = useRef<HTMLElement | null>(null)
+  const importInputRef = useRef<HTMLInputElement>(null)
 
   return (
     <aside className={`island editor${open ? '' : ' is-collapsed'}`} aria-label="Diagram editor">
@@ -247,6 +258,30 @@ export function Editor({
             <span>Map title</span>
             <input value={map.title} onChange={(e) => setMapMeta({ title: e.target.value })} />
           </label>
+          <ChoiceMenu
+            label="Add hexagon from file…"
+            choices={[
+              { id: 'same' as const, label: `Import into ${contextLabel}` },
+              { id: 'new' as const, label: 'Import into a new bounded context' },
+            ]}
+            onChoose={(context) => {
+              importContext.current = context
+              importOpener.current = document.activeElement as HTMLElement | null
+              importInputRef.current?.click()
+            }}
+          />
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".hexa,application/json"
+            className="visually-hidden"
+            aria-label="Add hexagon from a .hexa file"
+            onChange={(e) => {
+              const file = e.currentTarget.files?.[0]
+              if (file) onAddFromFile(file, importContext.current, importOpener.current)
+              e.currentTarget.value = ''
+            }}
+          />
         </Fold>
 
         <Fold id="hexagon" title="Hexagon">
