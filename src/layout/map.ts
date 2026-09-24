@@ -25,7 +25,7 @@ export interface MapLayout {
 }
 
 /** Gap kept between two adjacent hexagons' outer edges, on top of their content width. */
-const MAP_GAP = 60
+export const MAP_GAP = 60
 const MAP_TITLE_SIZE = 20
 const MAP_TITLE_GAP = 16
 
@@ -67,12 +67,25 @@ function portPoint(model: LayoutModel, portId: string, centre: Point): Point {
  */
 export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout {
   const perHexagon = map.hexagons.map((hexagon) => ({ hexagon, model: layoutDiagram(diagramOf(map, hexagon.id), options) }))
-  const pitchX = Math.max(...perHexagon.map(({ model }) => model.bounds.width)) + MAP_GAP
+
+  // Places hexagons left-to-right by cell.q from their REAL extents, not a uniform width-based pitch: a pitch
+  // sized for the widest hexagon still overlaps when one hexagon's content reaches unusually far right (e.g. a
+  // long-named external) while its neighbour's reaches unusually far left (e.g. a long-named actor) — the two
+  // extents can out-grow the pitch even though neither hexagon's own width does.
+  const byQ = [...perHexagon].sort((a, b) => a.hexagon.cell.q - b.hexagon.cell.q)
+  const centreXOf = new Map<string, number>()
+  let previousRightEdge: number | undefined
+  for (const { hexagon, model } of byQ) {
+    const centreX = previousRightEdge === undefined ? 0 : previousRightEdge + MAP_GAP - model.bounds.x
+    centreXOf.set(hexagon.id, centreX)
+    previousRightEdge = centreX + model.bounds.x + model.bounds.width
+  }
+
   const hexagons: MapHexagonLayout[] = perHexagon.map(({ hexagon, model }) => ({
     id: hexagon.id,
     contextId: hexagon.contextId,
     cell: hexagon.cell,
-    centre: { x: hexagon.cell.q * pitchX, y: 0 },
+    centre: { x: centreXOf.get(hexagon.id)!, y: 0 },
     model,
   }))
   const centreOf = new Map(hexagons.map((h) => [h.id, h.centre]))

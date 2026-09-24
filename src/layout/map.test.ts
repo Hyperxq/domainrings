@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { layoutMap } from './map'
+import { layoutMap, MAP_GAP } from './map'
 import { layoutDiagram, type LayoutMode } from './layout'
 import { toMap } from '../model/hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM } from '../model/example'
-import type { Diagram } from '../model/schema'
+import type { Diagram, HexaMap } from '../model/schema'
 import { twoHexagonMap } from '../test/fixtures'
 
 const CORPUS: Array<[string, Diagram]> = [
@@ -46,6 +46,51 @@ describe('layoutMap — multi-hexagon placement (CANVAS-01, CANVAS-02)', () => {
   it('renders a map title only when there is more than one hexagon', () => {
     const result = layoutMap(twoHexagonMap())
     expect(result.title).toMatchObject({ text: 'Two slices, one link', style: 'title' })
+  })
+
+  it('never overlaps two lopsided hexagons — one whose content reaches far right, the other far left (CANVAS-01.1)', () => {
+    // h1's driven external stretches its content to the RIGHT of its own centre; h2's driving actor stretches
+    // its content to the LEFT of its own centre — the exact combination a uniform pitch (based on width alone)
+    // cannot space correctly, since it ignores which side each hexagon's extent actually falls on.
+    const map: HexaMap = {
+      version: 2,
+      kind: 'hexagonal',
+      title: 'Lopsided pair',
+      contexts: [{ id: 'c1' }],
+      hexagons: [
+        {
+          id: 'h1',
+          contextId: 'c1',
+          cell: { q: 0, r: 0 },
+          title: 'Right heavy',
+          domain: [],
+          useCases: [],
+          ports: [{ id: 'p-drv', name: 'drv', side: 'driven' }],
+          adapters: [{ id: 'a1', name: 'Adapter', portId: 'p-drv' }],
+          actors: [],
+          externals: [{ id: 'e1', name: 'A Very Long External System Name That Extends Far To The Right', adapterId: 'a1' }],
+        },
+        {
+          id: 'h2',
+          contextId: 'c1',
+          cell: { q: 1, r: 0 },
+          title: 'Left heavy',
+          domain: [],
+          useCases: [],
+          ports: [{ id: 'p-drg', name: 'drg', side: 'driving' }],
+          adapters: [{ id: 'a2', name: 'Adapter', portId: 'p-drg' }],
+          actors: [{ id: 'ac1', name: 'A Very Long Actor Name That Extends Far To The Left', adapterId: 'a2' }],
+          externals: [],
+        },
+      ],
+      links: [],
+    }
+
+    const result = layoutMap(map)
+    const [a, b] = result.hexagons
+    const boxA = { left: a.model.bounds.x + a.centre.x, right: a.model.bounds.x + a.centre.x + a.model.bounds.width }
+    const boxB = { left: b.model.bounds.x + b.centre.x, right: b.model.bounds.x + b.centre.x + b.model.bounds.width }
+    expect(boxB.left - boxA.right).toBeGreaterThanOrEqual(MAP_GAP)
   })
 
   it('draws the link as one segment between the from port and the to port', () => {
