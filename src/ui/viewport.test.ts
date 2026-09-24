@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { EDITOR_CHIP_BOTTOM, fitMap, fitTo, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, MIN_FIT_SCALE, panBy, toDiagram, zoomAt } from './viewport'
+import { currentHexagon, hexagonBounds, layoutMap } from '../layout/map'
+import { TWO_SLICES_MAP } from '../model/example'
 
 describe('viewport', () => {
   const v = { x: -100, y: -50, scale: 2 }
@@ -72,6 +74,24 @@ describe('viewport', () => {
     expect(topLeft.y).toBeLessThanOrEqual(currentBounds.y)
     expect(bottomRight.x).toBeGreaterThanOrEqual(currentBounds.x + currentBounds.width)
     expect(bottomRight.y).toBeGreaterThanOrEqual(currentBounds.y + currentBounds.height)
+  })
+
+  it('fits the whole two-slices example on a laptop screen with the editor open (F-06)', () => {
+    const model = layoutMap(TWO_SLICES_MAP)
+    const size = { width: 1366, height: 768 }
+    const inset = islandInset(size, true, false)
+    const fit = fitMap(model.bounds, hexagonBounds(currentHexagon(model, TWO_SLICES_MAP.hexagons[0].id)), size.width, size.height, inset)
+
+    expect(fit.scale).toBeGreaterThanOrEqual(MIN_FIT_SCALE)
+    const topLeft = toDiagram(fit, { x: inset.left, y: inset.top })
+    const bottomRight = toDiagram(fit, { x: size.width - inset.right, y: size.height - inset.bottom })
+    for (const hex of model.hexagons) {
+      const bounds = hexagonBounds(hex)
+      expect(topLeft.x).toBeLessThanOrEqual(bounds.x + 1e-9)
+      expect(topLeft.y).toBeLessThanOrEqual(bounds.y + 1e-9)
+      expect(bottomRight.x).toBeGreaterThanOrEqual(bounds.x + bounds.width - 1e-9)
+      expect(bottomRight.y).toBeGreaterThanOrEqual(bounds.y + bounds.height - 1e-9)
+    }
   })
 
   it('fits inside the area left free by floating panels', () => {
