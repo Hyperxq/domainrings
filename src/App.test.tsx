@@ -1784,3 +1784,28 @@ describe('open a map from a self-contained share link (REQ-01, REQ-03, REQ-04)',
     expect(screen.getAllByRole('status').filter((el) => el.classList.contains('toast'))).toHaveLength(1)
   })
 })
+
+describe('open a map from a remote share link (REQ-01)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    history.replaceState(null, '', '/')
+  })
+
+  it('fetches the https address, replaces the map, shows a status notice with undo, and clears the address', async () => {
+    const shared = toMap(STRESS_DIAGRAM)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(toHexa(shared))))
+    history.replaceState(null, '', '/?src=https://example.test/shared.hexa')
+    const before = useMapStore.getState().map
+
+    render(<App />)
+    await act(async () => {
+      await vi.waitFor(() => expect(useMapStore.getState().map).toStrictEqual(shared))
+    })
+
+    expect(fetch).toHaveBeenCalledWith('https://example.test/shared.hexa')
+    expect(toastEl()!.textContent).toContain('Opened from a link.')
+    expect(location.search).toBe('')
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useMapStore.getState().map).toStrictEqual(before)
+  })
+})

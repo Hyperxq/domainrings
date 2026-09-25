@@ -231,13 +231,20 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     linkHandled.current = true
     const finishLink = () => history.replaceState(null, '', location.pathname)
     void (async () => {
-      if (!location.hash.startsWith(SHARE_HASH_PREFIX)) return
-      const text = await decodeSharePayload(location.hash.slice(SHARE_HASH_PREFIX.length))
-      if (text === undefined) {
-        show({ tone: 'error', message: 'This link could not be read.' })
+      if (location.hash.startsWith(SHARE_HASH_PREFIX)) {
+        const text = await decodeSharePayload(location.hash.slice(SHARE_HASH_PREFIX.length))
+        if (text === undefined) {
+          show({ tone: 'error', message: 'This link could not be read.' })
+          return finishLink()
+        }
+        const parsed = await parseSource(text, 'This link')
+        if (parsed) swap(parsed, 'Opened from a link.')
         return finishLink()
       }
-      const parsed = await parseSource(text, 'This link')
+      const src = new URLSearchParams(location.search).get('src')
+      if (src === null) return
+      const response = await fetch(src)
+      const parsed = await parseSource(await response.text(), 'This link')
       if (parsed) swap(parsed, 'Opened from a link.')
       finishLink()
     })()
