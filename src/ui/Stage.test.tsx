@@ -34,6 +34,7 @@ function Harness({
   onNamed = () => {},
   onNamingCancel = () => {},
   mode = 'detailed',
+  panelOpen = false,
 }: {
   highlight?: boolean
   onReveal?: (ref: string, focus: boolean) => void
@@ -42,6 +43,7 @@ function Harness({
   onNamed?: (title: string) => void
   onNamingCancel?: () => void
   mode?: import('../layout/layout').LayoutMode
+  panelOpen?: boolean
 }) {
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
@@ -59,7 +61,7 @@ function Harness({
       revision={0}
       title="Test"
       svgRef={svgRef}
-      panelOpen={false}
+      panelOpen={panelOpen}
       legendOpen={false}
       onReveal={onReveal}
       onDelete={() => false}
@@ -515,6 +517,103 @@ describe('Stage — auto-fit after a map-shape change (FIT-02, ADR-05)', () => {
 
     expect(useMapStore.getState().revision).toBe(revisionBefore)
     expect(svg(container).hasAttribute('data-link-mode')).toBe(true)
+  })
+})
+
+describe('Stage — the whole-map auto view survives a canvas focus switch (FIT-02.1)', () => {
+  const viewportOf = (container: HTMLElement) => {
+    const style = (container.querySelector('main') as HTMLElement).style
+    const scale = parseFloat(style.backgroundSize) / 20
+    const [px, py] = style.backgroundPosition.split(' ').map(parseFloat)
+    return { x: -px / scale, y: -py / scale, scale }
+  }
+  const expectViewport = (container: HTMLElement, expected: { x: number; y: number; scale: number }) => {
+    const actual = viewportOf(container)
+    expect(actual.x).toBeCloseTo(expected.x, 6)
+    expect(actual.y).toBeCloseTo(expected.y, 6)
+    expect(actual.scale).toBeCloseTo(expected.scale, 6)
+  }
+  /** Gives Stage a real bounded screen size instead of jsdom's self-referencing fallback, so a hexagon removal
+   * measurably shrinks the whole-map fit (matches the regression probe: 1200×800, three hexagons at (0,0)/(1,0)/(0,1)). */
+  const stubFixedSize = (width: number, height: number) => {
+    const original = globalThis.ResizeObserver
+    class FixedSizeResizeObserver {
+      cb: ResizeObserverCallback
+      constructor(cb: ResizeObserverCallback) {
+        this.cb = cb
+      }
+      observe() {
+        this.cb([{ contentRect: { width, height } } as ResizeObserverEntry], this as unknown as ResizeObserver)
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = FixedSizeResizeObserver as unknown as typeof ResizeObserver
+    return () => {
+      globalThis.ResizeObserver = original
+    }
+  }
+  const threeHexMap = (): HexaMap => {
+    const base = twoHexMap()
+    return { ...base, hexagons: [base.hexagons[0], base.hexagons[1], { ...base.hexagons[0], id: 'h3', cell: { q: 0, r: 1 } }] }
+  }
+
+  it('keeps following the whole map after switching the current hexagon, so a later delete still re-fits to the smaller map', () => {
+    const restore = stubFixedSize(1200, 800)
+    try {
+      useMapStore.getState().replace(threeHexMap())
+      const { container } = render(<Harness />)
+
+      fireEvent.click(hexGroup(container, 'h2'))
+      act(() => useMapStore.getState().removeHexagon('h3'))
+
+      const inset = islandInset({ width: 1200, height: 800 }, false, false)
+      const model = layoutMap(useMapStore.getState().map)
+      expect(model.hexagons).toHaveLength(2)
+      const expected = fitTo(model.bounds, 1200, 800, inset, 0)
+      expectViewport(container, expected)
+    } finally {
+      restore()
+    }
+  })
+
+  it('a switch on a two-hexagon map does not freeze the view — it still tracks a later inset change from the side panel opening', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container, rerender } = render(<Harness />)
+    const insetClosed = islandInset({ width: 0, height: 0 }, false, false)
+    const insetOpen = islandInset({ width: 0, height: 0 }, true, false)
+    // Premise: opening the panel actually moves the inset in this (width:0) environment, or the assertion below is vacuous.
+    expect(insetOpen).not.toEqual(insetClosed)
+
+    fireEvent.click(hexGroup(container, 'h2'))
+    rerender(<Harness panelOpen />)
+
+    const model = layoutMap(useMapStore.getState().map)
+    expect(model.hexagons).toHaveLength(2)
+    expectViewport(container, fitTo(model.bounds, model.bounds.width, model.bounds.height, insetOpen, 0))
+  })
+
+  it('the initial auto view on exactly two widely-spaced hexagons is the whole-map fit, not the current-hexagon fallback', () => {
+    const restore = stubFixedSize(800, 600)
+    try {
+      const base = twoHexMap()
+      const spread: HexaMap = { ...base, hexagons: [base.hexagons[0], { ...base.hexagons[1], cell: { q: 500, r: 0 } }] }
+      useMapStore.getState().replace(spread)
+      const { container } = render(<Harness />)
+
+      const inset = islandInset({ width: 800, height: 600 }, false, false)
+      const model = layoutMap(useMapStore.getState().map)
+      expect(model.hexagons).toHaveLength(2)
+      const wholeFit = fitTo(model.bounds, 800, 600, inset, 0)
+      const singleFit = fitMap(model.bounds, hexagonBounds(currentHexagon(model, useMapStore.getState().focus)), 800, 600, inset)
+      // The premise: the whole map is genuinely too small to read, so fitMap's own current-hexagon fallback would
+      // otherwise kick in — the only regime where 'auto' resolving to wholeFit vs. singleFit is distinguishable.
+      expect(wholeFit.scale).toBeLessThan(MIN_FIT_SCALE)
+      expect(singleFit.scale).not.toBeCloseTo(wholeFit.scale, 3)
+      expectViewport(container, wholeFit)
+    } finally {
+      restore()
+    }
   })
 })
 

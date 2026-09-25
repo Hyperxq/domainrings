@@ -230,14 +230,14 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
     if (active instanceof HTMLInputElement && active.classList.contains('inline-name')) active.blur()
   }
 
-  /** Makes `id` the current hexagon: settles in-progress work, freezes the view so an oversized-map refit can never
-   * follow the switch (ADR-04/CANVAS-04), then — for a keyboard-driven switch — moves focus to the new current
-   * hexagon's first tabbable element and announces the change (FOCUS-05). */
+  /** Makes `id` the current hexagon: settles in-progress work, freezes the view on a single-hexagon map so its
+   * current-hexagon fallback (CANVAS-04) can't jump to frame the new current hexagon, then — for a keyboard-driven
+   * switch — moves focus to the new current hexagon's first tabbable element and announces the change (FOCUS-05).
+   * On 2+ hexagons 'auto' IS the whole-map fit (FIT-01), which never depends on which hexagon is current, so
+   * freezing there would only turn a following view into a stuck one (FIT-02.1). */
   const focusHexagon = (id: string, opts: { moveKeyboardFocus?: boolean } = {}) => {
     settleFocusSwitch()
-    // Only 'auto' needs freezing: on a single-hexagon map its current-hexagon fallback (CANVAS-04) would otherwise
-    // jump to frame the NEW current hexagon. A concrete Viewport is already frozen.
-    if (view === 'auto') setView(viewport)
+    if (view === 'auto' && model.hexagons.length < 2) setView(viewport)
     flushSync(() => setFocus(id))
     if (opts.moveKeyboardFocus) {
       setAnnouncement(`${hexagonTitle(currentHexagon(model, id).model)} is now the current hexagon`)
