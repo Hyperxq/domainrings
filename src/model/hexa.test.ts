@@ -164,6 +164,38 @@ describe('the honeycomb fixture round-trips exactly (S-006.6)', () => {
   })
 })
 
+describe('whole-map round trip: contexts, hexagon content, and links all survive save/reopen (CB-04.3, S-006.7)', () => {
+  it('every context keeps its name or placeholder, every hexagon its cell and content, and every link its two ends', () => {
+    const before = parseHexa(v2Honeycomb)
+    expect(before.ok).toBe(true)
+    if (!before.ok) return
+
+    const reopened = parseHexa(toHexa(before.map))
+    expect(reopened.ok).toBe(true)
+    if (!reopened.ok) return
+    const after = reopened.map
+
+    // Contexts: the named one keeps its name, the unnamed one is still absent a name (its placeholder is derived,
+    // not stored — CB-03).
+    expect(after.contexts).toHaveLength(2)
+    expect(after.contexts.find((c) => c.id === 'c1')?.name).toBe('Core')
+    expect('name' in after.contexts.find((c) => c.id === 'c2')!).toBe(false)
+
+    // Hexagons: same cells, same content — including the STRESS-shaped one, whose domain/ports/adapters are the
+    // richest content in the fixture.
+    expect(after.hexagons).toHaveLength(before.map.hexagons.length)
+    for (const hexagon of before.map.hexagons) {
+      const reopenedHexagon = after.hexagons.find((h) => h.id === hexagon.id)
+      expect(reopenedHexagon).toStrictEqual(hexagon)
+    }
+
+    // Links: the same two hexagons, same ports, on both ends.
+    expect(after.links).toStrictEqual(before.map.links)
+    expect(after.links).toHaveLength(1)
+    expect(after.links[0]).toMatchObject({ from: { hexagonId: 'h1', portId: 'p-out' }, to: { hexagonId: 'h4', portId: 'p-in' } })
+  })
+})
+
 describe('the empty-context fixture is fully authored (S-006.6, IMP-02 regression)', () => {
   it('carries a named context, a second EMPTY context, kind onion, and title "Legacy System"', () => {
     const result = parseHexa(v2EmptyContext)
