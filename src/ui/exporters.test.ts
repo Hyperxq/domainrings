@@ -43,10 +43,16 @@ function mapCanvas() {
   h2Marker.textContent = 'H2 marker'
   h2.append(h2Tooltip, h2Marker)
 
-  const link = document.createElementNS(NS, 'line')
+  const link = document.createElementNS(NS, 'path')
   link.setAttribute('data-map-link', '')
   link.setAttribute('class', 'map-link')
   link.setAttribute('aria-hidden', 'true')
+
+  const linkLabel = document.createElementNS(NS, 'text')
+  linkLabel.setAttribute('data-link-pattern', '')
+  linkLabel.setAttribute('class', 'link-pattern-label')
+  linkLabel.setAttribute('aria-hidden', 'true')
+  linkLabel.textContent = 'acl'
 
   const mapTitle = document.createElementNS(NS, 'text')
   mapTitle.setAttribute('data-map-title', '')
@@ -70,7 +76,7 @@ function mapCanvas() {
   legend.setAttribute('data-legend', '')
   legend.appendChild(document.createElementNS(NS, 'text')).textContent = 'Legend'
 
-  svg.append(h1, hulls, h2, link, chip, mapTitle, legend)
+  svg.append(h1, hulls, h2, link, linkLabel, chip, mapTitle, legend)
   document.body.appendChild(svg)
   return svg
 }
@@ -111,6 +117,18 @@ describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {
     expect(markup).toContain('H2 marker')
     expect(markup).toContain('Map title')
     expect(markup).not.toMatch(/data-hex|aria-current|data-cue|data-map-link|data-map-title|data-hover/)
+  })
+
+  it('map scope keeps the link’s pattern label, stripped of its scoping attribute (S-000)', async () => {
+    const markup = await svgMarkup(mapCanvas(), bounds, 'Map title', { legend: false, legendHeight: 0 })
+    expect(markup).toContain('>acl<')
+    expect(markup).not.toMatch(/data-link-pattern/)
+  })
+
+  it('hexagon scope (`only`) drops the link’s pattern label entirely, same as the map link and title (S-000)', async () => {
+    const markup = await svgMarkup(mapCanvas(), bounds, 'H2', { legend: true, legendHeight: 40, only: 'h2' })
+    expect(markup).not.toContain('>acl<')
+    expect(markup).not.toMatch(/data-link-pattern/)
   })
 
   it('map scope keeps every context hull and chip, including a placeholder chip, but strips their scoping attributes (EXPORT-01.2)', async () => {
@@ -161,8 +179,10 @@ describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {
     document.head.appendChild(styleTag)
     try {
       const markup = await svgMarkup(mapCanvas(), bounds, 'Map title', { legend: false, legendHeight: 0 })
-      const lineMarkup = markup.match(/<line[^>]*>/)?.[0] ?? ''
-      const stroke = lineMarkup.match(/stroke="([^"]*)"/)?.[1]
+      // The scoping attribute (data-map-link) and class are both stripped by the time markup is serialised — the
+      // hull's <path> is appended before the link's, so the surviving order still tells them apart.
+      const paths = [...markup.matchAll(/<path[^>]*>/g)]
+      const stroke = paths[1]?.[0].match(/stroke="([^"]*)"/)?.[1]
       // An unstyled SVG line's computed stroke resolves to transparent black in jsdom, not the literal
       // keyword `none` — so the invisibility bug must be caught against the transparent value too.
       expect(stroke).toBeTruthy()
