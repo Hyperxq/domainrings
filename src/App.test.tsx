@@ -8,7 +8,7 @@ import { diagramOf, UNTITLED_HEXAGON } from './model/map'
 import { autosave, MAP_KEY } from './model/persistence'
 import { useMapStore } from './model/store'
 import { fileSlug } from './ui/exporters'
-import { card, currentDiagram, hexGroup, linkedTwoHexMap, twoHexMap } from './test/fixtures'
+import { card, currentDiagram, hexGroup, installDialogPolyfill, linkedTwoHexMap, twoHexMap } from './test/fixtures'
 import v1Minimal from './model/fixtures/v1-minimal.hexa?raw'
 import v1Maximal from './model/fixtures/v1-maximal.hexa?raw'
 import v2EmptyContext from './model/fixtures/v2-empty-context.hexa?raw'
@@ -28,13 +28,7 @@ beforeAll(() => {
   // jsdom does not implement the Blob-URL APIs the download flow uses.
   URL.createObjectURL ??= vi.fn(() => 'blob:mock')
   URL.revokeObjectURL ??= vi.fn()
-  // jsdom does not implement the dialog element's modal behaviour (v30) — ConvertDialog needs this to render.
-  HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
-    this.setAttribute('open', '')
-  }
-  HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
-    this.removeAttribute('open')
-  }
+  installDialogPolyfill()
 })
 beforeEach(() => {
   useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM))

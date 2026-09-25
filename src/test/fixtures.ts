@@ -36,3 +36,13 @@ export function linkedTwoHexMap(): HexaMap {
 export const hexGroup = (container: HTMLElement, hexId: string) => container.querySelector(`[data-hex="${CSS.escape(hexId)}"]`)!
 export const card = (container: HTMLElement, id: string) => container.querySelector<HTMLElement>(`[data-item-id="${id}"]`)!
 export const currentDiagram = () => diagramOf(useMapStore.getState().map, useMapStore.getState().focus)
+
+/** jsdom does not implement the dialog element's modal behaviour (v30) — ConvertDialog needs this to render. */
+export function installDialogPolyfill() {
+  HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  }
+  HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
+    this.removeAttribute('open')
+  }
+}

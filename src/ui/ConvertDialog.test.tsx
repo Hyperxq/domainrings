@@ -1,16 +1,9 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { ConvertDialog } from './ConvertDialog'
+import { installDialogPolyfill } from '../test/fixtures'
 
-beforeAll(() => {
-  // jsdom does not implement the dialog element's modal behaviour (v30).
-  HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
-    this.setAttribute('open', '')
-  }
-  HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
-    this.removeAttribute('open')
-  }
-})
+beforeAll(installDialogPolyfill)
 afterEach(cleanup)
 
 function renderDialog(overrides: { kind?: 'clean' | 'onion'; action?: 'add' | 'import' } = {}) {
