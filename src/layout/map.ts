@@ -98,10 +98,11 @@ function portNode(model: LayoutModel, portId: string) {
   return node
 }
 
-/** A port's route end: its map-space point and its own hexagon's bounding box. */
+/** A port's route end: its map-space point, its resolved wall (every hexagon-shape port node carries one —
+ * `layoutDiagram` fills it via `p.wall ?? defaultWall(p.side)`), and its own hexagon's bounding box. */
 function routeEnd(hexagon: MapHexagonLayout, portId: string) {
   const node = portNode(hexagon.model, portId)
-  return { point: { x: node.x + hexagon.centre.x, y: node.y + hexagon.centre.y }, box: hexagonBounds(hexagon) }
+  return { point: { x: node.x + hexagon.centre.x, y: node.y + hexagon.centre.y }, wall: node.wall!, box: hexagonBounds(hexagon) }
 }
 
 /** A hexagon's position on the affine pointy-top lattice: {0,0} sits at the origin, `e` steps by `pitch.x`,

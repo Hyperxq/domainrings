@@ -1,58 +1,113 @@
 import { describe, expect, it } from 'vitest'
 import { arcLengthMidpoint, routeLink, type RouteEnd } from './links'
 import type { Box, Point } from './layout'
-import { hexagonBounds, layoutMap } from './map'
+import { hexagonBounds, layoutMap, type MapHexagonLayout } from './map'
 import { freeCell } from '../model/map'
-import type { HexaMap, Hexagon } from '../model/schema'
+import type { HexaMap, Hexagon, Wall } from '../model/schema'
 
-describe('routeLink — boxes separated on X (side by side)', () => {
-  it('crosses via the gap’s own midline: [portA, portA-on-midline, portB-on-midline, portB]', () => {
-    const from: RouteEnd = { point: { x: 50, y: -10 }, box: { x: -50, y: -50, width: 100, height: 100 } }
-    const to: RouteEnd = { point: { x: 250, y: 20 }, box: { x: 250, y: -50, width: 100, height: 100 } }
+const COS30 = Math.sqrt(3) / 2
+
+describe('routeLink — boxes separated on X (side by side), ports facing each other', () => {
+  it('exits each port along its own wall, then crosses the gap’s midline: [portA, stubA, midA, midB, stubB, portB]', () => {
+    const from: RouteEnd = { point: { x: 50, y: -10 }, wall: 'e', box: { x: -50, y: -50, width: 100, height: 100 } }
+    const to: RouteEnd = { point: { x: 250, y: 20 }, wall: 'w', box: { x: 250, y: -50, width: 100, height: 100 } }
 
     const path = routeLink(from, to)
 
     expect(path).toEqual([
       { x: 50, y: -10 },
+      { x: 65, y: -10 },
       { x: 150, y: -10 },
       { x: 150, y: 20 },
+      { x: 235, y: 20 },
       { x: 250, y: 20 },
     ])
     // The midline sits strictly between the two boxes — outside both regardless of y (REQ-LNK-05.1).
-    expect(path[1].x).toBeGreaterThan(from.box.x + from.box.width)
-    expect(path[1].x).toBeLessThan(to.box.x)
-  })
-
-  it('collapses to a straight line when both ports sit at the same height', () => {
-    const from: RouteEnd = { point: { x: 50, y: 0 }, box: { x: -50, y: -50, width: 100, height: 100 } }
-    const to: RouteEnd = { point: { x: 250, y: 0 }, box: { x: 250, y: -50, width: 100, height: 100 } }
-
-    expect(routeLink(from, to)).toEqual([
-      { x: 50, y: 0 },
-      { x: 150, y: 0 },
-      { x: 150, y: 0 },
-      { x: 250, y: 0 },
-    ])
+    expect(path[2].x).toBeGreaterThan(from.box.x + from.box.width)
+    expect(path[2].x).toBeLessThan(to.box.x)
   })
 })
 
-describe('routeLink — boxes separated on Y (stacked, not side by side)', () => {
-  it('picks the Y midline when that is the axis the two boxes are actually apart on', () => {
-    const from: RouteEnd = { point: { x: -50, y: -100 }, box: { x: -50, y: -150, width: 100, height: 100 } }
-    const to: RouteEnd = { point: { x: -40, y: 100 }, box: { x: -40, y: 50, width: 100, height: 100 } }
+describe('routeLink — boxes separated on Y (stacked), ports facing each other', () => {
+  it('picks the Y midline when that is the axis the two boxes are actually apart on, no detour needed', () => {
+    const from: RouteEnd = { point: { x: -30, y: -50 }, wall: 'se', box: { x: -50, y: -150, width: 100, height: 100 } }
+    const to: RouteEnd = { point: { x: -20, y: 50 }, wall: 'ne', box: { x: -40, y: 50, width: 100, height: 100 } }
 
     const path = routeLink(from, to)
 
-    expect(path).toEqual([
-      { x: -50, y: -100 },
-      { x: -50, y: 0 },
-      { x: -40, y: 0 },
-      { x: -40, y: 100 },
-    ])
-    expect(path[1].y).toBeGreaterThan(from.box.y + from.box.height)
-    expect(path[1].y).toBeLessThan(to.box.y)
+    expect(path).toHaveLength(6)
+    expect(path[0]).toEqual(from.point)
+    expect(path[5]).toEqual(to.point)
+    // stub A: exits south-east from its port by GAP_MARGIN (15) along (0.5, COS30) — exitDistance is 0 since the
+    // port already sits on the box's own bottom edge.
+    expect(path[1].x).toBeCloseTo(-22.5, 6)
+    expect(path[1].y).toBeCloseTo(-50 + 15 * COS30, 6)
+    // Both midline points sit at y=0 (the gap's midline), keeping each stub's own x — no detour on either end.
+    expect(path[2]).toEqual({ x: path[1].x, y: 0 })
+    expect(path[3]).toEqual({ x: path[4].x, y: 0 })
+    expect(path[4].x).toBeCloseTo(-12.5, 6)
+    expect(path[4].y).toBeCloseTo(50 - 15 * COS30, 6)
   })
 })
+
+describe('routeLink — a port whose wall faces AWAY from the target detours around its own box (REQ-LNK-05.1)', () => {
+  it('both ports facing away from each other (default walls, B west of A): the stub sweep alone would cross the box, so a corner detour is inserted', () => {
+    // The reported failure shape: A's driven port defaults to wall 'e' (faces east) while B, the link target,
+    // sits WEST of A — so A's own exit segment does not already face the gap, and the same is true for B's
+    // driving port (default wall 'w', facing further west, away from A).
+    const from: RouteEnd = { point: { x: 50, y: 0 }, wall: 'e', box: { x: -50, y: -50, width: 100, height: 100 } }
+    const to: RouteEnd = { point: { x: -250, y: 0 }, wall: 'w', box: { x: -250, y: -50, width: 100, height: 100 } }
+
+    const path = routeLink(from, to)
+
+    // Every segment except the two exit-stub ones (index 0→1 and the last one) must clear BOTH boxes entirely.
+    for (let i = 2; i < path.length - 2; i++) {
+      expect(segmentPenetratesBox(path[i], path[i + 1], from.box)).toBe(false)
+      expect(segmentPenetratesBox(path[i], path[i + 1], to.box)).toBe(false)
+    }
+    // The exit-stub segments must clear the OTHER box outright (only their OWN box gets the lighter treatment).
+    expect(segmentPenetratesBox(path[0], path[1], to.box)).toBe(false)
+    expect(segmentPenetratesBox(path[path.length - 2], path[path.length - 1], from.box)).toBe(false)
+
+    // A detour was actually inserted on both ends (path longer than the facing case's 6 points).
+    expect(path.length).toBeGreaterThan(6)
+  })
+})
+
+/** `segmentPenetratesBox`/`clipToBox`: Liang-Barsky clip of `p1→p2` against `box`; true only for a clip range of
+ * positive length (a real crossing, not a single touching point). Declared once, reused by every test below. */
+function clipToBox(p1: Point, p2: Point, box: Box): [number, number] | null {
+  const dx = p2.x - p1.x
+  const dy = p2.y - p1.y
+  const edges: Array<[number, number]> = [
+    [-dx, p1.x - box.x],
+    [dx, box.x + box.width - p1.x],
+    [-dy, p1.y - box.y],
+    [dy, box.y + box.height - p1.y],
+  ]
+  let t0 = 0
+  let t1 = 1
+  for (const [p, q] of edges) {
+    if (p === 0) {
+      if (q < 0) return null
+      continue
+    }
+    const r = q / p
+    if (p < 0) {
+      if (r > t1) return null
+      if (r > t0) t0 = r
+    } else {
+      if (r < t0) return null
+      if (r < t1) t1 = r
+    }
+  }
+  return t0 <= t1 ? [t0, t1] : null
+}
+
+function segmentPenetratesBox(p1: Point, p2: Point, box: Box, epsilon = 1e-6): boolean {
+  const clip = clipToBox(p1, p2, box)
+  return clip !== null && clip[1] - clip[0] > epsilon
+}
 
 describe('arcLengthMidpoint', () => {
   it('is the endpoint of a single-segment path with zero length', () => {
@@ -67,6 +122,17 @@ describe('arcLengthMidpoint', () => {
     // Total length 10 + 100 = 110; the midpoint (55) falls 45 units into the second, longer segment.
     const points: Point[] = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 110, y: 0 }]
     expect(arcLengthMidpoint(points)).toEqual({ x: 55, y: 0 })
+  })
+
+  it('on a bent (non-colinear) path, differs from the geometric average of the endpoints — pins the ARC-LENGTH algorithm against a naive endpoint-midpoint mutant', () => {
+    // A right-angle path: (0,0) -> (0,90) -> (120,90). Total length 90+120=210; the midpoint (105) falls 15 units
+    // into the second segment: (15,90). The geometric average of the two ENDPOINTS would be (60,45) — a
+    // different point, so a mutant computing that instead is caught here (it is not caught by the colinear cases
+    // above, where the two algorithms coincide).
+    const points: Point[] = [{ x: 0, y: 0 }, { x: 0, y: 90 }, { x: 120, y: 90 }]
+    const midpoint = arcLengthMidpoint(points)
+    expect(midpoint).toEqual({ x: 15, y: 90 })
+    expect(midpoint).not.toEqual({ x: 60, y: 45 })
   })
 })
 
@@ -96,7 +162,7 @@ const emptyHexagon = (id: string, cell: Hexagon['cell']): Hexagon => ({
 })
 
 /** N empty hexagons grown via `freeCell` (the same topology grow-the-map itself produces), two of them (by seed)
- * carrying one port each — a driven port on one, a driving port on the other — joined by a link. */
+ * carrying one port each — a driven port on one, a driving port on the other, default walls — joined by a link. */
 function seededLinkedMap(seed: number, n: number): HexaMap {
   const rng = makeRng(seed)
   const hexagons: Hexagon[] = []
@@ -119,59 +185,96 @@ function seededLinkedMap(seed: number, n: number): HexaMap {
   }
 }
 
-/** Liang-Barsky clip of segment `p1→p2` against `box`; `null` when the segment never enters it, otherwise the
- * [t0, t1] sub-range (in the segment's own 0..1 parametrisation) that lies inside. */
-function clipToBox(p1: Point, p2: Point, box: Box): [number, number] | null {
-  const dx = p2.x - p1.x
-  const dy = p2.y - p1.y
-  const edges: Array<[number, number]> = [
-    [-dx, p1.x - box.x],
-    [dx, box.x + box.width - p1.x],
-    [-dy, p1.y - box.y],
-    [dy, box.y + box.height - p1.y],
-  ]
-  let t0 = 0
-  let t1 = 1
-  for (const [p, q] of edges) {
-    if (p === 0) {
-      if (q < 0) return null
-      continue
-    }
-    const r = q / p
-    if (p < 0) {
-      if (r > t1) return null
-      if (r > t0) t0 = r
-    } else {
-      if (r < t0) return null
-      if (r < t1) t1 = r
-    }
+/** Two hexagons only — `h1` at {0,0} (driven port on `wallA`), `h2` at `bCell` (driving port on `wallB`) — lets
+ * the "wall faces away" cases be built deterministically instead of hoping a random seed hits them. */
+function facingPairMap(bCell: Hexagon['cell'], wallA: Wall, wallB: Wall): HexaMap {
+  return {
+    version: 2,
+    kind: 'hexagonal',
+    title: 'Facing pair',
+    contexts: [{ id: 'c1' }],
+    hexagons: [
+      { ...emptyHexagon('h1', { q: 0, r: 0 }), ports: [{ id: 'p-from', name: 'from', side: 'driven', wall: wallA }] },
+      { ...emptyHexagon('h2', bCell), ports: [{ id: 'p-to', name: 'to', side: 'driving', wall: wallB }] },
+    ],
+    links: [{ id: 'l1', from: { hexagonId: 'h1', portId: 'p-from' }, to: { hexagonId: 'h2', portId: 'p-to' } }],
   }
-  return t0 <= t1 ? [t0, t1] : null
 }
 
-/** Whether the segment truly PENETRATES the box's interior — a clip range of positive length, not just a single
- * touching point (which is exactly what a port's own boundary point produces). */
-function segmentPenetratesBox(p1: Point, p2: Point, box: Box, epsilon = 1e-6): boolean {
-  const clip = clipToBox(p1, p2, box)
-  return clip !== null && clip[1] - clip[0] > epsilon
+/** `hexagon`'s own outer silhouette (its rendered outline, NOT its bounding box — the box is the layout's full
+ * bounds and, on a slanted wall, is strictly larger than the hexagon body itself) as six map-space vertices, in
+ * the same order `render/band.ts`'s `outline()` draws them. */
+function hexagonVertices(hexagon: MapHexagonLayout): Point[] {
+  const { halfWidth: w, straight: h, apex: a } = hexagon.model.rings[0]
+  const local: Point[] = [
+    { x: 0, y: -a },
+    { x: w, y: -h },
+    { x: w, y: h },
+    { x: 0, y: a },
+    { x: -w, y: h },
+    { x: -w, y: -h },
+  ]
+  return local.map((p) => ({ x: p.x + hexagon.centre.x, y: p.y + hexagon.centre.y }))
+}
+
+/** Standard ray-casting point-in-polygon test. */
+function pointInPolygon(p: Point, vertices: Point[]): boolean {
+  let inside = false
+  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+    const vi = vertices[i]
+    const vj = vertices[j]
+    const crosses = vi.y > p.y !== vj.y > p.y && p.x < ((vj.x - vi.x) * (p.y - vi.y)) / (vj.y - vi.y) + vi.x
+    if (crosses) inside = !inside
+  }
+  return inside
 }
 
 /**
- * Whether the route penetrates either of its OWN two endpoint hexagons' boxes, outside the one unavoidable
- * crossing each end makes of its own box: the very first segment (port → onMidline) necessarily leaves box A from
- * inside it — a port sits inside its own box's rectangle, not always on its edge, so that segment is exempted
- * from the box-A check (and mirrored for the last segment, box B). Every other segment — the whole middle of the
- * channel — must clear both boxes (REQ-LNK-05.1).
+ * Whether the route penetrates either of its own two endpoint hexagons — checking EVERY segment against BOTH
+ * boxes, with exactly one tolerated exception per end: the exit-stub segment (port → its first exit point) may
+ * lie inside its OWN box's rectangle AND cross its own hexagon's rendered rings on the way out — a port's layout
+ * node sits in the ADAPTERS ring (confirmed by inspection: `kind:'port'` nodes carry `layer:'adapters'`), genuinely
+ * inset from the hexagon's outer silhouette, not merely offset by a small margin — so the segment's own MIDPOINT
+ * legitimately stays inside the polygon for a normal, correctly-built stub; only its END (the stub point itself)
+ * is required to have actually left the polygon, checked via point-in-polygon against the hexagon's six outer
+ * vertices. Every other segment, including that SAME exit-stub segment against the OTHER box/polygon, gets the
+ * full box check — a genuine bug (the old unbounded exemption) let that first segment sweep all the way to the
+ * gap midline, potentially through the SECOND hexagon too; that is caught by the full box check below, not by
+ * this polygon check, which exists only to pin that the stub construction itself is not degenerate (e.g. a
+ * zero-distance "stub" that never left its own hexagon at all).
  */
-function linkPenetratesOwnBoxes(points: Point[], boxA: Box, boxB: Box): boolean {
+function linkPenetratesOwnBoxes(points: Point[], fromHex: MapHexagonLayout, toHex: MapHexagonLayout): boolean {
+  const boxA = hexagonBounds(fromHex)
+  const boxB = hexagonBounds(toHex)
+  const verticesA = hexagonVertices(fromHex)
+  const verticesB = hexagonVertices(toHex)
+
   for (let i = 1; i < points.length; i++) {
     const [p1, p2] = [points[i - 1], points[i]]
     const isFirst = i === 1
     const isLast = i === points.length - 1
-    if (!isFirst && segmentPenetratesBox(p1, p2, boxA)) return true
-    if (!isLast && segmentPenetratesBox(p1, p2, boxB)) return true
+
+    if (isFirst) {
+      if (pointInPolygon(p2, verticesA)) return true
+    } else if (segmentPenetratesBox(p1, p2, boxA)) {
+      return true
+    }
+
+    if (isLast) {
+      if (pointInPolygon(p1, verticesB)) return true
+    } else if (segmentPenetratesBox(p1, p2, boxB)) {
+      return true
+    }
   }
   return false
+}
+
+function checkLink(map: HexaMap): boolean {
+  const result = layoutMap(map)
+  const link = result.links[0]
+  const fromHex = result.hexagons.find((h) => h.id === map.links[0].from.hexagonId)!
+  const toHex = result.hexagons.find((h) => h.id === map.links[0].to.hexagonId)!
+  return linkPenetratesOwnBoxes(link.points, fromHex, toHex)
 }
 
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8]
@@ -181,16 +284,42 @@ describe('layoutMap — routed links never cross the body of either of their own
   for (const seed of SEEDS) {
     for (const n of SIZES) {
       it(`seed ${seed}, N=${n}: the routed link clears both its own endpoint boxes`, () => {
-        const map = seededLinkedMap(seed, n)
-        const result = layoutMap(map)
-        const link = result.links[0]
-        const fromHex = result.hexagons.find((h) => h.id === map.links[0].from.hexagonId)!
-        const toHex = result.hexagons.find((h) => h.id === map.links[0].to.hexagonId)!
-
-        expect(linkPenetratesOwnBoxes(link.points, hexagonBounds(fromHex), hexagonBounds(toHex))).toBe(false)
+        expect(checkLink(seededLinkedMap(seed, n))).toBe(false)
       })
     }
   }
+})
+
+describe('layoutMap — REQ-LNK-05.1 holds when a port’s own wall faces away from the target hexagon', () => {
+  // The exact shape the verify agent's probe reported: a driven port defaults to wall 'e', a driving port to
+  // wall 'w' — so any link to a hexagon placed anywhere other than straight ahead of the port's own wall exits
+  // facing away from it.
+  const CELLS: Array<[string, Hexagon['cell']]> = [
+    ['west of A', { q: -1, r: 0 }],
+    ['north-west of A', { q: 0, r: -1 }],
+    ['south-west of A', { q: -1, r: 1 }],
+  ]
+  const WALLS: Wall[] = ['e', 'ne', 'se']
+
+  for (const [label, cell] of CELLS) {
+    for (const wallA of WALLS) {
+      it(`A's driven port on wall '${wallA}', B (driving, default wall 'w') ${label}`, () => {
+        expect(checkLink(facingPairMap(cell, wallA, 'w'))).toBe(false)
+      })
+    }
+  }
+
+  it('reproduces the exact verify-agent probe: A driven/east at {0,0}, B driving/west at {-1,0}', () => {
+    const map = facingPairMap({ q: -1, r: 0 }, 'e', 'w')
+    const result = layoutMap(map)
+    const link = result.links[0]
+    const fromHex = result.hexagons.find((h) => h.id === 'h1')!
+    const toHex = result.hexagons.find((h) => h.id === 'h2')!
+
+    expect(linkPenetratesOwnBoxes(link.points, fromHex, toHex)).toBe(false)
+    // A detour was actually needed (not just coincidentally safe) — more than the facing case's 4 raw points.
+    expect(link.points.length).toBeGreaterThan(4)
+  })
 })
 
 describe('layoutMap — a routed link is unaffected by a third, unrelated hexagon between its endpoints (REQ-LNK-05.2)', () => {

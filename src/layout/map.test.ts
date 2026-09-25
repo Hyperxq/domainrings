@@ -104,7 +104,7 @@ describe('layoutMap — multi-hexagon placement (CANVAS-01, CANVAS-02)', () => {
     const fromPoint = { x: outNode.x + a.centre.x, y: outNode.y + a.centre.y }
     const toPoint = { x: inNode.x + b.centre.x, y: inNode.y + b.centre.y }
 
-    const expected = routeLink({ point: fromPoint, box: hexagonBounds(a) }, { point: toPoint, box: hexagonBounds(b) })
+    const expected = routeLink({ point: fromPoint, wall: outNode.wall!, box: hexagonBounds(a) }, { point: toPoint, wall: inNode.wall!, box: hexagonBounds(b) })
 
     expect(result.links).toEqual([{ id: 'l1', points: expected }])
     expect(result.links[0].points[0]).toEqual(fromPoint)
