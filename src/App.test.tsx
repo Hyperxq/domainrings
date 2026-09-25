@@ -2,7 +2,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { StrictMode } from 'react'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { App } from './App'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM, TWO_SLICES_MAP } from './model/example'
 import { layoutDiagram } from './layout/layout'
@@ -1822,6 +1822,135 @@ describe('journey', () => {
     await reopen(savedText)
 
     expect(useMapStore.getState().map).toStrictEqual(beforeSave)
+  })
+
+  it('a full links session — create from both entry points, edit an adapter, tag a pattern, delete with undo, export, save and reopen (S-003 release readiness)', async () => {
+    // Two driven ports on h1 (same context c1 as h2, a different one c2 as h3), so one link can be created from
+    // the canvas chip within a context and the other from the Links section across contexts (pattern-eligible).
+    const journeyMap: HexaMap = {
+      version: 2,
+      kind: 'hexagonal',
+      title: 'Release journey',
+      contexts: [{ id: 'c1' }, { id: 'c2' }],
+      hexagons: [
+        {
+          id: 'h1',
+          contextId: 'c1',
+          cell: { q: 0, r: 0 },
+          title: 'Slice A',
+          domain: [],
+          useCases: [],
+          ports: [
+            { id: 'p-out', name: 'Repository', side: 'driven', wall: 'e' },
+            { id: 'p-out2', name: 'Notifier', side: 'driven', wall: 'ne' },
+          ],
+          adapters: [{ id: 'a1', name: 'Knex', portId: 'p-out' }],
+          actors: [],
+          externals: [],
+        },
+        {
+          id: 'h2',
+          contextId: 'c1',
+          cell: { q: 1, r: 0 },
+          title: 'Slice B',
+          domain: [],
+          useCases: [],
+          ports: [{ id: 'p-in', name: 'Submit', side: 'driving', wall: 'w' }],
+          adapters: [],
+          actors: [],
+          externals: [],
+        },
+        {
+          id: 'h3',
+          contextId: 'c2',
+          cell: { q: 2, r: 0 },
+          title: 'Slice C',
+          domain: [],
+          useCases: [],
+          ports: [{ id: 'p-in2', name: 'Receive', side: 'driving' }],
+          adapters: [],
+          actors: [],
+          externals: [],
+        },
+      ],
+      links: [],
+    }
+    useMapStore.getState().replace(journeyMap)
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+    const { container } = render(<App />)
+
+    // Entry point 1: the canvas chip — h1's p-out (driven) to h2's p-in (driving), same context, no pattern.
+    fireEvent.click(onCanvas(container, 'p-out'))
+    fireEvent.keyDown(document.body, { key: 'l' })
+    fireEvent.click(hexGroup(container, 'h2').querySelector('[data-ref="p-in"]')!)
+    expect(useMapStore.getState().map.links).toHaveLength(1)
+    const link1 = useMapStore.getState().map.links[0].id
+
+    // Entry point 2: the Links editor section's create form — h1's p-out2 (driven) to h3's p-in2 (driving),
+    // crossing contexts, so it is eligible for a pattern tag.
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    fireEvent.change(screen.getByLabelText('Driven port'), { target: { value: '1' } })
+    fireEvent.change(screen.getByLabelText('Driving port'), { target: { value: '1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create link' }))
+    expect(useMapStore.getState().map.links).toHaveLength(2)
+    const link2 = useMapStore.getState().map.links.find((l) => l.id !== link1)!.id
+
+    // Edit link1's adapter (REQ-LNK-02.1).
+    const row1 = () => container.querySelector<HTMLElement>(`[data-item-id="${link1}"]`)!
+    fireEvent.change(within(row1()).getByLabelText('Driven port adapter'), { target: { value: 'a1' } })
+    expect(useMapStore.getState().map.links.find((l) => l.id === link1)?.from.adapterId).toBe('a1')
+
+    // Tag link2's pattern (REQ-LNK-02.2) — its row only offers a Pattern control because it crosses contexts.
+    const row2 = () => container.querySelector<HTMLElement>(`[data-item-id="${link2}"]`)!
+    fireEvent.change(within(row2()).getByLabelText('Pattern'), { target: { value: 'acl' } })
+    expect(useMapStore.getState().map.links.find((l) => l.id === link2)?.pattern).toBe('acl')
+    expect(within(row1()).queryByLabelText('Pattern')).toBeNull() // same-context row never offers one (REQ-LNK-06.2)
+
+    // Delete link2, then Undo — it must reappear with its ends and its pattern intact (REQ-LNK-04.2).
+    const beforeDelete = useMapStore.getState().map
+    fireEvent.click(within(row2()).getByRole('button', { name: /Delete link/ }))
+    expect(useMapStore.getState().map.links).toHaveLength(1)
+    expect(container.querySelectorAll('svg.canvas [data-map-link]')).toHaveLength(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useMapStore.getState().map).toBe(beforeDelete)
+    expect(useMapStore.getState().map.links.find((l) => l.id === link2)?.pattern).toBe('acl')
+    expect(container.querySelectorAll('svg.canvas [data-map-link]')).toHaveLength(2)
+
+    // Export as SVG: the routed link and its pattern label survive, with no leftover motion class/style (REQ-LNK-08.1).
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    const svgText = await captured!.text()
+    expect(svgText).toContain('>acl<')
+    expect(svgText).toMatch(/<path/)
+    expect(svgText).not.toMatch(/\s(class|style)=/)
+    expect(svgText).not.toMatch(/transition|animation|@keyframes/)
+    expect(svgText).not.toMatch(/data-map-link|data-link-pattern/)
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+
+    // Save and reopen: every link's ends, adapter, and pattern survive exactly (REQ-LNK-08.2, 08.3).
+    const beforeSave = useMapStore.getState().map
+    const savedText = await saveHexa()
+    expect(JSON.parse(savedText).version).toBe(2)
+
+    await reopen(savedText)
+
+    // toEqual, not toStrictEqual: updateLink always writes an explicit `pattern` key (REQ-LNK-02's own
+    // clear-vs-absent convention), even undefined for a link that never had a pattern; JSON drops that key on
+    // save, and MapSchema's `.optional()` treats absent and undefined as the same value — REQ-LNK-08.2 promises
+    // value equality, not key-presence equality.
+    expect(useMapStore.getState().map).toEqual(beforeSave)
+    vi.unstubAllGlobals()
   })
 })
 
