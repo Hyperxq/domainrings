@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { describe, expect, it } from 'vitest'
 import { parseHexa, toHexa, toMap } from './hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM, TWO_SLICES_MAP } from './example'
+import { freeCell, placeHexagon } from './map'
 import { HexaFileV2Schema, VERSION, type Diagram, type HexaMap } from './schema'
 import v1Minimal from './fixtures/v1-minimal.hexa?raw'
 import v1Maximal from './fixtures/v1-maximal.hexa?raw'
@@ -137,6 +138,59 @@ describe('committed v2 corpus (MIG-03.2)', () => {
   it('the v2 JSON-schema snapshot matches z.toJSONSchema(HexaFileV2Schema) while VERSION === 2', () => {
     expect(VERSION).toBe(2)
     expect(JSON.parse(v2SchemaSnapshot)).toEqual(z.toJSONSchema(HexaFileV2Schema))
+  })
+})
+
+// --- S-006.6: honeycomb fixture byte-identical round trip; empty-context fixture fully authored --------------
+
+describe('the honeycomb fixture round-trips exactly (S-006.6)', () => {
+  it('toHexa(parse(text).map) is byte-identical to the committed file — no re-save ever drifts the fixture', () => {
+    const result = parseHexa(v2Honeycomb)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(toHexa(result.map)).toBe(v2Honeycomb)
+  })
+
+  it('parseHexa(toHexa(map)).map toStrictEqual map after a real import onto the honeycomb', () => {
+    const result = parseHexa(v2Honeycomb)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const view: import('./schema').Diagram = { version: 1, kind: 'hexagonal', title: 'Payments', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }
+    const { map: imported } = placeHexagon(result.map, view, { cell: freeCell(result.map, result.map.hexagons[0].cell) })
+
+    const reopened = parseHexa(toHexa(imported))
+
+    expect(reopened).toEqual({ ok: true, map: imported })
+  })
+})
+
+describe('the empty-context fixture is fully authored (S-006.6, IMP-02 regression)', () => {
+  it('carries a named context, a second EMPTY context, kind onion, and title "Legacy System"', () => {
+    const result = parseHexa(v2EmptyContext)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.map.kind).toBe('onion')
+    expect(result.map.title).toBe('Legacy System')
+    expect(result.map.contexts).toHaveLength(2)
+    const [named, empty] = result.map.contexts
+    expect(named.name).toBe('Ledger')
+    expect('name' in empty).toBe(false)
+    expect(result.map.hexagons.every((h) => h.contextId === named.id)).toBe(true)
+    expect(result.map.hexagons.some((h) => h.contextId === empty.id)).toBe(false)
+  })
+
+  it('still imports cleanly via the same gateway S-003 proved (IMP-02 regression)', () => {
+    const result = parseHexa(v2EmptyContext)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const target = toMap(EXAMPLE_DIAGRAM)
+    const view = { version: 1 as const, kind: result.map.kind, ...(() => {
+      const { id: _id, contextId: _contextId, cell: _cell, ...fields } = result.map.hexagons[0]
+      return fields
+    })() }
+    const { map: imported } = placeHexagon(target, view, { cell: freeCell(target, target.hexagons[0].cell) })
+    expect(imported.hexagons).toHaveLength(2)
+    expect(imported.kind).toBe('hexagonal') // placeHexagon always yields hexagonal (ADR-02); the file's own onion kind is dropped
   })
 })
 
