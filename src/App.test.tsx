@@ -10,6 +10,7 @@ import { layoutDiagram } from './layout/layout'
 import { parseHexa, toHexa, toMap } from './model/hexa'
 import { diagramOf, UNTITLED_HEXAGON } from './model/map'
 import { autosave, MAP_KEY } from './model/persistence'
+import type { HexaMap } from './model/schema'
 import { useMapStore } from './model/store'
 import { fileSlug } from './ui/exporters'
 import { decodeSharePayload, encodeSharePayload, SHARE_HASH_PREFIX } from './ui/shareLink'
@@ -1858,5 +1859,108 @@ describe('copy the current map as a link (REQ-05, REQ-06)', () => {
     await vi.waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Use Save'))
 
     expect(writeText).not.toHaveBeenCalled()
+  })
+})
+
+describe('link failures leave the map untouched, with a matching notice and a cleared address (REQ-02, REQ-03.2)', () => {
+  beforeEach(() => {
+    vi.stubGlobal('CompressionStream', CompressionStream)
+    vi.stubGlobal('DecompressionStream', DecompressionStream)
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    history.replaceState(null, '', '/')
+  })
+
+  const cases: { name: string; setup: () => void | Promise<void>; message: string }[] = [
+    {
+      name: 'undecodable embedded data',
+      setup: () => {
+        location.hash = `${SHARE_HASH_PREFIX}not-a-real-payload!!`
+      },
+      message: 'This link could not be read.',
+    },
+    {
+      name: 'invalid map content (remote)',
+      setup: () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{ nope')))
+        history.replaceState(null, '', '/?src=https://example.test/broken.hexa')
+      },
+      message: 'This link could not be opened. Fix these problems and try again:',
+    },
+    {
+      name: 'newer-version file (embedded)',
+      setup: async () => {
+        // Bypasses the HexaMap type on purpose: encodeSharePayload only needs a JSON-serialisable value, and
+        // this is the simplest way to produce a payload parseHexa recognises as a future version.
+        location.hash = `${SHARE_HASH_PREFIX}${await encodeSharePayload({ version: 99 } as unknown as HexaMap)}`
+      },
+      message: 'This link was made by a newer version of domainrings.',
+    },
+    {
+      name: 'non-https remote address',
+      setup: () => {
+        vi.stubGlobal('fetch', vi.fn())
+        history.replaceState(null, '', '/?src=http://example.test/shared.hexa')
+      },
+      message: "This link's address is not https, so nothing was fetched.",
+    },
+    {
+      name: 'unreachable remote address',
+      setup: () => {
+        vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network error')))
+        history.replaceState(null, '', '/?src=https://example.test/shared.hexa')
+      },
+      message: "This link's file could not be reached.",
+    },
+  ]
+
+  it.each(cases)('$name', async ({ setup, message }) => {
+    const before = useMapStore.getState().map
+    await setup()
+
+    render(<App />)
+    await vi.waitFor(() => expect(screen.getByRole('alert').textContent).toContain(message))
+
+    expect(useMapStore.getState().map).toBe(before)
+    expect(location.hash).toBe('')
+    expect(location.search).toBe('')
+  })
+
+  it('non-https never calls fetch (REQ-02.4)', async () => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    history.replaceState(null, '', '/?src=http://example.test/shared.hexa')
+
+    render(<App />)
+    await vi.waitFor(() => expect(screen.getByRole('alert')).toBeTruthy())
+
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('an embedded link wins over a remote address when both are present (REQ-04)', () => {
+  beforeEach(() => {
+    vi.stubGlobal('CompressionStream', CompressionStream)
+    vi.stubGlobal('DecompressionStream', DecompressionStream)
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    history.replaceState(null, '', '/')
+  })
+
+  it('opens the embedded map and never fetches the remote address', async () => {
+    const shared = toMap(STRESS_DIAGRAM)
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    const payload = await encodeSharePayload(shared)
+    history.replaceState(null, '', `/?src=https://example.test/other.hexa${SHARE_HASH_PREFIX}${payload}`)
+
+    render(<App />)
+    await vi.waitFor(() => expect(useMapStore.getState().map).toStrictEqual(shared))
+
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(location.hash).toBe('')
+    expect(location.search).toBe('')
   })
 })

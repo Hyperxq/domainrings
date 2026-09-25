@@ -243,8 +243,20 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       }
       const src = new URLSearchParams(location.search).get('src')
       if (src === null) return
-      const response = await fetch(src)
-      const parsed = await parseSource(await response.text(), 'This link')
+      if (!src.startsWith('https://')) {
+        show({ tone: 'error', message: "This link's address is not https, so nothing was fetched." })
+        return finishLink()
+      }
+      let text: string
+      try {
+        const response = await fetch(src)
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        text = await response.text()
+      } catch {
+        show({ tone: 'error', message: "This link's file could not be reached." })
+        return finishLink()
+      }
+      const parsed = await parseSource(text, 'This link')
       if (parsed) swap(parsed, 'Opened from a link.')
       finishLink()
     })()
