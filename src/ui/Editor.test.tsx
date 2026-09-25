@@ -211,6 +211,49 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
     expect(onRenameContext).toHaveBeenCalledWith(beforeMap, contextId)
   })
 
+  it('keeps a trailing space live while typing, trimming only when the rename commits on blur (NAME-02.3)', () => {
+    const contextId = useMapStore.getState().map.contexts[0].id
+    const { container } = renderEditor()
+    const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1') as HTMLInputElement
+
+    fireEvent.change(input, { target: { value: 'Order ' } })
+    expect(input.value).toBe('Order ')
+    expect(useMapStore.getState().map.contexts.find((c) => c.id === contextId)?.name).toBe('Order ')
+
+    fireEvent.blur(input)
+
+    expect(useMapStore.getState().map.contexts.find((c) => c.id === contextId)?.name).toBe('Order')
+  })
+
+  it('a whitespace-only name clears to the placeholder once the rename commits on blur (NAME-02.3)', () => {
+    const contextId = useMapStore.getState().map.contexts[0].id
+    const { container } = renderEditor()
+    const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1') as HTMLInputElement
+
+    fireEvent.change(input, { target: { value: '   ' } })
+    fireEvent.blur(input)
+
+    expect(useMapStore.getState().map.contexts.find((c) => c.id === contextId)).toEqual({ id: contextId })
+    expect(input.value).toBe('')
+    expect(input.placeholder).toBe('Context 1')
+  })
+
+  it('reports the rename with the trimmed name, not the untrimmed keystroke value (NAME-03.1, NAME-02.3)', () => {
+    const onRenameContext = vi.fn()
+    const contextId = useMapStore.getState().map.contexts[0].id
+    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', onRenameContext)
+    const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1')
+
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: '  Billing ' } })
+    fireEvent.blur(input)
+
+    expect(onRenameContext).toHaveBeenCalledOnce()
+    const [, renamedId] = onRenameContext.mock.calls[0]
+    expect(renamedId).toBe(contextId)
+    expect(useMapStore.getState().map.contexts.find((c) => c.id === contextId)?.name).toBe('Billing')
+  })
+
   it('does not report a blur that never changed the name', () => {
     const onRenameContext = vi.fn()
     const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', onRenameContext)

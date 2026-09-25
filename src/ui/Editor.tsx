@@ -329,7 +329,11 @@ export function Editor({
                     value={ctx.name ?? ''}
                     onFocus={() => contextRenameBefore.current.set(ctx.id, map)}
                     onChange={(e) => setContextName(ctx.id, e.target.value)}
-                    onBlur={() => {
+                    onBlur={(e) => {
+                      // Trimmed on commit, not on every keystroke: the input is controlled by the stored name, so
+                      // trimming live would eat a trailing space before the author can type the next word.
+                      const trimmed = e.target.value.trim()
+                      if (trimmed !== (ctx.name ?? '')) setContextName(ctx.id, trimmed)
                       const before = contextRenameBefore.current.get(ctx.id)
                       contextRenameBefore.current.delete(ctx.id)
                       if (before && contextName(before, ctx.id) !== contextName(useMapStore.getState().map, ctx.id)) onRenameContext(before, ctx.id)
