@@ -526,6 +526,19 @@ describe('updateLink / removeLink (ADR-02, REQ-LNK-02, REQ-LNK-04)', () => {
       const next = updateLink(map, 'link1', { pattern: null })
       expect(next.links[1]).toBe(map.links[1])
     })
+
+    it('leaves an adapter untouched when the patch object is present but adapterId is absent', () => {
+      const map = twoLinksMap()
+      const next = updateLink(map, 'link1', { from: {} })
+      expect(next.links[0].from.adapterId).toBe('a1')
+    })
+
+    it('updates a non-first link, leaving an earlier one untouched by reference', () => {
+      const map = twoLinksMap()
+      const next = updateLink(map, 'link2', { pattern: 'ohs-pl' })
+      expect(next.links[0]).toBe(map.links[0])
+      expect(next.links[1].pattern).toBe('ohs-pl')
+    })
   })
 
   describe('removeLink', () => {
@@ -547,6 +560,14 @@ describe('updateLink / removeLink (ADR-02, REQ-LNK-02, REQ-LNK-04)', () => {
       const map = twoLinksMap()
       const { map: next } = removeLink(map, 'link1')!
       expect(next.links[0]).toBe(map.links[1])
+    })
+
+    it('removes a non-first link, leaving an earlier one untouched by reference', () => {
+      const map = twoLinksMap()
+      const result = removeLink(map, 'link2')
+      expect(result!.removed).toEqual(map.links[1])
+      expect(result!.map.links).toEqual([map.links[0]])
+      expect(result!.map.links[0]).toBe(map.links[0])
     })
   })
 })
