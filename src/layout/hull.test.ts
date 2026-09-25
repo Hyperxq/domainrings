@@ -1,11 +1,11 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { contextRegions, pointInRegion } from './hull'
 import { layoutMap } from './map'
+import { parseHexa } from '../model/hexa'
 import { neighbour, type Cell } from '../model/map'
 import type { HexaMap } from '../model/schema'
 import type { LayoutMode } from './layout'
+import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
 
 const pitch = { x: 100, y: 80 }
 
@@ -46,9 +46,10 @@ describe('contextRegions (ADR-04)', () => {
   })
 
   it('the honeycomb fixture shape (6-ring in one context, a split context of the foreign cell plus a far cell)', () => {
-    const text = readFileSync(resolve(__dirname, '../model/fixtures/v2-honeycomb.hexa'), 'utf-8')
-    const map = JSON.parse(text) as HexaMap & { app: string }
-    const hexagons = map.hexagons.map((h) => ({ cell: h.cell, contextId: h.contextId }))
+    const result = parseHexa(v2Honeycomb)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const hexagons = result.map.hexagons.map((h) => ({ cell: h.cell, contextId: h.contextId }))
     const regions = contextRegions(hexagons, pitch)
     // c1 ("Core"): the 6-ring around h7 — one outer loop, one hole loop.
     expect(regions.get('c1')).toHaveLength(2)
