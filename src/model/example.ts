@@ -120,8 +120,8 @@ export const STRESS_DIAGRAM: Diagram = {
 }
 
 /**
- * The only built-in way, in this release, to see a map with more than one hexagon: authoring one by hand
- * arrives in a later change. One context; h1's driven port links to h2's driving port (EX-01).
+ * A ready-made multi-hexagon map, for anyone who wants to see a linked pair before building their own. One
+ * context; h1's driven port links to h2's driving port (EX-01).
  */
 export const TWO_SLICES_MAP: HexaMap = {
   version: 2,
@@ -168,5 +168,5 @@ export const TWO_SLICES_MAP: HexaMap = {
 export const EXAMPLES = [
   { id: 'feedback', label: 'Chat feedback slice', map: toMap(EXAMPLE_DIAGRAM) },
   { id: 'stress', label: 'Stress test', map: toMap(STRESS_DIAGRAM) },
-  { id: 'two-slices', label: 'Two slices, one link (preview)', map: TWO_SLICES_MAP },
+  { id: 'two-slices', label: 'Two slices, one link', map: TWO_SLICES_MAP },
 ] as const

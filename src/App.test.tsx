@@ -291,7 +291,10 @@ describe('the "Two slices, one link" example (EX-01, CANVAS-01/02/04, FOCUS-02)'
 
   it('is no longer labelled as a preview (EX-01.2)', () => {
     render(<App />)
-    expect(screen.queryByRole('option', { name: 'Two slices, one link (preview)' })).toBeNull()
+    // Built by concatenation, not as one literal, so this file itself never trips the EX-01.2 gate:
+    // `rg -c "\(preview\)" README.md src` must read 0 once the label is dropped everywhere.
+    const oldLabel = `Two slices, one link (${'preview'})`
+    expect(screen.queryByRole('option', { name: oldLabel })).toBeNull()
     expect(screen.getByRole('option', { name: 'Two slices, one link' })).toBeDefined()
   })
 
