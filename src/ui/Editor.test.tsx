@@ -6,7 +6,8 @@ import { toMap } from '../model/hexa'
 import { neighbour, SIDE_ORDER } from '../model/map'
 import { useMapStore } from '../model/store'
 import type { HexaMap } from '../model/schema'
-import { card, currentDiagram, twoHexMap } from '../test/fixtures'
+import { card, currentDiagram, linkedTwoHexMap, twoHexMap } from '../test/fixtures'
+import type { LinkEnd } from '../model/schema'
 
 const SECTIONS_KEY = 'domainrings:editor-sections'
 
@@ -22,6 +23,7 @@ const renderEditor = (
   onAddFromFile: (file: File, context: 'same' | 'new', opener: HTMLElement | null) => void = () => {},
   contextLabel = 'Context 1',
   onRenameContext: (before: HexaMap, contextId: string) => void = () => {},
+  onCreateLink: (from: LinkEnd, to: LinkEnd) => void = () => {},
 ) =>
   render(
     <Editor
@@ -33,6 +35,7 @@ const renderEditor = (
       onAddFromFile={onAddFromFile}
       contextLabel={contextLabel}
       onRenameContext={onRenameContext}
+      onCreateLink={onCreateLink}
     />,
   )
 const section = (container: HTMLElement, title: string) =>
@@ -375,6 +378,84 @@ describe('ports: side chosen at creation, cards grouped by side', () => {
     expect(currentDiagram().ports.find((p) => p.id === port.id)).toMatchObject({ side: other, wall: undefined })
     expect(namesIn(group(container, other === 'driving' ? 'Driving ports' : 'Driven ports'))).toContain(port.name)
     expect(namesIn(group(container, other === 'driving' ? 'Driven ports' : 'Driving ports'))).not.toContain(port.name)
+  })
+})
+
+describe('Links section (REQ-LNK-01, REQ-LNK-07)', () => {
+  it('shows the section with a count of every link in the map', () => {
+    useMapStore.getState().replace(linkedTwoHexMap())
+    const { container } = renderEditor()
+    expect(section(container, 'Links').querySelector('summary')!.textContent).toBe('Links· 1')
+  })
+
+  it('lists each existing link by its two ends’ hexagon and port names', () => {
+    useMapStore.getState().replace(linkedTwoHexMap())
+    const { container } = renderEditor()
+    const row = within(section(container, 'Links')).getByRole('listitem')
+    expect(row.textContent).toBe('Chat feedback slice · FeedbackRepository → Second slice · submitChatFeedback')
+  })
+
+  it('offers every driven port and every driving port across the map for the create form', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = renderEditor()
+    const linksSection = within(section(container, 'Links'))
+    // 3 driven ports per hexagon × 2 hexagons, plus the placeholder; 1 driving port per hexagon × 2, plus the placeholder.
+    expect((linksSection.getByLabelText('Driven port') as HTMLSelectElement).options).toHaveLength(7)
+    expect((linksSection.getByLabelText('Driving port') as HTMLSelectElement).options).toHaveLength(3)
+  })
+
+  it('disables Create link until both a driven and a driving port are chosen', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = renderEditor()
+    const linksSection = within(section(container, 'Links'))
+    const button = linksSection.getByRole('button', { name: 'Create link' })
+    expect(button.hasAttribute('disabled')).toBe(true)
+
+    fireEvent.change(linksSection.getByLabelText('Driven port'), { target: { value: '0' } })
+    expect(button.hasAttribute('disabled')).toBe(true)
+  })
+
+  it('creating a link calls onCreateLink with the chosen ends and resets the form (REQ-LNK-01.2)', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const onCreateLink = vi.fn()
+    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', () => {}, onCreateLink)
+    const linksSection = within(section(container, 'Links'))
+    // Driven index 0 = h1's first driven port (p-repo); driving index 1 = h2's p-submit.
+    fireEvent.change(linksSection.getByLabelText('Driven port'), { target: { value: '0' } })
+    fireEvent.change(linksSection.getByLabelText('Driving port'), { target: { value: '1' } })
+    const button = linksSection.getByRole('button', { name: 'Create link' })
+    expect(button.hasAttribute('disabled')).toBe(false)
+
+    fireEvent.click(button)
+
+    expect(onCreateLink).toHaveBeenCalledWith({ hexagonId: 'h1', portId: 'p-repo', adapterId: undefined }, { hexagonId: 'h2', portId: 'p-submit', adapterId: undefined })
+    expect((linksSection.getByLabelText('Driven port') as HTMLSelectElement).value).toBe('')
+    expect((linksSection.getByLabelText('Driving port') as HTMLSelectElement).value).toBe('')
+  })
+
+  it('shows an adapter select for an end once its port is chosen', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = renderEditor()
+    const linksSection = within(section(container, 'Links'))
+    expect(linksSection.queryByLabelText('Driven port adapter')).toBeNull()
+
+    fireEvent.change(linksSection.getByLabelText('Driven port'), { target: { value: '0' } })
+
+    expect(linksSection.getByLabelText('Driven port adapter')).toBeTruthy()
+  })
+
+  it('passes the chosen adapter through to onCreateLink', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const onCreateLink = vi.fn()
+    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', () => {}, onCreateLink)
+    const linksSection = within(section(container, 'Links'))
+    fireEvent.change(linksSection.getByLabelText('Driven port'), { target: { value: '0' } })
+    fireEvent.change(linksSection.getByLabelText('Driven port adapter'), { target: { value: 'a-knex' } })
+    fireEvent.change(linksSection.getByLabelText('Driving port'), { target: { value: '1' } })
+
+    fireEvent.click(linksSection.getByRole('button', { name: 'Create link' }))
+
+    expect(onCreateLink).toHaveBeenCalledWith({ hexagonId: 'h1', portId: 'p-repo', adapterId: 'a-knex' }, { hexagonId: 'h2', portId: 'p-submit', adapterId: undefined })
   })
 })
 

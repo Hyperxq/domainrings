@@ -510,6 +510,10 @@ label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
 .section-actions .text-button.small { height: 26px; padding: 0 8px; font-size: 12px; }
 .port-group { display: grid; gap: 6px; }
 .port-group h3 { margin: 4px 2px 0; color: var(--muted); font-size: 12px; font-weight: 600; }
+/* Links section create form (REQ-LNK-01): a compact stack of the two port selects, their optional adapter
+ * selects, and the Create button — the same .field rhythm as every other section, in its own group. */
+.link-create { display: grid; gap: 8px; }
+.link-create .text-button { justify-self: start; }
 
 .items { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .item {

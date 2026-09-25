@@ -11,11 +11,12 @@ import {
   type Diagram,
   type HexaMap,
   type Link,
+  type LinkEnd,
   type Side,
   type Wall,
 } from '../model/schema'
 import { parentCandidates } from '../model/links'
-import { contextName, contextOrdinal, diagramOf, freeSides, UNTITLED_HEXAGON, type Destination } from '../model/map'
+import { contextName, contextOrdinal, crossHexagonPorts, diagramOf, freeSides, UNTITLED_HEXAGON, type Destination, type PortRef } from '../model/map'
 import { useMapStore, type Item } from '../model/store'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
@@ -235,6 +236,69 @@ function adaptersBySide(d: Diagram) {
   return (side: Side) => d.adapters.filter((a) => (a.portId ? portSide.get(a.portId) === side : true))
 }
 
+/** A link end as `{hexagonTitle} · {portName}`, for the Links section's list rows. */
+function linkEndLabel(map: HexaMap, end: LinkEnd): string {
+  const hexagon = map.hexagons.find((h) => h.id === end.hexagonId)
+  const port = hexagon?.ports.find((p) => p.id === end.portId)
+  return `${hexagon?.title || UNTITLED_HEXAGON} · ${port?.name ?? end.portId}`
+}
+
+/** The Links section (REQ-LNK-07): every link in the map, and the create form that is the Links-editor half of
+ * "one action, two entry points" (ADR-02) — the canvas "Link to…" chip is the other. List rows are read-only:
+ * editing or deleting a link is not yet wired here. */
+function LinksSection({ map, onCreateLink }: { map: HexaMap; onCreateLink: (from: LinkEnd, to: LinkEnd) => void }) {
+  const drivenPorts = crossHexagonPorts(map, 'driven')
+  const drivingPorts = crossHexagonPorts(map, 'driving')
+  const [fromIndex, setFromIndex] = useState<string | undefined>(undefined)
+  const [toIndex, setToIndex] = useState<string | undefined>(undefined)
+  const [fromAdapter, setFromAdapter] = useState<string | undefined>(undefined)
+  const [toAdapter, setToAdapter] = useState<string | undefined>(undefined)
+  const fromPort = fromIndex !== undefined ? drivenPorts[Number(fromIndex)] : undefined
+  const toPort = toIndex !== undefined ? drivingPorts[Number(toIndex)] : undefined
+  const adapterOptions = (port?: PortRef) =>
+    port ? map.hexagons.find((h) => h.id === port.hexagonId)!.adapters.filter((a) => a.portId === port.portId).map((a) => ({ id: a.id, name: a.name })) : []
+  const portOptions = (ports: PortRef[]) => ports.map((p, i) => ({ id: String(i), name: `${p.hexagonTitle} · ${p.portName}` }))
+
+  // Omits adapterId entirely when none is chosen (rather than an explicit undefined), so a link created from here
+  // is toStrictEqual to the same link created from the canvas chip (App.tsx's onLink builds its LinkEnd the same
+  // lean way) — REQ-LNK-01.2's "identical link" is about the object shape, not just its meaning.
+  const endOf = (port: PortRef, adapterId?: string): LinkEnd => (adapterId ? { hexagonId: port.hexagonId, portId: port.portId, adapterId } : { hexagonId: port.hexagonId, portId: port.portId })
+
+  const submit = () => {
+    if (!fromPort || !toPort) return
+    onCreateLink(endOf(fromPort, fromAdapter), endOf(toPort, toAdapter))
+    setFromIndex(undefined)
+    setToIndex(undefined)
+    setFromAdapter(undefined)
+    setToAdapter(undefined)
+  }
+
+  return (
+    <Fold id="links" title="Links" count={map.links.length}>
+      {!map.links.length ? (
+        <p className="empty">No links yet. Connect a driven port to a driving port on another hexagon.</p>
+      ) : (
+        <ul className="items">
+          {map.links.map((link) => (
+            <li key={link.id} className="item" data-item-id={link.id}>
+              {linkEndLabel(map, link.from)} → {linkEndLabel(map, link.to)}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="link-create">
+        <LinkSelect label="Driven port" value={fromIndex} options={portOptions(drivenPorts)} onChange={setFromIndex} />
+        {fromPort && <LinkSelect label="Driven port adapter" value={fromAdapter} options={adapterOptions(fromPort)} onChange={setFromAdapter} />}
+        <LinkSelect label="Driving port" value={toIndex} options={portOptions(drivingPorts)} onChange={setToIndex} />
+        {toPort && <LinkSelect label="Driving port adapter" value={toAdapter} options={adapterOptions(toPort)} onChange={setToAdapter} />}
+        <button type="button" className="text-button" disabled={!fromPort || !toPort} onClick={submit}>
+          Create link
+        </button>
+      </div>
+    </Fold>
+  )
+}
+
 export function Editor({
   open,
   onToggle,
@@ -244,6 +308,7 @@ export function Editor({
   onAddFromFile,
   contextLabel,
   onRenameContext,
+  onCreateLink,
 }: {
   open: boolean
   onToggle: () => void
@@ -258,6 +323,9 @@ export function Editor({
   /** Reports a context rename/clear session (focus → blur) that actually changed the name, with the map from
    * just before it started — the toast/undo snapshot (NAME-03). Not called when a blur never changed anything. */
   onRenameContext: (before: HexaMap, contextId: string) => void
+  /** Creates a map-level link from the Links section's own create form — the second of the two entry points
+   * ADR-02 requires to share one write path with the canvas "Link to…" chip. */
+  onCreateLink: (from: LinkEnd, to: LinkEnd) => void
 }) {
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
@@ -344,6 +412,8 @@ export function Editor({
             })}
           </ul>
         </Fold>
+
+        <LinksSection map={map} onCreateLink={onCreateLink} />
 
         <Fold id="hexagon" title="Hexagon">
           <p className="field-static">
