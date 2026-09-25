@@ -286,23 +286,29 @@ describe('toolbar', () => {
   })
 })
 
-describe('the "Two slices, one link (preview)" example (EX-01, CANVAS-01/02/04, FOCUS-02)', () => {
+describe('the "Two slices, one link" example (EX-01, CANVAS-01/02/04, FOCUS-02)', () => {
   const pickExample = (label: string) => fireEvent.change(screen.getByLabelText('Load an example'), { target: { value: label } })
+
+  it('is no longer labelled as a preview (EX-01.2)', () => {
+    render(<App />)
+    expect(screen.queryByRole('option', { name: 'Two slices, one link (preview)' })).toBeNull()
+    expect(screen.getByRole('option', { name: 'Two slices, one link' })).toBeDefined()
+  })
 
   it('loads TWO_SLICES_MAP with the first hexagon current, and fits the view (no pan/zoom override)', () => {
     render(<App />)
-    const option = screen.getByRole('option', { name: 'Two slices, one link (preview)' }) as HTMLOptionElement
+    const option = screen.getByRole('option', { name: 'Two slices, one link' }) as HTMLOptionElement
 
     pickExample(option.value)
 
     expect(useMapStore.getState().map).toStrictEqual(TWO_SLICES_MAP)
     expect(useMapStore.getState().focus).toBe('h1')
-    expect(toastEl()!.textContent).toContain('Loaded the Two slices, one link (preview) example.')
+    expect(toastEl()!.textContent).toContain('Loaded the Two slices, one link example.')
   })
 
   it('renders both hexagons of the example, non-overlapping, connected by exactly one link line', () => {
     const { container } = render(<App />)
-    const option = screen.getByRole('option', { name: 'Two slices, one link (preview)' }) as HTMLOptionElement
+    const option = screen.getByRole('option', { name: 'Two slices, one link' }) as HTMLOptionElement
     pickExample(option.value)
 
     const groups = container.querySelectorAll('svg.canvas [data-hex]')
