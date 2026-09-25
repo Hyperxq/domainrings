@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { parseHexa, toHexa, toMap } from './hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM, TWO_SLICES_MAP } from './example'
 import { diagramOf, freeCell, placeHexagon } from './map'
-import { HexaFileV2Schema, VERSION, type Diagram, type HexaMap } from './schema'
+import { HexaFileV2Schema, MapSchema, VERSION, type Diagram, type HexaMap } from './schema'
 import v1Minimal from './fixtures/v1-minimal.hexa?raw'
 import v1Maximal from './fixtures/v1-maximal.hexa?raw'
 import v2TwoSlices from './fixtures/v2-two-slices.hexa?raw'
@@ -191,6 +191,74 @@ describe('whole-map round trip: contexts, hexagon content, and links all survive
     expect(after.links).toStrictEqual(before.map.links)
     expect(after.links).toHaveLength(1)
     expect(after.links[0]).toMatchObject({ from: { hexagonId: 'h1', portId: 'p-out' }, to: { hexagonId: 'h4', portId: 'p-in' } })
+  })
+})
+
+describe('.hexa round-trip preserves several links, mixed adapters, and a pattern tag (REQ-LNK-08.2, 08.3)', () => {
+  // h1/h2 cross contexts (link1 carries both adapters and a pattern tag); h1/h3 share a context (link2 has
+  // neither) — a single fixture proving both cases survive the same save/reopen.
+  const richLinksMap = (): HexaMap => ({
+    version: VERSION,
+    kind: 'hexagonal',
+    title: 'Release readiness',
+    contexts: [{ id: 'c1', name: 'Billing' }, { id: 'c2' }],
+    hexagons: [
+      {
+        id: 'h1',
+        contextId: 'c1',
+        cell: { q: 0, r: 0 },
+        title: 'H1',
+        domain: [],
+        useCases: [],
+        ports: [
+          { id: 'p1a', name: 'Repository', side: 'driven', wall: 'e' },
+          { id: 'p1b', name: 'Cache', side: 'driven', wall: 'ne' },
+        ],
+        adapters: [{ id: 'a1', name: 'Knex', portId: 'p1a' }],
+        actors: [],
+        externals: [],
+      },
+      {
+        id: 'h2',
+        contextId: 'c2',
+        cell: { q: 1, r: 0 },
+        title: 'H2',
+        domain: [],
+        useCases: [],
+        ports: [{ id: 'p2', name: 'Submit', side: 'driving', wall: 'w' }],
+        adapters: [{ id: 'a2', name: 'Http', portId: 'p2' }],
+        actors: [],
+        externals: [],
+      },
+      {
+        id: 'h3',
+        contextId: 'c1',
+        cell: { q: 0, r: 1 },
+        title: 'H3',
+        domain: [],
+        useCases: [],
+        ports: [{ id: 'p3', name: 'Notify', side: 'driving' }],
+        adapters: [],
+        actors: [],
+        externals: [],
+      },
+    ],
+    links: [
+      { id: 'link1', from: { hexagonId: 'h1', portId: 'p1a', adapterId: 'a1' }, to: { hexagonId: 'h2', portId: 'p2', adapterId: 'a2' }, pattern: 'acl' },
+      { id: 'link2', from: { hexagonId: 'h1', portId: 'p1b' }, to: { hexagonId: 'h3', portId: 'p3' } },
+    ],
+  })
+
+  it('every link keeps its ends, adapters, and pattern exactly, and the file stays VERSION 2', () => {
+    const map = richLinksMap()
+    expect(MapSchema.safeParse(map).success).toBe(true)
+
+    const reopened = parseHexa(toHexa(map))
+
+    expect(reopened.ok).toBe(true)
+    if (!reopened.ok) return
+    expect(reopened.map).toStrictEqual(map)
+    expect(reopened.map.version).toBe(VERSION)
   })
 })
 
