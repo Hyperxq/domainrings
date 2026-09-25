@@ -18,7 +18,7 @@ import { Icon } from './ui/Icon'
 import { Legend } from './ui/Legend'
 import type { PaletteId } from './ui/palette'
 import { readPref, setRootPref, writePref } from './ui/prefs'
-import { decodeSharePayload, SHARE_HASH_PREFIX } from './ui/shareLink'
+import { decodeSharePayload, encodeSharePayload, isOversizedShareLink, shareLinkURL, SHARE_HASH_PREFIX } from './ui/shareLink'
 import { Stage } from './ui/Stage'
 import { Toast } from './ui/Toast'
 import { Toolbar, type ExportScope, type ThemeChoice } from './ui/Toolbar'
@@ -252,6 +252,18 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // REQ-05/06: always the whole map (`map`, not the export-scoped diagram) — a link scoped to one hexagon
+  // would reopen missing the rest, which "Copy link" never promises.
+  const handleCopyLink = async () => {
+    const url = shareLinkURL(location.origin, location.pathname, await encodeSharePayload(map))
+    if (isOversizedShareLink(url)) {
+      show({ tone: 'error', message: 'This map is too large for a link. Use Save to share it as .hexa instead.' })
+      return
+    }
+    await navigator.clipboard.writeText(url)
+    show({ tone: 'status', message: 'Copied a link to this map.' })
+  }
+
   const completeImport = (file: HexaMap, context: Destination, fileName: string, convert?: boolean) => {
     const newHexId = importHexagon(file, { context, convert })
     if (!newHexId) return
@@ -311,6 +323,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           swap(example.map, `Loaded the ${example.label} example.`)
         }}
         onOpen={importFile}
+        onCopyLink={handleCopyLink}
         onExport={exportAs}
         onTheme={(choice) => {
           setRootPref('theme', choice === 'system' ? undefined : choice)

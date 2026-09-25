@@ -12,7 +12,7 @@ import { diagramOf, UNTITLED_HEXAGON } from './model/map'
 import { autosave, MAP_KEY } from './model/persistence'
 import { useMapStore } from './model/store'
 import { fileSlug } from './ui/exporters'
-import { encodeSharePayload, SHARE_HASH_PREFIX } from './ui/shareLink'
+import { decodeSharePayload, encodeSharePayload, SHARE_HASH_PREFIX } from './ui/shareLink'
 import { card, currentDiagram, hexGroup, installDialogPolyfill, linkedTwoHexMap, twoHexMap } from './test/fixtures'
 import v1Minimal from './model/fixtures/v1-minimal.hexa?raw'
 import v1Maximal from './model/fixtures/v1-maximal.hexa?raw'
@@ -1807,5 +1807,56 @@ describe('open a map from a remote share link (REQ-01)', () => {
     expect(location.search).toBe('')
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
     expect(useMapStore.getState().map).toStrictEqual(before)
+  })
+})
+
+describe('copy the current map as a link (REQ-05, REQ-06)', () => {
+  const stubClipboard = () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    return writeText
+  }
+  /** High-entropy content (real random bytes, base64-encoded) resists deflate — a reliable way to build a link
+   * over the 8,000-char budget without an implausibly large map. */
+  const randomPayload = (bytes: number) => btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(bytes))))
+
+  beforeEach(() => {
+    vi.stubGlobal('CompressionStream', CompressionStream)
+    vi.stubGlobal('DecompressionStream', DecompressionStream)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('copies a link to the whole map regardless of the selected export scope, and shows a confirmation (REQ-05.1)', async () => {
+    const writeText = stubClipboard()
+    useMapStore.getState().replace(twoHexMap())
+    render(<App />)
+    fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
+    await act(async () => {
+      await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+    })
+
+    const url = writeText.mock.calls[0][0] as string
+    expect(url).toContain(SHARE_HASH_PREFIX)
+    const decoded = await decodeSharePayload(url.slice(url.indexOf(SHARE_HASH_PREFIX) + SHARE_HASH_PREFIX.length))
+    const result = parseHexa(decoded!)
+    expect(result.ok && result.map).toEqual(twoHexMap())
+    expect(toastEl()!.textContent).toContain('Copied')
+  })
+
+  it('refuses an oversized map: nothing is copied, and the notice points to Save (REQ-06.1)', async () => {
+    const writeText = stubClipboard()
+    const base = twoHexMap()
+    // Never mutate `useCases` in place — it's the same array EXAMPLE_DIAGRAM (and every other test) shares.
+    const inflated = base.hexagons[0].useCases.map((u, i) => (i === 0 ? { ...u, note: randomPayload(20000) } : u))
+    const big = { ...base, hexagons: [{ ...base.hexagons[0], useCases: inflated }, base.hexagons[1]] }
+    useMapStore.getState().replace(big)
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
+    await vi.waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Use Save'))
+
+    expect(writeText).not.toHaveBeenCalled()
   })
 })

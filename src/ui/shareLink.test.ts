@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CompressionStream, DecompressionStream } from 'node:stream/web'
 import { parseHexa, toHexa, toMap } from '../model/hexa'
 import { EXAMPLE_DIAGRAM } from '../model/example'
-import { decodeSharePayload, encodeSharePayload } from './shareLink'
+import { decodeSharePayload, encodeSharePayload, isOversizedShareLink, SHARE_LINK_MAX_CHARS } from './shareLink'
 import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
 
 // jsdom does not expose CompressionStream/DecompressionStream (explore's platform probe) — Node's real
@@ -40,5 +40,15 @@ describe('encodeSharePayload / decodeSharePayload round trip (REQ-07)', () => {
 describe('decodeSharePayload on undecodable input', () => {
   it('returns undefined instead of throwing', async () => {
     await expect(decodeSharePayload('not-a-real-payload!!')).resolves.toBeUndefined()
+  })
+})
+
+describe('isOversizedShareLink (REQ-06)', () => {
+  it('flags a link over the 8,000-char budget', () => {
+    expect(isOversizedShareLink('x'.repeat(SHARE_LINK_MAX_CHARS + 1))).toBe(true)
+  })
+
+  it('does not flag a link at or under the 8,000-char budget', () => {
+    expect(isOversizedShareLink('x'.repeat(SHARE_LINK_MAX_CHARS))).toBe(false)
   })
 })

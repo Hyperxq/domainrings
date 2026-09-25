@@ -24,6 +24,8 @@ interface ToolbarProps {
   onExample: (id: (typeof EXAMPLES)[number]['id']) => void
   /** Replaces the whole map — distinct from Editor's "Add hexagon from file…", which adds one hexagon. */
   onOpen: (file: File) => void
+  /** Always copies the whole map (REQ-05), regardless of the export scope selection. */
+  onCopyLink: () => void
   onExport: (format: 'hexa' | 'svg' | 'png') => void
   onTheme: (choice: ThemeChoice) => void
   onPalette: (id: PaletteId) => void
@@ -67,7 +69,7 @@ const fullMedia = media(FULL_TOOLBAR)
 const roomyMedia = media(ROOMY_TOOLBAR)
 const darkMedia = media('(prefers-color-scheme: dark)')
 
-export function Toolbar({ kind, kindLocked, themeChoice, palette, onKind, onNew, onExample, onOpen, onExport, onTheme, onPalette, mode, onMode, guides, onGuides, highlight, onHighlight, showScope, exportScope, onExportScope }: ToolbarProps) {
+export function Toolbar({ kind, kindLocked, themeChoice, palette, onKind, onNew, onExample, onOpen, onCopyLink, onExport, onTheme, onPalette, mode, onMode, guides, onGuides, highlight, onHighlight, showScope, exportScope, onExportScope }: ToolbarProps) {
   const full = useSyncExternalStore(fullMedia.subscribe, fullMedia.matches)
   const roomy = useSyncExternalStore(roomyMedia.subscribe, roomyMedia.matches)
   const systemDark = useSyncExternalStore(darkMedia.subscribe, darkMedia.matches)
@@ -189,6 +191,10 @@ export function Toolbar({ kind, kindLocked, themeChoice, palette, onKind, onNew,
         <Icon name="upload" />
         {roomy && 'Open…'}
       </label>
+      <button type="button" className={tool} aria-label="Copy link" title="Copy a link to this map" onClick={onCopyLink}>
+        <Icon name="link" />
+        {roomy && 'Copy link'}
+      </button>
 
       <span className="divider" aria-hidden="true" />
 

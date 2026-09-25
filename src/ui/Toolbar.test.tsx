@@ -46,6 +46,7 @@ function renderToolbar(
     onNew: vi.fn(),
     onExample: vi.fn(),
     onOpen: vi.fn(),
+    onCopyLink: vi.fn(),
     onExport: vi.fn(),
     onTheme: vi.fn(),
     onPalette: vi.fn(),

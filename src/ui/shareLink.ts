@@ -4,7 +4,15 @@ import type { HexaMap } from '../model/schema'
 // REQ-01/07: the codec for a share link's payload — deflate-raw + base64url over the unchanged `.hexa` JSON
 // text. No model knowledge here: parseHexa remains the single validation gateway for the decoded text.
 export const SHARE_HASH_PREFIX = '#m='
-export const SHARE_LINK_MAX_CHARS = 8000
+export const SHARE_LINK_MAX_CHARS = 8000 // full-link budget — ADR-01
+
+export function isOversizedShareLink(url: string): boolean {
+  return url.length > SHARE_LINK_MAX_CHARS
+}
+
+export function shareLinkURL(origin: string, pathname: string, payload: string): string {
+  return `${origin}${pathname}${SHARE_HASH_PREFIX}${payload}`
+}
 
 const toBase64Url = (bytes: Uint8Array): string => {
   let binary = ''
@@ -17,14 +25,6 @@ const fromBase64Url = (payload: string): Uint8Array<ArrayBuffer> => {
   const padded = restored + '='.repeat((4 - (restored.length % 4)) % 4)
   const binary = atob(padded)
   return Uint8Array.from(binary, (c) => c.charCodeAt(0))
-}
-
-export function shareLinkURL(origin: string, pathname: string, payload: string): string {
-  return `${origin}${pathname}${SHARE_HASH_PREFIX}${payload}`
-}
-
-export function isOversizedShareLink(url: string): boolean {
-  return url.length > SHARE_LINK_MAX_CHARS
 }
 
 // jsdom's Blob has no `.stream()` (confirmed empirically — Node's own Blob does), so the codec builds the

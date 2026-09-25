@@ -19,7 +19,7 @@ Open it at **https://diagrams.pbuilder.dev/**. It runs in your browser and saves
    - Switch between **Overview** and **Detailed**. Overview is the version for a slide; Detailed is the version for a design review.
    - Hover a ring. Its layer lights up and everything else steps back, which is a quick way to ask "what lives in the application layer?"
    - While a ring is highlighted, click one of the **+** buttons that appear on it. That is how you add things.
-4. Keep your work: **Export → .hexa** saves the model as a file you can open again later with **Open…**. **Export → SVG** or **PNG** gives you an image for documents and slides.
+4. Keep your work: **Export → .hexa** saves the model as a file you can open again later with **Open…**. **Export → SVG** or **PNG** gives you an image for documents and slides. **Copy link** puts a link to the whole map on your clipboard — opening it loads the map straight away, no file needed.
 
 ## Read the diagram
 

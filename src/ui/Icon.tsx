@@ -16,6 +16,8 @@ const PATHS = {
   close: 'M18 6 6 18M6 6l12 12',
   chevron: 'M9 6l6 6-6 6',
   info: 'M12 21a9 9 0 1 0 0-18a9 9 0 0 0 0 18zM12 11v5M12 8h.01',
+  // Two overlapping chain links, a common "copy link" glyph.
+  link: 'M9 15l6-6M8 7l1-1a4 4 0 0 1 6 6l-1 1M16 17l-1 1a4 4 0 0 1-6-6l1-1',
 } as const
 
 // GitHub's mark (Octicon `mark-github`): a filled shape on a 16-unit grid, unlike the stroked line icons above.
