@@ -230,6 +230,10 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     if (linkHandled.current) return
     linkHandled.current = true
     const finishLink = () => history.replaceState(null, '', location.pathname)
+    const openLinkedText = async (text: string) => {
+      const parsed = await parseSource(text, 'This link')
+      if (parsed) swap(parsed, 'Opened from a link.')
+    }
     void (async () => {
       if (location.hash.startsWith(SHARE_HASH_PREFIX)) {
         const text = await decodeSharePayload(location.hash.slice(SHARE_HASH_PREFIX.length))
@@ -237,8 +241,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           show({ tone: 'error', message: 'This link could not be read.' })
           return finishLink()
         }
-        const parsed = await parseSource(text, 'This link')
-        if (parsed) swap(parsed, 'Opened from a link.')
+        await openLinkedText(text)
         return finishLink()
       }
       const src = new URLSearchParams(location.search).get('src')
@@ -256,8 +259,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         show({ tone: 'error', message: "This link's file could not be reached." })
         return finishLink()
       }
-      const parsed = await parseSource(text, 'This link')
-      if (parsed) swap(parsed, 'Opened from a link.')
+      await openLinkedText(text)
       finishLink()
     })()
     // Runs once on mount only — the effect reads location/hash as they are at load, not on every re-render.
