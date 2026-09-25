@@ -89,10 +89,11 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
   // only a real keyboard focus should. `pointerdown`/`pointerup` on the stage bracket every such press.
   const pointerPressed = useRef(false)
   const [size, setSize] = useState({ width: 0, height: 0 })
-  // 'auto' follows the diagram bounds, falling back to the current hexagon when the whole map doesn't fit at a
-  // usable scale (CANVAS-04); 'whole' always shows every hexagon, at whatever zoom that takes, never falling back
-  // (FIT-01); a concrete Viewport is whatever the author panned/zoomed to (ADR-05).
-  const [view, setView] = useState<'auto' | 'whole' | Viewport>('auto')
+  // 'auto' resolves by hexagon count (F-02, decision obs 7314): on 2+ hexagons it always shows the whole map, at
+  // whatever zoom that takes, never falling back to a partial view (FIT-01); on exactly one it fits that diagram,
+  // falling back to a usable scale the same way main always has (CANVAS-04). A concrete Viewport is whatever the
+  // author panned/zoomed to (ADR-05).
+  const [view, setView] = useState<'auto' | Viewport>('auto')
   const [dragging, setDragging] = useState(false)
   // The layer under the pointer (or keyboard focus); CSS does the highlighting from data-hover on the current [data-hex] group.
   const [hovered, setHovered] = useState<string | null>(null)
@@ -125,18 +126,21 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
 
   const inset = islandInset(size, panelOpen, legendOpen)
   const effectiveSize = { width: size.width || model.bounds.width, height: size.height || model.bounds.height }
-  const autoFit = fitMap(model.bounds, hexagonBounds(hex), effectiveSize.width, effectiveSize.height, inset)
   const wholeFit = fitTo(model.bounds, effectiveSize.width, effectiveSize.height, inset, 0)
-  const viewport = view === 'auto' ? autoFit : view === 'whole' ? wholeFit : view
+  const singleFit = fitMap(model.bounds, hexagonBounds(hex), effectiveSize.width, effectiveSize.height, inset)
+  // F-02: on 2+ hexagons 'auto' IS the whole-map fit — it never falls back to the current hexagon alone, even
+  // when that fit would read as illegible clutter (MIN_FIT_SCALE only still applies on a single-hexagon map).
+  const autoFit = model.hexagons.length >= 2 ? wholeFit : singleFit
+  const viewport = view === 'auto' ? autoFit : view
   const centre = { x: size.width / 2, y: size.height / 2 }
-  // The floor a manual zoom (wheel or button) can reach: never above MIN_SCALE, but never above what "Fit all"
-  // itself needs either, so a view already fitted to the whole map never snaps back in (FIT-01, ADR-05).
+  // The floor a manual zoom (wheel or button) can reach: never above MIN_SCALE, but never above what the whole-map
+  // fit itself needs either, so a view already fitted to the whole map never snaps back in (FIT-01, ADR-05).
   const zoomFloor = Math.min(MIN_SCALE, wholeFit.scale)
 
   // Grow/import/delete/undo never bump `revision` (ADR-02/ADR-05), so the fitKey reset above can't see them — this
   // tracks the hexagon id set instead. A `Viewport` the author set stays iff every added/removed box is still fully
-  // on screen (FIT-02.2); otherwise it — like 'auto', which already tracks live — falls back to 'auto' (FIT-02.3).
-  // 'whole' always stays: it recomputes against the new bounds every render, never frozen (FIT-02.1).
+  // on screen (FIT-02.2); otherwise it falls back to 'auto', which recomputes against the new bounds every render
+  // and — on 2+ hexagons — always follows the whole map, never frozen (FIT-02.1, F-02).
   const hexKey = model.hexagons.map((h) => h.id).join(',')
   const [seenHexagons, setSeenHexagons] = useState({ key: hexKey, hexagons: model.hexagons })
   if (hexKey !== seenHexagons.key) {
@@ -231,8 +235,8 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
    * hexagon's first tabbable element and announces the change (FOCUS-05). */
   const focusHexagon = (id: string, opts: { moveKeyboardFocus?: boolean } = {}) => {
     settleFocusSwitch()
-    // Only 'auto' needs freezing: its current-hexagon fallback (CANVAS-04) would otherwise jump to frame the NEW
-    // current hexagon. 'whole' never falls back (FIT-01) and a concrete Viewport is already frozen.
+    // Only 'auto' needs freezing: on a single-hexagon map its current-hexagon fallback (CANVAS-04) would otherwise
+    // jump to frame the NEW current hexagon. A concrete Viewport is already frozen.
     if (view === 'auto') setView(viewport)
     flushSync(() => setFocus(id))
     if (opts.moveKeyboardFocus) {
@@ -498,9 +502,6 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
           <Icon name="plus" />
         </button>
         <button type="button" className="icon-button" aria-label="Fit diagram to screen" title="Fit to screen" onClick={() => setView('auto')}>
-          <Icon name="fit" />
-        </button>
-        <button type="button" className="icon-button" aria-label="Fit all" title="Fit all" onClick={() => setView('whole')}>
           <Icon name="fit" />
         </button>
         <button

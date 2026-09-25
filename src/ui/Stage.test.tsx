@@ -4,14 +4,14 @@ import { createRef, useState } from 'react'
 import { Stage } from './Stage'
 import { currentHexagon, hexagonBounds, layoutMap } from '../layout/map'
 import { legendFor } from '../layout/legend'
-import { EXAMPLE_DIAGRAM } from '../model/example'
+import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
 import { toMap } from '../model/hexa'
 import { contextName, diagramOf, freeSides, neighbour, SIDE_ORDER } from '../model/map'
 import { useMapStore } from '../model/store'
 import type { HexaMap } from '../model/schema'
 import { parseHexa } from '../model/hexa'
 import { hexGroup, twoHexMap } from '../test/fixtures'
-import { fitMap, fitTo, islandInset, MIN_SCALE, pinch, zoomAt } from './viewport'
+import { contains, fitMap, fitTo, islandInset, MIN_FIT_SCALE, MIN_SCALE, pinch, visibleRect, zoomAt } from './viewport'
 import type { Box, Point } from '../layout/layout'
 import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
 
@@ -289,9 +289,10 @@ describe('Stage panning', () => {
   })
 })
 
-// Outer-loop acceptance test for S-005 (FIT-01, FIT-02, ADR-05): written first and kept red through the inner
-// viewport.ts/Stage.tsx RED-GREEN cycles below; green once the tri-state view and "Fit all" are fully wired.
-describe('Stage "Fit all" (FIT-01, ADR-05)', () => {
+// Outer-loop acceptance test for the ONE fit control (FIT-01, FIT-02, ADR-05, F-01/F-02 decision obs 7314): written
+// first and kept red through the inner viewport.ts/Stage.tsx RED-GREEN cycles below; green once the single button
+// resolves 'auto' to the whole-map fit on a multi-hexagon map.
+describe('Stage — the single fit control fits the whole map on 2+ hexagons (FIT-01, ADR-05)', () => {
   /** Reconstructs the live viewport from the same DOM styles toScreen/backgroundPosition derive from (GRID=20,
    * matching Stage.tsx) — the same self-consistent-formula idiom App.test.tsx's own toScreenX helper uses. */
   const viewportOf = (container: HTMLElement) => {
@@ -308,12 +309,13 @@ describe('Stage "Fit all" (FIT-01, ADR-05)', () => {
   }
 
   // fitTo's own unit tests (viewport.test.ts) prove minScale: 0 goes below MIN_SCALE for a huge map — this test's
-  // job is the WIRING: "Fit all" drives that exact formula, and the result keeps following the map as it grows.
+  // job is the WIRING: the single "Fit diagram to screen" button drives that exact formula on a multi-hexagon map,
+  // and the result keeps following the map as it grows.
   it('fits the whole map via fitTo(mapBounds, …, minScale: 0), and keeps following the map as it grows', () => {
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<Harness />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Fit all' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Fit diagram to screen' }))
 
     const inset = islandInset({ width: 0, height: 0 }, false, false)
     const model1 = layoutMap(useMapStore.getState().map)
@@ -328,13 +330,89 @@ describe('Stage "Fit all" (FIT-01, ADR-05)', () => {
     const expected2 = fitTo(model2.bounds, model2.bounds.width, model2.bounds.height, inset, 0)
     expectViewport(container, expected2)
   })
+
+  // FIT-01.2: a very large map still fits fully, never falling back to a partial view — the button's job on the
+  // 8-hexagon honeycomb fixture, with a real screen size so wholeFit.scale genuinely lands below MIN_FIT_SCALE.
+  it('shows every hexagon of the 8-hexagon honeycomb fixture, at a scale below MIN_FIT_SCALE', () => {
+    const original = globalThis.ResizeObserver
+    class FixedSizeResizeObserver {
+      cb: ResizeObserverCallback
+      constructor(cb: ResizeObserverCallback) {
+        this.cb = cb
+      }
+      observe() {
+        this.cb([{ contentRect: { width: 800, height: 600 } } as ResizeObserverEntry], this as unknown as ResizeObserver)
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = FixedSizeResizeObserver as unknown as typeof ResizeObserver
+    try {
+      const result = parseHexa(v2Honeycomb)
+      if (!result.ok) throw new Error('fixture failed to parse')
+      useMapStore.getState().replace(result.map)
+      const { container } = render(<Harness />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Fit diagram to screen' }))
+
+      const inset = islandInset({ width: 800, height: 600 }, false, false)
+      const model = layoutMap(useMapStore.getState().map)
+      const viewport = viewportOf(container)
+      expect(viewport.scale).toBeLessThan(MIN_FIT_SCALE)
+      const visible = visibleRect(viewport, { width: 800, height: 600 }, inset)
+      for (const hexagon of model.hexagons) expect(contains(visible, hexagonBounds(hexagon))).toBe(true)
+    } finally {
+      globalThis.ResizeObserver = original
+    }
+  })
+
+  // Regression: a single-hexagon map is untouched by the multi-hexagon whole-map fit — the button still fits the
+  // diagram with the MIN_FIT_SCALE fallback's own MIN_SCALE clamp, exactly as on main. A large single STRESS
+  // hexagon on a small stubbed screen forces the natural scale below MIN_SCALE (0.1), the only value at which
+  // fitMap's own floor and the whole-map fit's minScale:0 floor genuinely diverge for a one-hexagon map.
+  it('still fits a single-hexagon map with the MIN_FIT_SCALE fallback, not the whole-map fit', () => {
+    const original = globalThis.ResizeObserver
+    class FixedSizeResizeObserver {
+      cb: ResizeObserverCallback
+      constructor(cb: ResizeObserverCallback) {
+        this.cb = cb
+      }
+      observe() {
+        this.cb([{ contentRect: { width: 300, height: 300 } } as ResizeObserverEntry], this as unknown as ResizeObserver)
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = FixedSizeResizeObserver as unknown as typeof ResizeObserver
+    try {
+      useMapStore.getState().replace(toMap(STRESS_DIAGRAM))
+      const { container } = render(<Harness />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Fit diagram to screen' }))
+
+      const inset = islandInset({ width: 300, height: 300 }, false, false)
+      const model = layoutMap(useMapStore.getState().map)
+      expect(model.hexagons).toHaveLength(1)
+      const singleFit = fitMap(model.bounds, hexagonBounds(currentHexagon(model, useMapStore.getState().focus)), 300, 300, inset)
+      const wholeFit = fitTo(model.bounds, 300, 300, inset, 0)
+      // The premise: on a real screen this small against STRESS content, the two floors genuinely differ.
+      expect(singleFit.scale).not.toBeCloseTo(wholeFit.scale, 3)
+      expectViewport(container, singleFit)
+    } finally {
+      globalThis.ResizeObserver = original
+    }
+  })
 })
 
 describe('Stage — auto-fit after a map-shape change (FIT-02, ADR-05)', () => {
   const inset = islandInset({ width: 0, height: 0 }, false, false)
+  // 'auto' resolves by hexagon count (F-02, decision obs 7314): 1 -> the current-diagram fit (MIN_FIT_SCALE
+  // fallback, unchanged from main); >=2 -> the whole-map fit, with no fallback, so it never shrinks to one hexagon.
   const autoFitOf = () => {
     const model = layoutMap(useMapStore.getState().map)
-    return fitMap(model.bounds, hexagonBounds(currentHexagon(model, useMapStore.getState().focus)), model.bounds.width, model.bounds.height, inset)
+    return model.hexagons.length >= 2
+      ? fitTo(model.bounds, model.bounds.width, model.bounds.height, inset, 0)
+      : fitMap(model.bounds, hexagonBounds(currentHexagon(model, useMapStore.getState().focus)), model.bounds.width, model.bounds.height, inset)
   }
   const viewportOf = (container: HTMLElement) => {
     const style = (container.querySelector('main') as HTMLElement).style
@@ -409,10 +487,10 @@ describe('Stage — auto-fit after a map-shape change (FIT-02, ADR-05)', () => {
     expect(after.scale).toBeCloseTo(expected.scale, 6)
   })
 
-  it('a "whole" fit is unaffected by any of this — it keeps recomputing against the live bounds every render', () => {
+  it('the whole-map fit is unaffected by any of this on a multi-hexagon map — it keeps recomputing against the live bounds every render (FIT-02.1)', () => {
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<Harness />)
-    fireEvent.click(screen.getByRole('button', { name: 'Fit all' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Fit diagram to screen' }))
 
     act(() => useMapStore.getState().addHexagon('h1', { context: 'same' }))
 
@@ -440,7 +518,7 @@ describe('Stage — auto-fit after a map-shape change (FIT-02, ADR-05)', () => {
   })
 })
 
-describe('Stage — wheel floor follows "Fit all", not a hardcoded MIN_SCALE (FIT-01, ADR-05)', () => {
+describe('Stage — wheel floor follows the whole-map fit, not a hardcoded MIN_SCALE (FIT-01, ADR-05)', () => {
   const viewportOf = (container: HTMLElement) => {
     const style = (container.querySelector('main') as HTMLElement).style
     const scale = parseFloat(style.backgroundSize) / 20
@@ -448,10 +526,10 @@ describe('Stage — wheel floor follows "Fit all", not a hardcoded MIN_SCALE (FI
     return { x: -px / scale, y: -py / scale, scale }
   }
 
-  it('wheeling out from a "Fit all" view keeps zooming by min(MIN_SCALE, wholeFit.scale), never snapping the scale back up to the plain MIN_SCALE floor', () => {
+  it('wheeling out from a fitted view keeps zooming by min(MIN_SCALE, wholeFit.scale), never snapping the scale back up to the plain MIN_SCALE floor', () => {
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<Harness />)
-    fireEvent.click(screen.getByRole('button', { name: 'Fit all' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Fit diagram to screen' }))
     const fitted = viewportOf(container)
     const inset = islandInset({ width: 0, height: 0 }, false, false)
     const model = layoutMap(useMapStore.getState().map)
@@ -464,7 +542,7 @@ describe('Stage — wheel floor follows "Fit all", not a hardcoded MIN_SCALE (FI
     const expected = zoomAt(fitted, Math.exp(-4000 * 0.0015), { x: 0, y: 0 }, zoomFloor)
 
     expect(zoomedOut.scale).toBeCloseTo(expected.scale, 6)
-    // Never above the fitted "whole" scale itself — a hardcoded MIN_SCALE floor above wholeFit.scale would have
+    // Never above the fitted whole-map scale itself — a hardcoded MIN_SCALE floor above wholeFit.scale would have
     // clamped the zoom-out short of the view it was already fitted to.
     expect(zoomedOut.scale).toBeLessThanOrEqual(fitted.scale + 1e-9)
   })
@@ -472,7 +550,10 @@ describe('Stage — wheel floor follows "Fit all", not a hardcoded MIN_SCALE (FI
 
 // Step 0 hardening for S-006 (verify-in-loop-6, obs 7294): closes the three non-blocking findings the pinch
 // integration commit left untested — none of them are architectural, spec, or sensitive, all additive coverage.
-describe('Step 0 hardening — pinch, wheel floor, and auto/whole divergence (obs 7294)', () => {
+// F-02 (decision obs 7314) then changed the fallback target itself: 'auto' now resolves to the whole-map fit on
+// a multi-hexagon map, so it never falls back to the current hexagon alone, even when it never fits above
+// MIN_FIT_SCALE.
+describe('Step 0 hardening — pinch, wheel floor, and the whole-map auto fit (obs 7294, F-02)', () => {
   const viewportOf = (container: HTMLElement) => {
     const style = (container.querySelector('main') as HTMLElement).style
     const scale = parseFloat(style.backgroundSize) / 20
@@ -546,7 +627,7 @@ describe('Step 0 hardening — pinch, wheel floor, and auto/whole divergence (ob
     try {
       useMapStore.getState().replace(farHexagonMap())
       const { container } = render(<Harness />)
-      fireEvent.click(screen.getByRole('button', { name: 'Fit all' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Fit diagram to screen' }))
       const fitted = viewportOf(container)
       const inset = islandInset({ width: 800, height: 600 }, false, false)
       const model = layoutMap(useMapStore.getState().map)
@@ -568,33 +649,58 @@ describe('Step 0 hardening — pinch, wheel floor, and auto/whole divergence (ob
     }
   })
 
-  it('falls back to the AUTO target, not "whole", when a change moves an existing manual view out of sight on a map where the two targets genuinely diverge', () => {
+  it('falls back to the whole-map fit, not the old current-hexagon fallback, when a change moves an existing manual view out of sight on a map where the two targets genuinely diverge (F-02)', () => {
     const restore = stubFixedSize(800, 600)
     try {
       useMapStore.getState().replace(farHexagonMap())
       const { container } = render(<Harness />)
       const inset = islandInset({ width: 800, height: 600 }, false, false)
       const modelBefore = layoutMap(useMapStore.getState().map)
-      // The premise: fitMap's own fallback branch fires for this map (whole map fit would read as illegible clutter).
+      // The premise: the OLD current-hexagon fallback threshold (MIN_FIT_SCALE) would have fired for this map —
+      // F-02 says 'auto' follows the whole map anyway on 2+ hexagons, never falling back to it.
       expect(fitTo(modelBefore.bounds, 800, 600, inset, 0).scale).toBeLessThan(0.4)
 
       pan(container, 100000, 100000) // a manual viewport now looks far away from every hexagon
 
       act(() => {
-        // Grows near h1 (adjacent, in view once the fallback lands); the far h2 stays on the map, so "whole" and
-        // "auto" still diverge dramatically AFTER the change too — not just at the moment of the decision.
+        // Grows near h1 (adjacent, in view once the fallback lands); the far h2 stays on the map, so the whole-map
+        // fit and the old current-hexagon fallback still diverge dramatically AFTER the change too.
         useMapStore.getState().addHexagon('h1', { context: 'same' })
       })
 
       const modelAfter = layoutMap(useMapStore.getState().map)
       const wholeAfter = fitTo(modelAfter.bounds, 800, 600, inset, 0)
-      const autoAfter = fitMap(modelAfter.bounds, hexagonBounds(currentHexagon(modelAfter, useMapStore.getState().focus)), 800, 600, inset)
-      expect(autoAfter.scale).not.toBeCloseTo(wholeAfter.scale, 3)
+      const oldCurrentHexagonFallback = fitMap(modelAfter.bounds, hexagonBounds(currentHexagon(modelAfter, useMapStore.getState().focus)), 800, 600, inset)
+      expect(oldCurrentHexagonFallback.scale).not.toBeCloseTo(wholeAfter.scale, 3)
 
       const after = viewportOf(container)
-      expect(after.scale).toBeCloseTo(autoAfter.scale, 6)
-      expect(after.x).toBeCloseTo(autoAfter.x, 6)
-      expect(after.y).toBeCloseTo(autoAfter.y, 6)
+      expect(after.scale).toBeCloseTo(wholeAfter.scale, 6)
+      expect(after.x).toBeCloseTo(wholeAfter.x, 6)
+      expect(after.y).toBeCloseTo(wholeAfter.y, 6)
+    } finally {
+      restore()
+    }
+  })
+
+  it('with no fit button ever pressed, "auto" keeps every hexagon inside the visible rect after growing a multi-hexagon map whose whole-map fit is below MIN_FIT_SCALE (F-02)', () => {
+    const restore = stubFixedSize(800, 600)
+    try {
+      useMapStore.getState().replace(farHexagonMap())
+      const { container } = render(<Harness />)
+      const inset = islandInset({ width: 800, height: 600 }, false, false)
+      const modelBefore = layoutMap(useMapStore.getState().map)
+      // Same premise as above, but this time the view is NEVER touched — the default 'auto' state must already
+      // resolve to the whole-map fit on its own, with no button click and no prior manual viewport involved.
+      expect(fitTo(modelBefore.bounds, 800, 600, inset, 0).scale).toBeLessThan(MIN_FIT_SCALE)
+
+      act(() => {
+        useMapStore.getState().addHexagon('h1', { context: 'same' })
+      })
+
+      const modelAfter = layoutMap(useMapStore.getState().map)
+      const after = viewportOf(container)
+      const visible = visibleRect(after, { width: 800, height: 600 }, inset)
+      for (const hexagon of modelAfter.hexagons) expect(contains(visible, hexagonBounds(hexagon))).toBe(true)
     } finally {
       restore()
     }
