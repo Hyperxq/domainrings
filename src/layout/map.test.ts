@@ -1,5 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { cellCentre, hexagonBounds, layoutMap, MAP_GAP } from './map'
+import { arcLengthMidpoint, routeLink } from './links'
 import { layoutDiagram, type Box, type LayoutMode, type LayoutOptions } from './layout'
 import { toMap } from '../model/hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM } from '../model/example'
@@ -94,21 +95,40 @@ describe('layoutMap — multi-hexagon placement (CANVAS-01, CANVAS-02)', () => {
     expect(boxB.left - boxA.right).toBeGreaterThanOrEqual(MAP_GAP)
   })
 
-  it('draws the link as one segment between the from port and the to port', () => {
+  it('draws the link via routeLink, crossing through the gap between the from and to hexagon boxes (ADR-01)', () => {
     const map = twoHexagonMap()
     const result = layoutMap(map)
     const [a, b] = result.hexagons
     const outNode = a.model.nodes.find((n) => n.kind === 'port' && n.ref === 'p-out')!
     const inNode = b.model.nodes.find((n) => n.kind === 'port' && n.ref === 'p-in')!
-    expect(result.links).toEqual([
-      {
-        id: 'l1',
-        points: [
-          { x: outNode.x + a.centre.x, y: outNode.y + a.centre.y },
-          { x: inNode.x + b.centre.x, y: inNode.y + b.centre.y },
-        ],
-      },
-    ])
+    const fromPoint = { x: outNode.x + a.centre.x, y: outNode.y + a.centre.y }
+    const toPoint = { x: inNode.x + b.centre.x, y: inNode.y + b.centre.y }
+
+    const expected = routeLink({ point: fromPoint, box: hexagonBounds(a) }, { point: toPoint, box: hexagonBounds(b) })
+
+    expect(result.links).toEqual([{ id: 'l1', points: expected }])
+    expect(result.links[0].points[0]).toEqual(fromPoint)
+    expect(result.links[0].points.at(-1)).toEqual(toPoint)
+  })
+
+  it('omits pattern/labelAt when the link’s two hexagons share a context', () => {
+    const result = layoutMap(twoHexagonMap())
+    expect(result.links[0].pattern).toBeUndefined()
+    expect(result.links[0].labelAt).toBeUndefined()
+  })
+
+  it('carries pattern + an arc-length-midpoint labelAt only when the link’s two hexagons are in different contexts', () => {
+    const map: HexaMap = {
+      ...twoHexagonMap(),
+      contexts: [{ id: 'c1' }, { id: 'c2' }],
+      hexagons: twoHexagonMap().hexagons.map((h, i) => (i === 1 ? { ...h, contextId: 'c2' } : h)),
+      links: [{ id: 'l1', from: { hexagonId: 'h1', portId: 'p-out' }, to: { hexagonId: 'h2', portId: 'p-in' }, pattern: 'acl' }],
+    }
+
+    const result = layoutMap(map)
+
+    expect(result.links[0].pattern).toBe('acl')
+    expect(result.links[0].labelAt).toStrictEqual(arcLengthMidpoint(result.links[0].points))
   })
 })
 

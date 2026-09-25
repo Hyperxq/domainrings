@@ -2,6 +2,7 @@ import { contextName, diagramOf, UNTITLED_HEXAGON } from '../model/map'
 import type { HexaMap, Link } from '../model/schema'
 import { contextRegions } from './hull'
 import { layoutDiagram, type Box, type LayoutModel, type LayoutOptions, type LayoutText, type Point } from './layout'
+import { arcLengthMidpoint, routeLink } from './links'
 import { CHIP_LABEL, measure } from './text'
 
 export interface MapHexagonLayout {
@@ -15,7 +16,12 @@ export interface MapHexagonLayout {
 
 export interface MapLinkLayout {
   id: string
-  points: [Point, Point]
+  /** A routed polyline (ADR-01), not a straight segment — endpoints are still `points[0]` / `points.at(-1)`. */
+  points: Point[]
+  /** The link's DDD relationship tag, present only when its two hexagons are in different contexts (REQ-LNK-06.2). */
+  pattern?: Link['pattern']
+  /** The pattern label's anchor — `arcLengthMidpoint(points)` — present iff `pattern` is. */
+  labelAt?: Point
 }
 
 export interface MapContextLayout {
@@ -85,11 +91,17 @@ export const hexagonTitle = (model: LayoutModel): string => model.texts.find((t)
 export const currentHexagon = (layout: MapLayout, hexId: string): MapHexagonLayout =>
   layout.hexagons.find((h) => h.id === hexId) ?? layout.hexagons[0]
 
-/** The centre of a port's `kind:'port'` layout node, shifted from hexagon-local space onto the map. */
-function portPoint(model: LayoutModel, portId: string, centre: Point): Point {
+/** A port's `kind:'port'` layout node. */
+function portNode(model: LayoutModel, portId: string) {
   const node = model.nodes.find((n) => n.kind === 'port' && n.ref === portId)
   if (!node) throw new Error(`Port "${portId}" has no layout node`)
-  return { x: node.x + centre.x, y: node.y + centre.y }
+  return node
+}
+
+/** A port's route end: its map-space point and its own hexagon's bounding box. */
+function routeEnd(hexagon: MapHexagonLayout, portId: string) {
+  const node = portNode(hexagon.model, portId)
+  return { point: { x: node.x + hexagon.centre.x, y: node.y + hexagon.centre.y }, box: hexagonBounds(hexagon) }
 }
 
 /** A hexagon's position on the affine pointy-top lattice: {0,0} sits at the origin, `e` steps by `pitch.x`,
@@ -122,15 +134,16 @@ export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout 
     centre: cellCentre(hexagon.cell, pitch),
     model,
   }))
-  const centreOf = new Map(hexagons.map((h) => [h.id, h.centre]))
-  const modelOf = new Map(hexagons.map((h) => [h.id, h.model]))
-  const links: MapLinkLayout[] = map.links.map((link: Link) => ({
-    id: link.id,
-    points: [
-      portPoint(modelOf.get(link.from.hexagonId)!, link.from.portId, centreOf.get(link.from.hexagonId)!),
-      portPoint(modelOf.get(link.to.hexagonId)!, link.to.portId, centreOf.get(link.to.hexagonId)!),
-    ],
-  }))
+  const hexagonOf = new Map(hexagons.map((h) => [h.id, h]))
+  const links: MapLinkLayout[] = map.links.map((link: Link) => {
+    const fromHexagon = hexagonOf.get(link.from.hexagonId)!
+    const toHexagon = hexagonOf.get(link.to.hexagonId)!
+    const points = routeLink(routeEnd(fromHexagon, link.from.portId), routeEnd(toHexagon, link.to.portId))
+    // Pattern eligibility mirrors checkMap's own rule (LinkSchema refine): only a link crossing contexts may
+    // carry a pattern — no hull dependency, just the two hexagons' own contextId.
+    const pattern = fromHexagon.contextId !== toHexagon.contextId ? link.pattern : undefined
+    return { id: link.id, points, ...(pattern ? { pattern, labelAt: arcLengthMidpoint(points) } : {}) }
+  })
   let bounds = unionBox(hexagons.map(hexagonBounds))
   let title: LayoutText | undefined
   if (map.hexagons.length > 1) {
