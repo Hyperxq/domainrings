@@ -1,7 +1,7 @@
 import { create } from 'zustand'
-import { diagramOf, freeCell, freeSides, neighbour, placeHexagon, putDiagram, pruneLinks, removeHexagon as removeHexagonFromMap, UNTITLED_HEXAGON, type Cell, type Destination } from './map'
+import { addLink as addLinkToMap, diagramOf, freeCell, freeSides, neighbour, placeHexagon, putDiagram, pruneLinks, removeHexagon as removeHexagonFromMap, UNTITLED_HEXAGON, type Cell, type Destination } from './map'
 import { browserStorage, loadMap } from './persistence'
-import { REFERENCES, type CollectionKey, type Diagram, type HexaMap, type Hexagon, type Link, type Linkable, type Wall } from './schema'
+import { MapSchema, REFERENCES, type CollectionKey, type Diagram, type HexaMap, type Hexagon, type Link, type LinkEnd, type Linkable, type Wall } from './schema'
 
 export type Item<K extends CollectionKey> = Diagram[K][number]
 type HexagonMeta = Partial<Pick<Hexagon, 'title' | 'subtitle' | 'composition' | 'layers'>>
@@ -50,6 +50,11 @@ interface MapState {
    * string, so a cleared context falls back to its "Context {n}" placeholder (NAME-02.3). Every other context is
    * untouched; never bumps `revision`. */
   setContextName: (contextId: string, name: string) => void
+  /** Creates a link from `from` to `to` (ADR-02: validate-by-reparse) — the candidate map is built then gated by
+   * MapSchema.safeParse, reusing checkMap's own driven/driving, duplicate-pair and pattern-eligibility rules
+   * instead of re-implementing them. Undefined ⇒ no-op, the map already failed schema and is left unchanged.
+   * Never bumps `revision`. */
+  addLink: (from: LinkEnd, to: LinkEnd) => string | undefined
 }
 
 // Computed keys widen to an index signature; this is the one place the collection type is re-asserted.
@@ -134,5 +139,11 @@ export const useMapStore = create<MapState>()((set, get) => {
           contexts: s.map.contexts.map((c) => (c.id !== contextId ? c : name ? { ...c, name } : { id: c.id })),
         },
       })),
+    addLink: (from, to) => {
+      const { map: next, linkId } = addLinkToMap(get().map, from, to)
+      if (!MapSchema.safeParse(next).success) return undefined
+      set({ map: next })
+      return linkId
+    },
   }
 })

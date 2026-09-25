@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useMapStore } from './store'
 import { parseHexa, toHexa, toMap } from './hexa'
 import { diagramOf, freeCell, freeSides, neighbour, SIDE_ORDER, UNTITLED_HEXAGON } from './map'
-import { MapSchema, type HexaMap, type Link } from './schema'
+import { MapSchema, type HexaMap, type Link, type LinkEnd } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
 import { linkedTwoHexMap, twoHexMap } from '../test/fixtures'
 
@@ -419,6 +419,42 @@ describe('map store', () => {
       state().replace(twoHexMap())
       state().removeHexagon('h1')
       expect(MapSchema.safeParse(state().map).success).toBe(true)
+    })
+  })
+
+  describe('addLink (ADR-02)', () => {
+    it('creates a link for a valid driven/driving pair, returns its id, parses MapSchema, and leaves the revision untouched', () => {
+      state().replace(twoHexMap())
+      const revisionBefore = state().revision
+      const from: LinkEnd = { hexagonId: 'h1', portId: 'p-repo' }
+      const to: LinkEnd = { hexagonId: 'h2', portId: 'p-submit' }
+
+      const linkId = state().addLink(from, to)
+
+      expect(linkId).toBeDefined()
+      expect(state().map.links).toEqual([{ id: linkId, from, to }])
+      expect(MapSchema.safeParse(state().map).success).toBe(true)
+      expect(state().revision).toBe(revisionBefore)
+    })
+
+    it('refuses a pair that is not one driven end and one driving end, leaving the map untouched (REQ-LNK-01.3)', () => {
+      state().replace(twoHexMap())
+      const map = state().map
+
+      const linkId = state().addLink({ hexagonId: 'h1', portId: 'p-repo' }, { hexagonId: 'h2', portId: 'p-repo' })
+
+      expect(linkId).toBeUndefined()
+      expect(state().map).toBe(map)
+    })
+
+    it('refuses a link joining a hexagon to itself, leaving the map untouched', () => {
+      state().replace(twoHexMap())
+      const map = state().map
+
+      const linkId = state().addLink({ hexagonId: 'h1', portId: 'p-repo' }, { hexagonId: 'h1', portId: 'p-submit' })
+
+      expect(linkId).toBeUndefined()
+      expect(state().map).toBe(map)
     })
   })
 
