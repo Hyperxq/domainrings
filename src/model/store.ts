@@ -127,12 +127,14 @@ export const useMapStore = create<MapState>()((set, get) => {
       set({ map: next, focus: get().focus === hexId ? next.hexagons[0].id : get().focus })
       return pruned
     },
-    setContextName: (contextId, name) =>
-      set((s) => ({
+    setContextName: (contextId, name) => {
+      const trimmed = name.trim()
+      return set((s) => ({
         map: {
           ...s.map,
-          contexts: s.map.contexts.map((c) => (c.id !== contextId ? c : name ? { ...c, name } : { id: c.id })),
+          contexts: s.map.contexts.map((c) => (c.id !== contextId ? c : trimmed ? { ...c, name: trimmed } : { id: c.id })),
         },
-      })),
+      }))
+    },
   }
 })

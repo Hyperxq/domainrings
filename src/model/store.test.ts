@@ -444,6 +444,19 @@ describe('map store', () => {
       expect('name' in context).toBe(false)
     })
 
+    it('trims surrounding whitespace off a name (NAME-02.3)', () => {
+      const contextId = state().map.contexts[0].id
+      state().setContextName(contextId, '  Billing ')
+      expect(state().map.contexts.find((c) => c.id === contextId)).toEqual({ id: contextId, name: 'Billing' })
+    })
+
+    it('a whitespace-only name clears the name key entirely, like an empty string does (NAME-02.3)', () => {
+      const contextId = state().map.contexts[0].id
+      state().setContextName(contextId, 'Billing')
+      state().setContextName(contextId, '   ')
+      expect(state().map.contexts.find((c) => c.id === contextId)).toEqual({ id: contextId })
+    })
+
     it('leaves every other context untouched and never bumps the revision', () => {
       const hexId = state().focus
       state().addHexagon(hexId, { side: 'e', context: 'new' })
