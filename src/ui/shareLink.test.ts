@@ -1,16 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CompressionStream, DecompressionStream } from 'node:stream/web'
 import { parseHexa, toHexa, toMap } from '../model/hexa'
 import { EXAMPLE_DIAGRAM } from '../model/example'
 import { decodeSharePayload, encodeSharePayload, isOversizedShareLink, SHARE_LINK_MAX_CHARS } from './shareLink'
+import { installCompressionStreamPolyfill } from '../test/fixtures'
 import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
 
-// jsdom does not expose CompressionStream/DecompressionStream (explore's platform probe) — Node's real
-// implementation is available via node:stream/web and needs no hand-rolled fake compression.
-beforeEach(() => {
-  vi.stubGlobal('CompressionStream', CompressionStream)
-  vi.stubGlobal('DecompressionStream', DecompressionStream)
-})
+beforeEach(installCompressionStreamPolyfill)
 afterEach(() => vi.unstubAllGlobals())
 
 describe('encodeSharePayload / decodeSharePayload round trip (REQ-07)', () => {

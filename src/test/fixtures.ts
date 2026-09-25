@@ -1,3 +1,5 @@
+import { vi } from 'vitest'
+import { CompressionStream, DecompressionStream } from 'node:stream/web'
 import { toMap } from '../model/hexa'
 import { diagramOf } from '../model/map'
 import { EXAMPLE_DIAGRAM } from '../model/example'
@@ -45,4 +47,11 @@ export function installDialogPolyfill() {
   HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
     this.removeAttribute('open')
   }
+}
+
+/** jsdom does not expose CompressionStream/DecompressionStream (explore's platform probe) — Node's real
+ * implementation is available via node:stream/web and needs no hand-rolled fake compression. */
+export function installCompressionStreamPolyfill() {
+  vi.stubGlobal('CompressionStream', CompressionStream)
+  vi.stubGlobal('DecompressionStream', DecompressionStream)
 }

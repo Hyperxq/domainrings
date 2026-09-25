@@ -1,7 +1,6 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { CompressionStream, DecompressionStream } from 'node:stream/web'
 import { StrictMode } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { App } from './App'
@@ -14,7 +13,7 @@ import type { HexaMap } from './model/schema'
 import { useMapStore } from './model/store'
 import { fileSlug } from './ui/exporters'
 import { decodeSharePayload, encodeSharePayload, SHARE_HASH_PREFIX } from './ui/shareLink'
-import { card, currentDiagram, hexGroup, installDialogPolyfill, linkedTwoHexMap, twoHexMap } from './test/fixtures'
+import { card, currentDiagram, hexGroup, installCompressionStreamPolyfill, installDialogPolyfill, linkedTwoHexMap, twoHexMap } from './test/fixtures'
 import v1Minimal from './model/fixtures/v1-minimal.hexa?raw'
 import v1Maximal from './model/fixtures/v1-maximal.hexa?raw'
 import v2EmptyContext from './model/fixtures/v2-empty-context.hexa?raw'
@@ -1744,10 +1743,7 @@ describe('journey', () => {
 })
 
 describe('open a map from a self-contained share link (REQ-01, REQ-03, REQ-04)', () => {
-  beforeEach(() => {
-    vi.stubGlobal('CompressionStream', CompressionStream)
-    vi.stubGlobal('DecompressionStream', DecompressionStream)
-  })
+  beforeEach(installCompressionStreamPolyfill)
   afterEach(() => {
     vi.unstubAllGlobals()
     history.replaceState(null, '', '/')
@@ -1821,10 +1817,7 @@ describe('copy the current map as a link (REQ-05, REQ-06)', () => {
    * over the 8,000-char budget without an implausibly large map. */
   const randomPayload = (bytes: number) => btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(bytes))))
 
-  beforeEach(() => {
-    vi.stubGlobal('CompressionStream', CompressionStream)
-    vi.stubGlobal('DecompressionStream', DecompressionStream)
-  })
+  beforeEach(installCompressionStreamPolyfill)
   afterEach(() => vi.unstubAllGlobals())
 
   it('copies a link to the whole map regardless of the selected export scope, and shows a confirmation (REQ-05.1)', async () => {
@@ -1863,10 +1856,7 @@ describe('copy the current map as a link (REQ-05, REQ-06)', () => {
 })
 
 describe('link failures leave the map untouched, with a matching notice and a cleared address (REQ-02, REQ-03.2)', () => {
-  beforeEach(() => {
-    vi.stubGlobal('CompressionStream', CompressionStream)
-    vi.stubGlobal('DecompressionStream', DecompressionStream)
-  })
+  beforeEach(installCompressionStreamPolyfill)
   afterEach(() => {
     vi.unstubAllGlobals()
     history.replaceState(null, '', '/')
@@ -1940,10 +1930,7 @@ describe('link failures leave the map untouched, with a matching notice and a cl
 })
 
 describe('an embedded link wins over a remote address when both are present (REQ-04)', () => {
-  beforeEach(() => {
-    vi.stubGlobal('CompressionStream', CompressionStream)
-    vi.stubGlobal('DecompressionStream', DecompressionStream)
-  })
+  beforeEach(installCompressionStreamPolyfill)
   afterEach(() => {
     vi.unstubAllGlobals()
     history.replaceState(null, '', '/')

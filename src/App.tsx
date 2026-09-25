@@ -218,8 +218,10 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     return undefined
   }
 
+  const parseFile = async (file: File): Promise<HexaMap | undefined> => parseSource(await file.text(), file.name)
+
   const importFile = async (file: File) => {
-    const parsed = await parseSource(await file.text(), file.name)
+    const parsed = await parseFile(file)
     if (parsed) swap(parsed, `Opened ${file.name}.`)
   }
 
@@ -289,7 +291,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // "Add hexagon from file…" (IMP-01..07): refuses a multi-hexagon file before any conversion question (IMP-04.2),
   // then either asks to convert (map.kind isn't hexagonal) or imports straight away.
   const handleAddFromFile = async (file: File, context: Destination, opener: HTMLElement | null) => {
-    const parsed = await parseSource(await file.text(), file.name)
+    const parsed = await parseFile(file)
     if (!parsed) return
     if (parsed.hexagons.length > 1) {
       show({ tone: 'error', message: `This file has ${parsed.hexagons.length} hexagons. Add hexagon from file… takes one; use Open to replace the map.` })
