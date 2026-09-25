@@ -9,6 +9,9 @@ import { autosave, MAP_KEY } from './model/persistence'
 import { useMapStore } from './model/store'
 import { fileSlug } from './ui/exporters'
 import { card, currentDiagram, hexGroup, linkedTwoHexMap, twoHexMap } from './test/fixtures'
+import v1Minimal from './model/fixtures/v1-minimal.hexa?raw'
+import v1Maximal from './model/fixtures/v1-maximal.hexa?raw'
+import v2EmptyContext from './model/fixtures/v2-empty-context.hexa?raw'
 
 const scrollIntoView = vi.fn()
 
@@ -1515,5 +1518,138 @@ describe('no autosave while the conversion dialog is open (CONV-02.3)', () => {
     act(() => vi.advanceTimersByTime(1000))
 
     expect(storage.setItem).not.toHaveBeenCalled()
+  })
+})
+
+// --- S-006.9 / S-006.10: the two north-star journeys, starting from New, UI only -------------------------------
+
+describe('journey', () => {
+  const openEditor = () => fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+  const openImportMenu = () => fireEvent.click(screen.getByRole('button', { name: 'Add hexagon from file…' }))
+  const pickFile = async (text: string, name: string) => {
+    const file = new File([text], name, { type: 'application/json' })
+    fireEvent.change(screen.getByLabelText('Add hexagon from a .hexa file'), { target: { files: [file] } })
+    await act(async () => {
+      await Promise.resolve()
+    })
+  }
+  /** Confirms the conversion dialog if one is showing — needed only when the map isn't already hexagonal at the
+   * point of the import; a no-op otherwise, so the same helper works whichever kind the map starts as. */
+  const confirmConversionIfAsked = () => {
+    const dialog = screen.queryByRole('dialog')
+    if (dialog) fireEvent.click(screen.getByRole('button', { name: 'Convert and import' }))
+  }
+  /** Save via the toolbar's ".hexa" export, capturing the downloaded text exactly as the "Two slices" export test
+   * does (App.test.tsx's own precedent, `createSpy`/`captured` pattern) — the design's own suggested approach. */
+  const saveHexa = async (): Promise<string> => {
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save as .hexa file' }))
+    const text = await captured!.text()
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+    return text
+  }
+  const reopen = async (text: string) => {
+    const file = new File([text], 'reopened.hexa', { type: 'application/json' })
+    fireEvent.change(screen.getByLabelText('Open a .hexa file, replacing the map'), { target: { files: [file] } })
+    await act(async () => {
+      await Promise.resolve()
+    })
+  }
+
+  it('from New, three slice files land in two bounded contexts and the saved map reopens whole (north-star criterion 3 + 10, IMP-01.4, CB-04.3)', async () => {
+    render(<App />)
+    openEditor()
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    expect(useMapStore.getState().map.hexagons).toHaveLength(1)
+
+    // v1-minimal and v1-maximal both join the map's OWN starting context — "2 of them end up in ONE shared
+    // context" (north-star criterion 3) — while v2-empty-context.hexa lands in a fresh, second context, giving
+    // exactly two bounded contexts with hexagons, however many hexagons each one ends up holding.
+    openImportMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
+    await pickFile(v1Minimal, 'v1-minimal.hexa')
+    confirmConversionIfAsked()
+    expect(useMapStore.getState().map.hexagons).toHaveLength(2)
+
+    openImportMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
+    await pickFile(v1Maximal, 'v1-maximal.hexa')
+    confirmConversionIfAsked()
+    expect(useMapStore.getState().map.hexagons).toHaveLength(3)
+    expect(useMapStore.getState().map.contexts).toHaveLength(1)
+
+    openImportMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
+    await pickFile(v2EmptyContext, 'legacy.hexa')
+    confirmConversionIfAsked()
+    expect(useMapStore.getState().map.hexagons).toHaveLength(4)
+    expect(useMapStore.getState().map.contexts).toHaveLength(2)
+
+    expect(document.querySelectorAll('[data-hull]')).toHaveLength(2)
+    expect(document.querySelectorAll('[data-chip]')).toHaveLength(2)
+
+    // Name one context (NAME-01).
+    const input = screen.getByLabelText('Name for Context 1')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Core' } })
+    fireEvent.blur(input)
+    expect(useMapStore.getState().map.contexts.find((c) => c.id === useMapStore.getState().map.hexagons[0].contextId)?.name).toBe('Core')
+
+    const beforeSave = useMapStore.getState().map
+    const savedText = await saveHexa()
+    const savedJson = JSON.parse(savedText)
+    expect(savedJson.contexts).toHaveLength(2)
+    expect(savedJson.contexts.some((c: { name?: string }) => c.name === 'Core')).toBe(true)
+    expect(savedJson.hexagons).toHaveLength(4)
+    expect(savedJson.hexagons.map((h: { title: string }) => h.title).sort()).toEqual(['Invoicing', 'Maximal', 'Minimal', 'Untitled architecture'])
+
+    await reopen(savedText)
+
+    expect(useMapStore.getState().map).toStrictEqual(beforeSave)
+  })
+
+  it('from New, the author grows two bounded contexts and four hexagons (north-star criterion 1)', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    const title = useMapStore.getState().map.hexagons[0].title || 'Untitled hexagon'
+
+    const growFirstFreeSide = () => fireEvent.click(screen.getAllByRole('button', { name: new RegExp(`^Add hexagon to the .* of ${title}$`) })[0])
+    const commitInlineName = () => fireEvent.keyDown(screen.getByRole('textbox', { name: 'Hexagon title' }), { key: 'Enter' })
+
+    // grow same x2: two more hexagons join the map's own starting context.
+    growFirstFreeSide()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
+    commitInlineName()
+    expect(useMapStore.getState().map.hexagons).toHaveLength(2)
+
+    const secondTitle = useMapStore.getState().map.hexagons[1].title || 'Untitled hexagon'
+    fireEvent.click(screen.getAllByRole('button', { name: new RegExp(`^Add hexagon to the .* of ${secondTitle}$`) })[0])
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
+    commitInlineName()
+    expect(useMapStore.getState().map.hexagons).toHaveLength(3)
+    expect(useMapStore.getState().map.contexts).toHaveLength(1)
+
+    // grow new x1: a fourth hexagon starts a second bounded context.
+    const thirdTitle = useMapStore.getState().map.hexagons[2].title || 'Untitled hexagon'
+    fireEvent.click(screen.getAllByRole('button', { name: new RegExp(`^Add hexagon to the .* of ${thirdTitle}$`) })[0])
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in a new bounded context' }))
+    commitInlineName()
+
+    expect(useMapStore.getState().map.hexagons).toHaveLength(4)
+    expect(useMapStore.getState().map.contexts).toHaveLength(2)
+    expect(document.querySelectorAll('[data-hull]')).toHaveLength(2)
+
+    const beforeSave = useMapStore.getState().map
+    const savedText = await saveHexa()
+
+    await reopen(savedText)
+
+    expect(useMapStore.getState().map).toStrictEqual(beforeSave)
   })
 })
