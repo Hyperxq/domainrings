@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { describe, expect, it } from 'vitest'
 import { parseHexa, toHexa, toMap } from './hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM, TWO_SLICES_MAP } from './example'
-import { freeCell, placeHexagon } from './map'
+import { diagramOf, freeCell, placeHexagon } from './map'
 import { HexaFileV2Schema, VERSION, type Diagram, type HexaMap } from './schema'
 import v1Minimal from './fixtures/v1-minimal.hexa?raw'
 import v1Maximal from './fixtures/v1-maximal.hexa?raw'
@@ -216,10 +216,7 @@ describe('the empty-context fixture is fully authored (S-006.6, IMP-02 regressio
     expect(result.ok).toBe(true)
     if (!result.ok) return
     const target = toMap(EXAMPLE_DIAGRAM)
-    const view = { version: 1 as const, kind: result.map.kind, ...(() => {
-      const { id: _id, contextId: _contextId, cell: _cell, ...fields } = result.map.hexagons[0]
-      return fields
-    })() }
+    const view = diagramOf(result.map, result.map.hexagons[0].id)
     const { map: imported } = placeHexagon(target, view, { cell: freeCell(target, target.hexagons[0].cell) })
     expect(imported.hexagons).toHaveLength(2)
     expect(imported.kind).toBe('hexagonal') // placeHexagon always yields hexagonal (ADR-02); the file's own onion kind is dropped

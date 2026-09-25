@@ -302,9 +302,7 @@ describe('map store', () => {
     it('the imported hexagon’s content matches the source exactly, except id/contextId/cell (IMP-02.1)', () => {
       const file = oneHexFile()
       const hexId = state().importHexagon(file, { context: 'new' })
-      const { id: _id, contextId: _contextId, cell: _cell, ...sourceFields } = file.hexagons[0]
-      const { id: _importedId, contextId: _importedContextId, cell: _importedCell, ...importedFields } = state().map.hexagons.find((h) => h.id === hexId)!
-      expect(importedFields).toStrictEqual(sourceFields)
+      expect(diagramOf(state().map, hexId!)).toStrictEqual(diagramOf(file, file.hexagons[0].id))
     })
 
     it('lands on the first free cell from the current hexagon (IMP-01)', () => {
@@ -369,9 +367,7 @@ describe('map store', () => {
       const imported = state().map.hexagons.find((h) => h.id === hexId)!
       expect(imported.id).not.toBe(before.hexagons[0].id)
       expect(imported.cell).not.toStrictEqual(before.hexagons[0].cell)
-      const { id: _id, contextId: _contextId, cell: _cell, ...sourceFields } = before.hexagons[0]
-      const { id: _importedId, contextId: _importedContextId, cell: _importedCell, ...importedFields } = imported
-      expect(importedFields).toStrictEqual(sourceFields)
+      expect(diagramOf(state().map, hexId!)).toStrictEqual(diagramOf(before, before.hexagons[0].id))
     })
 
     it('importing the same file twice, both times into "same", places both in the current hexagon’s context, still on distinct cells', () => {
