@@ -80,6 +80,29 @@ describe('one-way layering: model → layout → render → ui', () => {
   })
 })
 
+describe('per-hexagon layout modules stay ignorant of the map (S-006.8)', () => {
+  // The original single-hexagon modules: composition happens ABOVE them, in layout/map.ts, so they must never
+  // learn about HexaMap/multi-hexagon concerns — that boundary is what let #2 compose them untouched (ADR-01).
+  // model/links.ts is scoped to one Diagram (collectionOf/linkTargets), same as the three layout/ ones, even
+  // though its FILE lives in the model layer — a model→model import isn't caught by the general layering rules.
+  const PER_HEXAGON_MODULES = ['./layout/layout.ts', './layout/insertion.ts', './model/links.ts', './layout/legend.ts']
+
+  it('never import model/map', () => {
+    const violations = edges.filter((e) => PER_HEXAGON_MODULES.includes(e.path) && e.resolved === './model/map.ts')
+    expect(violations.map((v) => `${v.path} -> ${v.specifier}`)).toEqual([])
+  })
+
+  it('never mention HexaMap by name', () => {
+    const violations = PER_HEXAGON_MODULES.filter((p) => files[p].includes('HexaMap'))
+    expect(violations).toEqual([])
+  })
+
+  it('layout/hull.ts imports only model or layout (scoped pin, on top of the general layout-layer rule above)', () => {
+    const violations = edges.filter((e) => e.path === './layout/hull.ts' && !['model', 'layout'].includes(layerOf(e.resolved)))
+    expect(violations.map((v) => `${v.path} -> ${v.specifier}`)).toEqual([])
+  })
+})
+
 describe('dependency fences', () => {
   it('react is imported only from render, ui, App.tsx, or main.tsx', () => {
     const violations = productionPaths.filter((p) => !['render', 'ui', 'root'].includes(layerOf(p)) && importsOf(files[p]).some((s) => s === 'react' || s.startsWith('react/') || s === 'react-dom' || s.startsWith('react-dom/')))
