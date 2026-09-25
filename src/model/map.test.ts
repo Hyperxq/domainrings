@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addLink, contextName, crossHexagonPorts, diagramOf, freeCell, freeSides, neighbour, nextId, placeHexagon, putDiagram, pruneLinks, removeHexagon, removeLink, SIDE_ORDER, UNTITLED_HEXAGON, updateLink, type Cell } from './map'
+import { addLink, contextName, crossHexagonPorts, diagramOf, freeCell, freeSides, linkEndLabel, neighbour, nextId, placeHexagon, putDiagram, pruneLinks, removeHexagon, removeLink, SIDE_ORDER, UNTITLED_HEXAGON, updateLink, type Cell } from './map'
 import { toMap } from './hexa'
 import { EXAMPLE_DIAGRAM } from './example'
 import type { Diagram, HexaMap, Link, LinkEnd } from './schema'
@@ -420,6 +420,32 @@ describe('crossHexagonPorts (ADR-02)', () => {
     const map = threeHexMap()
     expect(crossHexagonPorts(map, 'driving', 'h1')).toEqual([{ hexagonId: 'h3', hexagonTitle: UNTITLED_HEXAGON, portId: 'p3-in', portName: 'Receive' }])
     expect(crossHexagonPorts(map, 'driven', 'h1').filter((p) => p.hexagonId === 'h3')).toEqual([])
+  })
+})
+
+describe('linkEndLabel (ADR-02)', () => {
+  const oneHexMap = (): HexaMap => ({
+    version: 2,
+    kind: 'hexagonal',
+    title: 'One',
+    contexts: [{ id: 'c1' }],
+    hexagons: [hexWithPorts('h1', 'c1', { q: 0, r: 0 }, [{ id: 'p1-out', name: 'Repository', side: 'driven', wall: 'e' }], 'H1')],
+    links: [],
+  })
+
+  it('reads as "{hexagon title} · {port name}"', () => {
+    const map = oneHexMap()
+    expect(linkEndLabel(map, { hexagonId: 'h1', portId: 'p1-out' })).toBe('H1 · Repository')
+  })
+
+  it('falls back to UNTITLED_HEXAGON for an unknown hexagon id, and the port id for an unknown port id', () => {
+    const map = oneHexMap()
+    expect(linkEndLabel(map, { hexagonId: 'nope', portId: 'nope-port' })).toBe(`${UNTITLED_HEXAGON} · nope-port`)
+  })
+
+  it('falls back to the port id when the hexagon exists but the port does not', () => {
+    const map = oneHexMap()
+    expect(linkEndLabel(map, { hexagonId: 'h1', portId: 'nope-port' })).toBe('H1 · nope-port')
   })
 })
 

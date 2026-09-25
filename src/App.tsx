@@ -7,7 +7,7 @@ import { EXAMPLES } from './model/example'
 import { parseHexa, toHexa, toMap } from './model/hexa'
 import { KINDS } from './model/kinds'
 import { collectionOf, type LinkChoice } from './model/links'
-import { contextName, diagramOf, UNTITLED_HEXAGON, type Destination, type LinkPatch } from './model/map'
+import { contextName, diagramOf, linkEndLabel, UNTITLED_HEXAGON, type Destination, type LinkPatch } from './model/map'
 import type { Recovery } from './model/persistence'
 import type { HexaMap, Link, LinkEnd, Wall } from './model/schema'
 import { useMapStore } from './model/store'
@@ -197,20 +197,12 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     if (ref) setNotice((n) => (n?.tone === 'error' ? n : null))
     setLinking(ref)
   }
-  // A driven·port → driving·port label, entry-point-independent (ADR-02: canvas and Links-section creation must
-  // read the same either way, since which end the author started from doesn't decide from/to — the driven end does).
-  const linkEndLabel = (end: LinkEnd) => {
-    const hexagon = map.hexagons.find((h) => h.id === end.hexagonId)!
-    const port = hexagon.ports.find((p) => p.id === end.portId)!
-    return `${hexagon.title || UNTITLED_HEXAGON} · ${port.name}`
-  }
-
   // Shared by the canvas "Link to…" chip and the Links editor section's create form (ADR-02): one write path,
   // so the two entry points can never drift into producing different links for the same choice.
   const createLink = (from: LinkEnd, to: LinkEnd) => {
     const linkId = addLink(from, to)
     if (!linkId) return // REQ-LNK-01.3: an incompatible pair — MapSchema refused it, nothing created
-    show({ tone: 'status', message: `Linked ${linkEndLabel(from)} → ${linkEndLabel(to)}.`, undo: before })
+    show({ tone: 'status', message: `Linked ${linkEndLabel(map, from)} → ${linkEndLabel(map, to)}.`, undo: before })
   }
 
   // REQ-LNK-02: edit an existing link's adapter(s) or pattern from the Links section's row — never its ends
@@ -220,7 +212,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     if (!updateLinkAction(id, patch)) return
     const updated = useMapStore.getState().map.links.find((l) => l.id === id)
     if (!updated) return
-    show({ tone: 'status', message: `Updated the link ${linkEndLabel(updated.from)} → ${linkEndLabel(updated.to)}.`, undo: before })
+    show({ tone: 'status', message: `Updated the link ${linkEndLabel(map, updated.from)} → ${linkEndLabel(map, updated.to)}.`, undo: before })
   }
 
   // REQ-LNK-04: delete an existing link from the Links section's row; the message names its ends the same way
@@ -228,7 +220,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const deleteLink = (id: string) => {
     const removed = removeLinkAction(id)
     if (!removed) return
-    show({ tone: 'status', message: `Deleted the link ${linkEndLabel(removed.from)} → ${linkEndLabel(removed.to)}.`, undo: before })
+    show({ tone: 'status', message: `Deleted the link ${linkEndLabel(map, removed.from)} → ${linkEndLabel(map, removed.to)}.`, undo: before })
   }
 
   const link = (source: string, choice: LinkChoice) => {

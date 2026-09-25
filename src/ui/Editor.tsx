@@ -17,7 +17,7 @@ import {
   type Wall,
 } from '../model/schema'
 import { parentCandidates } from '../model/links'
-import { contextName, contextOrdinal, crossHexagonPorts, diagramOf, freeSides, UNTITLED_HEXAGON, type Destination, type LinkPatch, type PortRef } from '../model/map'
+import { contextName, contextOrdinal, crossHexagonPorts, diagramOf, freeSides, linkEndLabel, UNTITLED_HEXAGON, type Destination, type LinkPatch, type PortRef } from '../model/map'
 import { useMapStore, type Item } from '../model/store'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
@@ -235,13 +235,6 @@ function addPort(hexId: string, side: Side) {
 function adaptersBySide(d: Diagram) {
   const portSide = new Map(d.ports.map((p) => [p.id, p.side]))
   return (side: Side) => d.adapters.filter((a) => (a.portId ? portSide.get(a.portId) === side : true))
-}
-
-/** A link end as `{hexagonTitle} · {portName}`, for the Links section's list rows. */
-function linkEndLabel(map: HexaMap, end: LinkEnd): string {
-  const hexagon = map.hexagons.find((h) => h.id === end.hexagonId)
-  const port = hexagon?.ports.find((p) => p.id === end.portId)
-  return `${hexagon?.title || UNTITLED_HEXAGON} · ${port?.name ?? end.portId}`
 }
 
 /** The Links section (REQ-LNK-07): every link in the map, and the create form that is the Links-editor half of

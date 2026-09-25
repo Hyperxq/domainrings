@@ -157,6 +157,15 @@ export function crossHexagonPorts(map: HexaMap, side: Side, excludeHexagonId?: s
     .flatMap((h) => h.ports.filter((p) => p.side === side).map((p): PortRef => ({ hexagonId: h.id, hexagonTitle: h.title || UNTITLED_HEXAGON, portId: p.id, portName: p.name })))
 }
 
+/** A link end as `{hexagonTitle} · {portName}` (falling back to UNTITLED_HEXAGON and the raw port id), shared by
+ * the canvas/toolbar toasts (App) and the Links editor section's rows (Editor) — one label for both, entry-point-
+ * independent like crossHexagonPorts above it (ADR-02). */
+export function linkEndLabel(map: HexaMap, end: LinkEnd): string {
+  const hexagon = map.hexagons.find((h) => h.id === end.hexagonId)
+  const port = hexagon?.ports.find((p) => p.id === end.portId)
+  return `${hexagon?.title || UNTITLED_HEXAGON} · ${port?.name ?? end.portId}`
+}
+
 /** Builds the candidate map with the new link appended (id via nextId(…, 'link')) and returns it UNvalidated — the
  * store gates on MapSchema.safeParse (ADR-02's validate-by-reparse choice: reuses checkMap's own rules instead of
  * hand-duplicating driven/driving, duplicate-pair, and pattern-eligibility checks). */
