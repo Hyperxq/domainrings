@@ -82,6 +82,41 @@ function Harness({
 const svg = (container: HTMLElement) => container.querySelector('svg.canvas')!
 const hover = (container: HTMLElement, layer: string) => fireEvent.pointerOver(container.querySelector(`[data-band="${layer}"]`)!)
 
+/** Reconstructs the live viewport from the same DOM styles toScreen/backgroundPosition derive from (GRID=20,
+ * matching Stage.tsx) — the same self-consistent-formula idiom App.test.tsx's own toScreenX helper uses. */
+const viewportOf = (container: HTMLElement) => {
+  const style = (container.querySelector('main') as HTMLElement).style
+  const scale = parseFloat(style.backgroundSize) / 20
+  const [px, py] = style.backgroundPosition.split(' ').map(parseFloat)
+  return { x: -px / scale, y: -py / scale, scale }
+}
+const expectViewport = (container: HTMLElement, expected: { x: number; y: number; scale: number }) => {
+  const actual = viewportOf(container)
+  expect(actual.x).toBeCloseTo(expected.x, 6)
+  expect(actual.y).toBeCloseTo(expected.y, 6)
+  expect(actual.scale).toBeCloseTo(expected.scale, 6)
+}
+/** Makes the ResizeObserver fire synchronously with a fixed content rect, giving Stage a REAL bounded screen size
+ * instead of jsdom's self-referencing fallback (size stays {0,0}, so effectiveSize mirrors the model's own bounds). */
+const stubFixedSize = (width: number, height: number) => {
+  const original = globalThis.ResizeObserver
+  class FixedSizeResizeObserver {
+    cb: ResizeObserverCallback
+    constructor(cb: ResizeObserverCallback) {
+      this.cb = cb
+    }
+    observe() {
+      this.cb([{ contentRect: { width, height } } as ResizeObserverEntry], this as unknown as ResizeObserver)
+    }
+    unobserve() {}
+    disconnect() {}
+  }
+  globalThis.ResizeObserver = FixedSizeResizeObserver as unknown as typeof ResizeObserver
+  return () => {
+    globalThis.ResizeObserver = original
+  }
+}
+
 describe('Stage layer hover', () => {
   // Single-hexagon Harness: its one group is always current, so data-hover (scoped to the current group, CANVAS-03) lands on it.
   const group = (container: HTMLElement) => container.querySelector('[data-hex]')!
@@ -295,21 +330,6 @@ describe('Stage panning', () => {
 // first and kept red through the inner viewport.ts/Stage.tsx RED-GREEN cycles below; green once the single button
 // resolves 'auto' to the whole-map fit on a multi-hexagon map.
 describe('Stage — the single fit control fits the whole map on 2+ hexagons (FIT-01, ADR-05)', () => {
-  /** Reconstructs the live viewport from the same DOM styles toScreen/backgroundPosition derive from (GRID=20,
-   * matching Stage.tsx) — the same self-consistent-formula idiom App.test.tsx's own toScreenX helper uses. */
-  const viewportOf = (container: HTMLElement) => {
-    const style = (container.querySelector('main') as HTMLElement).style
-    const scale = parseFloat(style.backgroundSize) / 20
-    const [px, py] = style.backgroundPosition.split(' ').map(parseFloat)
-    return { x: -px / scale, y: -py / scale, scale }
-  }
-  const expectViewport = (container: HTMLElement, expected: { x: number; y: number; scale: number }) => {
-    const actual = viewportOf(container)
-    expect(actual.x).toBeCloseTo(expected.x, 6)
-    expect(actual.y).toBeCloseTo(expected.y, 6)
-    expect(actual.scale).toBeCloseTo(expected.scale, 6)
-  }
-
   // fitTo's own unit tests (viewport.test.ts) prove minScale: 0 goes below MIN_SCALE for a huge map — this test's
   // job is the WIRING: the single "Fit diagram to screen" button drives that exact formula on a multi-hexagon map,
   // and the result keeps following the map as it grows.
@@ -336,19 +356,7 @@ describe('Stage — the single fit control fits the whole map on 2+ hexagons (FI
   // FIT-01.2: a very large map still fits fully, never falling back to a partial view — the button's job on the
   // 8-hexagon honeycomb fixture, with a real screen size so wholeFit.scale genuinely lands below MIN_FIT_SCALE.
   it('shows every hexagon of the 8-hexagon honeycomb fixture, at a scale below MIN_FIT_SCALE', () => {
-    const original = globalThis.ResizeObserver
-    class FixedSizeResizeObserver {
-      cb: ResizeObserverCallback
-      constructor(cb: ResizeObserverCallback) {
-        this.cb = cb
-      }
-      observe() {
-        this.cb([{ contentRect: { width: 800, height: 600 } } as ResizeObserverEntry], this as unknown as ResizeObserver)
-      }
-      unobserve() {}
-      disconnect() {}
-    }
-    globalThis.ResizeObserver = FixedSizeResizeObserver as unknown as typeof ResizeObserver
+    const restore = stubFixedSize(800, 600)
     try {
       const result = parseHexa(v2Honeycomb)
       if (!result.ok) throw new Error('fixture failed to parse')
@@ -364,7 +372,7 @@ describe('Stage — the single fit control fits the whole map on 2+ hexagons (FI
       const visible = visibleRect(viewport, { width: 800, height: 600 }, inset)
       for (const hexagon of model.hexagons) expect(contains(visible, hexagonBounds(hexagon))).toBe(true)
     } finally {
-      globalThis.ResizeObserver = original
+      restore()
     }
   })
 
@@ -373,19 +381,7 @@ describe('Stage — the single fit control fits the whole map on 2+ hexagons (FI
   // hexagon on a small stubbed screen forces the natural scale below MIN_SCALE (0.1), the only value at which
   // fitMap's own floor and the whole-map fit's minScale:0 floor genuinely diverge for a one-hexagon map.
   it('still fits a single-hexagon map with the MIN_FIT_SCALE fallback, not the whole-map fit', () => {
-    const original = globalThis.ResizeObserver
-    class FixedSizeResizeObserver {
-      cb: ResizeObserverCallback
-      constructor(cb: ResizeObserverCallback) {
-        this.cb = cb
-      }
-      observe() {
-        this.cb([{ contentRect: { width: 300, height: 300 } } as ResizeObserverEntry], this as unknown as ResizeObserver)
-      }
-      unobserve() {}
-      disconnect() {}
-    }
-    globalThis.ResizeObserver = FixedSizeResizeObserver as unknown as typeof ResizeObserver
+    const restore = stubFixedSize(300, 300)
     try {
       useMapStore.getState().replace(toMap(STRESS_DIAGRAM))
       const { container } = render(<Harness />)
@@ -401,7 +397,7 @@ describe('Stage — the single fit control fits the whole map on 2+ hexagons (FI
       expect(singleFit.scale).not.toBeCloseTo(wholeFit.scale, 3)
       expectViewport(container, singleFit)
     } finally {
-      globalThis.ResizeObserver = original
+      restore()
     }
   })
 })
@@ -415,12 +411,6 @@ describe('Stage — auto-fit after a map-shape change (FIT-02, ADR-05)', () => {
     return model.hexagons.length >= 2
       ? fitTo(model.bounds, model.bounds.width, model.bounds.height, inset, 0)
       : fitMap(model.bounds, hexagonBounds(currentHexagon(model, useMapStore.getState().focus)), model.bounds.width, model.bounds.height, inset)
-  }
-  const viewportOf = (container: HTMLElement) => {
-    const style = (container.querySelector('main') as HTMLElement).style
-    const scale = parseFloat(style.backgroundSize) / 20
-    const [px, py] = style.backgroundPosition.split(' ').map(parseFloat)
-    return { x: -px / scale, y: -py / scale, scale }
   }
   /** A pan of `dx`/`dy` screen px, past PAN_SLOP so it actually engages (matches "Stage panning"'s own gesture). */
   const pan = (container: HTMLElement, dx: number, dy: number) => {
@@ -521,38 +511,6 @@ describe('Stage — auto-fit after a map-shape change (FIT-02, ADR-05)', () => {
 })
 
 describe('Stage — the whole-map auto view survives a canvas focus switch (FIT-02.1)', () => {
-  const viewportOf = (container: HTMLElement) => {
-    const style = (container.querySelector('main') as HTMLElement).style
-    const scale = parseFloat(style.backgroundSize) / 20
-    const [px, py] = style.backgroundPosition.split(' ').map(parseFloat)
-    return { x: -px / scale, y: -py / scale, scale }
-  }
-  const expectViewport = (container: HTMLElement, expected: { x: number; y: number; scale: number }) => {
-    const actual = viewportOf(container)
-    expect(actual.x).toBeCloseTo(expected.x, 6)
-    expect(actual.y).toBeCloseTo(expected.y, 6)
-    expect(actual.scale).toBeCloseTo(expected.scale, 6)
-  }
-  /** Gives Stage a real bounded screen size instead of jsdom's self-referencing fallback, so a hexagon removal
-   * measurably shrinks the whole-map fit (matches the regression probe: 1200×800, three hexagons at (0,0)/(1,0)/(0,1)). */
-  const stubFixedSize = (width: number, height: number) => {
-    const original = globalThis.ResizeObserver
-    class FixedSizeResizeObserver {
-      cb: ResizeObserverCallback
-      constructor(cb: ResizeObserverCallback) {
-        this.cb = cb
-      }
-      observe() {
-        this.cb([{ contentRect: { width, height } } as ResizeObserverEntry], this as unknown as ResizeObserver)
-      }
-      unobserve() {}
-      disconnect() {}
-    }
-    globalThis.ResizeObserver = FixedSizeResizeObserver as unknown as typeof ResizeObserver
-    return () => {
-      globalThis.ResizeObserver = original
-    }
-  }
   const threeHexMap = (): HexaMap => {
     const base = twoHexMap()
     return { ...base, hexagons: [base.hexagons[0], base.hexagons[1], { ...base.hexagons[0], id: 'h3', cell: { q: 0, r: 1 } }] }
@@ -618,13 +576,6 @@ describe('Stage — the whole-map auto view survives a canvas focus switch (FIT-
 })
 
 describe('Stage — wheel floor follows the whole-map fit, not a hardcoded MIN_SCALE (FIT-01, ADR-05)', () => {
-  const viewportOf = (container: HTMLElement) => {
-    const style = (container.querySelector('main') as HTMLElement).style
-    const scale = parseFloat(style.backgroundSize) / 20
-    const [px, py] = style.backgroundPosition.split(' ').map(parseFloat)
-    return { x: -px / scale, y: -py / scale, scale }
-  }
-
   it('wheeling out from a fitted view keeps zooming by min(MIN_SCALE, wholeFit.scale), never snapping the scale back up to the plain MIN_SCALE floor', () => {
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<Harness />)
@@ -650,12 +601,6 @@ describe('Stage — wheel floor follows the whole-map fit, not a hardcoded MIN_S
 // Pinch, wheel floor, and the whole-map auto fit: 'auto' resolves to the whole-map fit on a multi-hexagon map, so
 // it never falls back to the current hexagon alone, even when it never fits above MIN_FIT_SCALE.
 describe('Stage — pinch, wheel floor, and the whole-map auto fit', () => {
-  const viewportOf = (container: HTMLElement) => {
-    const style = (container.querySelector('main') as HTMLElement).style
-    const scale = parseFloat(style.backgroundSize) / 20
-    const [px, py] = style.backgroundPosition.split(' ').map(parseFloat)
-    return { x: -px / scale, y: -py / scale, scale }
-  }
   const pan = (container: HTMLElement, dx: number, dy: number) => {
     const main = container.querySelector('main') as HTMLElement
     main.setPointerCapture = () => {}
@@ -668,27 +613,6 @@ describe('Stage — pinch, wheel floor, and the whole-map auto fit', () => {
   const farHexagonMap = (): HexaMap => {
     const base = twoHexMap()
     return { ...base, hexagons: [base.hexagons[0], { ...base.hexagons[1], cell: { q: 500, r: 0 } }] }
-  }
-  /** Makes the ResizeObserver fire synchronously with a fixed content rect, giving Stage a REAL bounded screen
-   * size instead of the self-referencing jsdom fallback — without it, neither the wheel-floor formula nor the
-   * auto/whole fallback target can be proven with RTL. */
-  const stubFixedSize = (width: number, height: number) => {
-    const original = globalThis.ResizeObserver
-    class FixedSizeResizeObserver {
-      cb: ResizeObserverCallback
-      constructor(cb: ResizeObserverCallback) {
-        this.cb = cb
-      }
-      observe() {
-        this.cb([{ contentRect: { width, height } } as ResizeObserverEntry], this as unknown as ResizeObserver)
-      }
-      unobserve() {}
-      disconnect() {}
-    }
-    globalThis.ResizeObserver = FixedSizeResizeObserver as unknown as typeof ResizeObserver
-    return () => {
-      globalThis.ResizeObserver = original
-    }
   }
 
   it('two fingers moving apart zoom in around their own midpoint, across two separate synchronous pointermove events, without selecting anything or opening a link chip', () => {
