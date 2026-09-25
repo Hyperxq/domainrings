@@ -463,9 +463,9 @@ describe('map store', () => {
       state().replace(linkedTwoHexMap())
       const revisionBefore = state().revision
 
-      const ok = state().updateLink('link-1', { from: { adapterId: 'a-knex' } })
+      const updated = state().updateLink('link-1', { from: { adapterId: 'a-knex' } })
 
-      expect(ok).toBe(true)
+      expect(updated).toStrictEqual(state().map.links[0])
       expect(state().map.links[0].from.adapterId).toBe('a-knex')
       expect(MapSchema.safeParse(state().map).success).toBe(true)
       expect(state().revision).toBe(revisionBefore)
@@ -475,9 +475,9 @@ describe('map store', () => {
       state().replace(linkedTwoHexMap())
       state().updateLink('link-1', { from: { adapterId: 'a-knex' } })
 
-      const ok = state().updateLink('link-1', { from: { adapterId: null } })
+      const updated = state().updateLink('link-1', { from: { adapterId: null } })
 
-      expect(ok).toBe(true)
+      expect(updated).toStrictEqual(state().map.links[0])
       expect(state().map.links[0].from.adapterId).toBeUndefined()
     })
 
@@ -486,9 +486,9 @@ describe('map store', () => {
       const map = state().map
 
       // a-http is p-submit's adapter, not p-repo's — invalid on the `from` end.
-      const ok = state().updateLink('link-1', { from: { adapterId: 'a-http' } })
+      const updated = state().updateLink('link-1', { from: { adapterId: 'a-http' } })
 
-      expect(ok).toBe(false)
+      expect(updated).toBeUndefined()
       expect(state().map).toBe(map)
     })
 
@@ -496,19 +496,19 @@ describe('map store', () => {
       state().replace(linkedTwoHexMap())
       const map = state().map
 
-      const ok = state().updateLink('link-1', { pattern: 'acl' })
+      const updated = state().updateLink('link-1', { pattern: 'acl' })
 
-      expect(ok).toBe(false)
+      expect(updated).toBeUndefined()
       expect(state().map).toBe(map)
     })
 
-    it('returns false for an unknown id, leaving the map untouched', () => {
+    it('returns undefined for an unknown id, leaving the map untouched', () => {
       state().replace(linkedTwoHexMap())
       const map = state().map
 
-      const ok = state().updateLink('nope', { pattern: 'acl' })
+      const updated = state().updateLink('nope', { pattern: 'acl' })
 
-      expect(ok).toBe(false)
+      expect(updated).toBeUndefined()
       expect(state().map).toBe(map)
     })
   })

@@ -209,8 +209,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // (REQ-LNK-03.1, no such control is offered). False ⇒ no link has `id`, or the patch was structurally invalid;
   // either way nothing to toast.
   const editLink = (id: string, patch: LinkPatch) => {
-    if (!updateLinkAction(id, patch)) return
-    const updated = useMapStore.getState().map.links.find((l) => l.id === id)
+    const updated = updateLinkAction(id, patch)
     if (!updated) return
     show({ tone: 'status', message: `Updated the link ${linkEndLabel(map, updated.from)} → ${linkEndLabel(map, updated.to)}.`, undo: before })
   }
