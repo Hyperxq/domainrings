@@ -286,7 +286,7 @@ describe('Toolbar at phone width', () => {
     for (const name of ['View', 'Export', 'Appearance']) expect(screen.getByRole('button', { name })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'New diagram' })).toBeTruthy()
     expect(screen.getByRole('combobox', { name: 'Load an example' })).toBeTruthy()
-    expect(screen.getByLabelText('Import a .hexa file')).toBeTruthy()
+    expect(screen.getByLabelText('Open a .hexa file, replacing the map')).toBeTruthy()
     expect(screen.getByRole('link', { name: 'View the source on GitHub' })).toBeTruthy()
   })
 })
