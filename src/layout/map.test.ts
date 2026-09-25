@@ -173,10 +173,10 @@ describe('layoutMap — honeycomb lattice placement (ADR-01)', () => {
     expect(result.pitch).toStrictEqual({ x: b.centre.x * 2, y: b.centre.y })
   })
 
-  // Hardening for a coverage gap verify-in-loop-1 flagged: the two prior tests use hexagons with IDENTICAL
-  // (empty) content, so a pitch computed from `perHexagon[0]`'s extents alone happens to match `Math.max(...)`
-  // over every hexagon — neither test can tell the two implementations apart. Here h1 (first in the array) is
-  // tiny and h2 is STRESS-sized, so a first-hexagon-only pitch would be far too small and the boxes would overlap.
+  // The two prior tests use hexagons with IDENTICAL (empty) content, so a pitch computed from `perHexagon[0]`'s
+  // extents alone happens to match `Math.max(...)` over every hexagon — neither test can tell the two
+  // implementations apart. Here h1 (first in the array) is tiny and h2 is STRESS-sized, so a first-hexagon-only
+  // pitch would be far too small and the boxes would overlap.
   it('derives pitch from the map-wide max extents, not the first hexagon’s own (CANVAS-01.4 hardening)', () => {
     const map: HexaMap = {
       version: 2,
@@ -276,7 +276,7 @@ describe('layoutMap — contexts (CB-01.1, ADR-04, SEAM-04)', () => {
   })
 })
 
-// --- S-006.1: the full no-overlap property, for any N up to 30, incl. STRESS content, both modes -------------
+// --- The full no-overlap property, for any N up to 30, incl. STRESS content, both modes ------------------------
 
 /** A small seeded LCG — deterministic across runs/platforms, no new dependency (numeric recipe: Numerical
  * Recipes' constants), so a failing seed can be reproduced exactly from the printed seed alone. */
@@ -331,7 +331,7 @@ function separation(a: Box, b: Box): number {
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8]
 const SIZES = [2, 5, 12, 30]
 
-describe('layoutMap — full no-overlap property (CANVAS-01.2–01.4, S-006.1)', () => {
+describe('layoutMap — full no-overlap property (CANVAS-01.2–01.4)', () => {
   it('has no `focus` parameter — position never depends on which hexagon is current', () => {
     expectTypeOf<LayoutOptions>().not.toHaveProperty('focus')
     expectTypeOf(layoutMap).parameter(1).toEqualTypeOf<LayoutOptions | undefined>()
@@ -375,8 +375,8 @@ describe('layoutMap — full no-overlap property (CANVAS-01.2–01.4, S-006.1)',
   })
 
   it('a content-growth-triggered pitch change never introduces an overlap (CANVAS-01.4)', () => {
-    // h1 starts small; growing its content past every other hexagon forces `pitch` itself to change (S-006.1's
-    // own hardening of the CANVAS-01.4 hardening test already above, at property scale instead of one pair).
+    // h1 starts small; growing its content past every other hexagon forces `pitch` itself to change — the same
+    // CANVAS-01.4 hardening as the test above, at property scale instead of one pair.
     const base = seededHoneycomb(3, 10)
     const { version: _version, kind: _kind, title, ...stressFields } = STRESS_DIAGRAM
     const grown: HexaMap = {

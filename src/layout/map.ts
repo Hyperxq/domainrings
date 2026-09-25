@@ -139,7 +139,7 @@ export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout 
   }
 
   // Outlined regions + chips only from two contexts up (CB-01.1) — a single-context map draws and exports exactly
-  // as #1 would have (CB-01.4).
+  // as a single hexagon always did (CB-01.4).
   const contexts: MapContextLayout[] = []
   if (map.contexts.length >= 2) {
     const regions = contextRegions(hexagons, pitch)

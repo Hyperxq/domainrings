@@ -22,7 +22,7 @@ interface ToolbarProps {
   onKind: (kind: ArchitectureKind) => void
   onNew: () => void
   onExample: (id: (typeof EXAMPLES)[number]['id']) => void
-  /** Replaces the whole map (S-003, U2) — distinct from Editor's "Add hexagon from file…", which adds one hexagon. */
+  /** Replaces the whole map — distinct from Editor's "Add hexagon from file…", which adds one hexagon. */
   onOpen: (file: File) => void
   onExport: (format: 'hexa' | 'svg' | 'png') => void
   onTheme: (choice: ThemeChoice) => void

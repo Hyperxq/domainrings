@@ -1551,7 +1551,7 @@ describe('no autosave while the conversion dialog is open (CONV-02.3)', () => {
   })
 })
 
-// --- S-006.9 / S-006.10: the two north-star journeys, starting from New, UI only -------------------------------
+// --- The two end-to-end author journeys, starting from New, UI only --------------------------------------------
 
 describe('journey', () => {
   const openEditor = () => fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
@@ -1592,15 +1592,15 @@ describe('journey', () => {
     })
   }
 
-  it('from New, three slice files land in two bounded contexts and the saved map reopens whole (north-star criterion 3 + 10, IMP-01.4, CB-04.3)', async () => {
+  it('from New, three slice files land in two bounded contexts and the saved map reopens whole (IMP-01.4, CB-04.3)', async () => {
     render(<App />)
     openEditor()
     fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
     expect(useMapStore.getState().map.hexagons).toHaveLength(1)
 
-    // v1-minimal and v1-maximal both join the map's OWN starting context — "2 of them end up in ONE shared
-    // context" (north-star criterion 3) — while v2-empty-context.hexa lands in a fresh, second context, giving
-    // exactly two bounded contexts with hexagons, however many hexagons each one ends up holding.
+    // v1-minimal and v1-maximal both join the map's OWN starting context — two of them end up in one shared
+    // context — while v2-empty-context.hexa lands in a fresh, second context, giving exactly two bounded contexts
+    // with hexagons, however many hexagons each one ends up holding.
     openImportMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
     await pickFile(v1Minimal, 'v1-minimal.hexa')
@@ -1644,7 +1644,7 @@ describe('journey', () => {
     expect(useMapStore.getState().map).toStrictEqual(beforeSave)
   })
 
-  it('from New, the author grows two bounded contexts and four hexagons (north-star criterion 1)', async () => {
+  it('from New, the author grows two bounded contexts and four hexagons', async () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
     const title = useMapStore.getState().map.hexagons[0].title || 'Untitled hexagon'

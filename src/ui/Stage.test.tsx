@@ -647,12 +647,9 @@ describe('Stage — wheel floor follows the whole-map fit, not a hardcoded MIN_S
   })
 })
 
-// Step 0 hardening for S-006 (verify-in-loop-6, obs 7294): closes the three non-blocking findings the pinch
-// integration commit left untested — none of them are architectural, spec, or sensitive, all additive coverage.
-// The fallback target itself then changed: 'auto' now resolves to the whole-map fit on
-// a multi-hexagon map, so it never falls back to the current hexagon alone, even when it never fits above
-// MIN_FIT_SCALE.
-describe('Step 0 hardening — pinch, wheel floor, and the whole-map auto fit ', () => {
+// Pinch, wheel floor, and the whole-map auto fit: 'auto' resolves to the whole-map fit on a multi-hexagon map, so
+// it never falls back to the current hexagon alone, even when it never fits above MIN_FIT_SCALE.
+describe('Stage — pinch, wheel floor, and the whole-map auto fit', () => {
   const viewportOf = (container: HTMLElement) => {
     const style = (container.querySelector('main') as HTMLElement).style
     const scale = parseFloat(style.backgroundSize) / 20
@@ -673,8 +670,8 @@ describe('Step 0 hardening — pinch, wheel floor, and the whole-map auto fit ',
     return { ...base, hexagons: [base.hexagons[0], { ...base.hexagons[1], cell: { q: 500, r: 0 } }] }
   }
   /** Makes the ResizeObserver fire synchronously with a fixed content rect, giving Stage a REAL bounded screen
-   * size instead of the self-referencing jsdom fallback — the gap verify-in-loop-6 finding 2/Mutant 4/5 both
-   * name as the reason neither the wheel-floor formula nor the auto/whole fallback target could be RTL-proven. */
+   * size instead of the self-referencing jsdom fallback — without it, neither the wheel-floor formula nor the
+   * auto/whole fallback target can be proven with RTL. */
   const stubFixedSize = (width: number, height: number) => {
     const original = globalThis.ResizeObserver
     class FixedSizeResizeObserver {
@@ -748,7 +745,7 @@ describe('Step 0 hardening — pinch, wheel floor, and the whole-map auto fit ',
     }
   })
 
-  it('falls back to the whole-map fit, not the old current-hexagon fallback, when a change moves an existing manual view out of sight on a map where the two targets genuinely diverge (F-02)', () => {
+  it('falls back to the whole-map fit, not the old current-hexagon fallback, when a change moves an existing manual view out of sight on a map where the two targets genuinely diverge', () => {
     const restore = stubFixedSize(800, 600)
     try {
       useMapStore.getState().replace(farHexagonMap())
@@ -781,7 +778,7 @@ describe('Step 0 hardening — pinch, wheel floor, and the whole-map auto fit ',
     }
   })
 
-  it('with no fit button ever pressed, "auto" keeps every hexagon inside the visible rect after growing a multi-hexagon map whose whole-map fit is below MIN_FIT_SCALE (F-02)', () => {
+  it('with no fit button ever pressed, "auto" keeps every hexagon inside the visible rect after growing a multi-hexagon map whose whole-map fit is below MIN_FIT_SCALE', () => {
     const restore = stubFixedSize(800, 600)
     try {
       useMapStore.getState().replace(farHexagonMap())
@@ -806,9 +803,9 @@ describe('Step 0 hardening — pinch, wheel floor, and the whole-map auto fit ',
   })
 })
 
-// S-006.2: the committed honeycomb fixture (8 hexagons, one STRESS-content, a split context, an unnamed context,
-// a 6-ring around a foreign hexagon), rendered with each hexagon current in turn, in both layout modes.
-describe('Stage — the honeycomb fixture stays disjoint with every hexagon current in turn, in both modes (S-006.2)', () => {
+// The committed honeycomb fixture (8 hexagons, one STRESS-content, a split context, an unnamed context, a 6-ring
+// around a foreign hexagon), rendered with each hexagon current in turn, in both layout modes.
+describe('Stage — the honeycomb fixture stays disjoint with every hexagon current in turn, in both modes', () => {
   const separation = (a: Box, b: Box): number => {
     const dx = Math.max(a.x, b.x) - Math.min(a.x + a.width, b.x + b.width)
     const dy = Math.max(a.y, b.y) - Math.min(a.y + a.height, b.y + b.height)

@@ -122,9 +122,9 @@ describe('committed v2 corpus (MIG-03.2)', () => {
     expect(parseHexa(v2TwoSlices)).toEqual({ ok: true, map: TWO_SLICES_MAP })
   })
 
-  // S-000.5: the honeycomb corpus fixture (8 hexagons, r≠0 cells, a split context, an unnamed context, a
-  // 6-ring around a foreign hexagon, a link, one named context, STRESS-like content) parses before any other
-  // slice builds on it — proving the schema/reader stayed untouched.
+  // The honeycomb corpus fixture (8 hexagons, r≠0 cells, a split context, an unnamed context, a 6-ring around a
+  // foreign hexagon, a link, one named context, STRESS-like content) parses cleanly — proving the schema/reader
+  // handles the full shape the corpus exercises.
   it('parses the honeycomb corpus fixture', () => {
     const result = parseHexa(v2Honeycomb)
     expect(result.ok).toBe(true)
@@ -141,9 +141,7 @@ describe('committed v2 corpus (MIG-03.2)', () => {
   })
 })
 
-// --- S-006.6: honeycomb fixture byte-identical round trip; empty-context fixture fully authored --------------
-
-describe('the honeycomb fixture round-trips exactly (S-006.6)', () => {
+describe('the honeycomb fixture round-trips exactly', () => {
   it('toHexa(parse(text).map) is byte-identical to the committed file — no re-save ever drifts the fixture', () => {
     const result = parseHexa(v2Honeycomb)
     expect(result.ok).toBe(true)
@@ -164,7 +162,7 @@ describe('the honeycomb fixture round-trips exactly (S-006.6)', () => {
   })
 })
 
-describe('whole-map round trip: contexts, hexagon content, and links all survive save/reopen (CB-04.3, S-006.7)', () => {
+describe('whole-map round trip: contexts, hexagon content, and links all survive save/reopen (CB-04.3)', () => {
   it('every context keeps its name or placeholder, every hexagon its cell and content, and every link its two ends', () => {
     const before = parseHexa(v2Honeycomb)
     expect(before.ok).toBe(true)
@@ -196,7 +194,7 @@ describe('whole-map round trip: contexts, hexagon content, and links all survive
   })
 })
 
-describe('the empty-context fixture is fully authored (S-006.6, IMP-02 regression)', () => {
+describe('the empty-context fixture is fully authored (IMP-02 regression)', () => {
   it('carries a named context, a second EMPTY context, kind onion, and title "Legacy System"', () => {
     const result = parseHexa(v2EmptyContext)
     expect(result.ok).toBe(true)
@@ -211,7 +209,7 @@ describe('the empty-context fixture is fully authored (S-006.6, IMP-02 regressio
     expect(result.map.hexagons.some((h) => h.contextId === empty.id)).toBe(false)
   })
 
-  it('still imports cleanly via the same gateway S-003 proved (IMP-02 regression)', () => {
+  it('still imports cleanly via the same gateway ordinary imports use (IMP-02 regression)', () => {
     const result = parseHexa(v2EmptyContext)
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -400,11 +398,9 @@ describe('the 18-cell refusal matrix (MIG-02, MIG-03)', () => {
   })
 })
 
-// Discrimination proof (strict TDD): every branch these cells exercise (pre-Zod dispatch in `parseHexa`, and
-// `checkMap`'s structural refinements) was written in S-000 for schema soundness, so the matrix above passes on
-// first run rather than starting RED. Four representative mutants were applied one at a time (`npx vitest run
-// src/model/hexa.test.ts src/model/schema.test.ts`), observed red, then reverted — not part of the suite;
-// recorded here for the apply-progress artefact only:
+// Discrimination proof: the matrix above exercises both the pre-Zod dispatch in `parseHexa` and `checkMap`'s
+// structural refinements. Four representative mutants were applied one at a time, observed red, then reverted,
+// to confirm each guarded line is actually covered by its own cell (not just incidentally green):
 //   Group 1 (pre-Zod dispatch, hexa.ts):        `if (version > VERSION)` → `if (false && version > VERSION)`
 //                                                 broke exactly one cell: "made by a newer version" (fell through
 //                                                 to "Unknown file version \"99\"", reason flipped newer→invalid).

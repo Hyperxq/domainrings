@@ -53,7 +53,7 @@ export interface Inset {
 const NO_INSET: Inset = { top: 0, right: 0, bottom: 0, left: 0 }
 
 /** Fits the bounds into the stage area not covered by floating islands. `minScale` overrides the usual MIN_SCALE
- * floor — an explicit "Fit all" passes 0 so a huge map is never clamped to a partial view (FIT-01.1). */
+ * floor — "Fit diagram to screen" passes 0 so a huge map is never clamped to a partial view (FIT-01.1). */
 export function fitTo(bounds: Box, width: number, height: number, inset: Inset = NO_INSET, minScale: number = MIN_SCALE): Viewport {
   const freeW = Math.max(1, width - inset.left - inset.right)
   const freeH = Math.max(1, height - inset.top - inset.bottom)

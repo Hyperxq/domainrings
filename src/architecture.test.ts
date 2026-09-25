@@ -80,9 +80,9 @@ describe('one-way layering: model → layout → render → ui', () => {
   })
 })
 
-describe('per-hexagon layout modules stay ignorant of the map (S-006.8)', () => {
+describe('per-hexagon layout modules stay ignorant of the map', () => {
   // The original single-hexagon modules: composition happens ABOVE them, in layout/map.ts, so they must never
-  // learn about HexaMap/multi-hexagon concerns — that boundary is what let #2 compose them untouched (ADR-01).
+  // learn about HexaMap/multi-hexagon concerns — that boundary is what keeps them composable untouched (ADR-01).
   // model/links.ts is scoped to one Diagram (collectionOf/linkTargets), same as the three layout/ ones, even
   // though its FILE lives in the model layer — a model→model import isn't caught by the general layering rules.
   const PER_HEXAGON_MODULES = ['./layout/layout.ts', './layout/insertion.ts', './model/links.ts', './layout/legend.ts']

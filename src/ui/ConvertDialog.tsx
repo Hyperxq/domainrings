@@ -30,7 +30,7 @@ export function ConvertDialog({ kind, action, onConfirm, onCancel }: ConvertDial
 
   // Real-browser focus trapping keeps focus inside an open modal <dialog> — a caller's own `.focus()` on the
   // opener (CONV-02.1) is silently blocked until the dialog itself closes, so `close()` runs first, synchronously,
-  // before either callback (found via s003-smoke.mjs; invisible in jsdom, which does not trap focus at all).
+  // before either callback (invisible in jsdom, which does not trap focus at all).
   const settle = (callback: () => void) => {
     dialogRef.current?.close()
     callback()
