@@ -30,6 +30,7 @@ function Harness({
   highlight = true,
   onReveal = () => {},
   onGrow = () => {},
+  onLink = () => {},
   naming = false,
   onNamed = () => {},
   onNamingCancel = () => {},
@@ -39,6 +40,7 @@ function Harness({
   highlight?: boolean
   onReveal?: (ref: string, focus: boolean) => void
   onGrow?: (side: import('../model/schema').Wall, context: 'same' | 'new') => void
+  onLink?: (source: string, choice: import('../model/links').LinkChoice) => void
   naming?: boolean
   onNamed?: (title: string) => void
   onNamingCancel?: () => void
@@ -54,6 +56,7 @@ function Harness({
   return (
     <Stage
       model={layoutMap(map, { mode })}
+      map={map}
       hexId={hexId}
       diagram={diagram}
       mode={mode}
@@ -67,7 +70,7 @@ function Harness({
       onDelete={() => false}
       linking={linking}
       onLinking={setLinking}
-      onLink={() => {}}
+      onLink={onLink}
       showGuides
       highlight={highlight}
       contextLabel={contextName(map, currentContextId)}
@@ -950,5 +953,73 @@ describe('Stage — hull and chip are inert (CB-05, ADR-05 extended to context o
     fireEvent.click(container.querySelector('[data-hull]')!)
 
     expect(node.hasAttribute('data-selected')).toBe(true)
+  })
+})
+
+// twoHexMap's two hexagons each carry the EXAMPLE_DIAGRAM shape (one use case), so every port's same-hexagon
+// linkTargets (use cases) is already exhausted — [] — isolating the cross-hexagon gate/target from the
+// pre-existing same-hexagon one (REQ-LNK-01.1, 01.1b, ADR-02).
+describe('Stage — cross-hexagon link creation (REQ-LNK-01.1, 01.1b, ADR-02)', () => {
+  const startWithL = (container: HTMLElement, hexId: string, ref: string) => {
+    fireEvent.click(hexGroup(container, hexId).querySelector(`[data-ref="${ref}"]`)!)
+    fireEvent.keyDown(document.body, { key: 'l' })
+  }
+
+  it('offers the "Link to…" chip for a port with no same-hexagon targets but a cross-hexagon one', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+    fireEvent.click(hexGroup(container, 'h1').querySelector('[data-ref="p-repo"]')!)
+    expect(screen.getByRole('button', { name: /Link .* to…/ })).toBeTruthy()
+  })
+
+  it('starting from a driven port and clicking a driving port on another hexagon calls onLink with a link-kind choice (REQ-LNK-01.1)', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const onLink = vi.fn()
+    const { container } = render(<Harness onLink={onLink} />)
+    startWithL(container, 'h1', 'p-repo')
+
+    fireEvent.click(hexGroup(container, 'h2').querySelector('[data-ref="p-submit"]')!)
+
+    expect(onLink).toHaveBeenCalledWith('p-repo', { kind: 'link', hexagonId: 'h2', portId: 'p-submit' })
+  })
+
+  it('starting from a driving port and clicking a driven port on another hexagon calls onLink with a link-kind choice (REQ-LNK-01.1b)', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const onLink = vi.fn()
+    const { container } = render(<Harness onLink={onLink} />)
+    startWithL(container, 'h1', 'p-submit')
+
+    fireEvent.click(hexGroup(container, 'h2').querySelector('[data-ref="p-repo"]')!)
+
+    expect(onLink).toHaveBeenCalledWith('p-submit', { kind: 'link', hexagonId: 'h2', portId: 'p-repo' })
+  })
+
+  it('switches focus instead of linking when clicking a non-target node on another hexagon while linking', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const onLink = vi.fn()
+    const { container } = render(<Harness onLink={onLink} />)
+    startWithL(container, 'h1', 'p-repo')
+
+    fireEvent.click(hexGroup(container, 'h2').querySelector('[data-ref="p-notify"]')!)
+
+    expect(onLink).not.toHaveBeenCalled()
+    expect(useMapStore.getState().focus).toBe('h2')
+  })
+
+  // A cross-hexagon target is identified by (hexagonId, portId) together, never portId alone — port ids are only
+  // unique WITHIN one hexagon (twoHexMap's own h1/h2 already collide by id). h3 here carries a port with the same
+  // id as h2's valid target, but on the wrong side, so it must never be treated as a match.
+  it('does not link to a decoy port that shares an id with the valid target on a different hexagon', () => {
+    const base = twoHexMap()
+    const decoy = { ...base.hexagons[0], id: 'h3', cell: { q: 2, r: 0 }, ports: [{ id: 'p-submit', name: 'decoy', side: 'driven' as const, wall: 'e' as const }] }
+    useMapStore.getState().replace({ ...base, hexagons: [...base.hexagons, decoy] })
+    const onLink = vi.fn()
+    const { container } = render(<Harness onLink={onLink} />)
+    startWithL(container, 'h1', 'p-repo')
+
+    fireEvent.click(hexGroup(container, 'h3').querySelector('[data-ref="p-submit"]')!)
+
+    expect(onLink).not.toHaveBeenCalled()
+    expect(useMapStore.getState().focus).toBe('h3')
   })
 })

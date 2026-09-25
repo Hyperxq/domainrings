@@ -5,6 +5,11 @@ export interface LinkTarget {
   patch: { portId: string } | { useCaseId: string } | { adapterId: string } | { parentId: string }
 }
 
+/** What the "Link to…" chip and the Links editor section's create form both resolve to (ADR-02): the existing
+ * same-hexagon field wiring, unchanged, or a new map-level Link between a port on this hexagon and a port on
+ * another. */
+export type LinkChoice = ({ kind: 'field' } & LinkTarget) | { kind: 'link'; hexagonId: string; portId: string }
+
 /** The collection an item id lives in; none for layers, the composition root or notes. */
 export const collectionOf = (d: Diagram, ref: string) => COLLECTIONS.find((k) => d[k].some((i) => i.id === ref))
 

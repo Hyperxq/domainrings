@@ -4,9 +4,9 @@ import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/i
 import type { LayoutMode, LayoutNode, Point } from '../layout/layout'
 import type { LegendModel } from '../layout/legend'
 import { cellCentre, currentHexagon, hexagonBounds, hexagonTitle, type MapLayout } from '../layout/map'
-import { collectionOf, linkTargets, type LinkTarget } from '../model/links'
-import { freeSides, neighbour, UNTITLED_HEXAGON, type Destination } from '../model/map'
-import type { CollectionKey, Diagram as DiagramModel, DomainType, Wall } from '../model/schema'
+import { collectionOf, linkTargets, type LinkChoice } from '../model/links'
+import { crossHexagonPorts, freeSides, neighbour, UNTITLED_HEXAGON, type Destination } from '../model/map'
+import type { CollectionKey, Diagram as DiagramModel, DomainType, HexaMap, Wall } from '../model/schema'
 import { useMapStore } from '../model/store'
 import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
@@ -20,6 +20,9 @@ const SIDE_NAME: Record<Wall, string> = { e: 'east', se: 'south-east', sw: 'sout
 
 interface StageProps {
   model: MapLayout
+  /** The full map — needed only to enumerate cross-hexagon link targets (ADR-02); every other prop already
+   * carries what the current hexagon alone needs. */
+  map: HexaMap
   /** The hexagon `diagram` is the view of; every point insertion/editing works in belongs to it. */
   hexId: string
   diagram: DiagramModel
@@ -41,7 +44,7 @@ interface StageProps {
   /** The element being linked while in link mode, null otherwise. */
   linking: string | null
   onLinking: (ref: string | null) => void
-  onLink: (source: string, target: LinkTarget) => void
+  onLink: (source: string, choice: LinkChoice) => void
   /** The current hexagon's own context display name, for the grow menu's "Hexagon in {context}" choice. */
   contextLabel: string
   /** Grows the map from the current hexagon's given free side, into its own context or a new one (GROW-01). */
@@ -71,7 +74,7 @@ const keyOnCanvas = (target: EventTarget | null) =>
 const layerOf = (target: Element) =>
   target.closest('[data-band]')?.getAttribute('data-band') ?? target.closest('[data-layer]')?.getAttribute('data-layer') ?? null
 
-export function Stage({ model, hexId, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete, linking, onLinking, onLink, contextLabel, onGrow, naming, onNamed, onNamingCancel }: StageProps) {
+export function Stage({ model, map, hexId, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete, linking, onLinking, onLink, contextLabel, onGrow, naming, onNamed, onNamingCancel }: StageProps) {
   const hex = currentHexagon(model, hexId)
   const hexModel = hex.model
   const mainRef = useRef<HTMLElement>(null)
@@ -175,6 +178,13 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
     return () => el.removeEventListener('wheel', onWheel)
   }, [viewport, zoomFloor])
 
+  // ADR-02: a port's cross-hexagon targets — every port of the opposite side on another hexagon. Non-ports (and
+  // an unselected ref) have none; only ports carry map-level links.
+  const crossPortTargets = (ref: string | null) => {
+    const port = ref ? diagram.ports.find((p) => p.id === ref) : undefined
+    return port ? crossHexagonPorts(map, port.side === 'driven' ? 'driving' : 'driven', hexId) : []
+  }
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // Esc first leaves link mode, keeping the selection; a second Esc clears it.
@@ -188,14 +198,15 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
         e.preventDefault()
         if (onDelete(selected)) setSelected(null)
       }
-      if (e.key.toLowerCase() === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && linkTargets(diagram, selected).length) {
+      if (e.key.toLowerCase() === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && (linkTargets(diagram, selected).length || crossPortTargets(selected).length)) {
         e.preventDefault()
         onLinking(selected)
       }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [selected, onDelete, linking, onLinking, diagram])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, onDelete, linking, onLinking, diagram, map])
 
   useEffect(() => {
     if (!linking) return
@@ -266,15 +277,18 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
     { id: 'new' as const, label: 'Hexagon in a new bounded context' },
   ]
   const targets = linking ? linkTargets(diagram, linking) : []
+  // ADR-02: the ports of another hexagon a link-mode selection can connect to — empty unless `linking` is a port.
+  const crossTargets = linking ? crossPortTargets(linking) : []
   const nameOf = (ref: string) => {
     const collection = collectionOf(diagram, ref)
     const items: { id: string; name: string }[] = collection ? diagram[collection] : []
     return items.find((i) => i.id === ref)?.name ?? ''
   }
-  // The "Link to…" chip hangs off the selection's top-right corner, for a selection that has something to link to.
-  // A port is laid out twice under one ref (its declaration in the domain and the box on the wall): anchor to the box.
+  // The "Link to…" chip hangs off the selection's top-right corner, for a selection that has something to link to
+  // — either a same-hexagon field target or a cross-hexagon port (ADR-02). A port is laid out twice under one ref
+  // (its declaration in the domain and the box on the wall): anchor to the box.
   const linkable =
-    selected && !linking && linkTargets(diagram, selected).length
+    selected && !linking && (linkTargets(diagram, selected).length || crossPortTargets(selected).length)
       ? hexModel.nodes.find((n) => n.ref === selected && n.kind === NODE_KIND[collectionOf(diagram, selected)!])
       : undefined
   const chipAt = (n: LayoutNode) => {
@@ -405,11 +419,16 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
           if (target.closest('[data-map-link], [data-hull], [data-chip]')) return
           if (e.detail === 1) gestureAnchorHexId.current = hexId
           const clickedHexId = target.closest('[data-hex]')?.getAttribute('data-hex') ?? null
-          if (clickedHexId && clickedHexId !== hexId) return focusHexagon(clickedHexId)
           const ref = target.closest('.node')?.getAttribute('data-ref') ?? null
+          // ADR-02: a click on another hexagon's port while linking, when that port is a valid cross-hexagon
+          // target, creates the link instead of switching focus — checked before the ordinary focus-switch below.
+          if (linking && clickedHexId && clickedHexId !== hexId && ref && crossTargets.some((p) => p.hexagonId === clickedHexId && p.portId === ref)) {
+            return onLink(linking, { kind: 'link', hexagonId: clickedHexId, portId: ref })
+          }
+          if (clickedHexId && clickedHexId !== hexId) return focusHexagon(clickedHexId)
           if (!linking) return setSelected(ref)
           const hit = targets.find((t) => t.targetRef === ref)
-          if (hit) onLink(linking, hit)
+          if (hit) onLink(linking, { kind: 'field', ...hit })
           else onLinking(null)
         }}
         onDoubleClick={(e) => {
