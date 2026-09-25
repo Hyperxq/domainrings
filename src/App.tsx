@@ -6,10 +6,10 @@ import { legendFor, legendSize } from './layout/legend'
 import { EXAMPLES } from './model/example'
 import { parseHexa, toHexa, toMap } from './model/hexa'
 import { KINDS } from './model/kinds'
-import { collectionOf, type LinkTarget } from './model/links'
+import { collectionOf, type LinkChoice } from './model/links'
 import { contextName, diagramOf, UNTITLED_HEXAGON, type Destination } from './model/map'
 import type { Recovery } from './model/persistence'
-import type { HexaMap, Link, Wall } from './model/schema'
+import type { HexaMap, Link, LinkEnd, Wall } from './model/schema'
 import { useMapStore } from './model/store'
 import { ConvertDialog } from './ui/ConvertDialog'
 import { Editor, revealInEditor } from './ui/Editor'
@@ -49,7 +49,7 @@ const OVERVIEW_KEY = 'domainrings:overview'
 const GUIDES_KEY = 'domainrings:guides'
 const HIGHLIGHT_KEY = 'domainrings:highlight'
 const LEGEND_OPEN_KEY = 'domainrings:legend-open'
-const { replace, restore, setMapMeta, removeItem, updateItem, addHexagon, importHexagon, removeHexagon, setMeta } = useMapStore.getState()
+const { replace, restore, setMapMeta, removeItem, updateItem, addHexagon, importHexagon, removeHexagon, setMeta, addLink } = useMapStore.getState()
 
 interface AppProps {
   boot?: { recovery: Recovery; unreadableText?: string }
@@ -197,12 +197,38 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     if (ref) setNotice((n) => (n?.tone === 'error' ? n : null))
     setLinking(ref)
   }
-  const link = (source: string, { targetRef, patch }: LinkTarget) => {
-    const collection = collectionOf(diagram, source)!
-    show({ tone: 'status', message: `Linked ${nameOf(source)} → ${nameOf(targetRef)}.`, undo: before })
-    // The same store action the editor's link dropdowns use. linkTargets only returns fields of the source's own
-    // collection, which the store's per-collection typing cannot see through a union.
-    updateItem(hexId, collection, source, patch as never)
+  // A driven·port → driving·port label, entry-point-independent (ADR-02: canvas and Links-section creation must
+  // read the same either way, since which end the author started from doesn't decide from/to — the driven end does).
+  const linkEndLabel = (end: LinkEnd) => {
+    const hexagon = map.hexagons.find((h) => h.id === end.hexagonId)!
+    const port = hexagon.ports.find((p) => p.id === end.portId)!
+    return `${hexagon.title || UNTITLED_HEXAGON} · ${port.name}`
+  }
+
+  // Shared by the canvas "Link to…" chip and the Links editor section's create form (ADR-02): one write path,
+  // so the two entry points can never drift into producing different links for the same choice.
+  const createLink = (from: LinkEnd, to: LinkEnd) => {
+    const linkId = addLink(from, to)
+    if (!linkId) return // REQ-LNK-01.3: an incompatible pair — MapSchema refused it, nothing created
+    show({ tone: 'status', message: `Linked ${linkEndLabel(from)} → ${linkEndLabel(to)}.`, undo: before })
+  }
+
+  const link = (source: string, choice: LinkChoice) => {
+    if (choice.kind === 'field') {
+      const { targetRef, patch } = choice
+      const collection = collectionOf(diagram, source)!
+      show({ tone: 'status', message: `Linked ${nameOf(source)} → ${nameOf(targetRef)}.`, undo: before })
+      // The same store action the editor's link dropdowns use. linkTargets only returns fields of the source's own
+      // collection, which the store's per-collection typing cannot see through a union.
+      updateItem(hexId, collection, source, patch as never)
+      setLinking(null)
+      return
+    }
+    // REQ-LNK-01.1b: the driven end is always `from`, regardless of which end the author started the chip from.
+    const sourceSide = diagram.ports.find((p) => p.id === source)!.side
+    const sourceEnd: LinkEnd = { hexagonId: hexId, portId: source }
+    const chosenEnd: LinkEnd = { hexagonId: choice.hexagonId, portId: choice.portId }
+    createLink(...(sourceSide === 'driven' ? ([sourceEnd, chosenEnd] as const) : ([chosenEnd, sourceEnd] as const)))
     setLinking(null)
   }
 
@@ -374,6 +400,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         onAddFromFile={handleAddFromFile}
         contextLabel={contextLabel}
         onRenameContext={handleRenameContext}
+        onCreateLink={createLink}
       />
       <Legend
         legend={legend}
@@ -390,6 +417,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       />
       <Stage
         model={model}
+        map={map}
         hexId={hexId}
         diagram={diagram}
         mode={mode}

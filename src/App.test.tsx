@@ -580,6 +580,53 @@ describe('linking on the canvas', () => {
   })
 })
 
+// twoHexMap's two hexagons each carry the EXAMPLE_DIAGRAM shape: h1's driven ports (p-repo, p-notify, p-users)
+// and driving port (p-submit) collide by id with h2's own — the exact scenario crossHexagonPorts' hexagonId-keyed
+// pairing (not bare ref) must survive (REQ-LNK-01, REQ-LNK-01.2, ADR-02).
+describe('Links: create from either entry point (REQ-LNK-01, REQ-LNK-01.2, ADR-02)', () => {
+  it('creates an identical link whether started from the canvas chip or the Links section, and Undo restores either', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<App />)
+
+    // Entry point 1: the canvas "Link to…" chip, starting from a driven port on h1.
+    fireEvent.click(onCanvas(container, 'p-repo'))
+    fireEvent.keyDown(document.body, { key: 'l' })
+    fireEvent.click(hexGroup(container, 'h2').querySelector('[data-ref="p-submit"]')!)
+
+    expect(useMapStore.getState().map.links).toHaveLength(1)
+    const canvasLink = useMapStore.getState().map.links[0]
+    expect(canvasLink).toMatchObject({ from: { hexagonId: 'h1', portId: 'p-repo' }, to: { hexagonId: 'h2', portId: 'p-submit' } })
+    expect(toastEl()!.querySelector('p')!.textContent).toBe('Linked Chat feedback slice · FeedbackRepository → Second slice · submitChatFeedback.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useMapStore.getState().map.links).toEqual([])
+
+    // Entry point 2: the Links editor section's own create form.
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    fireEvent.change(screen.getByLabelText('Driven port'), { target: { value: '0' } })
+    fireEvent.change(screen.getByLabelText('Driving port'), { target: { value: '1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create link' }))
+
+    expect(useMapStore.getState().map.links).toHaveLength(1)
+    const editorLink = useMapStore.getState().map.links[0]
+    expect({ from: editorLink.from, to: editorLink.to }).toStrictEqual({ from: canvasLink.from, to: canvasLink.to })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useMapStore.getState().map.links).toEqual([])
+  })
+
+  it('creates the driven→driving link when the canvas chip is started from the driving end (REQ-LNK-01.1b)', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<App />)
+
+    fireEvent.click(onCanvas(container, 'p-submit'))
+    fireEvent.keyDown(document.body, { key: 'l' })
+    fireEvent.click(hexGroup(container, 'h2').querySelector('[data-ref="p-repo"]')!)
+
+    expect(useMapStore.getState().map.links).toEqual([{ id: 'link1', from: { hexagonId: 'h2', portId: 'p-repo' }, to: { hexagonId: 'h1', portId: 'p-submit' } }])
+  })
+})
+
 describe('current hexagon (FOCUS-03, FOCUS-06)', () => {
   it('double-clicking a non-current hexagon focuses it and puts the caret in its Hexagon title field (FOCUS-03.1)', () => {
     useMapStore.getState().replace(twoHexMap())
