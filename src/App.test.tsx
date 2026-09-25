@@ -627,6 +627,42 @@ describe('Links: create from either entry point (REQ-LNK-01, REQ-LNK-01.2, ADR-0
   })
 })
 
+describe('Links: edit and delete from the Links section (REQ-LNK-02, REQ-LNK-04)', () => {
+  it('editing an end’s adapter shows an undo toast, and Undo restores the exact previous map (REQ-LNK-02.1, 02.3)', () => {
+    useMapStore.getState().replace(linkedTwoHexMap())
+    render(<App />)
+    const beforeEdit = useMapStore.getState().map
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+
+    fireEvent.change(screen.getByLabelText('Driven port adapter'), { target: { value: 'a-knex' } })
+
+    expect(useMapStore.getState().map.links[0].from.adapterId).toBe('a-knex')
+    expect(toastEl()).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useMapStore.getState().map).toBe(beforeEdit)
+  })
+
+  it('deleting a link shows an undo toast and removes it from the canvas; Undo restores it with its original ends and adapter (REQ-LNK-04.1, 04.2)', () => {
+    useMapStore.getState().replace(linkedTwoHexMap())
+    const { container } = render(<App />)
+    const beforeDelete = useMapStore.getState().map
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+
+    fireEvent.click(screen.getByRole('button', { name: /Delete link/ }))
+
+    expect(useMapStore.getState().map.links).toEqual([])
+    expect(container.querySelectorAll('svg.canvas [data-map-link]')).toHaveLength(0)
+    expect(toastEl()).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useMapStore.getState().map).toBe(beforeDelete)
+    expect(container.querySelectorAll('svg.canvas [data-map-link]')).toHaveLength(1)
+  })
+})
+
 describe('current hexagon (FOCUS-03, FOCUS-06)', () => {
   it('double-clicking a non-current hexagon focuses it and puts the caret in its Hexagon title field (FOCUS-03.1)', () => {
     useMapStore.getState().replace(twoHexMap())

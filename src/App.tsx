@@ -7,7 +7,7 @@ import { EXAMPLES } from './model/example'
 import { parseHexa, toHexa, toMap } from './model/hexa'
 import { KINDS } from './model/kinds'
 import { collectionOf, type LinkChoice } from './model/links'
-import { contextName, diagramOf, UNTITLED_HEXAGON, type Destination } from './model/map'
+import { contextName, diagramOf, UNTITLED_HEXAGON, type Destination, type LinkPatch } from './model/map'
 import type { Recovery } from './model/persistence'
 import type { HexaMap, Link, LinkEnd, Wall } from './model/schema'
 import { useMapStore } from './model/store'
@@ -49,7 +49,7 @@ const OVERVIEW_KEY = 'domainrings:overview'
 const GUIDES_KEY = 'domainrings:guides'
 const HIGHLIGHT_KEY = 'domainrings:highlight'
 const LEGEND_OPEN_KEY = 'domainrings:legend-open'
-const { replace, restore, setMapMeta, removeItem, updateItem, addHexagon, importHexagon, removeHexagon, setMeta, addLink } = useMapStore.getState()
+const { replace, restore, setMapMeta, removeItem, updateItem, addHexagon, importHexagon, removeHexagon, setMeta, addLink, updateLink: updateLinkAction, removeLink: removeLinkAction } = useMapStore.getState()
 
 interface AppProps {
   boot?: { recovery: Recovery; unreadableText?: string }
@@ -211,6 +211,22 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     const linkId = addLink(from, to)
     if (!linkId) return // REQ-LNK-01.3: an incompatible pair — MapSchema refused it, nothing created
     show({ tone: 'status', message: `Linked ${linkEndLabel(from)} → ${linkEndLabel(to)}.`, undo: before })
+  }
+
+  // REQ-LNK-02: edit an existing link's adapter(s) or pattern from the Links section's row — never its ends
+  // (REQ-LNK-03.1, no such control is offered). False ⇒ the patch was structurally invalid, nothing to toast.
+  const editLink = (id: string, patch: LinkPatch) => {
+    if (!updateLinkAction(id, patch)) return
+    const updated = useMapStore.getState().map.links.find((l) => l.id === id)!
+    show({ tone: 'status', message: `Updated the link ${linkEndLabel(updated.from)} → ${linkEndLabel(updated.to)}.`, undo: before })
+  }
+
+  // REQ-LNK-04: delete an existing link from the Links section's row; the message names its ends the same way
+  // createLink's does, so Undo's toast reads as the mirror image of creating it.
+  const deleteLink = (id: string) => {
+    const removed = removeLinkAction(id)
+    if (!removed) return
+    show({ tone: 'status', message: `Deleted the link ${linkEndLabel(removed.from)} → ${linkEndLabel(removed.to)}.`, undo: before })
   }
 
   const link = (source: string, choice: LinkChoice) => {
@@ -401,6 +417,8 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         contextLabel={contextLabel}
         onRenameContext={handleRenameContext}
         onCreateLink={createLink}
+        onUpdateLink={editLink}
+        onDeleteLink={deleteLink}
       />
       <Legend
         legend={legend}

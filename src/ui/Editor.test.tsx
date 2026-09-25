@@ -24,6 +24,8 @@ const renderEditor = (
   contextLabel = 'Context 1',
   onRenameContext: (before: HexaMap, contextId: string) => void = () => {},
   onCreateLink: (from: LinkEnd, to: LinkEnd) => void = () => {},
+  onUpdateLink: (id: string, patch: import('../model/map').LinkPatch) => void = () => {},
+  onDeleteLink: (id: string) => void = () => {},
 ) =>
   render(
     <Editor
@@ -36,6 +38,8 @@ const renderEditor = (
       contextLabel={contextLabel}
       onRenameContext={onRenameContext}
       onCreateLink={onCreateLink}
+      onUpdateLink={onUpdateLink}
+      onDeleteLink={onDeleteLink}
     />,
   )
 const section = (container: HTMLElement, title: string) =>
@@ -392,7 +396,7 @@ describe('Links section (REQ-LNK-01, REQ-LNK-07)', () => {
     useMapStore.getState().replace(linkedTwoHexMap())
     const { container } = renderEditor()
     const row = within(section(container, 'Links')).getByRole('listitem')
-    expect(row.textContent).toBe('Chat feedback slice · FeedbackRepository → Second slice · submitChatFeedback')
+    expect(row.querySelector('.link-row-label')!.textContent).toBe('Chat feedback slice · FeedbackRepository → Second slice · submitChatFeedback')
   })
 
   it('offers every driven port and every driving port across the map for the create form', () => {
@@ -456,6 +460,70 @@ describe('Links section (REQ-LNK-01, REQ-LNK-07)', () => {
     fireEvent.click(linksSection.getByRole('button', { name: 'Create link' }))
 
     expect(onCreateLink).toHaveBeenCalledWith({ hexagonId: 'h1', portId: 'p-repo', adapterId: 'a-knex' }, { hexagonId: 'h2', portId: 'p-submit', adapterId: undefined })
+  })
+
+  /** linkedTwoHexMap with its two hexagons split across contexts — the minimum shape that makes the pattern
+   * control eligible (REQ-LNK-06.2). */
+  function crossContextLinkedMap(): HexaMap {
+    const base = linkedTwoHexMap()
+    return { ...base, contexts: [...base.contexts, { id: 'c2' }], hexagons: base.hexagons.map((h, i) => (i === 1 ? { ...h, contextId: 'c2' } : h)) }
+  }
+
+  it('shows a delete button for each link, calling onDeleteLink with its id (REQ-LNK-04.1)', () => {
+    useMapStore.getState().replace(linkedTwoHexMap())
+    const onDeleteLink = vi.fn()
+    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', () => {}, () => {}, () => {}, onDeleteLink)
+    const row = within(section(container, 'Links')).getByRole('listitem')
+
+    fireEvent.click(within(row).getByRole('button', { name: /Delete link/ }))
+
+    expect(onDeleteLink).toHaveBeenCalledWith('link-1')
+  })
+
+  it('offers an adapter edit for each end, calling onUpdateLink — a chosen value sets it, the placeholder clears it with null (REQ-LNK-02.1)', () => {
+    useMapStore.getState().replace(linkedTwoHexMap())
+    const onUpdateLink = vi.fn()
+    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', () => {}, () => {}, onUpdateLink)
+    const row = within(section(container, 'Links')).getByRole('listitem')
+
+    fireEvent.change(within(row).getByLabelText('Driven port adapter'), { target: { value: 'a-knex' } })
+    expect(onUpdateLink).toHaveBeenCalledWith('link-1', { from: { adapterId: 'a-knex' } })
+
+    fireEvent.change(within(row).getByLabelText('Driven port adapter'), { target: { value: '' } })
+    expect(onUpdateLink).toHaveBeenCalledWith('link-1', { from: { adapterId: null } })
+  })
+
+  it('shows the pattern control only when the link’s two hexagons are in different contexts (REQ-LNK-06.2)', () => {
+    useMapStore.getState().replace(linkedTwoHexMap())
+    const { container: sameContext } = renderEditor()
+    expect(within(section(sameContext, 'Links')).queryByLabelText('Pattern')).toBeNull()
+    cleanup()
+
+    useMapStore.getState().replace(crossContextLinkedMap())
+    const { container: crossContext } = renderEditor()
+    expect(within(section(crossContext, 'Links')).getByLabelText('Pattern')).toBeTruthy()
+  })
+
+  it('calls onUpdateLink with the chosen pattern, or null when cleared back to the placeholder (REQ-LNK-02.2)', () => {
+    useMapStore.getState().replace(crossContextLinkedMap())
+    const onUpdateLink = vi.fn()
+    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', () => {}, () => {}, onUpdateLink)
+    const row = within(section(container, 'Links')).getByRole('listitem')
+
+    fireEvent.change(within(row).getByLabelText('Pattern'), { target: { value: 'acl' } })
+    expect(onUpdateLink).toHaveBeenCalledWith('link-1', { pattern: 'acl' })
+
+    fireEvent.change(within(row).getByLabelText('Pattern'), { target: { value: '' } })
+    expect(onUpdateLink).toHaveBeenCalledWith('link-1', { pattern: null })
+  })
+
+  it('offers no control anywhere that moves an endpoint (REQ-LNK-03.1)', () => {
+    useMapStore.getState().replace(crossContextLinkedMap())
+    const { container } = renderEditor()
+    const row = within(section(container, 'Links')).getByRole('listitem')
+
+    expect(within(row).queryByLabelText('Driven port')).toBeNull()
+    expect(within(row).queryByLabelText('Driving port')).toBeNull()
   })
 })
 
