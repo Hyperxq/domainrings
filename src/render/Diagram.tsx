@@ -275,13 +275,16 @@ interface MapDiagramProps {
   selected: string | null
   /** In link mode, the refs the selection can be linked to. */
   linkTargets: ReadonlySet<string>
+  /** In link mode, valid cross-hexagon port targets on hexagons OTHER than the current one, keyed by hexagon id
+   * (decision 7387) — a port id alone is not enough, since ids collide across hexagons by construction. */
+  crossLinkTargets: ReadonlyMap<string, ReadonlySet<string>>
   /** The hovered layer, scoped to the current hexagon only (CANVAS-03). */
   hovered: string | null
 }
 
 /** Composes every hexagon of a map into one SVG: one `<defs>`, one `<g data-hex>` per hexagon, the map's links
  * drawn above them, an optional map title, and the legend once — under the current hexagon. */
-export function MapDiagram({ map, legend, showGuides, focus, selected, linkTargets, hovered }: MapDiagramProps) {
+export function MapDiagram({ map, legend, showGuides, focus, selected, linkTargets, crossLinkTargets, hovered }: MapDiagramProps) {
   const first = map.hexagons[0]
   const current = currentHexagon(map, focus)
   return (
@@ -307,7 +310,7 @@ export function MapDiagram({ map, legend, showGuides, focus, selected, linkTarge
               model={hex.model}
               showGuides={showGuides}
               selected={isCurrent ? selected : null}
-              linkTargets={isCurrent ? linkTargets : NO_TARGETS}
+              linkTargets={isCurrent ? linkTargets : (crossLinkTargets.get(hex.id) ?? NO_TARGETS)}
               interactive={isCurrent}
             />
             {isCurrent && map.hexagons.length > 1 && <HexCue model={hex.model} />}

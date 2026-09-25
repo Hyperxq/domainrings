@@ -1022,4 +1022,20 @@ describe('Stage — cross-hexagon link creation (REQ-LNK-01.1, 01.1b, ADR-02)', 
     expect(onLink).not.toHaveBeenCalled()
     expect(useMapStore.getState().focus).toBe('h3')
   })
+
+  // Decision 7387: a valid cross-hexagon target must carry the same dashed data-link-target marking a
+  // same-hexagon target gets, and clicking that marked node must still create the link (not just any node).
+  it('marks the cross-hexagon target with data-link-target, and clicking that marked node creates the link', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const onLink = vi.fn()
+    const { container } = render(<Harness onLink={onLink} />)
+    startWithL(container, 'h1', 'p-repo')
+
+    const target = hexGroup(container, 'h2').querySelector('[data-ref="p-submit"]')!
+    expect(target.hasAttribute('data-link-target')).toBe(true)
+
+    fireEvent.click(target)
+
+    expect(onLink).toHaveBeenCalledWith('p-repo', { kind: 'link', hexagonId: 'h2', portId: 'p-submit' })
+  })
 })

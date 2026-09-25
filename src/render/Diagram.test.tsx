@@ -12,8 +12,18 @@ import type { HexaMap } from '../model/schema'
 import { twoHexagonMap } from '../test/fixtures'
 
 const NO_TARGETS = new Set<string>()
+const NO_CROSS_TARGETS = new Map<string, ReadonlySet<string>>()
 
-function renderSvg(map: HexaMap, extra: { focus?: string; selected?: string | null; linkTargets?: ReadonlySet<string>; hovered?: string | null } = {}) {
+function renderSvg(
+  map: HexaMap,
+  extra: {
+    focus?: string
+    selected?: string | null
+    linkTargets?: ReadonlySet<string>
+    crossLinkTargets?: ReadonlyMap<string, ReadonlySet<string>>
+    hovered?: string | null
+  } = {},
+) {
   const model = layoutMap(map)
   const legend = legendFor(diagramOf(map, map.hexagons[0].id))
   const { container } = render(
@@ -25,6 +35,7 @@ function renderSvg(map: HexaMap, extra: { focus?: string; selected?: string | nu
         focus={extra.focus ?? map.hexagons[0].id}
         selected={extra.selected ?? null}
         linkTargets={extra.linkTargets ?? NO_TARGETS}
+        crossLinkTargets={extra.crossLinkTargets ?? NO_CROSS_TARGETS}
         hovered={extra.hovered ?? null}
       />
     </svg>,
@@ -194,6 +205,45 @@ describe('MapDiagram — current-hexagon scoping (FOCUS-01, CANVAS-03, EDIT-01)'
     for (const el of currentInner) {
       expect(el.getAttribute('tabindex')).toBe('0')
     }
+  })
+})
+
+/** twoHexagonMap plus a second, unlisted port on h2 (to tell a marked target apart from an unmarked one on the
+ * SAME non-current hexagon) and a third hexagon h3 that never appears in crossLinkTargets at all. */
+function crossTargetMap(): HexaMap {
+  const base = twoHexagonMap()
+  const h2 = { ...base.hexagons[1], ports: [...base.hexagons[1].ports, { id: 'p-in2', name: 'in2', side: 'driving' as const }] }
+  const h3: HexaMap['hexagons'][number] = {
+    id: 'h3',
+    contextId: 'c1',
+    cell: { q: -1, r: 0 },
+    title: 'Slice C',
+    domain: [],
+    useCases: [],
+    ports: [{ id: 'p-c', name: 'c', side: 'driving' }],
+    adapters: [],
+    actors: [],
+    externals: [],
+  }
+  return { ...base, hexagons: [base.hexagons[0], h2, h3] }
+}
+
+describe('MapDiagram — cross-hexagon link targets (decision 7387)', () => {
+  it('marks a non-current hexagon’s valid target port, leaves an unlisted port on the same hexagon and a hexagon absent from the map unmarked', () => {
+    const { container } = renderSvg(crossTargetMap(), { crossLinkTargets: new Map([['h2', new Set(['p-in'])]]) })
+    const marked = container.querySelectorAll('.node-port[data-link-target]')
+    expect(marked).toHaveLength(1)
+    expect(marked[0].closest('[data-hex]')!.getAttribute('data-hex')).toBe('h2')
+    expect(marked[0].getAttribute('data-ref')).toBe('p-in')
+    const h2Other = container.querySelector('[data-hex="h2"] [data-ref="p-in2"]')!
+    expect(h2Other.hasAttribute('data-link-target')).toBe(false)
+    const h3Port = container.querySelector('[data-hex="h3"] [data-ref="p-c"]')!
+    expect(h3Port.hasAttribute('data-link-target')).toBe(false)
+  })
+
+  it('marks nothing when no cross-hexagon targets are given (outside link mode)', () => {
+    const { container } = renderSvg(crossTargetMap())
+    expect(container.querySelectorAll('[data-link-target]')).toHaveLength(0)
   })
 })
 

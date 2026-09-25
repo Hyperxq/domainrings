@@ -279,6 +279,14 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
   const targets = linking ? linkTargets(diagram, linking) : []
   // ADR-02: the ports of another hexagon a link-mode selection can connect to — empty unless `linking` is a port.
   const crossTargets = linking ? crossPortTargets(linking) : []
+  // Decision 7387: the same targets, grouped by hexagon id, for MapDiagram to mark on the hexagons that own them —
+  // a bare portId is not enough, since ids collide across hexagons by construction (see the decoy-port test).
+  const crossLinkTargets = new Map<string, Set<string>>()
+  for (const t of crossTargets) {
+    const set = crossLinkTargets.get(t.hexagonId)
+    if (set) set.add(t.portId)
+    else crossLinkTargets.set(t.hexagonId, new Set([t.portId]))
+  }
   const nameOf = (ref: string) => {
     const collection = collectionOf(diagram, ref)
     const items: { id: string; name: string }[] = collection ? diagram[collection] : []
@@ -461,6 +469,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
           focus={hexId}
           selected={selected}
           linkTargets={new Set(targets.map((t) => t.targetRef))}
+          crossLinkTargets={crossLinkTargets}
           hovered={highlight ? hovered : null}
         />
       </svg>
