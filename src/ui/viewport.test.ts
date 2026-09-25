@@ -133,6 +133,13 @@ describe('viewport', () => {
     expect(pinch(v, from, [{ x: 499.5, y: 300 }, { x: 500.5, y: 300 }]).scale).toBe(MIN_SCALE)
   })
 
+  it('honours a lower floor, so pinching out of a whole-map fit never snaps back above it (FIT-01, ADR-05)', () => {
+    const from: [Point, Point] = [{ x: 490, y: 300 }, { x: 510, y: 300 }]
+    const closed: [Point, Point] = [{ x: 499.5, y: 300 }, { x: 500.5, y: 300 }]
+    expect(pinch({ ...v, scale: 0.05 }, from, closed, 0.03).scale).toBe(0.03)
+    expect(pinch({ ...v, scale: 0.05 }, from, from, 0.03).scale).toBe(0.05)
+  })
+
   it('fits inside the area left free by floating panels', () => {
     const bounds = { x: 0, y: 0, width: 400, height: 400 }
     const inset = { top: 60, right: 0, bottom: 0, left: 320 }

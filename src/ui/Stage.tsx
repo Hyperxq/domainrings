@@ -352,7 +352,7 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
             // The functional updater is required: the browser can dispatch each finger's pointermove
             // synchronously in the same tick, and React batches both setView calls into one render, so the
             // second call's `viewport` closure would otherwise be stale relative to the first.
-            setView((prev) => pinch(prev ?? viewport, from, to))
+            setView((prev) => pinch(typeof prev === 'string' ? viewport : prev, from, to, zoomFloor))
             return
           }
           pointers.current.set(e.pointerId, point)
