@@ -56,8 +56,8 @@ interface MapState {
    * Never bumps `revision`. */
   addLink: (from: LinkEnd, to: LinkEnd) => string | undefined
   /** Patches an existing link's adapters and/or pattern (ADR-02: validate-by-reparse, same shape as addLink) —
-   * false ⇒ no-op, the patched candidate map failed MapSchema (e.g. an adapter not on that port, or a pattern on
-   * a same-context link, REQ-LNK-06.2). Never bumps `revision`. */
+   * false ⇒ no-op: no link has `id`, or the patched candidate map failed MapSchema (e.g. an adapter not on that
+   * port, or a pattern on a same-context link, REQ-LNK-06.2). Never bumps `revision`. */
   updateLink: (id: string, patch: LinkPatch) => boolean
   /** Removes an existing link, returning it (for the undo toast's message) — undefined ⇒ no such link, the map is
    * untouched. Never prunes any OTHER link (links are never referenced by another link). Never bumps `revision`. */
@@ -153,6 +153,7 @@ export const useMapStore = create<MapState>()((set, get) => {
       return linkId
     },
     updateLink: (id, patch) => {
+      if (!get().map.links.some((l) => l.id === id)) return false
       const next = updateLinkOnMap(get().map, id, patch)
       if (!MapSchema.safeParse(next).success) return false
       set({ map: next })

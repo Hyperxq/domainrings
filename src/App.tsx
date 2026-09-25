@@ -214,10 +214,12 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   }
 
   // REQ-LNK-02: edit an existing link's adapter(s) or pattern from the Links section's row — never its ends
-  // (REQ-LNK-03.1, no such control is offered). False ⇒ the patch was structurally invalid, nothing to toast.
+  // (REQ-LNK-03.1, no such control is offered). False ⇒ no link has `id`, or the patch was structurally invalid;
+  // either way nothing to toast.
   const editLink = (id: string, patch: LinkPatch) => {
     if (!updateLinkAction(id, patch)) return
-    const updated = useMapStore.getState().map.links.find((l) => l.id === id)!
+    const updated = useMapStore.getState().map.links.find((l) => l.id === id)
+    if (!updated) return
     show({ tone: 'status', message: `Updated the link ${linkEndLabel(updated.from)} → ${linkEndLabel(updated.to)}.`, undo: before })
   }
 

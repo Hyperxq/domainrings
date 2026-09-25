@@ -501,6 +501,16 @@ describe('map store', () => {
       expect(ok).toBe(false)
       expect(state().map).toBe(map)
     })
+
+    it('returns false for an unknown id, leaving the map untouched', () => {
+      state().replace(linkedTwoHexMap())
+      const map = state().map
+
+      const ok = state().updateLink('nope', { pattern: 'acl' })
+
+      expect(ok).toBe(false)
+      expect(state().map).toBe(map)
+    })
   })
 
   describe('removeLink (ADR-02, REQ-LNK-04)', () => {
