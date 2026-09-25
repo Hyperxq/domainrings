@@ -202,7 +202,7 @@
 /* Connects hexagons across the map, so it stays visually subordinate to a hexagon's own edges. A <path> (unlike
    the <line> it replaced) is filled by default, so `fill: none` is load-bearing, not decorative. The entrance is
    the same fade-in every other mounted affordance uses (`enter`) — it does not need to distinguish "loaded from
-   file" vs "created via UI" (S-000), both are a mount. */
+   file" vs "created via UI", both are a mount. */
 .map-link { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 6 4; animation: enter var(--motion-base) var(--motion-ease); }
 .link-pattern-label { fill: var(--muted); font-family: var(--font-mono); text-anchor: middle; paint-order: stroke; stroke: var(--card); stroke-width: 4px; stroke-linejoin: round; }
 /* Context outlines and their name chips (CB-01, CB-02, ADR-04) — inert (ADR-05), so neither carries an entrance
