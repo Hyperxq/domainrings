@@ -9,9 +9,11 @@ import { toMap } from '../model/hexa'
 import { contextName, diagramOf, freeSides, neighbour, SIDE_ORDER } from '../model/map'
 import { useMapStore } from '../model/store'
 import type { HexaMap } from '../model/schema'
+import { parseHexa } from '../model/hexa'
 import { hexGroup, twoHexMap } from '../test/fixtures'
 import { fitMap, fitTo, islandInset, MIN_SCALE, pinch, zoomAt } from './viewport'
-import type { Point } from '../layout/layout'
+import type { Box, Point } from '../layout/layout'
+import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class {
@@ -31,6 +33,7 @@ function Harness({
   naming = false,
   onNamed = () => {},
   onNamingCancel = () => {},
+  mode = 'detailed',
 }: {
   highlight?: boolean
   onReveal?: (ref: string, focus: boolean) => void
@@ -38,6 +41,7 @@ function Harness({
   naming?: boolean
   onNamed?: (title: string) => void
   onNamingCancel?: () => void
+  mode?: import('../layout/layout').LayoutMode
 }) {
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
@@ -47,10 +51,10 @@ function Harness({
   const currentContextId = map.hexagons.find((h) => h.id === hexId)!.contextId
   return (
     <Stage
-      model={layoutMap(map)}
+      model={layoutMap(map, { mode })}
       hexId={hexId}
       diagram={diagram}
-      mode="detailed"
+      mode={mode}
       legend={legendFor(diagram)}
       revision={0}
       title="Test"
@@ -595,6 +599,46 @@ describe('Step 0 hardening — pinch, wheel floor, and auto/whole divergence (ob
       restore()
     }
   })
+})
+
+// S-006.2: the committed honeycomb fixture (8 hexagons, one STRESS-content, a split context, an unnamed context,
+// a 6-ring around a foreign hexagon), rendered with each hexagon current in turn, in both layout modes.
+describe('Stage — the honeycomb fixture stays disjoint with every hexagon current in turn, in both modes (S-006.2)', () => {
+  const separation = (a: Box, b: Box): number => {
+    const dx = Math.max(a.x, b.x) - Math.min(a.x + a.width, b.x + b.width)
+    const dy = Math.max(a.y, b.y) - Math.min(a.y + a.height, b.y + b.height)
+    return Math.max(dx, dy)
+  }
+  const honeycombMap = (): HexaMap => {
+    const result = parseHexa(v2Honeycomb)
+    if (!result.ok) throw new Error('fixture failed to parse')
+    return result.map
+  }
+
+  for (const mode of ['detailed', 'overview'] as const) {
+    it(`every pair of hexagon boxes stays separated by MAP_GAP with each hexagon current in turn (${mode})`, () => {
+      const map = honeycombMap()
+      useMapStore.getState().replace(map)
+      const { container } = render(<Harness mode={mode} />)
+
+      for (const hexagon of map.hexagons) {
+        act(() => useMapStore.getState().setFocus(hexagon.id))
+
+        const model = layoutMap(useMapStore.getState().map, { mode })
+        for (let i = 0; i < model.hexagons.length; i++) {
+          for (let j = i + 1; j < model.hexagons.length; j++) {
+            expect(separation(hexagonBounds(model.hexagons[i]), hexagonBounds(model.hexagons[j]))).toBeGreaterThanOrEqual(60 - 1e-6)
+          }
+        }
+        // Bridges the pure-layout guarantee above to the actual DOM: jsdom's getBoundingClientRect is a zero-box
+        // stub (App.test.tsx's own EX-01 note), so the real proof a rendered group sits where the model says it
+        // does is that its `transform` matches the model's `centre` exactly, for every hexagon, every time focus moves.
+        for (const h of model.hexagons) {
+          expect(hexGroup(container, h.id).getAttribute('transform')).toBe(`translate(${h.centre.x} ${h.centre.y})`)
+        }
+      }
+    })
+  }
 })
 
 describe('Stage current-hexagon focus (FOCUS-01, 03, 04, 05, CANVAS-03)', () => {
