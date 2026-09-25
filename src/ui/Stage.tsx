@@ -89,7 +89,7 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
   // only a real keyboard focus should. `pointerdown`/`pointerup` on the stage bracket every such press.
   const pointerPressed = useRef(false)
   const [size, setSize] = useState({ width: 0, height: 0 })
-  // 'auto' resolves by hexagon count (F-02, decision obs 7314): on 2+ hexagons it always shows the whole map, at
+  // 'auto' resolves by hexagon count: on 2+ hexagons it always shows the whole map, at
   // whatever zoom that takes, never falling back to a partial view (FIT-01); on exactly one it fits that diagram,
   // falling back to a usable scale the same way main always has (CANVAS-04). A concrete Viewport is whatever the
   // author panned/zoomed to (ADR-05).
@@ -128,7 +128,7 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
   const effectiveSize = { width: size.width || model.bounds.width, height: size.height || model.bounds.height }
   const wholeFit = fitTo(model.bounds, effectiveSize.width, effectiveSize.height, inset, 0)
   const singleFit = fitMap(model.bounds, hexagonBounds(hex), effectiveSize.width, effectiveSize.height, inset)
-  // F-02: on 2+ hexagons 'auto' IS the whole-map fit — it never falls back to the current hexagon alone, even
+  // On 2+ hexagons 'auto' IS the whole-map fit — it never falls back to the current hexagon alone, even
   // when that fit would read as illegible clutter (MIN_FIT_SCALE only still applies on a single-hexagon map).
   const autoFit = model.hexagons.length >= 2 ? wholeFit : singleFit
   const viewport = view === 'auto' ? autoFit : view
@@ -140,7 +140,7 @@ export function Stage({ model, hexId, diagram, mode, highlight, legend, revision
   // Grow/import/delete/undo never bump `revision` (ADR-02/ADR-05), so the fitKey reset above can't see them — this
   // tracks the hexagon id set instead. A `Viewport` the author set stays iff every added/removed box is still fully
   // on screen (FIT-02.2); otherwise it falls back to 'auto', which recomputes against the new bounds every render
-  // and — on 2+ hexagons — always follows the whole map, never frozen (FIT-02.1, F-02).
+  // and — on 2+ hexagons — always follows the whole map, never frozen (FIT-02.1).
   const hexKey = model.hexagons.map((h) => h.id).join(',')
   const [seenHexagons, setSeenHexagons] = useState({ key: hexKey, hexagons: model.hexagons })
   if (hexKey !== seenHexagons.key) {

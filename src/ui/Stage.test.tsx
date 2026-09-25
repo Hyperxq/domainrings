@@ -289,7 +289,7 @@ describe('Stage panning', () => {
   })
 })
 
-// Outer-loop acceptance test for the ONE fit control (FIT-01, FIT-02, ADR-05, F-01/F-02 decision obs 7314): written
+// Outer-loop acceptance test for the ONE fit control (FIT-01, FIT-02, ADR-05): written
 // first and kept red through the inner viewport.ts/Stage.tsx RED-GREEN cycles below; green once the single button
 // resolves 'auto' to the whole-map fit on a multi-hexagon map.
 describe('Stage — the single fit control fits the whole map on 2+ hexagons (FIT-01, ADR-05)', () => {
@@ -406,7 +406,7 @@ describe('Stage — the single fit control fits the whole map on 2+ hexagons (FI
 
 describe('Stage — auto-fit after a map-shape change (FIT-02, ADR-05)', () => {
   const inset = islandInset({ width: 0, height: 0 }, false, false)
-  // 'auto' resolves by hexagon count (F-02, decision obs 7314): 1 -> the current-diagram fit (MIN_FIT_SCALE
+  // 'auto' resolves by hexagon count: 1 -> the current-diagram fit (MIN_FIT_SCALE
   // fallback, unchanged from main); >=2 -> the whole-map fit, with no fallback, so it never shrinks to one hexagon.
   const autoFitOf = () => {
     const model = layoutMap(useMapStore.getState().map)
@@ -550,10 +550,10 @@ describe('Stage — wheel floor follows the whole-map fit, not a hardcoded MIN_S
 
 // Step 0 hardening for S-006 (verify-in-loop-6, obs 7294): closes the three non-blocking findings the pinch
 // integration commit left untested — none of them are architectural, spec, or sensitive, all additive coverage.
-// F-02 (decision obs 7314) then changed the fallback target itself: 'auto' now resolves to the whole-map fit on
+// The fallback target itself then changed: 'auto' now resolves to the whole-map fit on
 // a multi-hexagon map, so it never falls back to the current hexagon alone, even when it never fits above
 // MIN_FIT_SCALE.
-describe('Step 0 hardening — pinch, wheel floor, and the whole-map auto fit (obs 7294, F-02)', () => {
+describe('Step 0 hardening — pinch, wheel floor, and the whole-map auto fit ', () => {
   const viewportOf = (container: HTMLElement) => {
     const style = (container.querySelector('main') as HTMLElement).style
     const scale = parseFloat(style.backgroundSize) / 20
@@ -657,7 +657,7 @@ describe('Step 0 hardening — pinch, wheel floor, and the whole-map auto fit (o
       const inset = islandInset({ width: 800, height: 600 }, false, false)
       const modelBefore = layoutMap(useMapStore.getState().map)
       // The premise: the OLD current-hexagon fallback threshold (MIN_FIT_SCALE) would have fired for this map —
-      // F-02 says 'auto' follows the whole map anyway on 2+ hexagons, never falling back to it.
+      // 'auto' follows the whole map anyway on 2+ hexagons, never falling back to it.
       expect(fitTo(modelBefore.bounds, 800, 600, inset, 0).scale).toBeLessThan(0.4)
 
       pan(container, 100000, 100000) // a manual viewport now looks far away from every hexagon
