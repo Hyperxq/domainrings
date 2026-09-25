@@ -43,9 +43,17 @@ export function ConvertDialog({ kind, action, onConfirm, onCancel }: ConvertDial
       aria-labelledby="convert-dialog-message"
       onCancel={(e) => e.preventDefault()}
       onKeyDown={(e) => {
-        if (e.key !== 'Escape') return
-        e.stopPropagation()
-        settle(onCancel)
+        if (e.key === 'Escape') {
+          e.stopPropagation()
+          settle(onCancel)
+          return
+        }
+        // Undo is a document-level shortcut (Toast); left alone here it would bubble past the modal and undo
+        // whatever the question is asking about while it's still on screen (CONV-02.3).
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+          e.preventDefault()
+          e.stopPropagation()
+        }
       }}
     >
       <p id="convert-dialog-message">

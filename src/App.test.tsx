@@ -1218,6 +1218,20 @@ describe('delete a hexagon (DEL-01..06)', () => {
     expect(toastEl()).not.toBeNull()
   })
 
+  it('does not dismiss the sticky delete notice on Esc, unlike an ordinary status toast (DEL-02)', () => {
+    useMapStore.getState().replace(linkedTwoHexMap())
+    render(<App />)
+    openEditor()
+
+    fireEvent.click(deleteButton())
+    expect(toastEl()).not.toBeNull()
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    act(() => vi.advanceTimersByTime(150))
+
+    expect(toastEl()).not.toBeNull()
+  })
+
   it('shows "Deleted {title}" with no link count for an unlinked hexagon (DEL-02.2)', () => {
     useMapStore.getState().replace(twoHexMap())
     render(<App />)
@@ -1512,6 +1526,28 @@ describe('no autosave while the conversion dialog is open (CONV-02.3)', () => {
     act(() => vi.advanceTimersByTime(1000))
 
     expect(storage.setItem).not.toHaveBeenCalled()
+  })
+
+  it('does not let Ctrl/Cmd+Z on the dialog reach the document-level undo listener behind it', () => {
+    useMapStore.getState().setMapMeta({ kind: 'clean' })
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    const input = screen.getByLabelText('Name for Context 1')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Billing' } })
+    fireEvent.blur(input)
+    expect(toastEl()).not.toBeNull()
+    const mapBefore = useMapStore.getState().map
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add hexagon to the east of Chat feedback slice' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Billing' }))
+    const cancelButton = screen.getByRole('button', { name: 'Cancel' })
+    expect(document.activeElement).toBe(cancelButton)
+
+    fireEvent.keyDown(cancelButton, { key: 'z', ctrlKey: true })
+
+    expect(useMapStore.getState().map).toBe(mapBefore)
+    expect(screen.getByRole('dialog')).toBeTruthy()
   })
 })
 

@@ -36,7 +36,7 @@ export function Toast({ message, sticky, onUndo, onClose }: ToastProps) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setLeaving(true)
+      if (e.key === 'Escape' && !sticky) setLeaving(true)
       if (onUndo && (e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'z' && !typing(e.target)) {
         e.preventDefault()
         onUndo()
@@ -44,7 +44,7 @@ export function Toast({ message, sticky, onUndo, onClose }: ToastProps) {
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onUndo])
+  }, [onUndo, sticky])
 
   return (
     <div
