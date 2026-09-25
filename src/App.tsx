@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import type { LayoutMode } from './layout/layout'
 import { currentHexagon, hexagonBounds, layoutMap } from './layout/map'
@@ -18,6 +18,7 @@ import { Icon } from './ui/Icon'
 import { Legend } from './ui/Legend'
 import type { PaletteId } from './ui/palette'
 import { readPref, setRootPref, writePref } from './ui/prefs'
+import { decodeSharePayload, SHARE_HASH_PREFIX } from './ui/shareLink'
 import { Stage } from './ui/Stage'
 import { Toast } from './ui/Toast'
 import { Toolbar, type ExportScope, type ThemeChoice } from './ui/Toolbar'
@@ -205,22 +206,44 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     setLinking(null)
   }
 
-  // Shared by Open… (replaces the map) and "Add hexagon from file…" (adds one hexagon): a file that fails to
-  // parse is refused the same way either place (IMP-07) — a newer-version file isn't broken (REQ-03.1), so it
-  // gets its own headline, no fix-it framing.
-  const parseFile = async (file: File): Promise<HexaMap | undefined> => {
-    const result = parseHexa(await file.text())
+  // Shared by Open…, "Add hexagon from file…" and a share link: text that fails to parse is refused the same
+  // way everywhere (IMP-07) — a newer-version source isn't broken (REQ-03.1), so it gets its own headline, no
+  // fix-it framing. `label` names the source in the notice ("broken.hexa" for a file, "This link" for a link).
+  const parseSource = async (text: string, label: string): Promise<HexaMap | undefined> => {
+    const result = parseHexa(text)
     if (result.ok) return result.map
     const message =
-      result.reason === 'newer' ? `${file.name} was made by a newer version of domainrings.` : `${file.name} could not be opened. Fix these problems and try again:`
+      result.reason === 'newer' ? `${label} was made by a newer version of domainrings.` : `${label} could not be opened. Fix these problems and try again:`
     show({ tone: 'error', message, details: result.errors })
     return undefined
   }
 
   const importFile = async (file: File) => {
-    const parsed = await parseFile(file)
+    const parsed = await parseSource(await file.text(), file.name)
     if (parsed) swap(parsed, `Opened ${file.name}.`)
   }
+
+  // REQ-01/02/03/04: a share link in the address is consumed once, on mount. The ref is set before any await so
+  // React StrictMode's double-invoke of this effect never re-enters the async branch below.
+  const linkHandled = useRef(false)
+  useEffect(() => {
+    if (linkHandled.current) return
+    linkHandled.current = true
+    const finishLink = () => history.replaceState(null, '', location.pathname)
+    void (async () => {
+      if (!location.hash.startsWith(SHARE_HASH_PREFIX)) return
+      const text = await decodeSharePayload(location.hash.slice(SHARE_HASH_PREFIX.length))
+      if (text === undefined) {
+        show({ tone: 'error', message: 'This link could not be read.' })
+        return finishLink()
+      }
+      const parsed = await parseSource(text, 'This link')
+      if (parsed) swap(parsed, 'Opened from a link.')
+      finishLink()
+    })()
+    // Runs once on mount only — the effect reads location/hash as they are at load, not on every re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const completeImport = (file: HexaMap, context: Destination, fileName: string, convert?: boolean) => {
     const newHexId = importHexagon(file, { context, convert })
@@ -233,7 +256,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // "Add hexagon from file…" (IMP-01..07): refuses a multi-hexagon file before any conversion question (IMP-04.2),
   // then either asks to convert (map.kind isn't hexagonal) or imports straight away.
   const handleAddFromFile = async (file: File, context: Destination, opener: HTMLElement | null) => {
-    const parsed = await parseFile(file)
+    const parsed = await parseSource(await file.text(), file.name)
     if (!parsed) return
     if (parsed.hexagons.length > 1) {
       show({ tone: 'error', message: `This file has ${parsed.hexagons.length} hexagons. Add hexagon from file… takes one; use Open to replace the map.` })

@@ -1,6 +1,8 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { CompressionStream, DecompressionStream } from 'node:stream/web'
+import { StrictMode } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { App } from './App'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM, TWO_SLICES_MAP } from './model/example'
@@ -10,6 +12,7 @@ import { diagramOf, UNTITLED_HEXAGON } from './model/map'
 import { autosave, MAP_KEY } from './model/persistence'
 import { useMapStore } from './model/store'
 import { fileSlug } from './ui/exporters'
+import { encodeSharePayload, SHARE_HASH_PREFIX } from './ui/shareLink'
 import { card, currentDiagram, hexGroup, installDialogPolyfill, linkedTwoHexMap, twoHexMap } from './test/fixtures'
 import v1Minimal from './model/fixtures/v1-minimal.hexa?raw'
 import v1Maximal from './model/fixtures/v1-maximal.hexa?raw'
@@ -1736,5 +1739,48 @@ describe('journey', () => {
     await reopen(savedText)
 
     expect(useMapStore.getState().map).toStrictEqual(beforeSave)
+  })
+})
+
+describe('open a map from a self-contained share link (REQ-01, REQ-03, REQ-04)', () => {
+  beforeEach(() => {
+    vi.stubGlobal('CompressionStream', CompressionStream)
+    vi.stubGlobal('DecompressionStream', DecompressionStream)
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    history.replaceState(null, '', '/')
+  })
+
+  it('replaces the map, shows a status notice with undo, and clears the hash (REQ-01.1, REQ-03.1)', async () => {
+    const shared = toMap(STRESS_DIAGRAM)
+    location.hash = `${SHARE_HASH_PREFIX}${await encodeSharePayload(shared)}`
+    const before = useMapStore.getState().map
+
+    render(<App />)
+    await act(async () => {
+      await vi.waitFor(() => expect(useMapStore.getState().map).toStrictEqual(shared))
+    })
+
+    expect(toastEl()!.textContent).toContain('Opened from a link.')
+    expect(location.hash).toBe('')
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useMapStore.getState().map).toStrictEqual(before)
+  })
+
+  it('applies the link exactly once under React StrictMode', async () => {
+    const shared = toMap(STRESS_DIAGRAM)
+    location.hash = `${SHARE_HASH_PREFIX}${await encodeSharePayload(shared)}`
+
+    render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    )
+    await act(async () => {
+      await vi.waitFor(() => expect(useMapStore.getState().map).toStrictEqual(shared))
+    })
+
+    expect(screen.getAllByRole('status').filter((el) => el.classList.contains('toast'))).toHaveLength(1)
   })
 })
