@@ -315,8 +315,17 @@ export function MapDiagram({ map, legend, showGuides, focus, selected, linkTarge
         )
       })}
       {map.links.map((link) => (
-        <line key={link.id} className="map-link" data-map-link="" aria-hidden="true" x1={link.points[0].x} y1={link.points[0].y} x2={link.points[1].x} y2={link.points[1].y} />
+        <path key={link.id} className="map-link" data-map-link="" aria-hidden="true" d={orthogonalPath(link.points)} />
       ))}
+      {map.links.map(
+        (link) =>
+          link.pattern &&
+          link.labelAt && (
+            <text key={link.id} className="link-pattern-label" data-link-pattern="" aria-hidden="true" x={link.labelAt.x} y={link.labelAt.y} fontSize={EDGE_LABEL.size}>
+              {link.pattern}
+            </text>
+          ),
+      )}
       <Chips contexts={map.contexts} />
       {map.title && <text data-map-title="" className="diagram-title" x={map.title.x} y={map.title.y} fontSize={TITLE.size}>{map.title.text}</text>}
       <SvgLegend legend={legend} bounds={hexagonBounds(current)} />

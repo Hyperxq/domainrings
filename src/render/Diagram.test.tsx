@@ -91,6 +91,46 @@ describe('MapDiagram — two hexagons (CANVAS-01, CANVAS-02)', () => {
   })
 })
 
+/** twoHexagonMap with its two hexagons split across contexts and the link tagged with a pattern — the minimum
+ * shape that makes the pattern label eligible (REQ-LNK-06.1). */
+function twoContextLinkedMap(): HexaMap {
+  const base = twoHexagonMap()
+  return {
+    ...base,
+    contexts: [{ id: 'c1' }, { id: 'c2' }],
+    hexagons: base.hexagons.map((h, i) => (i === 1 ? { ...h, contextId: 'c2' } : h)),
+    links: [{ id: 'l1', from: { hexagonId: 'h1', portId: 'p-out' }, to: { hexagonId: 'h2', portId: 'p-in' }, pattern: 'acl' }],
+  }
+}
+
+describe('MapDiagram — routed link path and pattern label (REQ-LNK-05, REQ-LNK-06)', () => {
+  it('draws the map link as a <path>, not a <line>, following the routed polyline', () => {
+    const { container, model } = renderSvg(twoHexagonMap())
+    expect(container.querySelectorAll('line[data-map-link]')).toHaveLength(0)
+    const path = container.querySelector('path[data-map-link]')!
+    const points = model.links[0].points
+    expect(path.getAttribute('d')).toMatch(new RegExp(`^M${points[0].x} ${points[0].y}`))
+    expect(path.getAttribute('d')).toMatch(new RegExp(`L${points.at(-1)!.x} ${points.at(-1)!.y}$`))
+    expect(path.classList.contains('map-link')).toBe(true)
+    expect(path.getAttribute('aria-hidden')).toBe('true')
+  })
+
+  it('renders no pattern label when the link carries none', () => {
+    const { container } = renderSvg(twoHexagonMap())
+    expect(container.querySelectorAll('[data-link-pattern]')).toHaveLength(0)
+  })
+
+  it('renders exactly one pattern label, at the layout’s labelAt, when the link is pattern-tagged', () => {
+    const { container, model } = renderSvg(twoContextLinkedMap())
+    const labels = container.querySelectorAll('[data-link-pattern]')
+    expect(labels).toHaveLength(1)
+    const labelAt = model.links[0].labelAt!
+    expect(labels[0].getAttribute('x')).toBe(String(labelAt.x))
+    expect(labels[0].getAttribute('y')).toBe(String(labelAt.y))
+    expect(labels[0].textContent).toBe('acl')
+  })
+})
+
 /** Both hexagons carry a port with the SAME id, to prove scoping is by group, not by ref (EDIT-01.2). */
 function sharedIdMap(): HexaMap {
   const base = twoHexagonMap()
