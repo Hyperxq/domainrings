@@ -1,4 +1,6 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { App } from './App'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM, TWO_SLICES_MAP } from './model/example'
@@ -12,6 +14,7 @@ import { card, currentDiagram, hexGroup, installDialogPolyfill, linkedTwoHexMap,
 import v1Minimal from './model/fixtures/v1-minimal.hexa?raw'
 import v1Maximal from './model/fixtures/v1-maximal.hexa?raw'
 import v2EmptyContext from './model/fixtures/v2-empty-context.hexa?raw'
+import v2Honeycomb from './model/fixtures/v2-honeycomb.hexa?raw'
 
 const scrollIntoView = vi.fn()
 
@@ -951,6 +954,58 @@ describe('export scope (EXPORT-03)', () => {
     createSpy.mockRestore()
     clickSpy.mockRestore()
     vi.unstubAllGlobals()
+  })
+
+  it('exports a real two-context render: hulls and chips kept in Map scope, dropped in Hexagon scope (EXPORT-03)', async () => {
+    const result = parseHexa(v2Honeycomb)
+    if (!result.ok) throw new Error('fixture failed to parse')
+    useMapStore.getState().replace(result.map)
+    // Real CSS, not jsdom's unstyled defaults, so a hull path's stroke-dasharray actually reaches the export —
+    // the same technique exporters.test.ts uses for its own CSS-dependent assertions.
+    const styleTag = document.createElement('style')
+    styleTag.textContent = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf-8')
+    document.head.appendChild(styleTag)
+    render(<App />)
+    expect(document.querySelectorAll('svg.canvas [data-hull]').length).toBe(2)
+
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+    // A hull path carries both fill-rule="evenodd" (also true of a hexagon's own ring paths) AND the hull's own
+    // dashed stroke — only the combination is unique to a hull once class/data-hull are stripped on export.
+    const hullPathCount = (markup: string) =>
+      (markup.match(/<path[^>]*>/g) ?? []).filter((p) => p.includes('fill-rule="evenodd"') && p.includes('stroke-dasharray="4 4"')).length
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    const mapMarkup = await captured!.text()
+    expect(mapMarkup).toContain('>Core<')
+    expect(mapMarkup).toContain('>Context 2<')
+    expect(hullPathCount(mapMarkup)).toBeGreaterThanOrEqual(2)
+    expect(mapMarkup).not.toMatch(/data-hull|data-chip|data-hulls|data-legend/)
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    const hexMarkup = await captured!.text()
+    expect(hexMarkup).not.toContain('>Core<')
+    expect(hexMarkup).not.toContain('>Context 2<')
+    expect(hullPathCount(hexMarkup)).toBe(0)
+
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+    vi.unstubAllGlobals()
+    styleTag.remove()
   })
 
   it('names a blank-titled hexagon export after the untitled hexagon, not the whole map (EXPORT-02.2)', async () => {
