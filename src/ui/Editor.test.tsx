@@ -170,6 +170,7 @@ describe('"Delete hexagon" button in the Hexagon section (DEL-01)', () => {
     expect(button.hasAttribute('disabled')).toBe(false)
     const hint = document.getElementById(button.getAttribute('aria-describedby')!)
     expect(hint?.textContent).toBe('A map needs at least one hexagon.')
+    expect(hint?.className).toBe('hint')
 
     fireEvent.click(button)
     expect(onDeleteHexagon).not.toHaveBeenCalled()

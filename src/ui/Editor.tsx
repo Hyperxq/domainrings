@@ -132,7 +132,8 @@ interface HintedButtonProps {
   children: ReactNode
 }
 
-/** A text button that's disabled-but-focusable when `enabled` is false, with a visually-hidden hint explaining why. */
+/** A text button that's disabled-but-focusable when `enabled` is false, styled dim and paired with a visible hint
+ * explaining why — `aria-describedby` also announces it, so a screen reader user hears the same reason. */
 function HintedButton({ enabled, hintId, hint, onClick, children }: HintedButtonProps) {
   return (
     <>
@@ -140,7 +141,7 @@ function HintedButton({ enabled, hintId, hint, onClick, children }: HintedButton
         {children}
       </button>
       {!enabled && (
-        <p id={hintId} className="visually-hidden">
+        <p id={hintId} className="hint">
           {hint}
         </p>
       )}
