@@ -1824,7 +1824,7 @@ describe('journey', () => {
     expect(useMapStore.getState().map).toStrictEqual(beforeSave)
   })
 
-  it('a full links session — create from both entry points, edit an adapter, tag a pattern, delete with undo, export, save and reopen (S-003 release readiness)', async () => {
+  it('a full links session — create from both entry points, edit an adapter, tag a pattern, delete with undo, export, save and reopen', async () => {
     // Two driven ports on h1 (same context c1 as h2, a different one c2 as h3), so one link can be created from
     // the canvas chip within a context and the other from the Links section across contexts (pattern-eligible).
     const journeyMap: HexaMap = {
