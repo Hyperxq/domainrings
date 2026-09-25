@@ -57,6 +57,8 @@ interface AppProps {
 export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
+  // The undo snapshot every action below restores on request; each site takes it as-is or spreads `swap: true`.
+  const before = { map, focus: hexId }
   const revision = useMapStore((s) => s.revision)
   const diagram = diagramOf(map, hexId)
   const multiHexagon = map.hexagons.length > 1
@@ -91,7 +93,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const [exportScope, setExportScope] = useState<ExportScope>('map')
 
   const swap = (nextMap: HexaMap, message: string) => {
-    show({ tone: 'status', message, undo: { map, focus: hexId, swap: true } })
+    show({ tone: 'status', message, undo: { ...before, swap: true } })
     replace(nextMap)
     setExportScope('map')
   }
@@ -126,7 +128,6 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const deleteItem = (ref: string) => {
     const collection = collectionOf(diagram, ref)
     if (!collection) return false
-    const before = { map, focus: hexId }
     const pruned = removeItem(hexId, collection, ref)
     if (pruned.length) pruneToast(pruned, before)
     else show({ tone: 'status', message: `Deleted ${nameOf(ref)}.`, undo: before })
@@ -137,7 +138,6 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // (onNamingCancel, or the toast's own Undo — either restores `before`, exactly as a one-step undo (GROW-03)).
   const [growing, setGrowing] = useState<{ hexId: string; before: { map: HexaMap; focus: string } } | null>(null)
   const completeGrow = (side: Wall | undefined, context: 'same' | 'new', convert?: boolean) => {
-    const before = { map, focus: hexId }
     const newHexId = addHexagon(hexId, { side, context, convert })
     if (!newHexId) return
     const grownMap = useMapStore.getState().map
@@ -174,7 +174,6 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   }
 
   const handleDelete = () => {
-    const before = { map, focus: hexId }
     const title = diagram.title || UNTITLED_HEXAGON
     const pruned = removeHexagon(hexId)
     const after = useMapStore.getState().map
@@ -199,7 +198,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   }
   const link = (source: string, { targetRef, patch }: LinkTarget) => {
     const collection = collectionOf(diagram, source)!
-    show({ tone: 'status', message: `Linked ${nameOf(source)} → ${nameOf(targetRef)}.`, undo: { map, focus: hexId } })
+    show({ tone: 'status', message: `Linked ${nameOf(source)} → ${nameOf(targetRef)}.`, undo: before })
     // The same store action the editor's link dropdowns use. linkTargets only returns fields of the source's own
     // collection, which the store's per-collection typing cannot see through a union.
     updateItem(hexId, collection, source, patch as never)
@@ -224,7 +223,6 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   }
 
   const completeImport = (file: HexaMap, context: 'same' | 'new', fileName: string, convert?: boolean) => {
-    const before = { map, focus: hexId }
     const newHexId = importHexagon(file, { context, convert })
     if (!newHexId) return
     const imported = useMapStore.getState().map.hexagons.find((h) => h.id === newHexId)!
