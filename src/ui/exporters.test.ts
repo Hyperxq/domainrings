@@ -119,13 +119,13 @@ describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {
     expect(markup).not.toMatch(/data-hex|aria-current|data-cue|data-map-link|data-map-title|data-hover/)
   })
 
-  it('map scope keeps the link’s pattern label, stripped of its scoping attribute (S-000)', async () => {
+  it('map scope keeps the link’s pattern label, stripped of its scoping attribute', async () => {
     const markup = await svgMarkup(mapCanvas(), bounds, 'Map title', { legend: false, legendHeight: 0 })
     expect(markup).toContain('>acl<')
     expect(markup).not.toMatch(/data-link-pattern/)
   })
 
-  it('hexagon scope (`only`) drops the link’s pattern label entirely, same as the map link and title (S-000)', async () => {
+  it('hexagon scope (`only`) drops the link’s pattern label entirely, same as the map link and title', async () => {
     const markup = await svgMarkup(mapCanvas(), bounds, 'H2', { legend: true, legendHeight: 40, only: 'h2' })
     expect(markup).not.toContain('>acl<')
     expect(markup).not.toMatch(/data-link-pattern/)
