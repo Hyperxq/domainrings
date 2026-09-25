@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addLink, contextName, crossHexagonPorts, diagramOf, freeCell, freeSides, neighbour, nextId, placeHexagon, putDiagram, pruneLinks, removeHexagon, SIDE_ORDER, UNTITLED_HEXAGON, type Cell } from './map'
+import { addLink, contextName, crossHexagonPorts, diagramOf, freeCell, freeSides, neighbour, nextId, placeHexagon, putDiagram, pruneLinks, removeHexagon, removeLink, SIDE_ORDER, UNTITLED_HEXAGON, updateLink, type Cell } from './map'
 import { toMap } from './hexa'
 import { EXAMPLE_DIAGRAM } from './example'
 import type { Diagram, HexaMap, Link, LinkEnd } from './schema'
@@ -464,5 +464,89 @@ describe('addLink (ADR-02)', () => {
     const map = twoHex()
     const { map: next } = addLink(map, { hexagonId: 'h1', portId: 'p-out' }, { hexagonId: 'h2', portId: 'p-in' })
     expect(next.hexagons).toBe(map.hexagons)
+  })
+})
+
+describe('updateLink / removeLink (ADR-02, REQ-LNK-02, REQ-LNK-04)', () => {
+  const twoLinksMap = (): HexaMap => ({
+    version: 2,
+    kind: 'hexagonal',
+    title: 'Two links',
+    contexts: [{ id: 'c1' }],
+    hexagons: [
+      { ...hexWithPorts('h1', 'c1', { q: 0, r: 0 }, [{ id: 'p-out', name: 'Repository', side: 'driven', wall: 'e' }]), adapters: [{ id: 'a1', name: 'Knex', portId: 'p-out' }] },
+      { ...hexWithPorts('h2', 'c1', { q: 1, r: 0 }, [{ id: 'p-in', name: 'Submit', side: 'driving' }]), adapters: [{ id: 'a2', name: 'Http', portId: 'p-in' }] },
+    ],
+    links: [
+      { id: 'link1', from: { hexagonId: 'h1', portId: 'p-out', adapterId: 'a1' }, to: { hexagonId: 'h2', portId: 'p-in' }, pattern: 'acl' },
+      { id: 'link2', from: { hexagonId: 'h1', portId: 'p-out' }, to: { hexagonId: 'h2', portId: 'p-in' } },
+    ],
+  })
+
+  describe('updateLink', () => {
+    it('sets an adapter at an end, leaving the other end and the pattern untouched', () => {
+      const map = twoLinksMap()
+      const next = updateLink(map, 'link2', { to: { adapterId: 'a2' } })
+      expect(next.links[1]).toEqual({ id: 'link2', from: { hexagonId: 'h1', portId: 'p-out' }, to: { hexagonId: 'h2', portId: 'p-in', adapterId: 'a2' } })
+    })
+
+    it('clears an adapter with null', () => {
+      const map = twoLinksMap()
+      const next = updateLink(map, 'link1', { from: { adapterId: null } })
+      expect(next.links[0].from).toEqual({ hexagonId: 'h1', portId: 'p-out' })
+    })
+
+    it('leaves an end entirely unchanged when its patch key is absent', () => {
+      const map = twoLinksMap()
+      const next = updateLink(map, 'link1', { pattern: null })
+      expect(next.links[0].from).toEqual(map.links[0].from)
+      expect(next.links[0].to).toEqual(map.links[0].to)
+    })
+
+    it('sets the pattern tag', () => {
+      const map = twoLinksMap()
+      const next = updateLink(map, 'link2', { pattern: 'ohs-pl' })
+      expect(next.links[1].pattern).toBe('ohs-pl')
+    })
+
+    it('clears the pattern tag with null', () => {
+      const map = twoLinksMap()
+      const next = updateLink(map, 'link1', { pattern: null })
+      expect(next.links[0].pattern).toBeUndefined()
+    })
+
+    it('leaves the pattern unchanged when the patch omits it', () => {
+      const map = twoLinksMap()
+      const next = updateLink(map, 'link1', { from: { adapterId: null } })
+      expect(next.links[0].pattern).toBe('acl')
+    })
+
+    it('never touches another link', () => {
+      const map = twoLinksMap()
+      const next = updateLink(map, 'link1', { pattern: null })
+      expect(next.links[1]).toBe(map.links[1])
+    })
+  })
+
+  describe('removeLink', () => {
+    it('removes the matching link and returns it', () => {
+      const map = twoLinksMap()
+      const result = removeLink(map, 'link1')
+      expect(result).toBeDefined()
+      expect(result!.removed).toEqual(map.links[0])
+      expect(result!.map.links).toEqual([map.links[1]])
+    })
+
+    it('returns undefined for an unknown id, leaving the map untouched', () => {
+      const map = twoLinksMap()
+      const result = removeLink(map, 'nope')
+      expect(result).toBeUndefined()
+    })
+
+    it('never touches another link', () => {
+      const map = twoLinksMap()
+      const { map: next } = removeLink(map, 'link1')!
+      expect(next.links[0]).toBe(map.links[1])
+    })
   })
 })

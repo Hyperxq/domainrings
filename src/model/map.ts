@@ -165,3 +165,39 @@ export function addLink(map: HexaMap, from: LinkEnd, to: LinkEnd): { map: HexaMa
   const link: Link = { id: linkId, from, to }
   return { map: { ...map, links: [...map.links, link] }, linkId }
 }
+
+export interface LinkPatch {
+  from?: { adapterId?: string | null }
+  to?: { adapterId?: string | null }
+  pattern?: Link['pattern'] | null
+}
+
+/** `null` clears a field (adapter or pattern); `undefined`/absent — the whole `from`/`to`/`pattern` key missing,
+ * or `adapterId` missing from a given `from`/`to` — leaves it unchanged (mirrors pruneLinks' own clear-vs-leave
+ * convention). */
+function applyEndPatch(end: LinkEnd, patch?: { adapterId?: string | null }): LinkEnd {
+  if (!patch || patch.adapterId === undefined) return end
+  return { ...end, adapterId: patch.adapterId === null ? undefined : patch.adapterId }
+}
+
+/** Patches one link's adapters and/or pattern in place — its id and both ends' hexagonId/portId never change
+ * (REQ-LNK-03.1: reconnecting is delete + recreate, never a direct move). Candidate map is UNvalidated; see
+ * addLink. */
+export function updateLink(map: HexaMap, id: string, patch: LinkPatch): HexaMap {
+  return {
+    ...map,
+    links: map.links.map((l) => {
+      if (l.id !== id) return l
+      const pattern = patch.pattern === undefined ? l.pattern : (patch.pattern ?? undefined)
+      return { ...l, from: applyEndPatch(l.from, patch.from), to: applyEndPatch(l.to, patch.to), pattern }
+    }),
+  }
+}
+
+/** Removes `id`'s link and returns it, or undefined when no link has that id — never touches another link, since
+ * links are never referenced by another link. */
+export function removeLink(map: HexaMap, id: string): { map: HexaMap; removed: Link } | undefined {
+  const removed = map.links.find((l) => l.id === id)
+  if (!removed) return undefined
+  return { map: { ...map, links: map.links.filter((l) => l.id !== id) }, removed }
+}
