@@ -1,4 +1,4 @@
-import { linkEndProblem, type Diagram, type HexaMap, type Hexagon, type Link, type LinkEnd, type Wall } from './schema'
+import { linkEndProblem, type Diagram, type HexaMap, type Hexagon, type Link, type LinkEnd, type Side, type Wall } from './schema'
 
 /** Shown wherever a hexagon's title is displayed or exported but was left blank. */
 export const UNTITLED_HEXAGON = 'Untitled hexagon'
@@ -49,7 +49,7 @@ export function freeCell(map: Occupancy, from: Cell): Cell {
 }
 
 /** `${prefix}${max numeric suffix + 1}`; ids that don't match the prefix are ignored (ADR-03). */
-export function nextId(ids: readonly string[], prefix: 'h' | 'c'): string {
+export function nextId(ids: readonly string[], prefix: 'h' | 'c' | 'link'): string {
   const pattern = new RegExp(`^${prefix}(\\d+)$`)
   const max = ids.reduce((max, id) => Math.max(max, Number(pattern.exec(id)?.[1] ?? 0)), 0)
   return `${prefix}${max + 1}`
@@ -139,4 +139,29 @@ export function pruneLinks(map: HexaMap, hexId: string): { map: HexaMap; pruned:
     return kept
   }, [])
   return { map: changed ? { ...map, links } : map, pruned }
+}
+
+export interface PortRef {
+  hexagonId: string
+  hexagonTitle: string
+  portId: string
+  portName: string
+}
+
+/** Every port of `side` across the map, paired with its hexagon's display title (same UNTITLED_HEXAGON fallback
+ * as everywhere else). Shared by the canvas "Link to…" chip (excludeHexagonId = current hexagon, opposite role
+ * to the selected port) and the Links editor section's create form (no exclusion, both roles) — ADR-02. */
+export function crossHexagonPorts(map: HexaMap, side: Side, excludeHexagonId?: string): PortRef[] {
+  return map.hexagons
+    .filter((h) => h.id !== excludeHexagonId)
+    .flatMap((h) => h.ports.filter((p) => p.side === side).map((p): PortRef => ({ hexagonId: h.id, hexagonTitle: h.title || UNTITLED_HEXAGON, portId: p.id, portName: p.name })))
+}
+
+/** Builds the candidate map with the new link appended (id via nextId(…, 'link')) and returns it UNvalidated — the
+ * store gates on MapSchema.safeParse (ADR-02's validate-by-reparse choice: reuses checkMap's own rules instead of
+ * hand-duplicating driven/driving, duplicate-pair, and pattern-eligibility checks). */
+export function addLink(map: HexaMap, from: LinkEnd, to: LinkEnd): { map: HexaMap; linkId: string } {
+  const linkId = nextId(map.links.map((l) => l.id), 'link')
+  const link: Link = { id: linkId, from, to }
+  return { map: { ...map, links: [...map.links, link] }, linkId }
 }

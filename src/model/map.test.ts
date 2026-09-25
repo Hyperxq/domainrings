@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { contextName, diagramOf, freeCell, freeSides, neighbour, nextId, placeHexagon, putDiagram, pruneLinks, removeHexagon, SIDE_ORDER, UNTITLED_HEXAGON, type Cell } from './map'
+import { addLink, contextName, crossHexagonPorts, diagramOf, freeCell, freeSides, neighbour, nextId, placeHexagon, putDiagram, pruneLinks, removeHexagon, SIDE_ORDER, UNTITLED_HEXAGON, type Cell } from './map'
 import { toMap } from './hexa'
 import { EXAMPLE_DIAGRAM } from './example'
-import type { Diagram, HexaMap, Link } from './schema'
+import type { Diagram, HexaMap, Link, LinkEnd } from './schema'
 
 describe('diagramOf', () => {
   it('builds the v1-shaped view of a hexagon, with the map kind and no id/contextId/cell', () => {
@@ -373,5 +373,96 @@ describe('removeHexagon (ADR-02, ADR-03 E2)', () => {
     const { map: next, pruned } = removeHexagon(map, 'h1')
     expect(next.links).toStrictEqual([linkUnrelated])
     expect(pruned).toStrictEqual([linkFrom, linkTo])
+  })
+})
+
+const hexWithPorts = (id: string, contextId: string, cell: Cell, ports: HexaMap['hexagons'][number]['ports'], title?: string) => ({
+  ...emptyHexagon(id, contextId, cell, title ?? id),
+  ports,
+})
+
+describe('crossHexagonPorts (ADR-02)', () => {
+  const threeHexMap = (): HexaMap => ({
+    version: 2,
+    kind: 'hexagonal',
+    title: 'Three',
+    contexts: [{ id: 'c1' }],
+    hexagons: [
+      hexWithPorts('h1', 'c1', { q: 0, r: 0 }, [{ id: 'p1-out', name: 'Repository', side: 'driven', wall: 'e' }, { id: 'p1-in', name: 'Submit', side: 'driving' }], 'H1'),
+      hexWithPorts('h2', 'c1', { q: 1, r: 0 }, [{ id: 'p2-out', name: 'Notify', side: 'driven', wall: 'e' }], 'H2'),
+      hexWithPorts('h3', 'c1', { q: 2, r: 0 }, [{ id: 'p3-in', name: 'Receive', side: 'driving' }], ''),
+    ],
+    links: [],
+  })
+
+  it('lists every port of the given side across the map, paired with its hexagon’s title', () => {
+    const map = threeHexMap()
+    expect(crossHexagonPorts(map, 'driven')).toEqual([
+      { hexagonId: 'h1', hexagonTitle: 'H1', portId: 'p1-out', portName: 'Repository' },
+      { hexagonId: 'h2', hexagonTitle: 'H2', portId: 'p2-out', portName: 'Notify' },
+    ])
+  })
+
+  it('falls back to UNTITLED_HEXAGON for an untitled hexagon', () => {
+    const map = threeHexMap()
+    expect(crossHexagonPorts(map, 'driving')).toEqual([
+      { hexagonId: 'h1', hexagonTitle: 'H1', portId: 'p1-in', portName: 'Submit' },
+      { hexagonId: 'h3', hexagonTitle: UNTITLED_HEXAGON, portId: 'p3-in', portName: 'Receive' },
+    ])
+  })
+
+  it('omits the excluded hexagon’s own ports, keeping every other hexagon’s', () => {
+    const map = threeHexMap()
+    expect(crossHexagonPorts(map, 'driven', 'h1')).toEqual([{ hexagonId: 'h2', hexagonTitle: 'H2', portId: 'p2-out', portName: 'Notify' }])
+  })
+
+  it('returns an empty array when no port of that side exists', () => {
+    const map = threeHexMap()
+    expect(crossHexagonPorts(map, 'driving', 'h1')).toEqual([{ hexagonId: 'h3', hexagonTitle: UNTITLED_HEXAGON, portId: 'p3-in', portName: 'Receive' }])
+    expect(crossHexagonPorts(map, 'driven', 'h1').filter((p) => p.hexagonId === 'h3')).toEqual([])
+  })
+})
+
+describe('addLink (ADR-02)', () => {
+  const twoHex = (): HexaMap => ({
+    version: 2,
+    kind: 'hexagonal',
+    title: 'Two',
+    contexts: [{ id: 'c1' }],
+    hexagons: [
+      hexWithPorts('h1', 'c1', { q: 0, r: 0 }, [{ id: 'p-out', name: 'Repository', side: 'driven', wall: 'e' }]),
+      hexWithPorts('h2', 'c1', { q: 1, r: 0 }, [{ id: 'p-in', name: 'Submit', side: 'driving' }]),
+    ],
+    links: [],
+  })
+
+  it('appends a link with a fresh id via nextId, returning the map and the new id', () => {
+    const map = twoHex()
+    const from: LinkEnd = { hexagonId: 'h1', portId: 'p-out' }
+    const to: LinkEnd = { hexagonId: 'h2', portId: 'p-in' }
+    const { map: next, linkId } = addLink(map, from, to)
+    expect(linkId).toBe('link1')
+    expect(next.links).toEqual([{ id: 'link1', from, to }])
+  })
+
+  it('assigns sequential ids after the highest existing link suffix', () => {
+    const map: HexaMap = { ...twoHex(), links: [{ id: 'link1', from: { hexagonId: 'h1', portId: 'p-out' }, to: { hexagonId: 'h2', portId: 'p-in' } }] }
+    const { linkId } = addLink(map, { hexagonId: 'h1', portId: 'p-out' }, { hexagonId: 'h2', portId: 'p-in' })
+    expect(linkId).toBe('link2')
+  })
+
+  it('returns the candidate map unvalidated — an invalid pair still appends, gating is the store’s job', () => {
+    const map = twoHex()
+    // Both ends driven: not a valid link, but addLink itself never checks — MapSchema.safeParse is the gate.
+    const from: LinkEnd = { hexagonId: 'h1', portId: 'p-out' }
+    const to: LinkEnd = { hexagonId: 'h1', portId: 'p-out' }
+    const { map: next } = addLink(map, from, to)
+    expect(next.links).toEqual([{ id: 'link1', from, to }])
+  })
+
+  it('leaves every hexagon untouched by reference', () => {
+    const map = twoHex()
+    const { map: next } = addLink(map, { hexagonId: 'h1', portId: 'p-out' }, { hexagonId: 'h2', portId: 'p-in' })
+    expect(next.hexagons).toBe(map.hexagons)
   })
 })
