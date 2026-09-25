@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vitest'
 import { cellCentre, hexagonBounds, layoutMap, MAP_GAP } from './map'
-import { layoutDiagram, type LayoutMode } from './layout'
+import { layoutDiagram, type Box, type LayoutMode, type LayoutOptions } from './layout'
 import { toMap } from '../model/hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM } from '../model/example'
-import { removeHexagon } from '../model/map'
-import type { Diagram, HexaMap } from '../model/schema'
+import { freeCell, removeHexagon } from '../model/map'
+import type { Diagram, HexaMap, Hexagon } from '../model/schema'
 import { twoHexagonMap } from '../test/fixtures'
 
 const CORPUS: Array<[string, Diagram]> = [
@@ -273,5 +273,122 @@ describe('layoutMap — contexts (CB-01.1, ADR-04, SEAM-04)', () => {
     const longLabel = layoutMap(adjacent([{ id: 'c1', name: 'B'.repeat(200) }, { id: 'c2' }]))
 
     expect(longLabel.bounds.width).toBeGreaterThan(shortLabel.bounds.width)
+  })
+})
+
+// --- S-006.1: the full no-overlap property, for any N up to 30, incl. STRESS content, both modes -------------
+
+/** A small seeded LCG — deterministic across runs/platforms, no new dependency (numeric recipe: Numerical
+ * Recipes' constants), so a failing seed can be reproduced exactly from the printed seed alone. */
+function makeRng(seed: number): () => number {
+  let state = seed >>> 0
+  return () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0
+    return state / 2 ** 32
+  }
+}
+
+/** N hexagons (N includes at least one STRESS-content hexagon), grown from a random already-placed hexagon each
+ * time via the real `freeCell` search — the same topology grow-the-map itself produces — so the corpus covers
+ * branches, not just a straight line. Content mix: one forced STRESS hexagon, ~30% EXAMPLE-shaped, the rest empty. */
+function seededHoneycomb(seed: number, n: number): HexaMap {
+  const rng = makeRng(seed)
+  const stressAt = Math.floor(rng() * n)
+  const hexagons: Hexagon[] = []
+  for (let i = 0; i < n; i++) {
+    const cell = i === 0 ? { q: 0, r: 0 } : freeCell({ hexagons }, hexagons[Math.floor(rng() * hexagons.length)].cell)
+    const base = i === stressAt ? STRESS_DIAGRAM : rng() < 0.3 ? EXAMPLE_DIAGRAM : undefined
+    const hexagon: Hexagon = base
+      ? {
+          id: `h${i + 1}`,
+          contextId: 'c1',
+          cell,
+          title: base.title,
+          subtitle: base.subtitle,
+          domain: base.domain,
+          useCases: base.useCases,
+          ports: base.ports,
+          adapters: base.adapters,
+          actors: base.actors,
+          externals: base.externals,
+          composition: base.composition,
+        }
+      : { id: `h${i + 1}`, contextId: 'c1', cell, title: `H${i + 1}`, domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }
+    hexagons.push(hexagon)
+  }
+  return { version: 2, kind: 'hexagonal', title: `Seed ${seed}`, contexts: [{ id: 'c1' }], hexagons, links: [] }
+}
+
+/** The largest gap the two boxes are separated by on either axis — positive iff they are truly disjoint on that
+ * axis by at least that much (mirrors the lopsided-hexagons test's own `left - right` idiom, generalised to
+ * both axes so it also catches an overlap that only shows up on y). */
+function separation(a: Box, b: Box): number {
+  const dx = Math.max(a.x, b.x) - Math.min(a.x + a.width, b.x + b.width)
+  const dy = Math.max(a.y, b.y) - Math.min(a.y + a.height, b.y + b.height)
+  return Math.max(dx, dy)
+}
+
+const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8]
+const SIZES = [2, 5, 12, 30]
+
+describe('layoutMap — full no-overlap property (CANVAS-01.2–01.4, S-006.1)', () => {
+  it('has no `focus` parameter — position never depends on which hexagon is current', () => {
+    expectTypeOf<LayoutOptions>().not.toHaveProperty('focus')
+    expectTypeOf(layoutMap).parameter(1).toEqualTypeOf<LayoutOptions | undefined>()
+  })
+
+  it('is a pure function of (map, options): the same map lays out identically on repeated calls, regardless of anything focus-shaped', () => {
+    const map = seededHoneycomb(1, 8)
+    const first = layoutMap(map, { mode: 'detailed' })
+    const second = layoutMap(map, { mode: 'detailed' })
+    expect(second).toStrictEqual(first)
+  })
+
+  for (const mode of MODES) {
+    for (const seed of SEEDS) {
+      for (const n of SIZES) {
+        it(`seed ${seed}, N=${n}, ${mode}: every pair of hexagon boxes stays separated by at least MAP_GAP`, () => {
+          const map = seededHoneycomb(seed, n)
+          const result = layoutMap(map, { mode })
+          expect(result.hexagons).toHaveLength(n)
+          for (let i = 0; i < result.hexagons.length; i++) {
+            for (let j = i + 1; j < result.hexagons.length; j++) {
+              const gap = separation(hexagonBounds(result.hexagons[i]), hexagonBounds(result.hexagons[j]))
+              expect(gap).toBeGreaterThanOrEqual(MAP_GAP - 1e-6)
+            }
+          }
+        })
+      }
+    }
+  }
+
+  it('positions are stable across a focus change: laying out the SAME map before and after calling setFocus on a live store leaves every centre untouched (CANVAS-01.3)', async () => {
+    const { useMapStore } = await import('../model/store')
+    const map = seededHoneycomb(2, 6)
+    useMapStore.getState().replace(map)
+    const before = layoutMap(useMapStore.getState().map, { mode: 'detailed' })
+
+    useMapStore.getState().setFocus(useMapStore.getState().map.hexagons[3].id)
+
+    const after = layoutMap(useMapStore.getState().map, { mode: 'detailed' })
+    expect(after.hexagons.map((h) => h.centre)).toStrictEqual(before.hexagons.map((h) => h.centre))
+  })
+
+  it('a content-growth-triggered pitch change never introduces an overlap (CANVAS-01.4)', () => {
+    // h1 starts small; growing its content past every other hexagon forces `pitch` itself to change (S-006.1's
+    // own hardening of the CANVAS-01.4 hardening test already above, at property scale instead of one pair).
+    const base = seededHoneycomb(3, 10)
+    const { version: _version, kind: _kind, title, ...stressFields } = STRESS_DIAGRAM
+    const grown: HexaMap = {
+      ...base,
+      hexagons: base.hexagons.map((h, i): Hexagon => (i === 0 ? { ...h, title, ...stressFields } : h)),
+    }
+    const result = layoutMap(grown)
+    for (let i = 0; i < result.hexagons.length; i++) {
+      for (let j = i + 1; j < result.hexagons.length; j++) {
+        const gap = separation(hexagonBounds(result.hexagons[i]), hexagonBounds(result.hexagons[j]))
+        expect(gap).toBeGreaterThanOrEqual(MAP_GAP - 1e-6)
+      }
+    }
   })
 })
