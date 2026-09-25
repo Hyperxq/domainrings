@@ -1945,11 +1945,7 @@ describe('journey', () => {
 
     await reopen(savedText)
 
-    // toEqual, not toStrictEqual: updateLink always writes an explicit `pattern` key (REQ-LNK-02's own
-    // clear-vs-absent convention), even undefined for a link that never had a pattern; JSON drops that key on
-    // save, and MapSchema's `.optional()` treats absent and undefined as the same value — REQ-LNK-08.2 promises
-    // value equality, not key-presence equality.
-    expect(useMapStore.getState().map).toEqual(beforeSave)
+    expect(useMapStore.getState().map).toStrictEqual(beforeSave)
     vi.unstubAllGlobals()
   })
 })

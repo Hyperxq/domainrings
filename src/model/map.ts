@@ -172,24 +172,36 @@ export interface LinkPatch {
   pattern?: Link['pattern'] | null
 }
 
-/** `null` clears a field (adapter or pattern); `undefined`/absent — the whole `from`/`to`/`pattern` key missing,
- * or `adapterId` missing from a given `from`/`to` — leaves it unchanged (mirrors pruneLinks' own clear-vs-leave
- * convention). */
+/** `null` clears a field (adapter or pattern) by removing its key entirely; `undefined`/absent — the whole
+ * `from`/`to`/`pattern` key missing, or `adapterId` missing from a given `from`/`to` — leaves the link's own key
+ * exactly as it was, present or absent. (pruneLinks clears `adapterId` by assigning `undefined` instead, for its
+ * own LINK-01.3 reasons — that is a different call site and is left as-is.) */
 function applyEndPatch(end: LinkEnd, patch?: { adapterId?: string | null }): LinkEnd {
   if (!patch || patch.adapterId === undefined) return end
-  return { ...end, adapterId: patch.adapterId === null ? undefined : patch.adapterId }
+  if (patch.adapterId === null) {
+    const { adapterId: _adapterId, ...rest } = end
+    return rest
+  }
+  return { ...end, adapterId: patch.adapterId }
 }
 
 /** Patches one link's adapters and/or pattern in place — its id and both ends' hexagonId/portId never change
- * (REQ-LNK-03.1: reconnecting is delete + recreate, never a direct move). Candidate map is UNvalidated; see
- * addLink. */
+ * (REQ-LNK-03.1: reconnecting is delete + recreate, never a direct move). Never writes a `pattern` key the patch
+ * didn't address (an adapter-only edit leaves the link's own pattern key exactly as it was). Candidate map is
+ * UNvalidated; see addLink. */
 export function updateLink(map: HexaMap, id: string, patch: LinkPatch): HexaMap {
   return {
     ...map,
     links: map.links.map((l) => {
       if (l.id !== id) return l
-      const pattern = patch.pattern === undefined ? l.pattern : (patch.pattern ?? undefined)
-      return { ...l, from: applyEndPatch(l.from, patch.from), to: applyEndPatch(l.to, patch.to), pattern }
+      const from = applyEndPatch(l.from, patch.from)
+      const to = applyEndPatch(l.to, patch.to)
+      if (patch.pattern === undefined) return { ...l, from, to }
+      if (patch.pattern === null) {
+        const { pattern: _pattern, ...rest } = l
+        return { ...rest, from, to }
+      }
+      return { ...l, from, to, pattern: patch.pattern }
     }),
   }
 }

@@ -539,6 +539,25 @@ describe('updateLink / removeLink (ADR-02, REQ-LNK-02, REQ-LNK-04)', () => {
       expect(next.links[0]).toBe(map.links[0])
       expect(next.links[1].pattern).toBe('ohs-pl')
     })
+
+    it('never adds a pattern key on an adapter-only edit of a link that never had one', () => {
+      const map = twoLinksMap()
+      const next = updateLink(map, 'link2', { to: { adapterId: 'a2' } })
+      expect('pattern' in next.links[1]).toBe(false)
+      expect(next.links[1]).toStrictEqual({ id: 'link2', from: { hexagonId: 'h1', portId: 'p-out' }, to: { hexagonId: 'h2', portId: 'p-in', adapterId: 'a2' } })
+    })
+
+    it('removes the pattern key entirely when cleared with null, rather than setting it undefined', () => {
+      const map = twoLinksMap()
+      const next = updateLink(map, 'link1', { pattern: null })
+      expect('pattern' in next.links[0]).toBe(false)
+    })
+
+    it('removes the adapterId key entirely when cleared with null, rather than setting it undefined', () => {
+      const map = twoLinksMap()
+      const next = updateLink(map, 'link1', { from: { adapterId: null } })
+      expect('adapterId' in next.links[0].from).toBe(false)
+    })
   })
 
   describe('removeLink', () => {
