@@ -8,8 +8,10 @@ import { EXAMPLE_DIAGRAM } from '../model/example'
 import { toMap } from '../model/hexa'
 import { contextName, diagramOf, freeSides, neighbour, SIDE_ORDER } from '../model/map'
 import { useMapStore } from '../model/store'
+import type { HexaMap } from '../model/schema'
 import { hexGroup, twoHexMap } from '../test/fixtures'
-import { fitMap, fitTo, islandInset, MIN_SCALE, zoomAt } from './viewport'
+import { fitMap, fitTo, islandInset, MIN_SCALE, pinch, zoomAt } from './viewport'
+import type { Point } from '../layout/layout'
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class {
@@ -461,6 +463,137 @@ describe('Stage — wheel floor follows "Fit all", not a hardcoded MIN_SCALE (FI
     // Never above the fitted "whole" scale itself — a hardcoded MIN_SCALE floor above wholeFit.scale would have
     // clamped the zoom-out short of the view it was already fitted to.
     expect(zoomedOut.scale).toBeLessThanOrEqual(fitted.scale + 1e-9)
+  })
+})
+
+// Step 0 hardening for S-006 (verify-in-loop-6, obs 7294): closes the three non-blocking findings the pinch
+// integration commit left untested — none of them are architectural, spec, or sensitive, all additive coverage.
+describe('Step 0 hardening — pinch, wheel floor, and auto/whole divergence (obs 7294)', () => {
+  const viewportOf = (container: HTMLElement) => {
+    const style = (container.querySelector('main') as HTMLElement).style
+    const scale = parseFloat(style.backgroundSize) / 20
+    const [px, py] = style.backgroundPosition.split(' ').map(parseFloat)
+    return { x: -px / scale, y: -py / scale, scale }
+  }
+  const pan = (container: HTMLElement, dx: number, dy: number) => {
+    const main = container.querySelector('main') as HTMLElement
+    main.setPointerCapture = () => {}
+    fireEvent.pointerDown(svg(container), { button: 0, buttons: 1, clientX: 0, clientY: 0 })
+    fireEvent.pointerMove(main, { buttons: 1, clientX: dx, clientY: dy })
+  }
+  /** Two hexagons far enough apart (q=0, q=500) that the whole map's bounds dwarf any realistic screen — needed
+   * to push wholeFit.scale genuinely below MIN_SCALE/MIN_FIT_SCALE, which jsdom's self-referencing effectiveSize
+   * fallback (size stays {0,0}, so effectiveSize mirrors the model's own bounds) can never do on its own. */
+  const farHexagonMap = (): HexaMap => {
+    const base = twoHexMap()
+    return { ...base, hexagons: [base.hexagons[0], { ...base.hexagons[1], cell: { q: 500, r: 0 } }] }
+  }
+  /** Makes the ResizeObserver fire synchronously with a fixed content rect, giving Stage a REAL bounded screen
+   * size instead of the self-referencing jsdom fallback — the gap verify-in-loop-6 finding 2/Mutant 4/5 both
+   * name as the reason neither the wheel-floor formula nor the auto/whole fallback target could be RTL-proven. */
+  const stubFixedSize = (width: number, height: number) => {
+    const original = globalThis.ResizeObserver
+    class FixedSizeResizeObserver {
+      cb: ResizeObserverCallback
+      constructor(cb: ResizeObserverCallback) {
+        this.cb = cb
+      }
+      observe() {
+        this.cb([{ contentRect: { width, height } } as ResizeObserverEntry], this as unknown as ResizeObserver)
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = FixedSizeResizeObserver as unknown as typeof ResizeObserver
+    return () => {
+      globalThis.ResizeObserver = original
+    }
+  }
+
+  it('two fingers moving apart zoom in around their own midpoint, across two separate synchronous pointermove events, without selecting anything or opening a link chip', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+    const main = container.querySelector('main') as HTMLElement
+    main.setPointerCapture = () => {}
+    const before = viewportOf(container)
+
+    fireEvent.pointerDown(main, { pointerId: 1, button: 0, buttons: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerDown(main, { pointerId: 2, button: 0, buttons: 1, clientX: 200, clientY: 100 })
+    const from1: [Point, Point] = [{ x: 100, y: 100 }, { x: 200, y: 100 }]
+    fireEvent.pointerMove(main, { pointerId: 1, buttons: 1, clientX: 50, clientY: 100 })
+    const to1: [Point, Point] = [{ x: 50, y: 100 }, { x: 200, y: 100 }]
+    const expectedAfter1 = pinch(before, from1, to1, MIN_SCALE)
+
+    fireEvent.pointerMove(main, { pointerId: 2, buttons: 1, clientX: 250, clientY: 100 })
+    const to2: [Point, Point] = [{ x: 50, y: 100 }, { x: 250, y: 100 }]
+    const expectedAfter2 = pinch(expectedAfter1, to1, to2, MIN_SCALE)
+
+    const after = viewportOf(container)
+    expect(after.scale).toBeCloseTo(expectedAfter2.scale, 6)
+    expect(after.x).toBeCloseTo(expectedAfter2.x, 6)
+    expect(after.y).toBeCloseTo(expectedAfter2.y, 6)
+    expect(after.scale).toBeGreaterThan(before.scale)
+    expect(container.querySelector('[data-selected]')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Link to…/ })).toBeNull()
+  })
+
+  it('the wheel floor is min(MIN_SCALE, wholeFit.scale), not a hardcoded MIN_SCALE, once the map genuinely dwarfs the screen', () => {
+    const restore = stubFixedSize(800, 600)
+    try {
+      useMapStore.getState().replace(farHexagonMap())
+      const { container } = render(<Harness />)
+      fireEvent.click(screen.getByRole('button', { name: 'Fit all' }))
+      const fitted = viewportOf(container)
+      const inset = islandInset({ width: 800, height: 600 }, false, false)
+      const model = layoutMap(useMapStore.getState().map)
+      const wholeFit = fitTo(model.bounds, 800, 600, inset, 0)
+      // The premise this test needs: a hardcoded MIN_SCALE floor and the real zoomFloor now genuinely differ.
+      expect(wholeFit.scale).toBeLessThan(MIN_SCALE)
+      const zoomFloor = Math.min(MIN_SCALE, wholeFit.scale)
+
+      const main = container.querySelector('main')!
+      fireEvent.wheel(main, { deltaY: 4000 })
+      const zoomedOut = viewportOf(container)
+      const expected = zoomAt(fitted, Math.exp(-4000 * 0.0015), { x: 0, y: 0 }, zoomFloor)
+
+      expect(zoomedOut.scale).toBeCloseTo(expected.scale, 6)
+      // A hardcoded MIN_SCALE mutant would have clamped here instead of following the map's own, lower floor.
+      expect(zoomedOut.scale).toBeLessThan(MIN_SCALE)
+    } finally {
+      restore()
+    }
+  })
+
+  it('falls back to the AUTO target, not "whole", when a change moves an existing manual view out of sight on a map where the two targets genuinely diverge', () => {
+    const restore = stubFixedSize(800, 600)
+    try {
+      useMapStore.getState().replace(farHexagonMap())
+      const { container } = render(<Harness />)
+      const inset = islandInset({ width: 800, height: 600 }, false, false)
+      const modelBefore = layoutMap(useMapStore.getState().map)
+      // The premise: fitMap's own fallback branch fires for this map (whole map fit would read as illegible clutter).
+      expect(fitTo(modelBefore.bounds, 800, 600, inset, 0).scale).toBeLessThan(0.4)
+
+      pan(container, 100000, 100000) // a manual viewport now looks far away from every hexagon
+
+      act(() => {
+        // Grows near h1 (adjacent, in view once the fallback lands); the far h2 stays on the map, so "whole" and
+        // "auto" still diverge dramatically AFTER the change too — not just at the moment of the decision.
+        useMapStore.getState().addHexagon('h1', { context: 'same' })
+      })
+
+      const modelAfter = layoutMap(useMapStore.getState().map)
+      const wholeAfter = fitTo(modelAfter.bounds, 800, 600, inset, 0)
+      const autoAfter = fitMap(modelAfter.bounds, hexagonBounds(currentHexagon(modelAfter, useMapStore.getState().focus)), 800, 600, inset)
+      expect(autoAfter.scale).not.toBeCloseTo(wholeAfter.scale, 3)
+
+      const after = viewportOf(container)
+      expect(after.scale).toBeCloseTo(autoAfter.scale, 6)
+      expect(after.x).toBeCloseTo(autoAfter.x, 6)
+      expect(after.y).toBeCloseTo(autoAfter.y, 6)
+    } finally {
+      restore()
+    }
   })
 })
 
