@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { addLink as addLinkToMap, diagramOf, freeCell, freeSides, neighbour, placeHexagon, putDiagram, pruneLinks, removeHexagon as removeHexagonFromMap, UNTITLED_HEXAGON, type Cell, type Destination } from './map'
+import { addLink as addLinkToMap, diagramOf, freeCell, freeSides, neighbour, placeHexagon, putDiagram, pruneLinks, removeHexagon as removeHexagonFromMap, removeLink as removeLinkFromMap, UNTITLED_HEXAGON, updateLink as updateLinkOnMap, type Cell, type Destination, type LinkPatch } from './map'
 import { browserStorage, loadMap } from './persistence'
 import { MapSchema, REFERENCES, type CollectionKey, type Diagram, type HexaMap, type Hexagon, type Link, type LinkEnd, type Linkable, type Wall } from './schema'
 
@@ -55,6 +55,13 @@ interface MapState {
    * instead of re-implementing them. Undefined ⇒ no-op, the map already failed schema and is left unchanged.
    * Never bumps `revision`. */
   addLink: (from: LinkEnd, to: LinkEnd) => string | undefined
+  /** Patches an existing link's adapters and/or pattern (ADR-02: validate-by-reparse, same shape as addLink) —
+   * false ⇒ no-op, the patched candidate map failed MapSchema (e.g. an adapter not on that port, or a pattern on
+   * a same-context link, REQ-LNK-06.2). Never bumps `revision`. */
+  updateLink: (id: string, patch: LinkPatch) => boolean
+  /** Removes an existing link, returning it (for the undo toast's message) — undefined ⇒ no such link, the map is
+   * untouched. Never prunes any OTHER link (links are never referenced by another link). Never bumps `revision`. */
+  removeLink: (id: string) => Link | undefined
 }
 
 // Computed keys widen to an index signature; this is the one place the collection type is re-asserted.
@@ -144,6 +151,18 @@ export const useMapStore = create<MapState>()((set, get) => {
       if (!MapSchema.safeParse(next).success) return undefined
       set({ map: next })
       return linkId
+    },
+    updateLink: (id, patch) => {
+      const next = updateLinkOnMap(get().map, id, patch)
+      if (!MapSchema.safeParse(next).success) return false
+      set({ map: next })
+      return true
+    },
+    removeLink: (id) => {
+      const result = removeLinkFromMap(get().map, id)
+      if (!result) return undefined
+      set({ map: result.map })
+      return result.removed
     },
   }
 })

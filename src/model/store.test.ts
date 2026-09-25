@@ -458,6 +458,76 @@ describe('map store', () => {
     })
   })
 
+  describe('updateLink (ADR-02, REQ-LNK-02, REQ-LNK-06.2)', () => {
+    it('sets an adapter at an end, parses MapSchema, and leaves the revision untouched', () => {
+      state().replace(linkedTwoHexMap())
+      const revisionBefore = state().revision
+
+      const ok = state().updateLink('link-1', { from: { adapterId: 'a-knex' } })
+
+      expect(ok).toBe(true)
+      expect(state().map.links[0].from.adapterId).toBe('a-knex')
+      expect(MapSchema.safeParse(state().map).success).toBe(true)
+      expect(state().revision).toBe(revisionBefore)
+    })
+
+    it('clears an adapter with null', () => {
+      state().replace(linkedTwoHexMap())
+      state().updateLink('link-1', { from: { adapterId: 'a-knex' } })
+
+      const ok = state().updateLink('link-1', { from: { adapterId: null } })
+
+      expect(ok).toBe(true)
+      expect(state().map.links[0].from.adapterId).toBeUndefined()
+    })
+
+    it('refuses a structurally invalid patch (an adapter that is not on that end’s port), leaving the map untouched', () => {
+      state().replace(linkedTwoHexMap())
+      const map = state().map
+
+      // a-http is p-submit's adapter, not p-repo's — invalid on the `from` end.
+      const ok = state().updateLink('link-1', { from: { adapterId: 'a-http' } })
+
+      expect(ok).toBe(false)
+      expect(state().map).toBe(map)
+    })
+
+    it('refuses a pattern tag on a same-context link (REQ-LNK-06.2), leaving the map untouched', () => {
+      state().replace(linkedTwoHexMap())
+      const map = state().map
+
+      const ok = state().updateLink('link-1', { pattern: 'acl' })
+
+      expect(ok).toBe(false)
+      expect(state().map).toBe(map)
+    })
+  })
+
+  describe('removeLink (ADR-02, REQ-LNK-04)', () => {
+    it('removes the link, returns it, parses MapSchema, and leaves the revision untouched', () => {
+      state().replace(linkedTwoHexMap())
+      const revisionBefore = state().revision
+      const before = state().map.links[0]
+
+      const removed = state().removeLink('link-1')
+
+      expect(removed).toEqual(before)
+      expect(state().map.links).toEqual([])
+      expect(MapSchema.safeParse(state().map).success).toBe(true)
+      expect(state().revision).toBe(revisionBefore)
+    })
+
+    it('returns undefined for an unknown id, leaving the map untouched', () => {
+      state().replace(linkedTwoHexMap())
+      const map = state().map
+
+      const removed = state().removeLink('nope')
+
+      expect(removed).toBeUndefined()
+      expect(state().map).toBe(map)
+    })
+  })
+
   describe('setContextName (NAME-01, NAME-02)', () => {
     it('names an unnamed context', () => {
       const contextId = state().map.contexts[0].id
