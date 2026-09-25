@@ -14,7 +14,7 @@ Open it at **https://diagrams.pbuilder.dev/**. It runs in your browser and saves
 2. Use **Example** in the toolbar to load another one:
    - **Chat feedback slice**: a single use case with its driving port, three driven ports, and the adapters, actors and external systems around them.
    - **Stress test**: two aggregates, three use cases and ports on every wall, to show how the layout grows.
-   - **Two slices, one link**: two hexagons joined by one link — a small honeycomb, ready to grow.
+   - **Two slices, one link**: two hexagons joined by one link, a small honeycomb, ready to grow.
 3. Try three things:
    - Switch between **Overview** and **Detailed**. Overview is the version for a slide; Detailed is the version for a design review.
    - Hover a ring. Its layer lights up and everything else steps back, which is a quick way to ask "what lives in the application layer?"
@@ -55,13 +55,13 @@ Your work autosaves in this browser's `localStorage` a moment after each change,
 
 ## Build a honeycomb
 
-A real system is rarely one slice. domainrings draws several hexagons side by side, each one its own diagram, none of them overlapping — a honeycomb you build by growing the map or bringing in slices you already have as files.
+A real system is rarely one slice. domainrings draws several hexagons side by side, each one its own diagram, none of them overlapping: a honeycomb you build by growing the map or bringing in slices you already have as files.
 
 - **Grow.** Hover a hexagon and its free sides show a **+**. Click one and choose **Hexagon in {context}** to add a neighbour in the same bounded context, or **Hexagon in a new bounded context** to start a fresh one. The new hexagon appears empty and current, with its title field open: type a name and press Enter, or Esc to undo the whole thing. The Hexagon section of the editor has its own **Add hexagon** button for the same move without touching the canvas.
-- **Bring in a file.** The editor's Map section has **Add hexagon from file…**. It asks where the hexagon should land — **Import into {context}** or **Import into a new bounded context** — before you pick the file, so choose the destination first. The file must hold exactly one hexagon; a file with more is refused, with a message pointing you at **Open…** instead, which replaces the whole map. If the map you're adding to is still Clean or Onion, you're asked to confirm converting it to hexagonal, and the conversion and the add happen together as one undoable step.
-- **Bounded contexts.** Once a map holds two or more contexts, each one is drawn as a dashed outline with a name chip, even when a context's hexagons aren't all next to each other, or when another context's hexagon sits in the middle of it. Name or rename a context in the editor's **Bounded contexts** section; an unnamed one shows a stable "Context {n}" placeholder that never changes while the context exists. A single-context map draws with no outlines at all — exactly as a lone hexagon always has.
+- **Bring in a file.** The editor's Map section has **Add hexagon from file…**. It asks where the hexagon should land (**Import into {context}** or **Import into a new bounded context**) before you pick the file, so choose the destination first. The file must hold exactly one hexagon; a file with more is refused, with a message pointing you at **Open…** instead, which replaces the whole map. If the map you're adding to is still Clean or Onion, you're asked to confirm converting it to hexagonal, and the conversion and the add happen together as one undoable step.
+- **Bounded contexts.** Once a map holds two or more contexts, each one is drawn as a dashed outline with a name chip, even when a context's hexagons aren't all next to each other, or when another context's hexagon sits in the middle of it. Name or rename a context in the editor's **Bounded contexts** section; an unnamed one shows a stable "Context {n}" placeholder that never changes while the context exists. A single-context map draws with no outlines at all, exactly as a lone hexagon always has.
 - **Delete.** The Hexagon section's **Delete hexagon** removes the current hexagon, short of the very last one on the map; its links go with it, and its bounded context too if that hexagon was the only one in it. Undo brings all of it back in one step.
-- **Fit all.** The zoom controls' **Fit all** button always shows every hexagon on the map, however far it has grown. Growing, importing or deleting a hexagon re-fits the view automatically when it was already showing the whole map, and otherwise only if the change would have landed off screen — a zoomed-in view that already covers the change stays exactly where it is.
+- **Fit all.** The zoom controls' **Fit all** button always shows every hexagon on the map, however far it has grown. Growing, importing or deleting a hexagon re-fits the view automatically when it was already showing the whole map, and otherwise only if the change would have landed off screen: a zoomed-in view that already covers the change stays exactly where it is.
 - **Export scope.** Once a map holds more than one hexagon, Export offers a scope: **Map** exports everything (every hexagon, every link, every context's outline and chip), **Hexagon** exports just the current one, framed to its own bounds.
 
 ## Reference
@@ -142,7 +142,7 @@ The model and its validation live in `src/model/schema.ts`, the three skins in `
 
 ## What is coming
 
-The honeycomb itself is here: grow a map from any hexagon, bring in slices you already have as files, and see the bounded contexts they belong to. What's still coming is the connective tissue between hexagons — links routed through their ports and labelled with the DDD relationship they represent (anticorruption layer, open host service, customer-supplier, conformist, shared kernel), so a context map can show not just where each slice lives, but how they depend on each other. The file format already has room for it.
+The honeycomb itself is here: grow a map from any hexagon, bring in slices you already have as files, and see the bounded contexts they belong to. What's still coming is the connective tissue between hexagons: links routed through their ports and labelled with the DDD relationship they represent (anticorruption layer, open host service, customer-supplier, conformist, shared kernel), so a context map can show not just where each slice lives, but how they depend on each other. The file format already has room for it.
 
 ## License
 
