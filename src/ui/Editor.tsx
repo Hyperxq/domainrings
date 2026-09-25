@@ -15,7 +15,7 @@ import {
   type Wall,
 } from '../model/schema'
 import { parentCandidates } from '../model/links'
-import { contextName, contextOrdinal, diagramOf, freeSides, UNTITLED_HEXAGON } from '../model/map'
+import { contextName, contextOrdinal, diagramOf, freeSides, UNTITLED_HEXAGON, type Destination } from '../model/map'
 import { useMapStore, type Item } from '../model/store'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
@@ -227,7 +227,7 @@ export function Editor({
   onDeleteHexagon: () => void
   /** Imports the chosen file's one hexagon (IMP-01); `opener` is whatever had focus when the destination was
    * chosen — the trigger below — so the caller can restore it after a conversion question (CONV-02.1). */
-  onAddFromFile: (file: File, context: 'same' | 'new', opener: HTMLElement | null) => void
+  onAddFromFile: (file: File, context: Destination, opener: HTMLElement | null) => void
   /** The current hexagon's own bounded context, for the import menu's "Import into {context}" choice. */
   contextLabel: string
   /** Reports a context rename/clear session (focus → blur) that actually changed the name, with the map from
@@ -243,7 +243,7 @@ export function Editor({
   const currentCell = map.hexagons.find((h) => h.id === hexId)?.cell
   const canGrow = !!currentCell && freeSides(map, currentCell).length > 0
   const canDelete = map.hexagons.length > 1
-  const importContext = useRef<'same' | 'new'>('same')
+  const importContext = useRef<Destination>('same')
   const importOpener = useRef<HTMLElement | null>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
   // Keyed by contextId, so renaming two contexts in the same session (unlikely, but never concurrent within one

@@ -5,6 +5,9 @@ export const UNTITLED_HEXAGON = 'Untitled hexagon'
 
 export type Cell = Hexagon['cell']
 
+/** Where a grown or imported hexagon lands: its source's own context, or a fresh one. */
+export type Destination = 'same' | 'new'
+
 /** Clockwise on screen (y down), starting east: the pinned search order for grow-by-button and import. */
 export const SIDE_ORDER: readonly Wall[] = ['e', 'se', 'sw', 'w', 'nw', 'ne']
 

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { diagramOf, freeCell, freeSides, neighbour, placeHexagon, putDiagram, pruneLinks, removeHexagon as removeHexagonFromMap, UNTITLED_HEXAGON, type Cell } from './map'
+import { diagramOf, freeCell, freeSides, neighbour, placeHexagon, putDiagram, pruneLinks, removeHexagon as removeHexagonFromMap, UNTITLED_HEXAGON, type Cell, type Destination } from './map'
 import { browserStorage, loadMap } from './persistence'
 import { REFERENCES, type CollectionKey, type Diagram, type HexaMap, type Hexagon, type Link, type Linkable, type Wall } from './schema'
 
@@ -36,12 +36,12 @@ interface MapState {
   /** Grows the map from `from`'s given (or first free, in SIDE_ORDER) side, into that hexagon's own context or a
    * fresh one. Undefined — a no-op — when `from` has no free side, or the map isn't hexagonal and `convert` isn't
    * set (ADR-02). Focuses the new hexagon; never bumps `revision`. */
-  addHexagon: (from: string, opts: { side?: Wall; context: 'same' | 'new'; convert?: boolean }) => string | undefined
+  addHexagon: (from: string, opts: { side?: Wall; context: Destination; convert?: boolean }) => string | undefined
   /** Imports `file`'s one hexagon onto the first free cell from the current hexagon, into its own context or a
    * fresh one — sharing `addHexagon`'s destination vocabulary and the same write path (ADR-02). Undefined when
    * `file` does not hold exactly one hexagon (IMP-04), or the map isn't hexagonal and `convert` isn't set. Focuses
    * the imported hexagon; never bumps `revision`. */
-  importHexagon: (file: HexaMap, opts: { context: 'same' | 'new'; convert?: boolean }) => string | undefined
+  importHexagon: (file: HexaMap, opts: { context: Destination; convert?: boolean }) => string | undefined
   /** Removes `hexId`, pruning its links and dropping its own now-empty context; moves focus to `hexagons[0]` when
    * the deleted one was current. No-op ([]), leaving the map untouched, on the map's last hexagon (DEL-01) — a
    * map is never left with zero. Never bumps `revision`. */

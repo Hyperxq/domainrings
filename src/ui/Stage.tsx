@@ -5,7 +5,7 @@ import type { LayoutMode, LayoutNode, Point } from '../layout/layout'
 import type { LegendModel } from '../layout/legend'
 import { cellCentre, currentHexagon, hexagonBounds, hexagonTitle, type MapLayout } from '../layout/map'
 import { collectionOf, linkTargets, type LinkTarget } from '../model/links'
-import { freeSides, neighbour, UNTITLED_HEXAGON } from '../model/map'
+import { freeSides, neighbour, UNTITLED_HEXAGON, type Destination } from '../model/map'
 import type { CollectionKey, Diagram as DiagramModel, DomainType, Wall } from '../model/schema'
 import { useMapStore } from '../model/store'
 import { MapDiagram } from '../render/Diagram'
@@ -45,7 +45,7 @@ interface StageProps {
   /** The current hexagon's own context display name, for the grow menu's "Hexagon in {context}" choice. */
   contextLabel: string
   /** Grows the map from the current hexagon's given free side, into its own context or a new one (GROW-01). */
-  onGrow: (side: Wall, context: 'same' | 'new') => void
+  onGrow: (side: Wall, context: Destination) => void
   /** True right after growing: the current hexagon's title field is open inline (GROW-02.1). */
   naming: boolean
   onNamed: (title: string) => void

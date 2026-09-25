@@ -7,7 +7,7 @@ import { EXAMPLES } from './model/example'
 import { parseHexa, toHexa, toMap } from './model/hexa'
 import { KINDS } from './model/kinds'
 import { collectionOf, type LinkTarget } from './model/links'
-import { contextName, diagramOf, UNTITLED_HEXAGON } from './model/map'
+import { contextName, diagramOf, UNTITLED_HEXAGON, type Destination } from './model/map'
 import type { Recovery } from './model/persistence'
 import type { HexaMap, Link, Wall } from './model/schema'
 import { useMapStore } from './model/store'
@@ -137,7 +137,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // Grow: the just-added hexagon's own inline title field is open until it commits (onNamed) or is undone
   // (onNamingCancel, or the toast's own Undo — either restores `before`, exactly as a one-step undo (GROW-03)).
   const [growing, setGrowing] = useState<{ hexId: string; before: { map: HexaMap; focus: string } } | null>(null)
-  const completeGrow = (side: Wall | undefined, context: 'same' | 'new', convert?: boolean) => {
+  const completeGrow = (side: Wall | undefined, context: Destination, convert?: boolean) => {
     const newHexId = addHexagon(hexId, { side, context, convert })
     if (!newHexId) return
     const grownMap = useMapStore.getState().map
@@ -150,10 +150,10 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // focus at the moment the question was raised — the "+"/button ChoiceMenu already returned focus there before
   // this ran — so Cancel/Confirm can hand it back explicitly once the dialog unmounts.
   const [converting, setConverting] = useState<
-    { action: 'add'; side: Wall | undefined; context: 'same' | 'new' } | { action: 'import'; file: HexaMap; context: 'same' | 'new'; fileName: string } | null
+    { action: 'add'; side: Wall | undefined; context: Destination } | { action: 'import'; file: HexaMap; context: Destination; fileName: string } | null
   >(null)
   const openerRef = useRef<HTMLElement | null>(null)
-  const handleGrow = (side: Wall | undefined, context: 'same' | 'new') => {
+  const handleGrow = (side: Wall | undefined, context: Destination) => {
     if (map.kind !== 'hexagonal') {
       openerRef.current = document.activeElement as HTMLElement | null
       return setConverting({ action: 'add', side, context })
@@ -222,7 +222,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     if (parsed) swap(parsed, `Opened ${file.name}.`)
   }
 
-  const completeImport = (file: HexaMap, context: 'same' | 'new', fileName: string, convert?: boolean) => {
+  const completeImport = (file: HexaMap, context: Destination, fileName: string, convert?: boolean) => {
     const newHexId = importHexagon(file, { context, convert })
     if (!newHexId) return
     const imported = useMapStore.getState().map.hexagons.find((h) => h.id === newHexId)!
@@ -232,7 +232,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
 
   // "Add hexagon from file…" (IMP-01..07): refuses a multi-hexagon file before any conversion question (IMP-04.2),
   // then either asks to convert (map.kind isn't hexagonal) or imports straight away.
-  const handleAddFromFile = async (file: File, context: 'same' | 'new', opener: HTMLElement | null) => {
+  const handleAddFromFile = async (file: File, context: Destination, opener: HTMLElement | null) => {
     const parsed = await parseFile(file)
     if (!parsed) return
     if (parsed.hexagons.length > 1) {
