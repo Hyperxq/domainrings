@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { newCleanMap, newOnionMap } from '../model/hexa'
-import { ringedBounds, ringElementRadius, ringOutlines, TITLE_ARC_PAD, TITLE_MAX_SPAN } from './ringed'
+import { arcAngles } from '../model/rings'
+import {
+  endpointLayout,
+  RINGED_ELEMENT_METRICS,
+  RINGED_ELEMENT_HEIGHT,
+  RINGED_ENDPOINT_DIAMETER,
+  ringedBounds,
+  ringElementRadius,
+  ringOutlines,
+  titleFootprintBox,
+  TITLE_ARC_PAD,
+  TITLE_MAX_SPAN,
+} from './ringed'
 import { measure, RING_LABEL } from './text'
 
 // Direct unit coverage for the shared ring-outline/bounds sizing (ADR-01) — previously exercised only
@@ -69,6 +81,30 @@ describe('ring titles fit the usable arc length at their own band (no clipping b
 // af5734e's pole-chord growth inflated an empty Onion file's outer ring from ~198px (measured against the
 // pre-af5734e formula: half title width + a flat pad, growing only by MIN_BAND per ring) to ~783px. The curved
 // title fix above removes that growth; this pins the outer ring back to a comparable, compact size.
+// Decision 5: the innermost ring's own elements crowded right where its curved title reads, hiding it — nothing
+// in the old sizing ever checked title-vs-element, only element-vs-element and element-vs-band.
+describe("a ring's own title never overlaps its own elements (Decision 5)", () => {
+  const boxesOverlap = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>
+    Math.abs(a.x - b.x) < (a.width + b.width) / 2 && Math.abs(a.y - b.y) < (a.height + b.height) / 2
+
+  it('8 elements densely packed around the innermost ring all clear a long title', () => {
+    const name = 'Entities Of The Domain Model'
+    const count = 8
+    const slotsOf = () => arcAngles(count, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI).map((angle) => ({ angle, width: 90 }))
+    const [ring] = ringOutlines([{ role: 'domain', name }], slotsOf)
+    const radius = ringElementRadius(ring)
+    const titleArc = measure(ring.title, RING_LABEL) + 2 * TITLE_ARC_PAD
+    const titleBox = titleFootprintBox(radius, titleArc)
+    const elementBoxes = arcAngles(count, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI).map((angle) => ({
+      x: radius * Math.cos(angle),
+      y: radius * Math.sin(angle),
+      width: 90,
+      height: RINGED_ELEMENT_HEIGHT,
+    }))
+    for (const box of elementBoxes) expect(boxesOverlap(box, titleBox)).toBe(false)
+  })
+})
+
 describe('an empty ringed file stays compact (no title-driven blow-up)', () => {
   const PRE_AF5734E_ONION_OUTER_APEX = 198
   const COMPACT_BOUND = PRE_AF5734E_ONION_OUTER_APEX * 1.5
@@ -81,5 +117,31 @@ describe('an empty ringed file stays compact (no title-driven blow-up)', () => {
   it("an empty Clean file's outer ring stays compact, comparable to its pre-af5734e size", () => {
     const rings = ringOutlines(newCleanMap('Fresh').rings)
     expect(rings[rings.length - 1].apex).toBeLessThan(COMPACT_BOUND)
+  })
+})
+
+// Decision 6: `ringedBounds`/`endpointLayout` only ever counted the 8px endpoint DOT, never its name label —
+// a long name (e.g. "ShippingAdapter") could sit mostly outside the bounds and show clipped ("ingAdapter").
+describe('endpointLayout — labels count toward the bounds, never just the dot (Decision 6)', () => {
+  it("a long actor/external name's rendered label stays fully inside ringedBounds", () => {
+    const [ring] = ringOutlines([{ role: 'outer', name: 'Infrastructure' }])
+    const actors = [
+      { id: 'a1', name: 'ShippingAdapter' },
+      { id: 'a2', name: 'PaymentGatewayAdapterForCheckout' },
+      { id: 'a3', name: 'Ops' },
+      { id: 'a4', name: 'NotificationDispatchService' },
+    ]
+    const { endpoints, extraReach } = endpointLayout(actors, [], ring)
+    const bounds = ringedBounds(ring, extraReach)
+    for (const endpoint of endpoints) {
+      const labelSide = endpoint.x >= 0 ? 1 : -1
+      const textStart = endpoint.x + labelSide * (RINGED_ENDPOINT_DIAMETER / 2 + 4)
+      const textEnd = textStart + labelSide * measure(endpoint.name, RINGED_ELEMENT_METRICS)
+      const halfTextHeight = RINGED_ELEMENT_METRICS.size / 2
+      for (const x of [textStart, textEnd]) expect(x).toBeGreaterThanOrEqual(bounds.x)
+      for (const x of [textStart, textEnd]) expect(x).toBeLessThanOrEqual(bounds.x + bounds.width)
+      expect(endpoint.y - halfTextHeight).toBeGreaterThanOrEqual(bounds.y)
+      expect(endpoint.y + halfTextHeight).toBeLessThanOrEqual(bounds.y + bounds.height)
+    }
   })
 })

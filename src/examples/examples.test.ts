@@ -318,10 +318,10 @@ describe('Onion/Clean crossing counts (Decision 3) — after must never exceed b
   const AFTER: Record<string, number> = {
     'onion-basic.hexa': 0,
     'onion-advanced.hexa': 4,
-    'onion-stress.hexa': 19,
+    'onion-stress.hexa': 21,
     'clean-basic.hexa': 0,
     'clean-advanced.hexa': 9,
-    'clean-stress.hexa': 25,
+    'clean-stress.hexa': 29,
   }
 
   for (const file of files.filter((f) => f.startsWith('onion-') || f.startsWith('clean-'))) {

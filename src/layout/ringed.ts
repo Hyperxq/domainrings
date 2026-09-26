@@ -17,6 +17,15 @@ export const TITLE_MAX_SPAN = Math.PI
  * wide a title reads. */
 export const titleHalfSpan = (arcLength: number, radius: number): number => (radius > 0 ? Math.min(TITLE_MAX_SPAN / 2, arcLength / 2 / radius) : 0)
 
+/** The title's own rendered footprint at `radius` (its final band mid-radius) — an axis-aligned box centred at
+ * the top, wide enough for its curved arc's own chord — approximate but built from the SAME `titleHalfSpan` the
+ * real `<textPath>` rides, so `ringOutlines` (Decision 5: give a ring's own title room, never covered by an
+ * element sharing its band) and the actual render never disagree about where the title sits. */
+export function titleFootprintBox(radius: number, titleArc: number): RingedBox {
+  const halfSpan = titleHalfSpan(titleArc, radius)
+  return { x: 0, y: -radius, width: 2 * radius * Math.sin(halfSpan), height: TITLE_LINE }
+}
+
 /** The one place an element's or endpoint's rendered box size is defined — `render/RingedNodes.tsx` draws to
  * these exact numbers, so a ring sized against them never drifts from what actually gets painted. */
 export const RINGED_ELEMENT_METRICS = { size: 13, em: 0.6, tracking: 0 }
@@ -127,9 +136,14 @@ export function ringOutlines<Role extends RingRole>(
     // elements both near angle 0, whose combined half-widths can exceed the band).
     const innerMid = inner ? ringElementRadius(inner, outlines[i - 2]) : 0
     const innerBoxes = inner ? boxesAt(innerMid, allSlots[i - 1]) : []
+    // Decision 5: an element sharing this ring's own band must never sit under its own curved title — the ring
+    // grows (same `noOverlap` idiom as two crowded elements) until every one of its own boxes clears the title's
+    // own footprint, not just each other; MIN_BAND/titleFloor alone said nothing about that (the reported
+    // innermost-ring boxes covering the curved title).
     const fits = (r: number) => {
       const own = boxesAt(mid(r), slots)
-      return noOverlap([...own, ...innerBoxes]) && own.every((b) => boxWithinBand(b, innerApex, r))
+      const title = titleFootprintBox(mid(r), titleArc)
+      return noOverlap([title, ...own, ...innerBoxes]) && own.every((b) => boxWithinBand(b, innerApex, r))
     }
     const radius = slots.length || innerBoxes.length ? growUntilFits(floor, fits) : floor
     outlines[i] = circle(radius)
@@ -208,5 +222,15 @@ export function endpointLayout(
     x: radius * Math.cos(angles[k]),
     y: radius * Math.sin(angles[k]),
   }))
-  return { endpoints, extraReach: radius - outer.apex + 24 }
+  // Decision 6: the reach a fresh document's bounds need to cover isn't the 8px dot's own radius — it's each
+  // endpoint's rendered NAME label, which `render/RingedNodes.tsx`'s `RingedEndpointNode` draws starting just past
+  // the dot and running away from the origin (never toward it), plus the label's own half text-height vertically.
+  // Missing this let a long name (e.g. "ShippingAdapter") sit mostly outside `ringedBounds`, clipped on export/fit.
+  const labelReach = endpoints.length
+    ? Math.max(
+        ...endpoints.map((e) => Math.abs(e.x) + RINGED_ENDPOINT_DIAMETER / 2 + 4 + measure(e.name, RINGED_ELEMENT_METRICS)),
+        ...endpoints.map((e) => Math.abs(e.y) + RINGED_ELEMENT_METRICS.size / 2),
+      )
+    : 0
+  return { endpoints, extraReach: Math.max(radius - outer.apex + 24, labelReach - outer.apex) }
 }
