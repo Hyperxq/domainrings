@@ -134,8 +134,12 @@ export function Toolbar({ themeChoice, palette, onNew, onExample, onOpen, onCopy
           <option value="" disabled>
             Load an example
           </option>
-          {EXAMPLES.map((x) => (
-            <option key={x.id} value={x.id}>{x.label}</option>
+          {(['Hexagonal', 'Onion', 'Clean'] as const).map((architecture) => (
+            <optgroup key={architecture} label={architecture}>
+              {EXAMPLES.filter((x) => x.architecture === architecture).map((x) => (
+                <option key={x.id} value={x.id}>{x.label}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </label>

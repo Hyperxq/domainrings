@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import { StrictMode } from 'react'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { App } from './App'
-import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM, TWO_SLICES_MAP } from './model/example'
+import { EXAMPLE_DIAGRAM, EXAMPLES, STRESS_DIAGRAM } from './model/example'
 import { layoutDiagram } from './layout/layout'
 import { newCleanMap, newOnionMap, parseHexa, toHexa, toMap } from './model/hexa'
 import { diagramOf, UNTITLED_HEXAGON } from './model/map'
@@ -293,43 +293,61 @@ describe('toolbar', () => {
   })
 })
 
-describe('the "Two slices, one link" example (EX-01, CANVAS-01/02/04, FOCUS-02)', () => {
-  const pickExample = (label: string) => fireEvent.change(screen.getByLabelText('Load an example'), { target: { value: label } })
+// The learning path (project/pending-changes/ringed-examples-readme): 3 architectures x 3 levels each, grouped
+// by architecture in the menu and loaded through the same parseHexa path a user's Open… takes.
+describe('the Example menu — learning path (CANVAS-01/02/04, FOCUS-02)', () => {
+  const pickExample = (value: string) => fireEvent.change(screen.getByLabelText('Load an example'), { target: { value } })
 
-  it('is no longer labelled as a preview (EX-01.2)', () => {
+  it('groups the menu into 3 architectures of 3 levels each, in basic/stress/advanced order', () => {
     render(<App />)
-    // Built by concatenation, not as one literal, so this file itself never trips the EX-01.2 gate:
-    // `rg -c "\(preview\)" README.md src` must read 0 once the label is dropped everywhere.
-    const oldLabel = `Two slices, one link (${'preview'})`
-    expect(screen.queryByRole('option', { name: oldLabel })).toBeNull()
-    expect(screen.getByRole('option', { name: 'Two slices, one link' })).toBeDefined()
+    const select = screen.getByLabelText('Load an example') as HTMLSelectElement
+    const groups = Array.from(select.querySelectorAll('optgroup'))
+    expect(groups.map((g) => g.label)).toEqual(['Hexagonal', 'Onion', 'Clean'])
+    for (const group of groups) expect(group.querySelectorAll('option')).toHaveLength(3)
   })
 
-  it('loads TWO_SLICES_MAP with the first hexagon current, and fits the view (no pan/zoom override)', () => {
-    render(<App />)
-    const option = screen.getByRole('option', { name: 'Two slices, one link' }) as HTMLOptionElement
+  for (const example of EXAMPLES) {
+    it(`loading "${example.label}" shows the ${example.architecture} view and its own title`, () => {
+      const { container } = render(<App />)
+      const option = screen.getByRole('option', { name: example.label }) as HTMLOptionElement
 
-    pickExample(option.value)
+      pickExample(option.value)
 
-    expect(useMapStore.getState().map).toStrictEqual(TWO_SLICES_MAP)
-    expect(useMapStore.getState().focus).toBe('h1')
-    expect(toastEl()!.textContent).toContain('Loaded the Two slices, one link example.')
-  })
+      expect(toastEl()!.textContent).toContain(`Loaded the ${example.label} example.`)
+      if (example.architecture === 'Hexagonal') {
+        expect(useMapStore.getState().map.kind).toBe('hexagonal')
+        expect(container.querySelectorAll('svg.canvas [data-hex]').length).toBeGreaterThan(0)
+      } else {
+        expect(container.querySelector('svg.canvas')!.getAttribute('aria-label')).toBe(example.label)
+      }
+    })
+  }
 
-  it('renders both hexagons of the example, non-overlapping, connected by exactly one link line', () => {
+  it('renders the Hexagonal advanced example as several bounded contexts, non-overlapping, connected by links', () => {
     const { container } = render(<App />)
-    const option = screen.getByRole('option', { name: 'Two slices, one link' }) as HTMLOptionElement
+    const option = screen.getByRole('option', { name: 'E-commerce — Hexagonal (advanced)' }) as HTMLOptionElement
     pickExample(option.value)
 
     const groups = container.querySelectorAll('svg.canvas [data-hex]')
-    expect(groups).toHaveLength(2)
-    expect(container.querySelectorAll('svg.canvas [data-map-link]')).toHaveLength(1)
-    const boxOf = (hexId: string) => container.querySelector(`[data-hex="${hexId}"]`)!.getBoundingClientRect()
+    expect(groups).toHaveLength(4)
+    expect(container.querySelectorAll('svg.canvas [data-map-link]').length).toBeGreaterThan(0)
     // jsdom's getBoundingClientRect is a zero-box stub; the real non-overlap guarantee is proven at the layout
-    // level (layout/map.test.ts CANVAS-01.1). Here we only pin that both hexagons render as distinct groups
-    // with different transforms, which is what the DOM identity contract (SEAM-05) actually promises.
-    expect(boxOf('h1')).toBeDefined()
-    expect(container.querySelector('[data-hex="h1"]')!.getAttribute('transform')).not.toBe(container.querySelector('[data-hex="h2"]')!.getAttribute('transform'))
+    // level (layout/map.test.ts CANVAS-01.1). Here we only pin that every hexagon renders as its own distinct
+    // group with its own transform, which is what the DOM identity contract (SEAM-05) actually promises.
+    const transforms = new Set(Array.from(groups).map((g) => g.getAttribute('transform')))
+    expect(transforms.size).toBe(groups.length)
+  })
+
+  it('Undo after loading an example restores the previous document', () => {
+    render(<App />)
+    const before = useMapStore.getState().map
+    const option = screen.getByRole('option', { name: 'Stress test' }) as HTMLOptionElement
+
+    pickExample(option.value)
+    expect(useMapStore.getState().map).not.toBe(before)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useMapStore.getState().map).toBe(before)
   })
 })
 
@@ -2558,9 +2576,9 @@ describe('swap undo across kinds (REQ-09)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
     const cleanBefore = useCleanStore.getState().map
 
-    const option = screen.getByRole('option', { name: 'Two slices, one link' }) as HTMLOptionElement
+    const option = screen.getByRole('option', { name: 'Chat feedback slice' }) as HTMLOptionElement
     fireEvent.change(screen.getByLabelText('Load an example'), { target: { value: option.value } })
-    expect(useMapStore.getState().map).toStrictEqual(TWO_SLICES_MAP)
+    expect(useMapStore.getState().map).toStrictEqual(EXAMPLES.find((x) => x.id === 'hexagonal-basic')!.map)
 
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
 
