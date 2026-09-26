@@ -1906,6 +1906,46 @@ describe('copy the current map as a link (REQ-05, REQ-06)', () => {
   })
 })
 
+describe('save the current map as a .hexa file, per kind (mirrors "copy link"\'s REQ-05/06 coverage)', () => {
+  /** Same capture pattern as the "export scope" and "journey" describes above — jsdom's Blob has no `.stream()`,
+   * so read it via `.text()` instead. */
+  const saveHexa = async (): Promise<string> => {
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save as .hexa file' }))
+    const text = await captured!.text()
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+    return text
+  }
+
+  it('saves the active ONION document, not the Hexagonal map, when Onion is active', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
+
+    const text = await saveHexa()
+
+    const result = parseHexa(text)
+    expect(result.ok && result.map).toEqual(useOnionStore.getState().map)
+  })
+
+  it('saves the active CLEAN document, not the Hexagonal map, when Clean is active', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
+
+    const text = await saveHexa()
+
+    const result = parseHexa(text)
+    expect(result.ok && result.map).toEqual(useCleanStore.getState().map)
+  })
+})
+
 describe('opening a share link for a non-Hexagonal document routes it to the matching store (regression: only Hexagonal was ever exercised)', () => {
   beforeEach(installCompressionStreamPolyfill)
   afterEach(() => {
