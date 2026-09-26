@@ -67,10 +67,10 @@ A real system is rarely one slice. domainrings draws several hexagons side by si
 
 ## Let your AI assistant draw it
 
-The repo ships an agent skill, `domainrings-hexagonal`, that teaches an AI coding assistant to read your code, write the `.hexa` map for its hexagonal architecture (one hexagon or a whole honeycomb), and hand you a link that opens it here. Install it with [Context7](https://context7.com/):
+The repo ships an agent skill, `domainrings-hexagonal`, that teaches an AI coding assistant to read your code, write the `.hexa` map for its hexagonal architecture (one hexagon or a whole honeycomb), and hand you a link that opens it here. Install it with the [skills](https://github.com/vercel-labs/skills) CLI, which works with Claude Code, Cursor, Codex and other agents:
 
 ```sh
-npx ctx7 skills install /Hyperxq/domainrings domainrings-hexagonal
+npx skills add Hyperxq/domainrings --skill domainrings-hexagonal
 ```
 
 Then ask your assistant to draw your hexagon. The skill lives in `skills/domainrings-hexagonal/`.
