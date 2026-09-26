@@ -323,8 +323,17 @@ export function MapDiagram({ map, legend, showGuides, focus, selected, linkTarge
       {map.links.map(
         (link) =>
           link.pattern &&
-          link.labelAt && (
-            <text key={link.id} className="link-pattern-label" data-link-pattern="" aria-hidden="true" x={link.labelAt.x} y={link.labelAt.y} fontSize={EDGE_LABEL.size}>
+          link.label && (
+            <text
+              key={link.id}
+              className="link-pattern-label"
+              data-link-pattern=""
+              aria-hidden="true"
+              x={link.label.at.x}
+              y={link.label.at.y}
+              transform={link.label.vertical ? `rotate(-90 ${link.label.at.x} ${link.label.at.y})` : undefined}
+              fontSize={EDGE_LABEL.size}
+            >
               {link.pattern}
             </text>
           ),

@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { cellCentre, hexagonBounds, layoutMap, MAP_GAP } from './map'
-import { arcLengthMidpoint, routeLink } from './links'
+import { routeLink } from './links'
 import { layoutDiagram, type Box, type LayoutMode, type LayoutOptions } from './layout'
 import { toMap } from '../model/hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM } from '../model/example'
@@ -106,18 +106,18 @@ describe('layoutMap — multi-hexagon placement (CANVAS-01, CANVAS-02)', () => {
 
     const expected = routeLink({ point: fromPoint, wall: outNode.wall!, box: hexagonBounds(a) }, { point: toPoint, wall: inNode.wall!, box: hexagonBounds(b) })
 
-    expect(result.links).toEqual([{ id: 'l1', points: expected }])
+    expect(result.links).toEqual([{ id: 'l1', points: expected.points }])
     expect(result.links[0].points[0]).toEqual(fromPoint)
     expect(result.links[0].points.at(-1)).toEqual(toPoint)
   })
 
-  it('omits pattern/labelAt when the link’s two hexagons share a context', () => {
+  it('omits pattern/label when the link’s two hexagons share a context', () => {
     const result = layoutMap(twoHexagonMap())
     expect(result.links[0].pattern).toBeUndefined()
-    expect(result.links[0].labelAt).toBeUndefined()
+    expect(result.links[0].label).toBeUndefined()
   })
 
-  it('carries pattern + an arc-length-midpoint labelAt only when the link’s two hexagons are in different contexts', () => {
+  it('carries pattern + the route’s channel label only when the link’s two hexagons are in different contexts', () => {
     const map: HexaMap = {
       ...twoHexagonMap(),
       contexts: [{ id: 'c1' }, { id: 'c2' }],
@@ -128,7 +128,12 @@ describe('layoutMap — multi-hexagon placement (CANVAS-01, CANVAS-02)', () => {
     const result = layoutMap(map)
 
     expect(result.links[0].pattern).toBe('acl')
-    expect(result.links[0].labelAt).toStrictEqual(arcLengthMidpoint(result.links[0].points))
+    const [a, b] = result.hexagons
+    const route = routeLink(
+      { point: result.links[0].points[0], wall: a.model.nodes.find((n) => n.kind === 'port' && n.ref === 'p-out')!.wall!, box: hexagonBounds(a) },
+      { point: result.links[0].points.at(-1)!, wall: b.model.nodes.find((n) => n.kind === 'port' && n.ref === 'p-in')!.wall!, box: hexagonBounds(b) },
+    )
+    expect(result.links[0].label).toStrictEqual(route.label)
   })
 })
 

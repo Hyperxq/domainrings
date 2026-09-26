@@ -131,14 +131,22 @@ describe('MapDiagram — routed link path and pattern label (REQ-LNK-05, REQ-LNK
     expect(container.querySelectorAll('[data-link-pattern]')).toHaveLength(0)
   })
 
-  it('renders exactly one pattern label, at the layout’s labelAt, when the link is pattern-tagged', () => {
+  it('renders exactly one pattern label, at the layout’s label anchor, when the link is pattern-tagged', () => {
     const { container, model } = renderSvg(twoContextLinkedMap())
     const labels = container.querySelectorAll('[data-link-pattern]')
     expect(labels).toHaveLength(1)
-    const labelAt = model.links[0].labelAt!
-    expect(labels[0].getAttribute('x')).toBe(String(labelAt.x))
-    expect(labels[0].getAttribute('y')).toBe(String(labelAt.y))
+    const { at } = model.links[0].label!
+    expect(labels[0].getAttribute('x')).toBe(String(at.x))
+    expect(labels[0].getAttribute('y')).toBe(String(at.y))
     expect(labels[0].textContent).toBe('acl')
+  })
+
+  it('turns the pattern label to run along a vertical channel, and leaves a horizontal one unrotated', () => {
+    const { container, model } = renderSvg(twoContextLinkedMap())
+    const label = container.querySelector('[data-link-pattern]')!
+    const { at, vertical } = model.links[0].label!
+    expect(label.getAttribute('transform')).toBe(vertical ? `rotate(-90 ${at.x} ${at.y})` : null)
+    expect(vertical).toBe(true)
   })
 })
 

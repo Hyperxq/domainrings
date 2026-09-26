@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arcLengthMidpoint, routeLink, type RouteEnd } from './links'
+import { routeLink, type RouteEnd } from './links'
 import type { Box, Point } from './layout'
 import { hexagonBounds, layoutMap, type MapHexagonLayout } from './map'
 import { freeCell } from '../model/map'
@@ -12,7 +12,7 @@ describe('routeLink — boxes separated on X (side by side), ports facing each o
     const from: RouteEnd = { point: { x: 50, y: -10 }, wall: 'e', box: { x: -50, y: -50, width: 100, height: 100 } }
     const to: RouteEnd = { point: { x: 250, y: 20 }, wall: 'w', box: { x: 250, y: -50, width: 100, height: 100 } }
 
-    const path = routeLink(from, to)
+    const { points: path, label } = routeLink(from, to)
 
     expect(path).toEqual([
       { x: 50, y: -10 },
@@ -25,6 +25,9 @@ describe('routeLink — boxes separated on X (side by side), ports facing each o
     // The midline sits strictly between the two boxes — outside both regardless of y (REQ-LNK-05.1).
     expect(path[2].x).toBeGreaterThan(from.box.x + from.box.width)
     expect(path[2].x).toBeLessThan(to.box.x)
+    // The label sits halfway along the midline crossing, turned to run along the vertical gap, so its width
+    // stays in the channel instead of spilling onto either box.
+    expect(label).toEqual({ at: { x: 150, y: 5 }, vertical: true })
   })
 })
 
@@ -33,7 +36,7 @@ describe('routeLink — boxes separated on Y (stacked), ports facing each other'
     const from: RouteEnd = { point: { x: -30, y: -50 }, wall: 'se', box: { x: -50, y: -150, width: 100, height: 100 } }
     const to: RouteEnd = { point: { x: -20, y: 50 }, wall: 'ne', box: { x: -40, y: 50, width: 100, height: 100 } }
 
-    const path = routeLink(from, to)
+    const { points: path, label } = routeLink(from, to)
 
     expect(path).toHaveLength(6)
     expect(path[0]).toEqual(from.point)
@@ -47,6 +50,7 @@ describe('routeLink — boxes separated on Y (stacked), ports facing each other'
     expect(path[3]).toEqual({ x: path[4].x, y: 0 })
     expect(path[4].x).toBeCloseTo(-12.5, 6)
     expect(path[4].y).toBeCloseTo(50 - 15 * COS30, 6)
+    expect(label).toEqual({ at: { x: (path[2].x + path[3].x) / 2, y: 0 }, vertical: false })
   })
 })
 
@@ -58,7 +62,7 @@ describe('routeLink — a port whose wall faces AWAY from the target detours aro
     const from: RouteEnd = { point: { x: 50, y: 0 }, wall: 'e', box: { x: -50, y: -50, width: 100, height: 100 } }
     const to: RouteEnd = { point: { x: -250, y: 0 }, wall: 'w', box: { x: -250, y: -50, width: 100, height: 100 } }
 
-    const path = routeLink(from, to)
+    const { points: path } = routeLink(from, to)
 
     // Every segment except the two exit-stub ones (index 0→1 and the last one) must clear BOTH boxes entirely.
     for (let i = 2; i < path.length - 2; i++) {
@@ -108,33 +112,6 @@ function segmentPenetratesBox(p1: Point, p2: Point, box: Box, epsilon = 1e-6): b
   const clip = clipToBox(p1, p2, box)
   return clip !== null && clip[1] - clip[0] > epsilon
 }
-
-describe('arcLengthMidpoint', () => {
-  it('is the endpoint of a single-segment path with zero length', () => {
-    expect(arcLengthMidpoint([{ x: 10, y: 10 }, { x: 10, y: 10 }])).toEqual({ x: 10, y: 10 })
-  })
-
-  it('sits halfway along a straight two-point path', () => {
-    expect(arcLengthMidpoint([{ x: 0, y: 0 }, { x: 100, y: 0 }])).toEqual({ x: 50, y: 0 })
-  })
-
-  it('sits halfway along the total length of a multi-segment path, not halfway by point count', () => {
-    // Total length 10 + 100 = 110; the midpoint (55) falls 45 units into the second, longer segment.
-    const points: Point[] = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 110, y: 0 }]
-    expect(arcLengthMidpoint(points)).toEqual({ x: 55, y: 0 })
-  })
-
-  it('on a bent (non-colinear) path, differs from the geometric average of the endpoints — pins the ARC-LENGTH algorithm against a naive endpoint-midpoint mutant', () => {
-    // A right-angle path: (0,0) -> (0,90) -> (120,90). Total length 90+120=210; the midpoint (105) falls 15 units
-    // into the second segment: (15,90). The geometric average of the two ENDPOINTS would be (60,45) — a
-    // different point, so a mutant computing that instead is caught here (it is not caught by the colinear cases
-    // above, where the two algorithms coincide).
-    const points: Point[] = [{ x: 0, y: 0 }, { x: 0, y: 90 }, { x: 120, y: 90 }]
-    const midpoint = arcLengthMidpoint(points)
-    expect(midpoint).toEqual({ x: 15, y: 90 })
-    expect(midpoint).not.toEqual({ x: 60, y: 45 })
-  })
-})
 
 // --- Property: a routed link never crosses the body of either of its own two endpoint hexagons (REQ-LNK-05.1) ---
 

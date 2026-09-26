@@ -2,7 +2,7 @@ import { contextName, diagramOf, UNTITLED_HEXAGON } from '../model/map'
 import type { HexaMap, Link } from '../model/schema'
 import { contextRegions } from './hull'
 import { layoutDiagram, type Box, type LayoutModel, type LayoutOptions, type LayoutText, type Point } from './layout'
-import { arcLengthMidpoint, routeLink } from './links'
+import { routeLink, type LinkLabel } from './links'
 import { CHIP_LABEL, measure } from './text'
 
 export interface MapHexagonLayout {
@@ -20,8 +20,8 @@ export interface MapLinkLayout {
   points: Point[]
   /** The link's DDD relationship tag, present only when its two hexagons are in different contexts (REQ-LNK-06.2). */
   pattern?: Link['pattern']
-  /** The pattern label's anchor — `arcLengthMidpoint(points)` — present iff `pattern` is. */
-  labelAt?: Point
+  /** The pattern label's placement — present iff `pattern` is. */
+  label?: LinkLabel
 }
 
 export interface MapContextLayout {
@@ -139,11 +139,11 @@ export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout 
   const links: MapLinkLayout[] = map.links.map((link: Link) => {
     const fromHexagon = hexagonOf.get(link.from.hexagonId)!
     const toHexagon = hexagonOf.get(link.to.hexagonId)!
-    const points = routeLink(routeEnd(fromHexagon, link.from.portId), routeEnd(toHexagon, link.to.portId))
+    const { points, label } = routeLink(routeEnd(fromHexagon, link.from.portId), routeEnd(toHexagon, link.to.portId))
     // Pattern eligibility mirrors checkMap's own rule (LinkSchema refine): only a link crossing contexts may
     // carry a pattern — no hull dependency, just the two hexagons' own contextId.
     const pattern = fromHexagon.contextId !== toHexagon.contextId ? link.pattern : undefined
-    return { id: link.id, points, ...(pattern ? { pattern, labelAt: arcLengthMidpoint(points) } : {}) }
+    return { id: link.id, points, ...(pattern ? { pattern, label } : {}) }
   })
   let bounds = unionBox(hexagons.map(hexagonBounds))
   let title: LayoutText | undefined

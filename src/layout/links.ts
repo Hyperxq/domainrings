@@ -116,6 +116,14 @@ function dedupe(points: Point[]): Point[] {
   return points.filter((p, i) => i === 0 || p.x !== points[i - 1].x || p.y !== points[i - 1].y)
 }
 
+/** Where a routed link's pattern label sits: halfway along its midline crossing — the one stretch guaranteed
+ * outside both endpoint boxes — and `vertical` when that midline runs vertically, so the label is turned to run
+ * along it and its width stays inside the gap instead of spilling onto either hexagon (REQ-LNK-06.1). */
+export interface LinkLabel {
+  at: Point
+  vertical: boolean
+}
+
 /**
  * Deterministic channel route between two ports (ADR-01, refined) — a pure function of the two endpoints; it
  * never inspects any hexagon but the two endpoints, so it is O(1) per link regardless of map size
@@ -124,32 +132,15 @@ function dedupe(points: Point[]): Point[] {
  * a bounded exit stub, plus a corner detour when the port's own wall faces away from the gap — so the guarantee
  * holds regardless of which wall either port sits on (REQ-LNK-05.1).
  */
-export function routeLink(from: RouteEnd, to: RouteEnd): Point[] {
+export function routeLink(from: RouteEnd, to: RouteEnd): { points: Point[]; label: LinkLabel } {
   const mid = gapMidline(from.box, to.box)
   const fromExit = exitPoints(from, mid)
   const toExit = exitPoints(to, mid)
-  const fromLast = fromExit[fromExit.length - 1]
-  const toLast = toExit[toExit.length - 1]
+  const fromCross = onMidline(fromExit[fromExit.length - 1], mid)
+  const toCross = onMidline(toExit[toExit.length - 1], mid)
 
-  return dedupe([from.point, ...fromExit, onMidline(fromLast, mid), onMidline(toLast, mid), ...[...toExit].reverse(), to.point])
-}
-
-/** The point at half the polyline's total length — the pattern label's anchor (REQ-LNK-06.1). */
-export function arcLengthMidpoint(points: Point[]): Point {
-  const segments: Array<{ from: Point; to: Point; length: number }> = []
-  for (let i = 1; i < points.length; i++) {
-    const from = points[i - 1]
-    const to = points[i]
-    segments.push({ from, to, length: Math.hypot(to.x - from.x, to.y - from.y) })
+  return {
+    points: dedupe([from.point, ...fromExit, fromCross, toCross, ...[...toExit].reverse(), to.point]),
+    label: { at: { x: (fromCross.x + toCross.x) / 2, y: (fromCross.y + toCross.y) / 2 }, vertical: mid.axis === 'x' },
   }
-  const total = segments.reduce((sum, s) => sum + s.length, 0)
-  let remaining = total / 2
-  for (const segment of segments) {
-    if (remaining <= segment.length) {
-      const t = segment.length === 0 ? 0 : remaining / segment.length
-      return { x: segment.from.x + (segment.to.x - segment.from.x) * t, y: segment.from.y + (segment.to.y - segment.from.y) * t }
-    }
-    remaining -= segment.length
-  }
-  return points[points.length - 1]
 }
