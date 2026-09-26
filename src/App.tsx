@@ -27,6 +27,7 @@ import { Stage } from './ui/Stage'
 import { Toast } from './ui/Toast'
 import { Toolbar, type ExportScope, type ThemeChoice } from './ui/Toolbar'
 import { CleanDiagram } from './render/CleanDiagram'
+import { CleanEditor } from './ui/CleanEditor'
 import { OnionEditor } from './ui/OnionEditor'
 import { OnionStage } from './ui/OnionStage'
 
@@ -507,19 +508,22 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         </>
       )}
       {activeKind === 'clean' && (
-        // Canvas-only: a fresh Clean file has no sectors or elements yet, so there is nothing to edit or click
-        // on — a dedicated editor/stage arrives once it does, mirroring how Onion shipped canvas before editor.
-        <main className="stage">
-          <svg
-            ref={svgRef}
-            className="canvas"
-            role="figure"
-            aria-label={cleanMap.title || 'Clean diagram'}
-            viewBox={`${cleanModel!.bounds.x} ${cleanModel!.bounds.y} ${cleanModel!.bounds.width} ${cleanModel!.bounds.height}`}
-          >
-            <CleanDiagram model={cleanModel!} />
-          </svg>
-        </main>
+        <>
+          <CleanEditor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} />
+          {/* Canvas-only: sectors/elements are edited through CleanEditor; a dedicated interactive stage with its
+              own canvas gestures arrives once dependencies/endpoints do, mirroring Onion's own build order. */}
+          <main className="stage">
+            <svg
+              ref={svgRef}
+              className="canvas"
+              role="figure"
+              aria-label={cleanMap.title || 'Clean diagram'}
+              viewBox={`${cleanModel!.bounds.x} ${cleanModel!.bounds.y} ${cleanModel!.bounds.width} ${cleanModel!.bounds.height}`}
+            >
+              <CleanDiagram model={cleanModel!} />
+            </svg>
+          </main>
+        </>
       )}
       {choosingArchitecture && <ArchitectureChoiceDialog onChoose={completeNew} onCancel={() => setChoosingArchitecture(false)} />}
       {linking && <Toast key={`link:${linking}`} sticky message={`Choose a target for ${nameOf(linking)} · Esc to cancel`} onClose={() => setLinking(null)} />}

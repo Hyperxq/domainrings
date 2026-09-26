@@ -1991,7 +1991,7 @@ describe('the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
     expect(useMapStore.getState().map).toBe(hexaMapBefore)
   })
 
-  it('New → Clean mounts a bare 4-ring diagram, no editor or "+" affordances yet, and never touches the other stores', () => {
+  it('New → Clean mounts its own CleanEditor and a bare 4-ring diagram, no sectors/elements yet, and never touches the other stores', () => {
     const { container } = render(<App />)
     const hexaMapBefore = useMapStore.getState().map
     const onionMapBefore = useOnionStore.getState().map
@@ -2001,8 +2001,10 @@ describe('the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
 
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(container.querySelectorAll('svg.canvas .ring')).toHaveLength(4)
-    // Canvas-only so far (REQ-01/REQ-02) — no editor panel, no sectors/elements to add yet.
-    expect(screen.queryByRole('button', { name: 'Expand editor' })).toBeNull()
+    // CleanEditor has its own "Expand editor" toggle — what must be absent is anything Hexagonal-only.
+    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Add a driving port' })).toBeNull()
+    expect(container.querySelector('[data-hex]')).toBeNull()
     expect(useCleanStore.getState().map.kind).toBe('clean')
     expect(useCleanStore.getState().map.rings.map((r) => r.role)).toEqual(['domain', 'application', 'adapters', 'outer'])
     expect(useCleanStore.getState().map.sectors).toEqual([])
