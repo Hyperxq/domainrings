@@ -449,7 +449,7 @@ describe('routeLink — laneOffset shifts the gap midline crossing (REQ-LNK-05.5
  * (REQ-LNK-05.5), not from incidental geometry (e.g. sibling-port obstacle jogs a second, distinct port could add). */
 function twoLinksSharedGapMap(): HexaMap {
   return {
-    version: 2,
+    version: 3,
     kind: 'hexagonal',
     title: 'Two links, one gap',
     contexts: [{ id: 'c1' }],
