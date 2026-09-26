@@ -355,23 +355,25 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     completeImport(parsed, context, file.name)
   }
 
+  // Export scope (Hexagon vs Map) only exists for a multi-hexagon Hexagonal map (EXPORT-03.1) — Onion is always
+  // one diagram, so it never scopes and never carries a legend (it has no legend panel at all). Resolved once,
+  // here, so a third kind only ever touches this one branch instead of every read below it.
+  const canScopeExport = activeKind === 'hexagonal' && multiHexagon
+  const scoped = canScopeExport && exportScope === 'hexagon'
+  const active =
+    activeKind === 'onion'
+      ? { file: onionMap, bounds: onionModel.bounds, title: onionMap.title, scoped: false, legend: false }
+      : { file: map, bounds: scoped ? hexagonBounds(currentHexagon(model, hexId)) : model.bounds, title: scoped ? diagram.title || UNTITLED_HEXAGON : map.title, scoped, legend: legendInExport }
+
   const exportAs = async (format: 'hexa' | 'svg' | 'png') => {
     try {
-      if (format === 'hexa') {
-        const file = activeKind === 'onion' ? onionMap : map
-        return download(toHexa(file), `${fileSlug(file.title)}.hexa`, 'application/json')
-      }
+      if (format === 'hexa') return download(toHexa(active.file), `${fileSlug(active.file.title)}.hexa`, 'application/json')
       if (!svgRef.current) return
-      // Export scope (Hexagon vs Map) only exists for a multi-hexagon Hexagonal map (EXPORT-03.1) — Onion is
-      // always one diagram, so it never scopes and never carries a legend (it has no legend panel at all).
-      const scoped = activeKind === 'hexagonal' && exportScope === 'hexagon' && multiHexagon
-      const frame = activeKind === 'onion' ? onionModel.bounds : scoped ? hexagonBounds(currentHexagon(model, hexId)) : model.bounds
-      const exportTitle = activeKind === 'onion' ? onionMap.title : scoped ? diagram.title || UNTITLED_HEXAGON : map.title
-      const name = fileSlug(exportTitle)
-      const options = { legend: activeKind === 'hexagonal' && legendInExport, legendHeight: legendSize(legend).height, only: scoped ? hexId : undefined }
-      const markup = await svgMarkup(svgRef.current, frame, exportTitle, options)
+      const name = fileSlug(active.title)
+      const options = { legend: active.legend, legendHeight: legendSize(legend).height, only: active.scoped ? hexId : undefined }
+      const markup = await svgMarkup(svgRef.current, active.bounds, active.title, options)
       if (format === 'svg') download(markup, `${name}.svg`, 'image/svg+xml')
-      else download(await pngBlob(markup, exportBounds(frame, { ...options, legend: legendDrawn(svgRef.current, options) })), `${name}.png`)
+      else download(await pngBlob(markup, exportBounds(active.bounds, { ...options, legend: legendDrawn(svgRef.current, options) })), `${name}.png`)
     } catch (error) {
       show({ tone: 'error', message: `Export failed: ${(error as Error).message}` })
     }
@@ -380,7 +382,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   return (
     <>
       <Toolbar
-        showScope={activeKind === 'hexagonal' && multiHexagon}
+        showScope={canScopeExport}
         exportScope={exportScope}
         onExportScope={setExportScope}
         themeChoice={themeChoice}
