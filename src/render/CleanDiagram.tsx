@@ -1,6 +1,7 @@
 import type { CleanLayoutModel } from '../layout/clean'
+import type { LegendModel } from '../layout/legend'
 import { sectorDividers } from './band'
-import { Ring } from './Diagram'
+import { Ring, SvgLegend } from './Diagram'
 import { RingedEdge, RingedElementNode, RingedEndpointNode } from './RingedNodes'
 
 interface CleanDiagramProps {
@@ -11,6 +12,9 @@ interface CleanDiagramProps {
   interactive: boolean
   /** While linking (CleanStage), the element refs a dependency from the selection may legally target (REQ-06). */
   validTargets: ReadonlySet<string>
+  /** Drawn hidden on the canvas, shown only in exports (`SvgLegend`, shared with Hexagonal) — "Include legend in
+   * export" works for Clean the same way it already does for Hexagonal. */
+  legend: LegendModel
 }
 
 /** One radial divider per sector on a ring (REQ-08) — genuinely Clean-only, since Onion has no sector
@@ -25,7 +29,7 @@ function SectorDividers({ ring, inner, model }: { ring: CleanLayoutModel['rings'
  * each ring's own sectors drawn as wedge dividers (REQ-08), its elements spread inside their own sector's wedge,
  * inward-only dependency arrows (REQ-06), and actors/external systems outside the outer ring with a direct arrow
  * to a Frameworks & Drivers element (REQ-07) — node/edge primitives shared with Onion via `RingedNodes.tsx`. */
-export function CleanDiagram({ model, selected, interactive, validTargets }: CleanDiagramProps) {
+export function CleanDiagram({ model, selected, interactive, validTargets, legend }: CleanDiagramProps) {
   return (
     <>
       <defs>
@@ -48,6 +52,7 @@ export function CleanDiagram({ model, selected, interactive, validTargets }: Cle
       {model.endpoints.map((endpoint) => (
         <RingedEndpointNode key={endpoint.key} endpoint={endpoint} selected={endpoint.ref === selected} interactive={interactive} />
       ))}
+      <SvgLegend legend={legend} bounds={model.bounds} />
     </>
   )
 }

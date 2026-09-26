@@ -1,6 +1,7 @@
 import type { OnionLayoutModel } from '../layout/onion'
+import type { LegendModel } from '../layout/legend'
 import { RingedEdge, RingedElementNode, RingedEndpointNode } from './RingedNodes'
-import { Ring } from './Diagram'
+import { Ring, SvgLegend } from './Diagram'
 
 interface OnionDiagramProps {
   model: OnionLayoutModel
@@ -11,6 +12,9 @@ interface OnionDiagramProps {
   /** While linking (OnionStage), the element refs a dependency from the selection may legally target (REQ-04) —
    * drives the same `data-link-target` CSS Hexagonal's own link mode uses (styles.css:250-252). Empty otherwise. */
   validTargets: ReadonlySet<string>
+  /** Drawn hidden on the canvas, shown only in exports (`SvgLegend`, shared with Hexagonal) — "Include legend in
+   * export" works for Onion the same way it already does for Hexagonal. */
+  legend: LegendModel
 }
 
 /** An Onion document's 4 fixed rings (reusing the same `<Ring>` primitive Hexagonal/Clean render with, ADR-01),
@@ -18,7 +22,7 @@ interface OnionDiagramProps {
  * systems outside the outer ring with a direct arrow to their target (REQ-05) — no ports or adapters. Node/edge
  * primitives are shared with Clean via `RingedNodes.tsx` (ADR-01); only this file's own `<defs>` (the arrow
  * marker Clean draws its own copy of, under its own id) and ring/model wiring are Onion-specific. */
-export function OnionDiagram({ model, selected, interactive, validTargets }: OnionDiagramProps) {
+export function OnionDiagram({ model, selected, interactive, validTargets, legend }: OnionDiagramProps) {
   return (
     <>
       <defs>
@@ -38,6 +42,7 @@ export function OnionDiagram({ model, selected, interactive, validTargets }: Oni
       {model.endpoints.map((endpoint) => (
         <RingedEndpointNode key={endpoint.key} endpoint={endpoint} selected={endpoint.ref === selected} interactive={interactive} />
       ))}
+      <SvgLegend legend={legend} bounds={model.bounds} />
     </>
   )
 }

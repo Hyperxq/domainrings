@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import type { LayoutMode } from './layout/layout'
 import { currentHexagon, hexagonBounds, layoutMap } from './layout/map'
-import { legendFor, legendSize } from './layout/legend'
+import { legendFor, legendForClean, legendForOnion, legendSize } from './layout/legend'
 import { layoutClean } from './layout/clean'
 import { layoutOnion } from './layout/onion'
 import { EXAMPLES } from './model/example'
@@ -135,7 +135,9 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const clearNotice = () => setNotice(null)
   const [legendInExport, setLegendInExport] = useState(() => readPref(LEGEND_EXPORT_KEY, true))
   const [legendOpen, setLegendOpen] = useState(() => readPref(LEGEND_OPEN_KEY, false))
-  const legend = legendFor(diagram)
+  // Onion and Clean have no ports or adapters — each kind builds the legend it actually draws (ADR-01), all
+  // three sharing the one open/close and "include in export" state above.
+  const legend = activeKind === 'onion' ? legendForOnion(onionMap) : activeKind === 'clean' ? legendForClean(cleanMap) : legendFor(diagram)
   const [exportScope, setExportScope] = useState<ExportScope>('map')
 
   // The document being replaced (REQ-09), captured before any store mutation whatever kind is currently active —
@@ -410,9 +412,9 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const scoped = canScopeExport && exportScope === 'hexagon'
   const active =
     activeKind === 'onion'
-      ? { file: onionMap, bounds: onionModel!.bounds, title: onionMap.title, scoped: false, legend: false }
+      ? { file: onionMap, bounds: onionModel!.bounds, title: onionMap.title, scoped: false, legend: legendInExport }
       : activeKind === 'clean'
-        ? { file: cleanMap, bounds: cleanModel!.bounds, title: cleanMap.title, scoped: false, legend: false }
+        ? { file: cleanMap, bounds: cleanModel!.bounds, title: cleanMap.title, scoped: false, legend: legendInExport }
         : { file: map, bounds: scoped ? hexagonBounds(currentHexagon(model, hexId)) : model.bounds, title: scoped ? diagram.title || UNTITLED_HEXAGON : map.title, scoped, legend: legendInExport }
 
   const exportAs = async (format: 'hexa' | 'svg' | 'png') => {
@@ -534,13 +536,57 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       {activeKind === 'onion' && (
         <>
           <OnionEditor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} onMutate={mutateOnion} />
-          <OnionStage model={onionModel!} doc={onionMap} svgRef={svgRef} onReject={(message) => show({ tone: 'error', message })} onMutate={mutateOnion} onCancelMutate={clearNotice} />
+          <Legend
+            legend={legend}
+            open={legendOpen}
+            onOpen={(open) => {
+              writePref(LEGEND_OPEN_KEY, open)
+              setLegendOpen(open)
+            }}
+            includeInExport={legendInExport}
+            onIncludeInExport={(include) => {
+              writePref(LEGEND_EXPORT_KEY, include)
+              setLegendInExport(include)
+            }}
+          />
+          <OnionStage
+            model={onionModel!}
+            doc={onionMap}
+            svgRef={svgRef}
+            onReject={(message) => show({ tone: 'error', message })}
+            onMutate={mutateOnion}
+            onCancelMutate={clearNotice}
+            panelOpen={editorOpen}
+            legendOpen={legendOpen}
+          />
         </>
       )}
       {activeKind === 'clean' && (
         <>
           <CleanEditor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} onMutate={mutateClean} />
-          <CleanStage model={cleanModel!} doc={cleanMap} svgRef={svgRef} onReject={(message) => show({ tone: 'error', message })} onMutate={mutateClean} onCancelMutate={clearNotice} />
+          <Legend
+            legend={legend}
+            open={legendOpen}
+            onOpen={(open) => {
+              writePref(LEGEND_OPEN_KEY, open)
+              setLegendOpen(open)
+            }}
+            includeInExport={legendInExport}
+            onIncludeInExport={(include) => {
+              writePref(LEGEND_EXPORT_KEY, include)
+              setLegendInExport(include)
+            }}
+          />
+          <CleanStage
+            model={cleanModel!}
+            doc={cleanMap}
+            svgRef={svgRef}
+            onReject={(message) => show({ tone: 'error', message })}
+            onMutate={mutateClean}
+            onCancelMutate={clearNotice}
+            panelOpen={editorOpen}
+            legendOpen={legendOpen}
+          />
         </>
       )}
       {choosingArchitecture && <ArchitectureChoiceDialog onChoose={completeNew} onCancel={() => setChoosingArchitecture(false)} />}

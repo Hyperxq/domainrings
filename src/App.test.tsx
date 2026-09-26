@@ -2199,7 +2199,7 @@ describe('Onion export (REQ-08)', () => {
     expect(screen.queryByRole('group', { name: 'Export scope' })).toBeNull()
   })
 
-  it('exports the Onion diagram as SVG showing its rings, elements, dependency arrow and actor, named after its own title, with no leftover "+"/"Depend on…" affordances or legend', async () => {
+  it('exports the Onion diagram as SVG showing its rings, elements, dependency arrow, actor and its own legend, named after its own title, with no leftover "+"/"Depend on…" affordances', async () => {
     await openOnionSample()
     vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
 
@@ -2226,7 +2226,9 @@ describe('Onion export (REQ-08)', () => {
     expect(markup).toContain('url(#onion-arrow)') // dependency/endpoint arrow
     expect(markup).not.toMatch(/<circle[^>]*r="10"/) // no leftover ring/endpoint "+" glyph
     expect(markup).not.toContain('Depend on…') // no leftover gesture chip
-    expect(markup).not.toMatch(/data-legend/) // Onion has no legend concept — never drawn
+    expect(markup).toMatch(/data-legend/) // "Include legend in export" defaults on, same as Hexagonal
+    expect(markup).toContain('Domain Model') // legend: ring colour row (also the ring's own title, above)
+    expect(markup).toContain('Depends on / connects to') // legend: the dependency arrow's own stroke row
 
     createSpy.mockRestore()
     clickSpy.mockRestore()
@@ -2311,7 +2313,7 @@ describe('Clean export (REQ-05)', () => {
     })
   }
 
-  it('exports the Clean diagram as SVG showing its rings, sector dividers, elements, dependency arrow, actor and external, named after its own title, with no leftover "+"/"Depend on…" affordances or legend', async () => {
+  it('exports the Clean diagram as SVG showing its rings, sector dividers, elements, dependency arrow, actor, external and its own legend, named after its own title, with no leftover "+"/"Depend on…" affordances', async () => {
     await openCleanSample()
     vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
 
@@ -2340,7 +2342,8 @@ describe('Clean export (REQ-05)', () => {
     expect(markup).toContain('url(#clean-arrow)') // dependency/endpoint arrow
     expect(markup).not.toMatch(/<circle[^>]*r="10"/) // no leftover ring/sector/element "+" glyph
     expect(markup).not.toContain('Depend on…') // no leftover gesture chip
-    expect(markup).not.toMatch(/data-legend/) // Clean has no legend concept — never drawn
+    expect(markup).toMatch(/data-legend/) // "Include legend in export" defaults on, same as Hexagonal
+    expect(markup).toContain('Wedge') // legend: Clean's own sector-wedge row, absent from Onion's legend
 
     createSpy.mockRestore()
     clickSpy.mockRestore()

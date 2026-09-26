@@ -3,13 +3,14 @@ import { render } from '@testing-library/react'
 import type { CleanFile } from '../model/schema'
 import { newCleanMap } from '../model/hexa'
 import { layoutClean } from '../layout/clean'
+import { legendForClean } from '../layout/legend'
 import { CleanDiagram } from './CleanDiagram'
 
 const renderDiagram = (doc: CleanFile) => {
   const model = layoutClean(doc)
   return render(
     <svg>
-      <CleanDiagram model={model} selected={null} interactive validTargets={new Set()} />
+      <CleanDiagram model={model} selected={null} interactive validTargets={new Set()} legend={legendForClean(doc)} />
     </svg>,
   )
 }
@@ -69,7 +70,7 @@ describe('CleanDiagram — elements, endpoints and edges', () => {
     const model = layoutClean(doc)
     const { container } = render(
       <svg>
-        <CleanDiagram model={model} selected={null} interactive validTargets={new Set(['e1'])} />
+        <CleanDiagram model={model} selected={null} interactive validTargets={new Set(['e1'])} legend={legendForClean(doc)} />
       </svg>,
     )
     expect(container.querySelector('[data-ref="e1"]')!.hasAttribute('data-link-target')).toBe(true)
