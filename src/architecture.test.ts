@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest'
 // layout, render, or ui"; a `../render/Diagram` import added to layout/map.ts broke only the layout rule; a
 // `../ui/Toolbar` import added to render/Diagram.tsx broke only "render never imports ui"; a bare `import React
 // from 'react'` added to model/schema.ts broke only the react fence; a bare `import { create } from 'zustand'`
-// added to layout/map.ts broke only the zustand fence. Every other rule stayed green in each case.
+// added to layout/map.ts broke only the zustand fence. Every other rule stayed green in each case. A `StoredFile`
+// mention added to model/map.ts broke only "Hexagonal-only modules never import StoredFile/OnionFile".
 
 // Fitness function (SEAM/ADR-01, ADR-04, ADR-05): the one-way layering model → layout → render → ui must hold
 // for every source file, not just the ones a slice happened to touch. Reads real source text — a passing test
