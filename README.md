@@ -60,9 +60,20 @@ A real system is rarely one slice. domainrings draws several hexagons side by si
 - **Grow.** The current hexagon's free sides show a **+**. Click one and choose **Hexagon in {context}** to add a neighbour in the same bounded context, or **Hexagon in a new bounded context** to start a fresh one. The new hexagon appears empty and current, with its title field open: type a name and press Enter, or Esc to undo the whole thing. The Hexagon section of the editor has its own **Add hexagon** button for the same move without touching the canvas.
 - **Bring in a file.** The editor's Map section has **Add hexagon from file…**. It asks where the hexagon should land (**Import into {context}** or **Import into a new bounded context**) before you pick the file, so choose the destination first. The file must hold exactly one hexagon; a file with more is refused, with a message pointing you at **Open…** instead, which replaces the whole map. If the map you're adding to is still Clean or Onion, you're asked to confirm converting it to hexagonal, and the conversion and the add happen together as one undoable step.
 - **Bounded contexts.** Once a map holds two or more contexts, each one is drawn as a dashed outline with a name chip, even when a context's hexagons aren't all next to each other, or when another context's hexagon sits in the middle of it. Name or rename a context in the editor's **Bounded contexts** section; an unnamed one shows a stable "Context {n}" placeholder that never changes while the context exists. A single-context map draws with no outlines at all, exactly as a lone hexagon always has.
+- **Link hexagons.** A link joins a driven port on one hexagon to a driving port on another: the first depends on the second. Select the driven port and use **Link to…**, or the editor's **Links** section; valid ports on other hexagons light up. A link that crosses bounded contexts can carry the DDD relationship it represents (`acl`, `ohs-pl`, `customer-supplier`, `conformist`, `shared-kernel`), drawn as a label on the link.
 - **Delete.** The Hexagon section's **Delete hexagon** removes the current hexagon, short of the very last one on the map; its links go with it, and its bounded context too if that hexagon was the only one in it. Undo brings all of it back in one step.
 - **Fit to screen.** The zoom controls' **Fit to screen** button shows every hexagon on the map, however far it has grown, at whatever zoom that takes. Growing, importing or deleting a hexagon re-fits the view to the whole map automatically, unless a zoomed-in view already covers the change, which then stays exactly where it is.
 - **Export scope.** Once a map holds more than one hexagon, Export offers a scope: **Map** exports everything (every hexagon, every link, every context's outline and chip), **Hexagon** exports just the current one, framed to its own bounds.
+
+## Let your AI assistant draw it
+
+The repo ships an agent skill, `domainrings-hexagonal`, that teaches an AI coding assistant to read your code, write the `.hexa` map for its hexagonal architecture (one hexagon or a whole honeycomb), and hand you a link that opens it here. Install it with [Context7](https://context7.com/):
+
+```sh
+npx ctx7 skills install /Hyperxq/domainrings domainrings-hexagonal
+```
+
+Then ask your assistant to draw your hexagon. The skill lives in `skills/domainrings-hexagonal/`.
 
 ## Reference
 
@@ -142,7 +153,7 @@ The model and its validation live in `src/model/schema.ts`, the three skins in `
 
 ## What is coming
 
-The honeycomb itself is here: grow a map from any hexagon, bring in slices you already have as files, and see the bounded contexts they belong to. What's still coming is the connective tissue between hexagons: links routed through their ports and labelled with the DDD relationship they represent (anticorruption layer, open host service, customer-supplier, conformist, shared kernel), so a context map can show not just where each slice lives, but how they depend on each other. The file format already has room for it.
+The honeycomb and its links are here. What's coming next is Onion modelled as its own architecture rather than a skin over the hexagonal model, with Clean to follow, and the AI skill growing to cover each of them as they land.
 
 ## License
 

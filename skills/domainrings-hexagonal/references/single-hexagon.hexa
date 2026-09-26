@@ -1,0 +1,45 @@
+{
+  "app": "domainrings",
+  "version": 2,
+  "kind": "hexagonal",
+  "title": "Chat feedback slice",
+  "contexts": [{ "id": "c1", "name": "Support" }],
+  "hexagons": [
+    {
+      "id": "h1",
+      "contextId": "c1",
+      "cell": { "q": 0, "r": 0 },
+      "title": "Chat feedback slice",
+      "subtitle": "Ports & adapters, one use case end to end",
+      "domain": [
+        { "id": "d-feedback", "name": "Feedback", "type": "aggregate" },
+        { "id": "d-rating", "name": "FeedbackRating", "type": "valueObject", "parentId": "d-feedback" },
+        { "id": "d-email", "name": "AuthorEmail", "type": "valueObject", "parentId": "d-feedback" },
+        { "id": "d-triage", "name": "FeedbackTriage", "type": "domainService" }
+      ],
+      "useCases": [
+        { "id": "uc-submit", "name": "SubmitChatFeedback", "note": "validate, save, notify support" }
+      ],
+      "ports": [
+        { "id": "p-submit", "name": "submitChatFeedback", "side": "driving", "useCaseId": "uc-submit", "note": "(command)" },
+        { "id": "p-repo", "name": "FeedbackRepository", "side": "driven", "useCaseId": "uc-submit" },
+        { "id": "p-notify", "name": "SupportNotifier", "side": "driven", "wall": "se", "useCaseId": "uc-submit" },
+        { "id": "p-users", "name": "UserDirectory", "side": "driven", "wall": "ne", "useCaseId": "uc-submit" }
+      ],
+      "adapters": [
+        { "id": "a-http", "name": "feedback.routes", "portId": "p-submit", "note": "HTTP → command" },
+        { "id": "a-knex", "name": "KnexFeedbackRepository", "portId": "p-repo" },
+        { "id": "a-email", "name": "EmailSupportNotifier", "portId": "p-notify" },
+        { "id": "a-legacy", "name": "LegacyUserDirectory · ACL", "portId": "p-users" }
+      ],
+      "actors": [{ "id": "act-frontend", "name": "Frontend", "adapterId": "a-http", "note": "chat widget" }],
+      "externals": [
+        { "id": "ext-pg", "name": "Postgres", "adapterId": "a-knex", "note": "chat_feedback" },
+        { "id": "ext-mailgun", "name": "Mailgun", "adapterId": "a-email" },
+        { "id": "ext-legacy", "name": "model-user (legacy)", "adapterId": "a-legacy" }
+      ],
+      "composition": { "name": "composition.ts", "note": "wires adapters into the use case" }
+    }
+  ],
+  "links": []
+}

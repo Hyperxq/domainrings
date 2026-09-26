@@ -1,0 +1,87 @@
+{
+  "app": "domainrings",
+  "version": 2,
+  "kind": "hexagonal",
+  "title": "Shop",
+  "contexts": [
+    { "id": "c1", "name": "Sales" },
+    { "id": "c2", "name": "Fulfilment" }
+  ],
+  "hexagons": [
+    {
+      "id": "h1",
+      "contextId": "c1",
+      "cell": { "q": 0, "r": 0 },
+      "title": "Orders",
+      "subtitle": "Places an order, charges it, ships it",
+      "domain": [
+        { "id": "d-order", "name": "Order", "type": "aggregate" },
+        { "id": "d-line", "name": "OrderLine", "type": "entity", "parentId": "d-order" }
+      ],
+      "useCases": [{ "id": "uc-place", "name": "PlaceOrder" }],
+      "ports": [
+        { "id": "p-place", "name": "placeOrder", "side": "driving", "useCaseId": "uc-place" },
+        { "id": "p-pay", "name": "PaymentGateway", "side": "driven", "useCaseId": "uc-place" },
+        { "id": "p-ship", "name": "ShipmentRequester", "side": "driven", "wall": "ne", "useCaseId": "uc-place" }
+      ],
+      "adapters": [
+        { "id": "a-http", "name": "orders.routes", "portId": "p-place" },
+        { "id": "a-pay", "name": "BillingClient", "portId": "p-pay" },
+        { "id": "a-ship", "name": "ShippingAcl", "portId": "p-ship" }
+      ],
+      "actors": [{ "id": "act-web", "name": "Web shop", "adapterId": "a-http" }],
+      "externals": []
+    },
+    {
+      "id": "h2",
+      "contextId": "c1",
+      "cell": { "q": 1, "r": 0 },
+      "title": "Billing",
+      "subtitle": "Charges orders",
+      "domain": [{ "id": "d-invoice", "name": "Invoice", "type": "aggregate" }],
+      "useCases": [{ "id": "uc-charge", "name": "ChargeOrder" }],
+      "ports": [
+        { "id": "p-charge", "name": "chargeOrder", "side": "driving", "useCaseId": "uc-charge" },
+        { "id": "p-psp", "name": "CardProcessor", "side": "driven", "useCaseId": "uc-charge" }
+      ],
+      "adapters": [
+        { "id": "a-charge", "name": "billing.api", "portId": "p-charge" },
+        { "id": "a-stripe", "name": "StripeCardProcessor", "portId": "p-psp" }
+      ],
+      "actors": [],
+      "externals": [{ "id": "ext-stripe", "name": "Stripe", "adapterId": "a-stripe" }]
+    },
+    {
+      "id": "h3",
+      "contextId": "c2",
+      "cell": { "q": 1, "r": -1 },
+      "title": "Shipping",
+      "subtitle": "Ships an order",
+      "domain": [{ "id": "d-shipment", "name": "Shipment", "type": "aggregate" }],
+      "useCases": [{ "id": "uc-ship", "name": "ShipOrder" }],
+      "ports": [
+        { "id": "p-request", "name": "requestShipment", "side": "driving", "useCaseId": "uc-ship" },
+        { "id": "p-carrier", "name": "Carrier", "side": "driven", "useCaseId": "uc-ship" }
+      ],
+      "adapters": [
+        { "id": "a-request", "name": "shipping.api", "portId": "p-request" },
+        { "id": "a-carrier", "name": "DhlCarrier", "portId": "p-carrier" }
+      ],
+      "actors": [],
+      "externals": [{ "id": "ext-dhl", "name": "DHL", "adapterId": "a-carrier" }]
+    }
+  ],
+  "links": [
+    {
+      "id": "link1",
+      "from": { "hexagonId": "h1", "portId": "p-pay", "adapterId": "a-pay" },
+      "to": { "hexagonId": "h2", "portId": "p-charge", "adapterId": "a-charge" }
+    },
+    {
+      "id": "link2",
+      "from": { "hexagonId": "h1", "portId": "p-ship", "adapterId": "a-ship" },
+      "to": { "hexagonId": "h3", "portId": "p-request", "adapterId": "a-request" },
+      "pattern": "acl"
+    }
+  ]
+}
