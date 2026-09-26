@@ -2,7 +2,7 @@ import { contextName, diagramOf, UNTITLED_HEXAGON } from '../model/map'
 import type { HexaMap, Link } from '../model/schema'
 import { contextRegions } from './hull'
 import { layoutDiagram, type Box, type LayoutModel, type LayoutNode, type LayoutOptions, type LayoutText, type NodeKind, type Point } from './layout'
-import { outwardEdgePoint, routeLink, type LinkLabel } from './links'
+import { GAP_MARGIN, outwardEdgePoint, routeLink, type LinkLabel } from './links'
 import { CHIP_LABEL, measure } from './text'
 
 /** The node kinds REQ-LNK-05.1 names: a routed link must cross none of them, other than the node each end
@@ -58,6 +58,15 @@ export interface MapLayout {
 export const MAP_GAP = 60
 const MAP_TITLE_SIZE = 20
 const MAP_TITLE_GAP = 16
+/** Spacing between adjacent lanes when several links share the same hexagon-pair gap (REQ-LNK-05.5). */
+const LANE_PITCH = 10
+/** The farthest a lane may push the gap midline off-centre: half of `MAP_GAP` minus `links.ts`'s `GAP_MARGIN`
+ * (imported — this direction is fine, only the reverse isn't: `layoutMap` calls `routeLink`, so `links.ts` must
+ * never import back from this module). At this bound, a lane's crossing still sits at least `GAP_MARGIN` from the
+ * NEARER of the two boxes; it never crosses that margin no matter how many links share the gap — beyond 4 links,
+ * extra lanes clamp to this same outermost offset instead (they compress together rather than push into either
+ * box). */
+const MAX_LANE_OFFSET = MAP_GAP / 2 - GAP_MARGIN
 /** Vertical clearance between a region's topmost vertex and its chip. */
 const CHIP_GAP = 12
 const CHIP_HEIGHT = 16
@@ -131,6 +140,36 @@ function routeEnd(hexagon: MapHexagonLayout, portId: string, adapterId?: string)
   return { point, wall: port.wall!, box: hexagonBounds(hexagon), clear }
 }
 
+/** The unordered hexagon-pair a link's gap belongs to (REQ-LNK-05.5) — the SAME key for `a→b` and `b→a`, so two
+ * links crossing the same gap in opposite directions still land in one lane group. */
+const gapKey = (link: Link): string => [link.from.hexagonId, link.to.hexagonId].sort().join('|')
+
+/** Rank `i`'s offset among `count` links sharing one gap: evenly spaced by `LANE_PITCH`, centred on the plain
+ * (unshifted) midline, clamped to `±MAX_LANE_OFFSET`. `count === 1` always yields exactly 0 — a lone link's route
+ * stays byte-identical to today's (REQ-LNK-05.5). Beyond 4 links the even spacing would exceed the clamp; those
+ * extra lanes compress toward the outermost safe offset instead of crossing into either hexagon's own box. */
+function laneOffset(i: number, count: number): number {
+  const raw = (i - (count - 1) / 2) * LANE_PITCH
+  return Math.max(-MAX_LANE_OFFSET, Math.min(MAX_LANE_OFFSET, raw))
+}
+
+/** Every link's own lane offset, keyed by link id — ranked by id (lexicographic, deterministic) within its own
+ * gap group; a group's membership and ranking depend only on the links sharing that gap, never on any other
+ * hexagon or link on the map (REQ-LNK-05.2). */
+function laneOffsets(links: Link[]): Map<string, number> {
+  const byGap = new Map<string, Link[]>()
+  for (const link of links) {
+    const key = gapKey(link)
+    byGap.set(key, [...(byGap.get(key) ?? []), link])
+  }
+  const offsets = new Map<string, number>()
+  for (const group of byGap.values()) {
+    const ranked = [...group].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    ranked.forEach((link, i) => offsets.set(link.id, laneOffset(i, ranked.length)))
+  }
+  return offsets
+}
+
 /** A hexagon's position on the affine pointy-top lattice: {0,0} sits at the origin, `e` steps by `pitch.x`,
  * `se`/`sw` by half that plus `pitch.y` down (ADR-01). */
 export function cellCentre(cell: { q: number; r: number }, pitch: Point): Point {
@@ -162,12 +201,14 @@ export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout 
     model,
   }))
   const hexagonOf = new Map(hexagons.map((h) => [h.id, h]))
+  const lanes = laneOffsets(map.links)
   const links: MapLinkLayout[] = map.links.map((link: Link) => {
     const fromHexagon = hexagonOf.get(link.from.hexagonId)!
     const toHexagon = hexagonOf.get(link.to.hexagonId)!
     const { points, label } = routeLink(
       routeEnd(fromHexagon, link.from.portId, link.from.adapterId),
       routeEnd(toHexagon, link.to.portId, link.to.adapterId),
+      lanes.get(link.id),
     )
     // Pattern eligibility mirrors checkMap's own rule (LinkSchema refine): only a link crossing contexts may
     // carry a pattern — no hull dependency, just the two hexagons' own contextId.

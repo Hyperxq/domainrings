@@ -316,6 +316,45 @@ describe('layoutMap — a routed link is unaffected by a third, unrelated hexago
   })
 })
 
+/** `seededLinkedMap`, but with a SECOND link sharing the same (from, to) hexagon pair — its own port on each side
+ * — so the REQ-LNK-05.1/05.4 properties can be checked under lanes (REQ-LNK-05.5) too, not just the single-link
+ * case the property matrix above already covers. */
+function seededLinkedMapTwoLanes(seed: number, n: number): HexaMap {
+  const base = seededLinkedMap(seed, n)
+  const { from, to } = base.links[0]
+  const hexagons = base.hexagons.map((h) => {
+    if (h.id === from.hexagonId) return { ...h, ports: [...h.ports, { id: 'p-from-2', name: 'from2', side: 'driven' as const }] }
+    if (h.id === to.hexagonId) return { ...h, ports: [...h.ports, { id: 'p-to-2', name: 'to2', side: 'driving' as const }] }
+    return h
+  })
+  return {
+    ...base,
+    hexagons,
+    links: [base.links[0], { id: 'l2', from: { hexagonId: from.hexagonId, portId: 'p-from-2' }, to: { hexagonId: to.hexagonId, portId: 'p-to-2' } }],
+  }
+}
+
+describe('layoutMap — REQ-LNK-05.1/05.4 hold when two links share the same gap, under lanes (REQ-LNK-05.5)', () => {
+  for (const seed of [1, 3, 5]) {
+    it(`seed ${seed}: both lane-offset links clear their own endpoint boxes and stay axis-aligned`, () => {
+      const map = seededLinkedMapTwoLanes(seed, 6)
+      const result = layoutMap(map)
+
+      for (const [i, mapLink] of map.links.entries()) {
+        const link = result.links[i]
+        const fromHex = result.hexagons.find((h) => h.id === mapLink.from.hexagonId)!
+        const toHex = result.hexagons.find((h) => h.id === mapLink.to.hexagonId)!
+        expect(linkPenetratesOwnBoxes(link.points, fromHex, mapLink.from.portId, toHex, mapLink.to.portId)).toBe(false)
+        for (let p = 1; p < link.points.length; p++) {
+          expect(link.points[p].x === link.points[p - 1].x || link.points[p].y === link.points[p - 1].y).toBe(true)
+        }
+      }
+      // The two links actually landed on distinct lanes — the shared gap didn't collapse them onto one crossing.
+      expect(result.links[0]).not.toEqual(result.links[1])
+    })
+  }
+})
+
 /** Mirrors `links.ts`'s own (private) `escapeAxis` — duplicated here (not exported) so the fixture below can place
  * an obstacle precisely inside the escape walk's own coordinate frame, on both axes, without depending on where
  * the real layout engine happens to place a node's siblings. */
@@ -367,4 +406,94 @@ describe('routeLink — a sibling obstacle inside the escape band genuinely forc
       }
     })
   }
+})
+
+// --- Lanes: links sharing a gap get separate, non-overlapping midline crossings (REQ-LNK-05.5) ------------------
+
+describe('routeLink — laneOffset shifts the gap midline crossing (REQ-LNK-05.5)', () => {
+  const from: RouteEnd = { point: { x: 50, y: -10 }, wall: 'e', box: { x: -50, y: -50, width: 100, height: 100 }, clear: [] }
+  const to: RouteEnd = { point: { x: 250, y: 20 }, wall: 'w', box: { x: 250, y: -50, width: 100, height: 100 }, clear: [] }
+
+  it('defaults to offset 0 — an explicit 0 stays byte-identical to omitting the argument entirely', () => {
+    expect(routeLink(from, to, 0)).toEqual(routeLink(from, to))
+  })
+
+  it('a positive offset shifts both midline-crossing points and the label by that amount, on the gap axis only', () => {
+    const base = routeLink(from, to)
+    const shifted = routeLink(from, to, 10)
+
+    // mid.axis is 'x' here (the two boxes are separated on x) — lanes fan out along that same axis.
+    expect(shifted.points[2].x).toBe(base.points[2].x + 10)
+    expect(shifted.points[3].x).toBe(base.points[3].x + 10)
+    expect(shifted.label.at.x).toBe(base.label.at.x + 10)
+    // The other axis (y) and the anchors themselves are untouched by a lane shift.
+    expect(shifted.points[2].y).toBe(base.points[2].y)
+    expect(shifted.points[3].y).toBe(base.points[3].y)
+    expect(shifted.points[0]).toEqual(base.points[0])
+    expect(shifted.points.at(-1)).toEqual(base.points.at(-1))
+  })
+
+  it('a negative offset shifts the other way', () => {
+    const base = routeLink(from, to)
+    const shifted = routeLink(from, to, -10)
+    expect(shifted.points[2].x).toBe(base.points[2].x - 10)
+    expect(shifted.points[3].x).toBe(base.points[3].x - 10)
+  })
+})
+
+/** Two hexagons, `h1` (one driven port) and `h2` (one driving port), joined by TWO links that both use the exact
+ * same pair of ports — the schema-level "no duplicate link between the same two ports" rule (`checkMap`) is a
+ * `MapSchema` concern, not something `layoutMap` itself enforces, and reusing the same anchors is what isolates
+ * the lane offset as the only variable under test: both links share an IDENTICAL `from`/`to` point, wall, and box,
+ * so any difference between their routed polylines comes entirely from `layoutMap`'s own gap-grouping/lane logic
+ * (REQ-LNK-05.5), not from incidental geometry (e.g. sibling-port obstacle jogs a second, distinct port could add). */
+function twoLinksSharedGapMap(): HexaMap {
+  return {
+    version: 2,
+    kind: 'hexagonal',
+    title: 'Two links, one gap',
+    contexts: [{ id: 'c1' }],
+    hexagons: [
+      { ...emptyHexagon('h1', { q: 0, r: 0 }), ports: [{ id: 'p-out', name: 'out', side: 'driven' }] },
+      { ...emptyHexagon('h2', { q: 1, r: 0 }), ports: [{ id: 'p-in', name: 'in', side: 'driving' }] },
+    ],
+    links: [
+      { id: 'link-a', from: { hexagonId: 'h1', portId: 'p-out' }, to: { hexagonId: 'h2', portId: 'p-in' } },
+      { id: 'link-b', from: { hexagonId: 'h1', portId: 'p-out' }, to: { hexagonId: 'h2', portId: 'p-in' } },
+    ],
+  }
+}
+
+describe('layoutMap — two links sharing the same hexagon-pair gap get distinct, non-overlapping lanes (REQ-LNK-05.5)', () => {
+  it('routes each link’s midline crossing at a different, LANE_PITCH-apart coordinate on the gap axis', () => {
+    const { links } = layoutMap(twoLinksSharedGapMap())
+    const linkA = links.find((l) => l.id === 'link-a')!
+    const linkB = links.find((l) => l.id === 'link-b')!
+
+    // Both links share IDENTICAL anchors (same single port each side, centered on its wall — from/to Cross land
+    // at the same y on both ends, so `dedupe` collapses each link's own from/to crossing into ONE point: index 2
+    // of [anchorA, stubA, crossing, stubB, anchorB]). Rank 0 ('link-a', lexicographically first of 2) and rank 1
+    // ('link-b') must therefore land on distinct crossings, LANE_PITCH (10) apart — the only place these two
+    // otherwise-identical routes are allowed to differ.
+    const crossA = linkA.points[2]
+    const crossB = linkB.points[2]
+    expect(crossA.y).toBe(crossB.y)
+    expect(Math.abs(crossB.x - crossA.x)).toBe(10)
+    // Every other point (both anchors, both escape stubs) is untouched by the lane shift.
+    expect(linkA.points[0]).toEqual(linkB.points[0])
+    expect(linkA.points[1]).toEqual(linkB.points[1])
+    expect(linkA.points[3]).toEqual(linkB.points[3])
+    expect(linkA.points[4]).toEqual(linkB.points[4])
+  })
+
+  it('lane assignment is unaffected by an unrelated third hexagon elsewhere on the map (REQ-LNK-05.2)', () => {
+    const withoutThird = twoLinksSharedGapMap()
+    const extraCell = freeCell(withoutThird, withoutThird.hexagons[0].cell)
+    const withThird: HexaMap = { ...withoutThird, hexagons: [...withoutThird.hexagons, emptyHexagon('h-extra', extraCell)] }
+
+    const before = layoutMap(withoutThird).links
+    const after = layoutMap(withThird).links
+
+    expect(after).toEqual(before)
+  })
 })

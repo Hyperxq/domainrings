@@ -36,12 +36,12 @@ export function outwardEdgePoint(box: Box, wall: Wall): Point {
   return axis === 'x' ? { x: onAxis, y: centreOther } : { x: centreOther, y: onAxis }
 }
 
-/** A quarter of `layout/map.ts`'s `MAP_GAP` (60) — a local constant, not an import: `layoutMap` calls
- * `routeLink`, so this module must never import back from `layout/map.ts`.
+/** A quarter of `layout/map.ts`'s `MAP_GAP` (60). Exported for `map.ts`'s `MAX_LANE_OFFSET` — the import only
+ * ever runs one way: `layoutMap` calls `routeLink`, so this module must never import back from `layout/map.ts`.
  * Small enough that a stub or a detour corner never travels more than `MAP_GAP/2` past its own box's edge — since
  * two hexagon boxes are always at least `MAP_GAP` apart (`layoutMap`'s own placement guarantee), a stub built from
  * this margin can never reach into the OTHER hexagon's box. */
-const GAP_MARGIN = 15
+export const GAP_MARGIN = 15
 
 /** `box`'s own edge on `axis` (`'x' | 'y'`) facing `side` (`'lo'` = its min edge, `'hi'` = its max edge). */
 function edge(box: Box, axis: 'x' | 'y', side: 'lo' | 'hi'): number {
@@ -185,14 +185,23 @@ export interface LinkLabel {
 }
 
 /**
- * Deterministic channel route between two ports (ADR-01, refined) — a pure function of the two endpoints; it
- * never inspects any hexagon but the two endpoints, so it is O(1) per link regardless of map size (REQ-LNK-05.2). Crosses via the midline of the gap the two hexagons' own boxes are
+ * Deterministic channel route between two ports (ADR-01, refined) — a pure function of the two endpoints (plus
+ * the caller-supplied `laneOffset`, itself derived only from links sharing this same gap — `layout/map.ts`'s own
+ * concern, never inspected here); it never inspects any hexagon but the two endpoints, so it is O(1) per link
+ * regardless of map size (REQ-LNK-05.2). Crosses via the midline of the gap the two hexagons' own boxes are
  * guaranteed to have between them (`layout/map.ts` never places two boxes closer than `MAP_GAP`), reached from
  * each port via `exitPoints` — a bounded exit stub, plus a corner detour when the port's own wall faces away from
  * the gap — so the guarantee holds regardless of which wall either port sits on (REQ-LNK-05.1).
+ *
+ * `laneOffset` (default 0, reproducing today's single-link route exactly) shifts the midline's own `at` coordinate
+ * before either end's crossing is computed — moving the whole crossing segment sideways, parallel to itself, so
+ * two links sharing a gap land on distinct, non-overlapping parallel crossings instead of the same one
+ * (REQ-LNK-05.5). The label — always the midpoint of the two (now shifted) crossings — follows automatically,
+ * without separate bookkeeping (REQ-LNK-06.1 holds under lanes).
  */
-export function routeLink(from: RouteEnd, to: RouteEnd): { points: Point[]; label: LinkLabel } {
-  const mid = gapMidline(from.box, to.box)
+export function routeLink(from: RouteEnd, to: RouteEnd, laneOffset = 0): { points: Point[]; label: LinkLabel } {
+  const gap = gapMidline(from.box, to.box)
+  const mid = { axis: gap.axis, at: gap.at + laneOffset }
   const fromExit = exitPoints(from, mid)
   const toExit = exitPoints(to, mid)
   const fromCross = onMidline(fromExit[fromExit.length - 1], mid)

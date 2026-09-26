@@ -5,7 +5,7 @@ import { layoutDiagram, type Box, type LayoutMode, type LayoutOptions } from './
 import { toMap } from '../model/hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM } from '../model/example'
 import { freeCell, removeHexagon } from '../model/map'
-import type { Diagram, HexaMap, Hexagon, Wall } from '../model/schema'
+import { MapSchema, type Diagram, type HexaMap, type Hexagon, type Wall } from '../model/schema'
 import { twoHexagonMap } from '../test/fixtures'
 
 const CORPUS: Array<[string, Diagram]> = [
@@ -114,6 +114,24 @@ describe('layoutMap — multi-hexagon placement (CANVAS-01, CANVAS-02)', () => {
     expect(result.links[0].points.at(-1)).toEqual(toPoint)
   })
 
+  it('a lone link on its own gap (the only member of its lane group) routes with laneOffset 0 explicitly, byte-identical to the no-lane route (REQ-LNK-05.5)', () => {
+    const map = twoHexagonMap()
+    const result = layoutMap(map)
+    const [a, b] = result.hexagons
+    const outNode = a.model.nodes.find((n) => n.kind === 'port' && n.ref === 'p-out')!
+    const inNode = b.model.nodes.find((n) => n.kind === 'port' && n.ref === 'p-in')!
+    const fromPoint = { x: outNode.x + a.centre.x, y: outNode.y + a.centre.y }
+    const toPoint = { x: inNode.x + b.centre.x, y: inNode.y + b.centre.y }
+
+    const expected = routeLink(
+      { point: fromPoint, wall: outNode.wall!, box: hexagonBounds(a), clear: [] },
+      { point: toPoint, wall: inNode.wall!, box: hexagonBounds(b), clear: [] },
+      0,
+    )
+
+    expect(result.links[0].points).toEqual(expected.points)
+  })
+
   it('omits pattern/label when the link’s two hexagons share a context', () => {
     const result = layoutMap(twoHexagonMap())
     expect(result.links[0].pattern).toBeUndefined()
@@ -137,6 +155,44 @@ describe('layoutMap — multi-hexagon placement (CANVAS-01, CANVAS-02)', () => {
       { point: result.links[0].points.at(-1)!, wall: b.model.nodes.find((n) => n.kind === 'port' && n.ref === 'p-in')!.wall!, box: hexagonBounds(b), clear: [] },
     )
     expect(result.links[0].label).toStrictEqual(route.label)
+  })
+})
+
+describe('layoutMap — a pattern label stays inside the gap when its link is lane-offset (REQ-LNK-06.1, REQ-LNK-05.5)', () => {
+  it('keeps the labeled link’s label.at strictly between the two hexagon boxes, on its own shifted midline, even when lane-shifted', () => {
+    const base = twoHexagonMap()
+    const hexagons = base.hexagons.map((h) =>
+      h.id === 'h1'
+        ? { ...h, ports: [...h.ports, { id: 'p-out2', name: 'out2', side: 'driven' as const }] }
+        : { ...h, contextId: 'c2', ports: [...h.ports, { id: 'p-in2', name: 'in2', side: 'driving' as const }] },
+    )
+    const links = [
+      { id: 'link-a', from: { hexagonId: 'h1', portId: 'p-out' }, to: { hexagonId: 'h2', portId: 'p-in' } },
+      { id: 'link-b', from: { hexagonId: 'h1', portId: 'p-out2' }, to: { hexagonId: 'h2', portId: 'p-in2' }, pattern: 'acl' as const },
+    ]
+    const map: HexaMap = { ...base, contexts: [{ id: 'c1' }, { id: 'c2' }], hexagons, links }
+    // Two links on the same hexagon pair, but on DIFFERENT ports — unlike a duplicate-port pair, MapSchema accepts
+    // this (only an identical from/to port pair is rejected), so the fixture doubles as a schema-validity check.
+    expect(MapSchema.safeParse(map).success).toBe(true)
+
+    const result = layoutMap(map)
+    const labeled = result.links.find((l) => l.id === 'link-b')!
+    expect(labeled.label).toBeDefined()
+
+    const [a, b] = result.hexagons
+    const boxA = hexagonBounds(a)
+    const boxB = hexagonBounds(b)
+    // The two boxes are separated on x (side by side) — the label sits strictly between their facing edges,
+    // regardless of which lane its link landed in.
+    expect(labeled.label!.at.x).toBeGreaterThan(boxA.x + boxA.width)
+    expect(labeled.label!.at.x).toBeLessThan(boxB.x)
+
+    // A solo run of the SAME link (no sibling sharing its gap) lands its lane group at size 1 — offset 0 by
+    // construction. The difference from the shared-gap run isolates the lane shift as the only variable: link-b
+    // is rank 1 of 2 (lexicographically after link-a), so its offset is +LANE_PITCH/2.
+    const solo = layoutMap({ ...map, links: [links[1]] })
+    const soloLabel = solo.links.find((l) => l.id === 'link-b')!.label!
+    expect(labeled.label!.at.x - soloLabel.at.x).toBe(5)
   })
 })
 
