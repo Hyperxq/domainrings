@@ -1,8 +1,6 @@
 import { EXAMPLES } from '../model/example'
 import type { LayoutMode } from '../layout/layout'
-import { KINDS } from '../model/kinds'
 import { useSyncExternalStore } from 'react'
-import { KindSchema, type ArchitectureKind } from '../model/schema'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
 import { PALETTES, type PaletteId } from './palette'
@@ -14,12 +12,8 @@ export type ExportScope = 'map' | 'hexagon'
 export type ThemeChoice = 'light' | 'dark' | 'system'
 
 interface ToolbarProps {
-  kind: ArchitectureKind
-  /** A map with more than one hexagon is always hexagonal (MIG-04) — the kind radios go inert and explain why. */
-  kindLocked: boolean
   themeChoice: ThemeChoice
   palette: PaletteId
-  onKind: (kind: ArchitectureKind) => void
   onNew: () => void
   onExample: (id: (typeof EXAMPLES)[number]['id']) => void
   /** Replaces the whole map — distinct from Editor's "Add hexagon from file…", which adds one hexagon. */
@@ -41,7 +35,6 @@ interface ToolbarProps {
   onExportScope: (scope: ExportScope) => void
 }
 
-const KIND_LOCK_HINT = 'A map with more than one hexagon is always hexagonal.'
 const SCOPE_LABEL: Record<ExportScope, string> = { map: 'Map', hexagon: 'Hexagon' }
 const MODE_LABEL: Record<LayoutMode, string> = { overview: 'Overview', detailed: 'Detailed' }
 const THEME_LABEL: Record<ThemeChoice, string> = { light: 'Light', dark: 'Dark', system: 'System' }
@@ -69,45 +62,15 @@ const fullMedia = media(FULL_TOOLBAR)
 const roomyMedia = media(ROOMY_TOOLBAR)
 const darkMedia = media('(prefers-color-scheme: dark)')
 
-export function Toolbar({ kind, kindLocked, themeChoice, palette, onKind, onNew, onExample, onOpen, onCopyLink, onExport, onTheme, onPalette, mode, onMode, guides, onGuides, highlight, onHighlight, showScope, exportScope, onExportScope }: ToolbarProps) {
+export function Toolbar({ themeChoice, palette, onNew, onExample, onOpen, onCopyLink, onExport, onTheme, onPalette, mode, onMode, guides, onGuides, highlight, onHighlight, showScope, exportScope, onExportScope }: ToolbarProps) {
   const full = useSyncExternalStore(fullMedia.subscribe, fullMedia.matches)
   const roomy = useSyncExternalStore(roomyMedia.subscribe, roomyMedia.matches)
   const systemDark = useSyncExternalStore(darkMedia.subscribe, darkMedia.matches)
   const dark = themeChoice === 'system' ? systemDark : themeChoice === 'dark'
-  const lock = {
-    title: kindLocked ? KIND_LOCK_HINT : undefined,
-    'aria-disabled': kindLocked || undefined,
-    'aria-describedby': kindLocked ? 'kind-lock-hint' : undefined,
-  }
   const tool = roomy ? 'tool' : 'icon-button'
   return (
     <header className="island toolbar">
       <h1 className="wordmark">domainrings</h1>
-
-      {full ? (
-        <fieldset className="kinds" title={lock.title}>
-          <legend className="visually-hidden">Architecture style</legend>
-          {KindSchema.options.map((k) => (
-            <label key={k} className="kind">
-              <input type="radio" name="kind" value={k} checked={kind === k} aria-disabled={lock['aria-disabled']} aria-describedby={lock['aria-describedby']} onChange={() => onKind(k)} />
-              <span>{KINDS[k].label}</span>
-            </label>
-          ))}
-        </fieldset>
-      ) : (
-        <select className="kind-select" aria-label="Architecture style" value={kind} {...lock} onChange={(e) => onKind(e.currentTarget.value as ArchitectureKind)}>
-          {KindSchema.options.map((k) => (
-            <option key={k} value={k}>{KINDS[k].label}</option>
-          ))}
-        </select>
-      )}
-      {/* Out of flow (REQ-04.2 keeps it assistive-tech only): a visible hint pushes a multi-hexagon toolbar past
-          the viewport; the locked control's title carries it for sighted pointer users instead. */}
-      {kindLocked && (
-        <p id="kind-lock-hint" className="visually-hidden">
-          {KIND_LOCK_HINT}
-        </p>
-      )}
 
       <span className="divider" aria-hidden="true" />
 

@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest'
 // layout, render, or ui"; a `../render/Diagram` import added to layout/map.ts broke only the layout rule; a
 // `../ui/Toolbar` import added to render/Diagram.tsx broke only "render never imports ui"; a bare `import React
 // from 'react'` added to model/schema.ts broke only the react fence; a bare `import { create } from 'zustand'`
-// added to layout/map.ts broke only the zustand fence. Every other rule stayed green in each case.
+// added to layout/map.ts broke only the zustand fence. Every other rule stayed green in each case. A `StoredFile`
+// mention added to model/map.ts broke only "Hexagonal-only modules never import StoredFile/OnionFile".
 
 // Fitness function (SEAM/ADR-01, ADR-04, ADR-05): the one-way layering model → layout → render → ui must hold
 // for every source file, not just the ones a slice happened to touch. Reads real source text — a passing test
@@ -109,9 +110,20 @@ describe('dependency fences', () => {
     expect(violations).toEqual([])
   })
 
-  it('zustand is imported only from model/store.ts or model/persistence.ts', () => {
-    const allowed = new Set(['./model/store.ts', './model/persistence.ts'])
+  it('zustand is imported only from model/store.ts, model/onionStore.ts, model/cleanStore.ts, or model/persistence.ts', () => {
+    const allowed = new Set(['./model/store.ts', './model/onionStore.ts', './model/cleanStore.ts', './model/persistence.ts'])
     const violations = productionPaths.filter((p) => !allowed.has(p) && importsOf(files[p]).some((s) => s === 'zustand' || s.startsWith('zustand/')))
+    expect(violations).toEqual([])
+  })
+})
+
+// Regression guard (ADR-01): a document-root union (`StoredFile`) must never reach a Hexagonal-only module —
+// those keep reading `HexaMap` only, exactly as before Onion or Clean existed.
+describe('Hexagonal-only modules never import StoredFile/OnionFile/CleanFile (ADR-01)', () => {
+  const HEXAGONAL_ONLY_MODULES = ['./model/map.ts', './model/store.ts', './layout/map.ts', './ui/Editor.tsx', './ui/Stage.tsx']
+
+  it('never mention StoredFile, OnionFile, or CleanFile by name', () => {
+    const violations = HEXAGONAL_ONLY_MODULES.filter((p) => /\bStoredFile\b|\bOnionFile\b|\bCleanFile\b/.test(files[p]))
     expect(violations).toEqual([])
   })
 })

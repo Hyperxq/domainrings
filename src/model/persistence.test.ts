@@ -2,11 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createStore } from 'zustand/vanilla'
 import { autosave, browserStorage, loadMap, LEGACY_KEY, MAP_KEY, UNREADABLE_KEY, V1_KEY } from './persistence'
 import { readPref } from '../ui/prefs'
-import { parseHexa, toHexa, toMap } from './hexa'
+import { newCleanMap, parseHexa, toHexa, toMap } from './hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, SEED_VERSION, TWO_SLICES_MAP } from './example'
 import { useMapStore } from './store'
 import { twoHexagonMap } from '../test/fixtures'
-import type { Diagram, HexaMap } from './schema'
+import type { CleanFile, Diagram, HexaMap } from './schema'
+import v3OnionExample from './fixtures/v3-onion-example.hexa?raw'
 
 const memoryStorage = (initial: Record<string, string> = {}) => {
   const data = new Map(Object.entries(initial))
@@ -232,10 +233,74 @@ describe('RT-01: the shipped "Two slices, one link" example round-trips through 
     const reloaded = loadMap(storage)
     expect(reloaded).toEqual({ map: store.getState().map, recovery: 'none' })
     expect(reloaded.map).toStrictEqual(edited)
+    if (reloaded.map.kind !== 'hexagonal') throw new Error('expected a hexagonal reload')
     // A fresh boot off the reloaded map always focuses its first hexagon (FOCUS-02), regardless of what was
     // current when the edit was made — through the real replace() action, not just the map's own hexagon order.
     useMapStore.getState().replace(reloaded.map)
     expect(useMapStore.getState().focus).toBe(reloaded.map.hexagons[0].id)
+  })
+})
+
+describe('an Onion document with elements, dependencies and actors round-trips through autosave and reload', () => {
+  afterEach(() => vi.useRealTimers())
+
+  it('parses, autosaves to domainrings:map only, and reloads deep-equal — the elements/dependency/actor survive intact', () => {
+    vi.useFakeTimers()
+    const parsed = parseHexa(v3OnionExample)
+    if (!parsed.ok || parsed.map.kind !== 'onion') throw new Error('fixture failed to parse as onion')
+    const map = parsed.map
+
+    const store = createStore(() => ({ map }))
+    const storage = memoryStorage()
+    autosave(store, storage, 'none', 300)
+    store.setState({ map: { ...map, title: 'Renamed' } })
+    vi.advanceTimersByTime(300)
+
+    expect(storage.setItem).toHaveBeenCalledTimes(1)
+    expect(storage.setItem).toHaveBeenCalledWith(MAP_KEY, expect.any(String))
+
+    const reloaded = loadMap(storage)
+    expect(reloaded).toEqual({ map: { ...map, title: 'Renamed' }, recovery: 'none' })
+    if (reloaded.map.kind !== 'onion') throw new Error('expected an onion reload')
+    expect(reloaded.map.elements).toEqual(map.elements)
+    expect(reloaded.map.dependencies).toEqual(map.dependencies)
+    expect(reloaded.map.actors).toEqual(map.actors)
+    // The .hexa export/reopen round-trip for this same fixture is covered by model/hexa.test.ts's
+    // "committed v3 onion fixture" describe block — not duplicated here.
+  })
+})
+
+describe('a Clean document with sectors, elements, a dependency and an actor round-trips through autosave and reload', () => {
+  afterEach(() => vi.useRealTimers())
+
+  it('parses, autosaves to domainrings:map only, and reloads deep-equal — the sectors/elements/dependency/actor survive intact', () => {
+    vi.useFakeTimers()
+    const map: CleanFile = {
+      ...newCleanMap('Clean architecture'),
+      sectors: [{ id: 's1', name: 'Billing', ringRole: 'domain' }, { id: 's2', name: 'API', ringRole: 'outer' }],
+      elements: [{ id: 'e1', name: 'Invoice', sectorId: 's1' }, { id: 'e2', name: 'Gateway', sectorId: 's2' }],
+      dependencies: [{ id: 'd1', fromId: 'e2', toId: 'e1' }],
+      actors: [{ id: 'a1', name: 'User', targetId: 'e2' }],
+    }
+    const parsed = parseHexa(toHexa(map))
+    expect(parsed).toEqual({ ok: true, map })
+
+    const store = createStore(() => ({ map }))
+    const storage = memoryStorage()
+    autosave(store, storage, 'none', 300)
+    store.setState({ map: { ...map, title: 'Renamed' } })
+    vi.advanceTimersByTime(300)
+
+    expect(storage.setItem).toHaveBeenCalledTimes(1)
+    expect(storage.setItem).toHaveBeenCalledWith(MAP_KEY, expect.any(String))
+
+    const reloaded = loadMap(storage)
+    expect(reloaded).toEqual({ map: { ...map, title: 'Renamed' }, recovery: 'none' })
+    if (reloaded.map.kind !== 'clean') throw new Error('expected a clean reload')
+    expect(reloaded.map.sectors).toEqual(map.sectors)
+    expect(reloaded.map.elements).toEqual(map.elements)
+    expect(reloaded.map.dependencies).toEqual(map.dependencies)
+    expect(reloaded.map.actors).toEqual(map.actors)
   })
 })
 

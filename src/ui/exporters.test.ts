@@ -105,6 +105,17 @@ describe('svgMarkup legend', () => {
     const markup = await svgMarkup(svg, bounds, 'T', { legend: true, legendHeight: 120 })
     expect(markup).not.toMatch(/tabindex|role=|aria-label|data-ref|data-band|data-layer|data-selected/)
   })
+
+  it('removes a canvas-only pick affordance entirely, not just its scoping attribute (Onion’s "+" glyphs and "Depend on…" chip share the svg with the diagram, unlike Hexagonal’s own screen-space overlay)', async () => {
+    const svg = canvas()
+    const plus = document.createElementNS(NS, 'g')
+    plus.setAttribute('data-plus', '')
+    plus.appendChild(document.createElementNS(NS, 'text')).textContent = 'Depend on…'
+    svg.appendChild(plus)
+    const markup = await svgMarkup(svg, bounds, 'T', { legend: false, legendHeight: 0 })
+    expect(markup).not.toContain('Depend on…')
+    expect(markup).not.toMatch(/data-plus/)
+  })
 })
 
 describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {

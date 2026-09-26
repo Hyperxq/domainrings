@@ -1,4 +1,4 @@
-import { KINDS, type RingRole } from '../model/kinds'
+import { HEXAGONAL_KIND, type RingRole } from '../model/kinds'
 import type { CollectionKey, Diagram, DomainType, Side, Wall } from '../model/schema'
 import { wallFrame, type LayoutModel, type LayoutNode, type Point } from './layout'
 
@@ -48,7 +48,7 @@ const halfReach = (n: LayoutNode, v: Point) =>
     : (n.width / 2) * Math.abs(v.x) + (n.height / 2) * Math.abs(v.y)
 
 export function insertionPoints(model: LayoutModel, d: Diagram, mode: 'detailed' | 'overview'): InsertionPoint[] {
-  const config = KINDS[d.kind]
+  const config = HEXAGONAL_KIND
   const app = model.rings.find((r) => r.role === 'application')!
   const domainRing = model.rings[model.rings.length - 1]
   const outermost = model.rings[0].role
@@ -95,7 +95,7 @@ export function insertionPoints(model: LayoutModel, d: Diagram, mode: 'detailed'
   const covers = (b: { x: number; y: number; width: number; height: number }, q: Point) =>
     q.x + PLUS / 2 > b.x && q.x - PLUS / 2 < b.x + b.width && q.y + PLUS / 2 > b.y && q.y - PLUS / 2 < b.y + b.height
   const free = (q: Point) => !covers(stackArea, q) && !model.rings.some((r) => covers(r.titleBox, q))
-  if (model.shape === 'hexagon') {
+  {
     const inner = model.rings[model.rings.indexOf(app) + 1]
     for (const wall of WALLS) {
       const { n, dir } = wallFrame(wall)
@@ -124,35 +124,20 @@ export function insertionPoints(model: LayoutModel, d: Diagram, mode: 'detailed'
     }
   }
   const sockets = nodesOf('port')
-  if (model.shape === 'hexagon') {
-    for (const wall of WALLS) {
-      const side: Side = ['nw', 'w', 'sw'].includes(wall) ? 'driving' : 'driven'
-      const { n, dir } = wallFrame(wall)
-      // An overview port name can run past its notch along the wall; the "+" goes past both.
-      const onWall = [...sockets.filter((s) => s.wall === wall), ...nodesOf('portLabel').filter((l) => sockets.some((s) => s.ref === l.ref && s.wall === wall))]
-      const along = onWall.length ? Math.max(...onWall.map((s) => s.x * dir.x + s.y * dir.y + (s.rotation !== undefined ? s.width : s.height) / 2)) + GAP : 0
-      // Where the title or the stack is in the way, slide down the wall, away from the vertical axis, within the wall.
-      const away = Math.sign(dir.x * n.x) || 1
-      const at = Array.from({ length: Math.ceil(app.apex / PLUS) + 1 }, (_, k) => along + away * k * (PLUS / 2))
-        .filter((u) => Math.abs(u) <= app.apex / 2)
-        .map((u) => ({ x: n.x * app.halfWidth + dir.x * u, y: n.y * app.halfWidth + dir.y * u }))
-        .find(free)
-      if (!at) continue
-      points.push({ key: `application:port:${wall}`, layer: 'application', at, action: { kind: 'port', side, wall }, label: `Add a ${side} port on the ${WALL_NAME[wall]} wall` })
-    }
-  } else {
-    for (const side of ['driving', 'driven'] as const) {
-      const onSide = sockets.filter((s) => s.side === side)
-      const sign = side === 'driving' ? -1 : 1
-      const last = onSide.length ? lowest(onSide) : undefined
-      points.push({
-        key: `application:port:${side}`,
-        layer: 'application',
-        at: last ? { x: last.x, y: bottom(last) + GAP } : { x: sign * app.halfWidth, y: 0 },
-        action: { kind: 'port', side },
-        label: `Add a ${side} port`,
-      })
-    }
+  for (const wall of WALLS) {
+    const side: Side = ['nw', 'w', 'sw'].includes(wall) ? 'driving' : 'driven'
+    const { n, dir } = wallFrame(wall)
+    // An overview port name can run past its notch along the wall; the "+" goes past both.
+    const onWall = [...sockets.filter((s) => s.wall === wall), ...nodesOf('portLabel').filter((l) => sockets.some((s) => s.ref === l.ref && s.wall === wall))]
+    const along = onWall.length ? Math.max(...onWall.map((s) => s.x * dir.x + s.y * dir.y + (s.rotation !== undefined ? s.width : s.height) / 2)) + GAP : 0
+    // Where the title or the stack is in the way, slide down the wall, away from the vertical axis, within the wall.
+    const away = Math.sign(dir.x * n.x) || 1
+    const at = Array.from({ length: Math.ceil(app.apex / PLUS) + 1 }, (_, k) => along + away * k * (PLUS / 2))
+      .filter((u) => Math.abs(u) <= app.apex / 2)
+      .map((u) => ({ x: n.x * app.halfWidth + dir.x * u, y: n.y * app.halfWidth + dir.y * u }))
+      .find(free)
+    if (!at) continue
+    points.push({ key: `application:port:${wall}`, layer: 'application', at, action: { kind: 'port', side, wall }, label: `Add a ${side} port on the ${WALL_NAME[wall]} wall` })
   }
 
   // Adapter ring: beside each port with no adapter, then at the end of each side column.

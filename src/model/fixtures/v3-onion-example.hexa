@@ -1,0 +1,51 @@
+{
+  "app": "domainrings",
+  "version": 3,
+  "kind": "onion",
+  "title": "Onion sample",
+  "rings": [
+    {
+      "role": "domain",
+      "name": "Domain Model"
+    },
+    {
+      "role": "domainServices",
+      "name": "Domain Services"
+    },
+    {
+      "role": "application",
+      "name": "Application Services"
+    },
+    {
+      "role": "outer",
+      "name": "Infrastructure"
+    }
+  ],
+  "elements": [
+    {
+      "id": "el-order",
+      "name": "Order",
+      "ringRole": "domain"
+    },
+    {
+      "id": "el-controller",
+      "name": "OrderController",
+      "ringRole": "outer"
+    }
+  ],
+  "dependencies": [
+    {
+      "id": "dep-1",
+      "fromId": "el-controller",
+      "toId": "el-order"
+    }
+  ],
+  "actors": [
+    {
+      "id": "act-web",
+      "name": "Web shop",
+      "targetId": "el-controller"
+    }
+  ],
+  "externals": []
+}

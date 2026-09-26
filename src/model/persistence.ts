@@ -1,7 +1,7 @@
 import type { StoreApi } from 'zustand/vanilla'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, SEED_VERSION } from './example'
 import { parseHexa, toHexa, toMap } from './hexa'
-import type { Diagram, HexaMap } from './schema'
+import type { HexaMap, LegacyDiagram, StoredFile } from './schema'
 
 export const MAP_KEY = 'domainrings:map'
 export const UNREADABLE_KEY = 'domainrings:map.unreadable'
@@ -15,7 +15,7 @@ export const LEGACY_KEY = 'archviz:diagram'
 export type Recovery = 'none' | 'kept' | 'not-kept'
 
 export interface LoadResult {
-  map: HexaMap
+  map: StoredFile
   recovery: Recovery
   unreadableText?: string
 }
@@ -29,7 +29,7 @@ function safeText(storage: Pick<Storage, 'getItem'> | undefined, key: string): s
 }
 
 /** An autosave from an older seed version that still equals that seed, byte for byte, was never edited. */
-function staleUpgrade(text: string, diagram: Diagram): HexaMap | undefined {
+function staleUpgrade(text: string, diagram: LegacyDiagram): HexaMap | undefined {
   let seedVersion: unknown
   try {
     seedVersion = JSON.parse(text).seedVersion
@@ -47,7 +47,8 @@ function readFallbackSlot(storage: Pick<Storage, 'getItem'> | undefined, key: st
   if (!text) return undefined
   const result = parseHexa(text)
   if (!result.ok || !result.v1) return undefined
-  return staleUpgrade(text, result.v1) ?? result.map
+  // `v1` is only ever set alongside a `map` that toMap() produced from it — always the Hexagonal arm.
+  return staleUpgrade(text, result.v1) ?? (result.map as HexaMap)
 }
 
 /** Keeps a read-back-verified copy of unreadable own-slot text, skipping the write when it already matches. */
@@ -78,8 +79,8 @@ export function loadMap(storage: Pick<Storage, 'getItem' | 'setItem'> | undefine
   return { map: fallback ?? toMap(EXAMPLE_DIAGRAM), recovery: 'none' }
 }
 
-export function autosave(
-  store: StoreApi<{ map: HexaMap }>,
+export function autosave<M extends StoredFile>(
+  store: StoreApi<{ map: M }>,
   storage: Pick<Storage, 'setItem'>,
   recovery: Recovery,
   delay = 400,

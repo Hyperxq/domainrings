@@ -37,6 +37,7 @@ describe('skill examples', () => {
   it('the honeycomb example shows what a honeycomb adds: several contexts and a patterned cross-context link', () => {
     const result = parseHexa(Object.entries(examples).find(([p]) => p.endsWith('honeycomb.hexa'))![1])
     if (!result.ok) throw new Error('honeycomb example failed to parse')
+    if (result.map.kind !== 'hexagonal') throw new Error('the skill only ships hexagonal examples')
     expect(result.map.contexts.length).toBeGreaterThan(1)
     expect(result.map.links.some((l) => l.pattern !== undefined)).toBe(true)
     expect(result.map.links.some((l) => l.pattern === undefined)).toBe(true)
@@ -56,8 +57,38 @@ describe('share-link script', () => {
     expect(decoded.ok && original.ok && decoded.map).toEqual(original.ok && original.map)
   })
 
-  it('refuses a file that is not a domainrings v2 map', () => {
+  it('refuses a file that is not a domainrings map', () => {
     const run = shareLink(tempHexa({ app: 'something-else', version: 2 }))
+    expect(run.status).not.toBe(0)
+    expect(run.stdout).toBe('')
+    expect(run.stderr).toMatch(/domainrings/)
+  })
+
+  // REQ-06/design-amendment-2: v3 exists now (Hexagonal + Onion), but this skill covers Hexagonal only —
+  // v3 kind hexagonal is accepted like v2 always was; v3 kind onion is refused, same as any other bad shape.
+  it('accepts a version 3, kind hexagonal file', () => {
+    const run = shareLink(tempHexa({ app: 'domainrings', version: 3, kind: 'hexagonal', title: 'V3', contexts: [{ id: 'c1' }], hexagons: [{ id: 'h1', contextId: 'c1', cell: { q: 0, r: 0 }, title: 'V3', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }], links: [] }))
+    expect(run.status).toBe(0)
+    expect(run.stdout.trim().startsWith('https://diagrams.pbuilder.dev/#m=')).toBe(true)
+  })
+
+  it('refuses a version 3, kind onion file — this skill covers Hexagonal only', () => {
+    const run = shareLink(tempHexa({ app: 'domainrings', version: 3, kind: 'onion', title: 'V3 onion' }))
+    expect(run.status).not.toBe(0)
+    expect(run.stdout).toBe('')
+    expect(run.stderr).toMatch(/domainrings/)
+  })
+
+  // v3 is frozen and v4 (Hexagonal + Onion + Clean) is current — the script accepts either version's Hexagonal
+  // file, and refuses a v4 Clean file the same way it already refuses Onion.
+  it('accepts a version 4, kind hexagonal file', () => {
+    const run = shareLink(tempHexa({ app: 'domainrings', version: 4, kind: 'hexagonal', title: 'V4', contexts: [{ id: 'c1' }], hexagons: [{ id: 'h1', contextId: 'c1', cell: { q: 0, r: 0 }, title: 'V4', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }], links: [] }))
+    expect(run.status).toBe(0)
+    expect(run.stdout.trim().startsWith('https://diagrams.pbuilder.dev/#m=')).toBe(true)
+  })
+
+  it('refuses a version 4, kind clean file — this skill covers Hexagonal only', () => {
+    const run = shareLink(tempHexa({ app: 'domainrings', version: 4, kind: 'clean', title: 'V4 clean' }))
     expect(run.status).not.toBe(0)
     expect(run.stdout).toBe('')
     expect(run.stderr).toMatch(/domainrings/)

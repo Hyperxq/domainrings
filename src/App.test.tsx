@@ -6,11 +6,13 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { App } from './App'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM, TWO_SLICES_MAP } from './model/example'
 import { layoutDiagram } from './layout/layout'
-import { parseHexa, toHexa, toMap } from './model/hexa'
+import { newCleanMap, newOnionMap, parseHexa, toHexa, toMap } from './model/hexa'
 import { diagramOf, UNTITLED_HEXAGON } from './model/map'
 import { autosave, MAP_KEY } from './model/persistence'
-import type { HexaMap } from './model/schema'
+import { VERSION, type HexaMap } from './model/schema'
 import { useMapStore } from './model/store'
+import { useOnionStore } from './model/onionStore'
+import { useCleanStore } from './model/cleanStore'
 import { fileSlug } from './ui/exporters'
 import { decodeSharePayload, encodeSharePayload, SHARE_HASH_PREFIX } from './ui/shareLink'
 import { card, currentDiagram, hexGroup, installCompressionStreamPolyfill, installDialogPolyfill, linkedTwoHexMap, twoHexMap } from './test/fixtures'
@@ -18,6 +20,8 @@ import v1Minimal from './model/fixtures/v1-minimal.hexa?raw'
 import v1Maximal from './model/fixtures/v1-maximal.hexa?raw'
 import v2EmptyContext from './model/fixtures/v2-empty-context.hexa?raw'
 import v2Honeycomb from './model/fixtures/v2-honeycomb.hexa?raw'
+import v3OnionExample from './model/fixtures/v3-onion-example.hexa?raw'
+import v4CleanExample from './model/fixtures/v4-clean-example.hexa?raw'
 
 const scrollIntoView = vi.fn()
 
@@ -721,6 +725,7 @@ describe('current hexagon (FOCUS-03, FOCUS-06)', () => {
     expect(container.querySelectorAll('[data-selected]')).toHaveLength(1)
 
     fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Hexagonal' }))
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
 
     expect(useMapStore.getState().focus).toBe('h2')
@@ -787,42 +792,6 @@ describe('link pruning (LINK-01, LINK-02)', () => {
     fireEvent.click(line)
     fireEvent.keyDown(document.body, { key: 'Delete' })
     expect(useMapStore.getState().map).toBe(beforeMap)
-  })
-})
-
-describe('kind lock on a multi-hexagon map (MIG-04.2)', () => {
-
-  it('disables the kind radios with a hint, and clicking one still leaves the map hexagonal', () => {
-    useMapStore.getState().replace(twoHexMap())
-    render(<App />)
-
-    const clean = screen.getByRole('radio', { name: 'Clean' })
-    expect(clean.getAttribute('aria-disabled')).toBe('true')
-    const hintId = clean.getAttribute('aria-describedby')
-    expect(hintId).toBeTruthy()
-    expect(document.getElementById(hintId!)!.textContent).toBe('A map with more than one hexagon is always hexagonal.')
-
-    fireEvent.click(clean)
-
-    expect(useMapStore.getState().map.kind).toBe('hexagonal')
-  })
-
-  it('takes the hint out of flow (so a multi-hexagon toolbar never overflows) but still surfaces it as a title on the locked fieldset (REQ-04.2)', () => {
-    useMapStore.getState().replace(twoHexMap())
-    render(<App />)
-
-    const clean = screen.getByRole('radio', { name: 'Clean' })
-    const hintId = clean.getAttribute('aria-describedby')!
-    expect(document.getElementById(hintId)!.classList.contains('visually-hidden')).toBe(true)
-    expect(clean.closest('fieldset')!.getAttribute('title')).toBe('A map with more than one hexagon is always hexagonal.')
-  })
-
-  it('leaves the kind radios enabled, with no hint, on a single-hexagon map', () => {
-    render(<App />)
-
-    const clean = screen.getByRole('radio', { name: 'Clean' })
-    expect(clean.getAttribute('aria-disabled')).toBeNull()
-    expect(clean.getAttribute('aria-describedby')).toBeNull()
   })
 })
 
@@ -1044,7 +1013,7 @@ describe('export scope (EXPORT-03)', () => {
 
   it('exports a real two-context render: hulls and chips kept in Map scope, dropped in Hexagon scope (EXPORT-03)', async () => {
     const result = parseHexa(v2Honeycomb)
-    if (!result.ok) throw new Error('fixture failed to parse')
+    if (!result.ok || result.map.kind !== 'hexagonal') throw new Error('fixture failed to parse')
     useMapStore.getState().replace(result.map)
     // Real CSS, not jsdom's unstyled defaults, so a hull path's stroke-dasharray actually reaches the export —
     // the same technique exporters.test.ts uses for its own CSS-dependent assertions.
@@ -1324,7 +1293,7 @@ describe('renaming a bounded context (NAME-01..03)', () => {
     expect(storage.setItem).toHaveBeenCalledWith(MAP_KEY, expect.stringContaining('Billing'))
     const written = storage.setItem.mock.calls.at(-1)![1] as string
     const reopened = parseHexa(written)
-    expect(reopened.ok && reopened.map.contexts.find((c) => c.name === 'Billing')).toBeTruthy()
+    expect(reopened.ok && reopened.map.kind === 'hexagonal' && reopened.map.contexts.find((c) => c.name === 'Billing')).toBeTruthy()
     vi.useRealTimers()
   })
 })
@@ -1410,22 +1379,13 @@ describe('delete a hexagon (DEL-01..06)', () => {
     expect(useMapStore.getState().focus).toBe(beforeFocus)
   })
 
-  it('deleting down to one hexagon keeps the map kind hexagonal and re-enables the kind control (DEL-06.1)', () => {
-    useMapStore.getState().replace(twoHexMap())
-    render(<App />)
-    openEditor()
-
-    fireEvent.click(deleteButton())
-
-    expect(useMapStore.getState().map.kind).toBe('hexagonal')
-    expect(screen.getByRole('radio', { name: 'Onion' }).hasAttribute('aria-disabled')).toBe(false)
-  })
 })
 
 describe('import a hexagon from file (IMP-01..07)', () => {
   const openEditor = () => fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
   const openImportMenu = () => fireEvent.click(screen.getByRole('button', { name: 'Add hexagon from file…' }))
-  const oneHexFile = (kind: 'hexagonal' | 'clean' | 'onion' = 'hexagonal') => toHexa(toMap({ ...EXAMPLE_DIAGRAM, kind, title: 'Legacy System' }))
+  // toMap always yields kind hexagonal now (REQ-06) — no `kind` param left to vary.
+  const oneHexFile = () => toHexa(toMap({ ...EXAMPLE_DIAGRAM, title: 'Legacy System' }))
   const pickFile = async (text: string, name = 'legacy.hexa') => {
     const file = new File([text], name, { type: 'application/json' })
     fireEvent.change(screen.getByLabelText('Add hexagon from a .hexa file'), { target: { files: [file] } })
@@ -1493,20 +1453,6 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     expect(screen.getByRole('alert').textContent).toBe('This file has 2 hexagons. Add hexagon from file… takes one; use Open to replace the map.')
   })
 
-  it('refuses a multi-hexagon file before any conversion question, even when the target map is Clean or Onion (IMP-04.2)', async () => {
-    useMapStore.getState().setMapMeta({ kind: 'clean' })
-    render(<App />)
-    openEditor()
-    const before = useMapStore.getState().map
-    openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
-    await pickFile(toHexa(twoHexMap()), 'two.hexa')
-
-    expect(useMapStore.getState().map).toBe(before)
-    expect(screen.queryByRole('dialog')).toBeNull()
-    expect(screen.getByRole('alert').textContent).toBe('This file has 2 hexagons. Add hexagon from file… takes one; use Open to replace the map.')
-  })
-
   it('an invalid file is refused the same way Open refuses one, without opening any dialog (IMP-07)', async () => {
     render(<App />)
     openEditor()
@@ -1518,44 +1464,6 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     expect(useMapStore.getState().map).toBe(before)
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(screen.getByRole('alert').textContent).toContain('broken.hexa could not be opened')
-  })
-
-  it('opens the conversion dialog when the target map is Onion, and "Convert and import" completes the import in one step (CONV-01.2, CONV-03, CONV-04)', async () => {
-    useMapStore.getState().setMapMeta({ kind: 'onion' })
-    render(<App />)
-    openEditor()
-    openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
-    await pickFile(oneHexFile('clean'), 'legacy.hexa')
-
-    const dialog = screen.getByRole('dialog')
-    expect(dialog.textContent).toContain('Convert this Onion map to hexagonal?')
-    expect(useMapStore.getState().map.kind).toBe('onion')
-    expect(useMapStore.getState().map.hexagons).toHaveLength(1)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Convert and import' }))
-
-    expect(useMapStore.getState().map.kind).toBe('hexagonal')
-    expect(useMapStore.getState().map.hexagons).toHaveLength(2)
-    expect(toastEl()!.querySelector('p')!.textContent).toBe("Added Legacy System from legacy.hexa. legacy.hexa was Clean; it now uses this map's hexagonal kind.")
-    expect(screen.queryByRole('dialog')).toBeNull()
-  })
-
-  it('Cancel on the conversion dialog leaves the map untouched and returns focus to the import trigger (CONV-02.1)', async () => {
-    useMapStore.getState().setMapMeta({ kind: 'clean' })
-    render(<App />)
-    openEditor()
-    const before = useMapStore.getState().map
-    const trigger = screen.getByRole('button', { name: 'Add hexagon from file…' })
-    openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
-    await pickFile(oneHexFile())
-
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-
-    expect(useMapStore.getState().map).toBe(before)
-    expect(screen.queryByRole('dialog')).toBeNull()
-    expect(document.activeElement).toBe(trigger)
   })
 
   it('Undo restores the map and focus to what they were before the import', async () => {
@@ -1573,122 +1481,30 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     expect(useMapStore.getState().focus).toBe(beforeFocus)
   })
 
-  it('"Convert and import" converts the map and imports as one undoable step, restoring both the kind and the hexagon on Undo (CONV-03.2)', async () => {
-    useMapStore.getState().setMapMeta({ kind: 'onion' })
+  it('refuses a v3 Onion file, leaving the map untouched (REQ-03)', async () => {
     render(<App />)
     openEditor()
     const before = useMapStore.getState().map
-    const beforeFocus = useMapStore.getState().focus
     openImportMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
-    await pickFile(oneHexFile())
-
-    fireEvent.click(screen.getByRole('button', { name: 'Convert and import' }))
-
-    expect(useMapStore.getState().map.kind).toBe('hexagonal')
-    const imported = useMapStore.getState().map.hexagons.at(-1)!
-    expect(imported.title).toBe('Legacy System')
-
-    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
-
-    expect(useMapStore.getState().map).toStrictEqual(before)
-    expect(useMapStore.getState().map.kind).toBe('onion')
-    expect(useMapStore.getState().focus).toBe(beforeFocus)
-  })
-})
-
-describe('growing or importing into a Clean/Onion map asks first (CONV-01..05, GROW-01.5)', () => {
-  const growEast = () => fireEvent.click(screen.getByRole('button', { name: 'Add hexagon to the east of Chat feedback slice' }))
-
-  it('opens the conversion dialog instead of growing directly, naming the map’s own kind (GROW-01.5, CONV-01.1)', () => {
-    useMapStore.getState().setMapMeta({ kind: 'clean' })
-    render(<App />)
-    const before = useMapStore.getState().map
-    growEast()
-
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
-
-    const dialog = screen.getByRole('dialog')
-    expect(dialog.textContent).toContain('Convert this Clean map to hexagonal?')
-    expect(screen.getByRole('button', { name: 'Convert and add' })).toBeTruthy()
-    expect(useMapStore.getState().map).toBe(before)
-  })
-
-  it('Cancel leaves the map untouched and returns focus to the side “+” trigger (CONV-02.1)', () => {
-    useMapStore.getState().setMapMeta({ kind: 'clean' })
-    render(<App />)
-    const before = useMapStore.getState().map
-    const trigger = screen.getByRole('button', { name: 'Add hexagon to the east of Chat feedback slice' })
-    growEast()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
-
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await pickFile(v3OnionExample, 'sample.hexa')
 
     expect(useMapStore.getState().map).toBe(before)
     expect(screen.queryByRole('dialog')).toBeNull()
-    expect(document.activeElement).toBe(trigger)
+    expect(screen.getByRole('alert').textContent).toBe('sample.hexa is an Onion file. Add hexagon from file… only accepts a Hexagonal map.')
   })
 
-  it('"Convert and add" converts the map and grows it as one undoable step (CONV-03)', () => {
-    useMapStore.getState().setMapMeta({ kind: 'onion' })
+  it('refuses a Clean file the same way, naming it by its own kind (REQ-05)', async () => {
     render(<App />)
+    openEditor()
     const before = useMapStore.getState().map
-    const beforeFocus = useMapStore.getState().focus
-    growEast()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
+    openImportMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
+    await pickFile(v4CleanExample, 'sample.hexa')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Convert and add' }))
-
-    expect(useMapStore.getState().map.kind).toBe('hexagonal')
-    expect(useMapStore.getState().map.hexagons).toHaveLength(2)
+    expect(useMapStore.getState().map).toBe(before)
     expect(screen.queryByRole('dialog')).toBeNull()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
-
-    expect(useMapStore.getState().map).toStrictEqual(before)
-    expect(useMapStore.getState().focus).toBe(beforeFocus)
-  })
-})
-
-describe('no autosave while the conversion dialog is open (CONV-02.3)', () => {
-  beforeEach(() => vi.useFakeTimers())
-  afterEach(() => vi.useRealTimers())
-
-  it('does not write to storage while the dialog is open, even past the usual autosave delay', () => {
-    useMapStore.getState().setMapMeta({ kind: 'clean' })
-    const storage = { setItem: vi.fn() }
-    autosave(useMapStore, storage, 'none', 400)
-    render(<App />)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Add hexagon to the east of Chat feedback slice' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
-    expect(screen.getByRole('dialog')).toBeTruthy()
-
-    act(() => vi.advanceTimersByTime(1000))
-
-    expect(storage.setItem).not.toHaveBeenCalled()
-  })
-
-  it('does not let Ctrl/Cmd+Z on the dialog reach the document-level undo listener behind it', () => {
-    useMapStore.getState().setMapMeta({ kind: 'clean' })
-    render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
-    const input = screen.getByLabelText('Name for Context 1')
-    fireEvent.focus(input)
-    fireEvent.change(input, { target: { value: 'Billing' } })
-    fireEvent.blur(input)
-    expect(toastEl()).not.toBeNull()
-    const mapBefore = useMapStore.getState().map
-
-    fireEvent.click(screen.getByRole('button', { name: 'Add hexagon to the east of Chat feedback slice' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Billing' }))
-    const cancelButton = screen.getByRole('button', { name: 'Cancel' })
-    expect(document.activeElement).toBe(cancelButton)
-
-    fireEvent.keyDown(cancelButton, { key: 'z', ctrlKey: true })
-
-    expect(useMapStore.getState().map).toBe(mapBefore)
-    expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(screen.getByRole('alert').textContent).toBe('sample.hexa is a Clean file. Add hexagon from file… only accepts a Hexagonal map.')
   })
 })
 
@@ -1703,12 +1519,6 @@ describe('journey', () => {
     await act(async () => {
       await Promise.resolve()
     })
-  }
-  /** Confirms the conversion dialog if one is showing — needed only when the map isn't already hexagonal at the
-   * point of the import; a no-op otherwise, so the same helper works whichever kind the map starts as. */
-  const confirmConversionIfAsked = () => {
-    const dialog = screen.queryByRole('dialog')
-    if (dialog) fireEvent.click(screen.getByRole('button', { name: 'Convert and import' }))
   }
   /** Save via the toolbar's ".hexa" export, capturing the downloaded text exactly as the "Two slices" export test
    * does (App.test.tsx's own precedent, `createSpy`/`captured` pattern) — the design's own suggested approach. */
@@ -1737,6 +1547,7 @@ describe('journey', () => {
     render(<App />)
     openEditor()
     fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Hexagonal' }))
     expect(useMapStore.getState().map.hexagons).toHaveLength(1)
 
     // v1-minimal and v1-maximal both join the map's OWN starting context — two of them end up in one shared
@@ -1745,20 +1556,17 @@ describe('journey', () => {
     openImportMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
     await pickFile(v1Minimal, 'v1-minimal.hexa')
-    confirmConversionIfAsked()
     expect(useMapStore.getState().map.hexagons).toHaveLength(2)
 
     openImportMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
     await pickFile(v1Maximal, 'v1-maximal.hexa')
-    confirmConversionIfAsked()
     expect(useMapStore.getState().map.hexagons).toHaveLength(3)
     expect(useMapStore.getState().map.contexts).toHaveLength(1)
 
     openImportMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
     await pickFile(v2EmptyContext, 'legacy.hexa')
-    confirmConversionIfAsked()
     expect(useMapStore.getState().map.hexagons).toHaveLength(4)
     expect(useMapStore.getState().map.contexts).toHaveLength(2)
 
@@ -1788,6 +1596,7 @@ describe('journey', () => {
   it('from New, the author grows two bounded contexts and four hexagons', async () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Hexagonal' }))
     const title = useMapStore.getState().map.hexagons[0].title || 'Untitled hexagon'
 
     const growFirstFreeSide = () => fireEvent.click(screen.getAllByRole('button', { name: new RegExp(`^Add hexagon to the .* of ${title}$`) })[0])
@@ -1828,7 +1637,7 @@ describe('journey', () => {
     // Two driven ports on h1 (same context c1 as h2, a different one c2 as h3), so one link can be created from
     // the canvas chip within a context and the other from the Links section across contexts (pattern-eligible).
     const journeyMap: HexaMap = {
-      version: 2,
+      version: VERSION,
       kind: 'hexagonal',
       title: 'Release journey',
       contexts: [{ id: 'c1' }, { id: 'c2' }],
@@ -1941,7 +1750,7 @@ describe('journey', () => {
     // Save and reopen: every link's ends, adapter, and pattern survive exactly (REQ-LNK-08.2, 08.3).
     const beforeSave = useMapStore.getState().map
     const savedText = await saveHexa()
-    expect(JSON.parse(savedText).version).toBe(2)
+    expect(JSON.parse(savedText).version).toBe(VERSION)
 
     await reopen(savedText)
 
@@ -2061,6 +1870,116 @@ describe('copy the current map as a link (REQ-05, REQ-06)', () => {
 
     expect(writeText).not.toHaveBeenCalled()
   })
+
+  it('copies a link to the active ONION document, not the Hexagonal map, when Onion is active', async () => {
+    const writeText = stubClipboard()
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
+    await act(async () => {
+      await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+    })
+
+    const url = writeText.mock.calls[0][0] as string
+    const decoded = await decodeSharePayload(url.slice(url.indexOf(SHARE_HASH_PREFIX) + SHARE_HASH_PREFIX.length))
+    const result = parseHexa(decoded!)
+    expect(result.ok && result.map).toEqual(useOnionStore.getState().map)
+  })
+
+  it('copies a link to the active CLEAN document, not the Hexagonal map, when Clean is active', async () => {
+    const writeText = stubClipboard()
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
+    await act(async () => {
+      await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+    })
+
+    const url = writeText.mock.calls[0][0] as string
+    const decoded = await decodeSharePayload(url.slice(url.indexOf(SHARE_HASH_PREFIX) + SHARE_HASH_PREFIX.length))
+    const result = parseHexa(decoded!)
+    expect(result.ok && result.map).toEqual(useCleanStore.getState().map)
+  })
+})
+
+describe('save the current map as a .hexa file, per kind (mirrors "copy link"\'s REQ-05/06 coverage)', () => {
+  /** Same capture pattern as the "export scope" and "journey" describes above — jsdom's Blob has no `.stream()`,
+   * so read it via `.text()` instead. */
+  const saveHexa = async (): Promise<string> => {
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save as .hexa file' }))
+    const text = await captured!.text()
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+    return text
+  }
+
+  it('saves the active ONION document, not the Hexagonal map, when Onion is active', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
+
+    const text = await saveHexa()
+
+    const result = parseHexa(text)
+    expect(result.ok && result.map).toEqual(useOnionStore.getState().map)
+  })
+
+  it('saves the active CLEAN document, not the Hexagonal map, when Clean is active', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
+
+    const text = await saveHexa()
+
+    const result = parseHexa(text)
+    expect(result.ok && result.map).toEqual(useCleanStore.getState().map)
+  })
+})
+
+describe('opening a share link for a non-Hexagonal document routes it to the matching store (regression: only Hexagonal was ever exercised)', () => {
+  beforeEach(installCompressionStreamPolyfill)
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    history.replaceState(null, '', '/')
+  })
+
+  it('opens an Onion share link into the Onion store, leaving the Hexagonal map untouched', async () => {
+    const shared = newOnionMap('Shared onion')
+    location.hash = `${SHARE_HASH_PREFIX}${await encodeSharePayload(shared)}`
+    const hexaBefore = useMapStore.getState().map
+
+    render(<App />)
+    await act(async () => {
+      await vi.waitFor(() => expect(useOnionStore.getState().map).toStrictEqual(shared))
+    })
+
+    expect(toastEl()!.textContent).toContain('Opened from a link.')
+    expect(useMapStore.getState().map).toBe(hexaBefore)
+  })
+
+  it('opens a Clean share link into the Clean store, leaving the Hexagonal map untouched', async () => {
+    const shared = newCleanMap('Shared clean')
+    location.hash = `${SHARE_HASH_PREFIX}${await encodeSharePayload(shared)}`
+    const hexaBefore = useMapStore.getState().map
+
+    render(<App />)
+    await act(async () => {
+      await vi.waitFor(() => expect(useCleanStore.getState().map).toStrictEqual(shared))
+    })
+
+    expect(toastEl()!.textContent).toContain('Opened from a link.')
+    expect(useMapStore.getState().map).toBe(hexaBefore)
+  })
 })
 
 describe('link failures leave the map untouched, with a matching notice and a cleared address (REQ-02, REQ-03.2)', () => {
@@ -2157,5 +2076,296 @@ describe('an embedded link wins over a remote address when both are present (REQ
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(location.hash).toBe('')
     expect(location.search).toBe('')
+  })
+})
+
+describe('the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
+  it('New opens the chooser; picking Hexagonal is pixel-identical to the old direct New', () => {
+    const { container } = render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Hexagonal' }))
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(useMapStore.getState().map.kind).toBe('hexagonal')
+    expect(useMapStore.getState().map.hexagons).toHaveLength(1)
+    expect(useMapStore.getState().map.hexagons[0].title).toBe('Untitled architecture')
+    expect(container.querySelector('svg.canvas')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
+  })
+
+  it('New → Onion mounts its own OnionEditor/OnionStage — a bare 4-ring diagram, no Hexagonal editor/stage — and never touches the Hexagonal store', () => {
+    const { container } = render(<App />)
+    const hexaMapBefore = useMapStore.getState().map
+
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(container.querySelectorAll('svg.canvas .ring')).toHaveLength(4)
+    // OnionEditor has its own "Expand editor" toggle — what must be absent is anything Hexagonal-only.
+    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Add a driving port' })).toBeNull()
+    expect(container.querySelector('[data-hex]')).toBeNull()
+    expect(useOnionStore.getState().map.kind).toBe('onion')
+    expect(useOnionStore.getState().map.rings.map((r) => r.role)).toEqual(['domain', 'domainServices', 'application', 'outer'])
+    expect(useOnionStore.getState().map.title).toBe('Untitled architecture')
+    // The Hexagonal store was never touched by choosing Onion (App reads it unconditionally but never mutates it).
+    expect(useMapStore.getState().map).toBe(hexaMapBefore)
+  })
+
+  it('New → Clean mounts its own CleanEditor and a bare 4-ring diagram, no sectors/elements yet, and never touches the other stores', () => {
+    const { container } = render(<App />)
+    const hexaMapBefore = useMapStore.getState().map
+    const onionMapBefore = useOnionStore.getState().map
+
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(container.querySelectorAll('svg.canvas .ring')).toHaveLength(4)
+    // CleanEditor has its own "Expand editor" toggle — what must be absent is anything Hexagonal-only.
+    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Add a driving port' })).toBeNull()
+    expect(container.querySelector('[data-hex]')).toBeNull()
+    expect(useCleanStore.getState().map.kind).toBe('clean')
+    expect(useCleanStore.getState().map.rings.map((r) => r.role)).toEqual(['domain', 'application', 'adapters', 'outer'])
+    expect(useCleanStore.getState().map.sectors).toEqual([])
+    expect(useCleanStore.getState().map.title).toBe('Untitled architecture')
+    // Neither other store was touched by choosing Clean.
+    expect(useMapStore.getState().map).toBe(hexaMapBefore)
+    expect(useOnionStore.getState().map).toBe(onionMapBefore)
+  })
+
+  it('Esc on the chooser leaves the current view untouched', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    const dialog = screen.getByRole('dialog')
+
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
+  })
+
+  it('opening a legacy v2 file whose stored kind is onion renders Hexagonal, ports and adapters intact (REQ-06)', async () => {
+    render(<App />)
+    const file = new File([v2EmptyContext], 'legacy.hexa', { type: 'application/json' })
+
+    fireEvent.change(screen.getByLabelText('Open a .hexa file, replacing the map'), { target: { files: [file] } })
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(useMapStore.getState().map.kind).toBe('hexagonal')
+    expect(useMapStore.getState().map.hexagons[0].ports.length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
+  })
+})
+
+describe('Onion export (REQ-08)', () => {
+  const openOnionSample = async () => {
+    render(<App />)
+    const file = new File([v3OnionExample], 'sample.hexa', { type: 'application/json' })
+    fireEvent.change(screen.getByLabelText('Open a .hexa file, replacing the map'), { target: { files: [file] } })
+    await act(async () => {
+      await Promise.resolve()
+    })
+  }
+
+  it('never offers the Hexagon/Map export scope for Onion, even behind a dormant multi-hexagon Hexagonal map', async () => {
+    useMapStore.getState().replace(twoHexMap())
+    await openOnionSample()
+    expect(useOnionStore.getState().map.kind).toBe('onion')
+    expect(screen.queryByRole('group', { name: 'Export scope' })).toBeNull()
+  })
+
+  it('exports the Onion diagram as SVG showing its rings, elements, dependency arrow and actor, named after its own title, with no leftover "+"/"Depend on…" affordances or legend', async () => {
+    await openOnionSample()
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(clickSpy.mock.instances.at(-1)).toMatchObject({ download: `${fileSlug('Onion sample')}.svg` })
+    const markup = await captured!.text()
+    expect(markup).toContain('Domain Model') // innermost ring, drawn as-is
+    expect(markup).toContain('INFRASTRUCTURE') // outer ring, upper-cased like every non-innermost ring
+    expect(markup).toContain('>Order<') // element
+    expect(markup).toContain('>OrderController<') // element
+    expect(markup).toContain('>Web shop<') // actor
+    expect(markup).toContain('url(#onion-arrow)') // dependency/endpoint arrow
+    expect(markup).not.toMatch(/<circle[^>]*r="10"/) // no leftover ring/endpoint "+" glyph
+    expect(markup).not.toContain('Depend on…') // no leftover gesture chip
+    expect(markup).not.toMatch(/data-legend/) // Onion has no legend concept — never drawn
+
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  it('exports the Onion diagram as PNG through pngBlob, same as Hexagonal', async () => {
+    await openOnionSample()
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+
+    // jsdom implements neither image decoding nor a 2D canvas context — stub only those browser gaps so the
+    // real pngBlob (src/ui/exporters.ts) still runs its own sizing/draw/encode logic end to end. `decode` isn't
+    // defined at all on jsdom's HTMLImageElement, so it's assigned directly rather than spied on.
+    ;(HTMLImageElement.prototype as unknown as { decode: () => Promise<void> }).decode = vi.fn().mockResolvedValue(undefined)
+    const drawImage = vi.fn()
+    const contextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage } as unknown as CanvasRenderingContext2D)
+    const toBlobSpy = vi
+      .spyOn(HTMLCanvasElement.prototype, 'toBlob')
+      .mockImplementation(function (this: HTMLCanvasElement, cb: BlobCallback) {
+        cb(new Blob(['fake-png'], { type: 'image/png' }))
+      })
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export as PNG' }))
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(clickSpy.mock.instances.at(-1)).toMatchObject({ download: `${fileSlug('Onion sample')}.png` })
+    expect(drawImage).toHaveBeenCalledTimes(1)
+    expect(captured?.type).toBe('image/png')
+
+    delete (HTMLImageElement.prototype as unknown as { decode?: () => Promise<void> }).decode
+    contextSpy.mockRestore()
+    toBlobSpy.mockRestore()
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  it('still exports Hexagonal diagrams exactly as before (regression)', async () => {
+    render(<App />)
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(clickSpy.mock.instances.at(-1)).toMatchObject({ download: `${fileSlug(EXAMPLE_DIAGRAM.title)}.svg` })
+    const markup = await captured!.text()
+    expect(markup).toContain(EXAMPLE_DIAGRAM.title)
+
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+    vi.unstubAllGlobals()
+  })
+})
+
+describe('Clean export (REQ-05)', () => {
+  const openCleanSample = async () => {
+    render(<App />)
+    const file = new File([v4CleanExample], 'sample.hexa', { type: 'application/json' })
+    fireEvent.change(screen.getByLabelText('Open a .hexa file, replacing the map'), { target: { files: [file] } })
+    await act(async () => {
+      await Promise.resolve()
+    })
+  }
+
+  it('exports the Clean diagram as SVG showing its rings, sector dividers, elements, dependency arrow, actor and external, named after its own title, with no leftover "+"/"Depend on…" affordances or legend', async () => {
+    await openCleanSample()
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(clickSpy.mock.instances.at(-1)).toMatchObject({ download: `${fileSlug('Clean sample')}.svg` })
+    const markup = await captured!.text()
+    expect(markup).toContain('Entities') // innermost ring, drawn as-is
+    expect(markup).toContain('FRAMEWORKS &amp; DRIVERS') // outer ring, upper-cased like every non-innermost ring
+    expect(markup).toContain('data-sector-divider') // sector wedge dividers (REQ-08)
+    expect(markup).toContain('>Order<') // element
+    expect(markup).toContain('>OrderController<') // element
+    expect(markup).toContain('>Web shop<') // actor
+    expect(markup).toContain('>Payment gateway<') // external
+    expect(markup).toContain('url(#clean-arrow)') // dependency/endpoint arrow
+    expect(markup).not.toMatch(/<circle[^>]*r="10"/) // no leftover ring/sector/element "+" glyph
+    expect(markup).not.toContain('Depend on…') // no leftover gesture chip
+    expect(markup).not.toMatch(/data-legend/) // Clean has no legend concept — never drawn
+
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  it('exports the Clean diagram as PNG through pngBlob, same as Hexagonal/Onion', async () => {
+    await openCleanSample()
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+
+    // jsdom implements neither image decoding nor a 2D canvas context — stub only those browser gaps so the
+    // real pngBlob (src/ui/exporters.ts) still runs its own sizing/draw/encode logic end to end.
+    ;(HTMLImageElement.prototype as unknown as { decode: () => Promise<void> }).decode = vi.fn().mockResolvedValue(undefined)
+    const drawImage = vi.fn()
+    const contextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage } as unknown as CanvasRenderingContext2D)
+    const toBlobSpy = vi
+      .spyOn(HTMLCanvasElement.prototype, 'toBlob')
+      .mockImplementation(function (this: HTMLCanvasElement, cb: BlobCallback) {
+        cb(new Blob(['fake-png'], { type: 'image/png' }))
+      })
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export as PNG' }))
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(clickSpy.mock.instances.at(-1)).toMatchObject({ download: `${fileSlug('Clean sample')}.png` })
+    expect(drawImage).toHaveBeenCalledTimes(1)
+    expect(captured?.type).toBe('image/png')
+
+    delete (HTMLImageElement.prototype as unknown as { decode?: () => Promise<void> }).decode
+    contextSpy.mockRestore()
+    toBlobSpy.mockRestore()
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+    vi.unstubAllGlobals()
   })
 })

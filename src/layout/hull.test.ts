@@ -3,7 +3,7 @@ import { contextRegions, pointInRegion } from './hull'
 import { layoutMap } from './map'
 import { parseHexa } from '../model/hexa'
 import { neighbour, type Cell } from '../model/map'
-import type { HexaMap } from '../model/schema'
+import { VERSION, type HexaMap } from '../model/schema'
 import type { LayoutMode } from './layout'
 import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
 
@@ -48,7 +48,7 @@ describe('contextRegions (ADR-04)', () => {
   it('the honeycomb fixture shape (6-ring in one context, a split context of the foreign cell plus a far cell)', () => {
     const result = parseHexa(v2Honeycomb)
     expect(result.ok).toBe(true)
-    if (!result.ok) return
+    if (!result.ok || result.map.kind !== 'hexagonal') return
     const hexagons = result.map.hexagons.map((h) => ({ cell: h.cell, contextId: h.contextId }))
     const regions = contextRegions(hexagons, pitch)
     // c1 ("Core"): the 6-ring around h7 — one outer loop, one hole loop.
@@ -106,7 +106,7 @@ function seededMap(seed: number): HexaMap {
   const usedContexts = [...new Set(contextIdOf)]
   const emptyDiagram = { domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }
   return {
-    version: 2,
+    version: VERSION,
     kind: 'hexagonal',
     title: `Seeded map ${seed}`,
     contexts: usedContexts.map((id) => ({ id })),

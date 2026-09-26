@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { currentHexagon, hexagonBounds, hexagonTitle, type MapContextLayout, type MapLayout } from '../layout/map'
-import type { Shape } from '../model/kinds'
-import { bandPath } from './band'
+import { bandPath, type Shape } from './band'
 import type { LayoutEdge, LayoutModel, LayoutNode, LayoutRing, LayoutText, Point } from '../layout/layout'
 import type { Box } from '../layout/layout'
 import { LEGEND_GAP, LEGEND_HEADING, LEGEND_PAD, LEGEND_ROW, legendSections, LEGEND_SWATCH, legendSize, type LegendModel } from '../layout/legend'
@@ -12,7 +11,7 @@ const BOX_PAD_X = 12
 // The domain block is plain text on the solid domain ring.
 const FRAMELESS = new Set<LayoutNode['kind']>(['domainItem', 'note', 'portDecl', 'portLabel'])
 
-function Ring({ ring, shape, inner, interactive }: { ring: LayoutRing; shape: Shape; inner?: LayoutRing; interactive: boolean }) {
+export function Ring({ ring, shape, inner, interactive }: { ring: LayoutRing; shape: Shape; inner?: LayoutRing; interactive: boolean }) {
   const innermost = !inner
   const className = `ring ring-${ring.role}`
   const ref = `layer:${ring.role}`

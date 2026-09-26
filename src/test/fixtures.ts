@@ -4,12 +4,12 @@ import { toMap } from '../model/hexa'
 import { diagramOf } from '../model/map'
 import { EXAMPLE_DIAGRAM } from '../model/example'
 import { useMapStore } from '../model/store'
-import type { HexaMap, Link } from '../model/schema'
+import { VERSION, type HexaMap, type Link } from '../model/schema'
 
 /** One context, cells {0,0}/{1,0}: h1's driven port links to h2's driving port — the shape of the shipped example. */
 export function twoHexagonMap(): HexaMap {
   return {
-    version: 2,
+    version: VERSION,
     kind: 'hexagonal',
     title: 'Two slices, one link',
     contexts: [{ id: 'c1' }],
@@ -39,7 +39,7 @@ export const hexGroup = (container: HTMLElement, hexId: string) => container.que
 export const card = (container: HTMLElement, id: string) => container.querySelector<HTMLElement>(`[data-item-id="${id}"]`)!
 export const currentDiagram = () => diagramOf(useMapStore.getState().map, useMapStore.getState().focus)
 
-/** jsdom does not implement the dialog element's modal behaviour (v30) — ConvertDialog needs this to render. */
+/** jsdom does not implement the dialog element's modal behaviour (v30) — ArchitectureChoiceDialog needs this to render. */
 export function installDialogPolyfill() {
   HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
     this.setAttribute('open', '')

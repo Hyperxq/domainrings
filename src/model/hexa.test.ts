@@ -6,10 +6,14 @@ import { diagramOf, freeCell, placeHexagon } from './map'
 import { HexaFileV2Schema, MapSchema, VERSION, type Diagram, type HexaMap } from './schema'
 import v1Minimal from './fixtures/v1-minimal.hexa?raw'
 import v1Maximal from './fixtures/v1-maximal.hexa?raw'
+import v1Clean from './fixtures/v1-clean.hexa?raw'
+import v1Onion from './fixtures/v1-onion.hexa?raw'
 import v2TwoSlices from './fixtures/v2-two-slices.hexa?raw'
 import v2Honeycomb from './fixtures/v2-honeycomb.hexa?raw'
 import v2EmptyContext from './fixtures/v2-empty-context.hexa?raw'
 import v2SchemaSnapshot from './fixtures/v2.schema.json?raw'
+import v3OnionExample from './fixtures/v3-onion-example.hexa?raw'
+import v4CleanExample from './fixtures/v4-clean-example.hexa?raw'
 
 const errorsOf = (text: string) => {
   const result = parseHexa(text)
@@ -21,8 +25,8 @@ describe('toMap', () => {
   it('migrates a v1 diagram to a single-hexagon map, deterministically', () => {
     const map = toMap(EXAMPLE_DIAGRAM)
     expect(map).toStrictEqual({
-      version: 2,
-      kind: EXAMPLE_DIAGRAM.kind,
+      version: VERSION,
+      kind: 'hexagonal',
       title: EXAMPLE_DIAGRAM.title,
       contexts: [{ id: 'c1' }],
       hexagons: [
@@ -64,9 +68,9 @@ describe('committed v1 fixtures (MIG-01.1, 01.2, 01.4, 04.1)', () => {
   it('migrates the minimal v1 fixture (no optional fields) to a single-hexagon map with exactly those fields', () => {
     const result = parseHexa(v1Minimal)
     expect(result.ok).toBe(true)
-    if (!result.ok) return
+    if (!result.ok || result.map.kind !== 'hexagonal') return
     expect(result.map).toStrictEqual({
-      version: 2,
+      version: VERSION,
       kind: 'hexagonal',
       title: 'Minimal',
       contexts: [{ id: 'c1' }],
@@ -85,7 +89,7 @@ describe('committed v1 fixtures (MIG-01.1, 01.2, 01.4, 04.1)', () => {
     if (!result.ok) return
     // ...but survive nowhere in the migrated map: Zod strips unrecognized keys by default.
     expect(result.map).toStrictEqual({
-      version: 2,
+      version: VERSION,
       kind: 'hexagonal',
       title: 'Maximal',
       contexts: [{ id: 'c1' }],
@@ -117,6 +121,28 @@ describe('committed v1 fixtures (MIG-01.1, 01.2, 01.4, 04.1)', () => {
   })
 })
 
+// Carried followup from native-onion's verify final (obs #7473): REQ-06's v1-format branch had no fixture whose
+// stored `kind` is genuinely non-hexagonal (only the v2 branch was fixture-tested) — these two close that gap.
+describe('committed v1 fixtures with a non-hexagonal stored kind (REQ-06)', () => {
+  it('a v1 file whose stored kind is "clean" opens as Hexagonal, the kind never carried forward', () => {
+    const result = parseHexa(v1Clean)
+    expect(result.ok).toBe(true)
+    if (!result.ok || result.map.kind !== 'hexagonal') return
+    expect(result.map.title).toBe('Legacy Clean skin')
+    expect(result.v1?.kind).toBe('clean') // the raw v1 diagram still remembers its old stored kind...
+    expect('kind' in result.map.hexagons[0]).toBe(false) // ...but the migrated hexagon never carries it
+  })
+
+  it('a v1 file whose stored kind is "onion" opens as Hexagonal, the kind never carried forward', () => {
+    const result = parseHexa(v1Onion)
+    expect(result.ok).toBe(true)
+    if (!result.ok || result.map.kind !== 'hexagonal') return
+    expect(result.map.title).toBe('Legacy Onion skin')
+    expect(result.v1?.kind).toBe('onion')
+    expect('kind' in result.map.hexagons[0]).toBe(false)
+  })
+})
+
 describe('committed v2 corpus (MIG-03.2)', () => {
   it('every fixtures/v2-*.hexa file parses ok', () => {
     expect(parseHexa(v2TwoSlices)).toEqual({ ok: true, map: TWO_SLICES_MAP })
@@ -135,26 +161,38 @@ describe('committed v2 corpus (MIG-03.2)', () => {
     expect(result.ok).toBe(true)
   })
 
-  it('the v2 JSON-schema snapshot matches z.toJSONSchema(HexaFileV2Schema) while VERSION === 2', () => {
-    expect(VERSION).toBe(2)
+  // HexaFileV2Schema is frozen at version 2 regardless of VERSION (now 4, the current/v4 format) — the snapshot
+  // proves that freeze holds, independent of whichever version the app currently writes.
+  it('the v2 JSON-schema snapshot matches z.toJSONSchema(HexaFileV2Schema)', () => {
     expect(JSON.parse(v2SchemaSnapshot)).toEqual(z.toJSONSchema(HexaFileV2Schema))
+  })
+
+  it('VERSION is the current (v4) format — v1, v2 and v3 stay frozen at their own literals', () => {
+    expect(VERSION).toBe(4)
   })
 })
 
 describe('the honeycomb fixture round-trips exactly', () => {
-  it('toHexa(parse(text).map) is byte-identical to the committed file — no re-save ever drifts the fixture', () => {
+  // A v2 file is upgraded to the current (v3) version on open (REQ-06 applies the same "never trust the stored
+  // kind" coercion to version too) — so re-saving it no longer reproduces the v2 source byte-for-byte; that
+  // invariant now belongs to a v3-saved file re-parsing to the same map, which the next test covers.
+  it('opening the v2 fixture upgrades it to the current version, hexagonal, everything else unchanged', () => {
     const result = parseHexa(v2Honeycomb)
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(toHexa(result.map)).toBe(v2Honeycomb)
+    expect(result.map.version).toBe(VERSION)
+    expect(result.map.kind).toBe('hexagonal')
+    const reparsed = parseHexa(toHexa(result.map))
+    expect(reparsed).toEqual(result)
   })
 
   it('parseHexa(toHexa(map)).map toStrictEqual map after a real import onto the honeycomb', () => {
     const result = parseHexa(v2Honeycomb)
     expect(result.ok).toBe(true)
-    if (!result.ok) return
+    if (!result.ok || result.map.kind !== 'hexagonal') return
+    const map = result.map
     const view: import('./schema').Diagram = { version: 1, kind: 'hexagonal', title: 'Payments', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }
-    const { map: imported } = placeHexagon(result.map, view, { cell: freeCell(result.map, result.map.hexagons[0].cell) })
+    const { map: imported } = placeHexagon(map, view, { cell: freeCell(map, map.hexagons[0].cell) })
 
     const reopened = parseHexa(toHexa(imported))
 
@@ -166,11 +204,12 @@ describe('whole-map round trip: contexts, hexagon content, and links all survive
   it('every context keeps its name or placeholder, every hexagon its cell and content, and every link its two ends', () => {
     const before = parseHexa(v2Honeycomb)
     expect(before.ok).toBe(true)
-    if (!before.ok) return
+    if (!before.ok || before.map.kind !== 'hexagonal') return
+    const beforeMap = before.map
 
-    const reopened = parseHexa(toHexa(before.map))
+    const reopened = parseHexa(toHexa(beforeMap))
     expect(reopened.ok).toBe(true)
-    if (!reopened.ok) return
+    if (!reopened.ok || reopened.map.kind !== 'hexagonal') return
     const after = reopened.map
 
     // Contexts: the named one keeps its name, the unnamed one is still absent a name (its placeholder is derived,
@@ -181,14 +220,14 @@ describe('whole-map round trip: contexts, hexagon content, and links all survive
 
     // Hexagons: same cells, same content — including the STRESS-shaped one, whose domain/ports/adapters are the
     // richest content in the fixture.
-    expect(after.hexagons).toHaveLength(before.map.hexagons.length)
-    for (const hexagon of before.map.hexagons) {
+    expect(after.hexagons).toHaveLength(beforeMap.hexagons.length)
+    for (const hexagon of beforeMap.hexagons) {
       const reopenedHexagon = after.hexagons.find((h) => h.id === hexagon.id)
       expect(reopenedHexagon).toStrictEqual(hexagon)
     }
 
     // Links: the same two hexagons, same ports, on both ends.
-    expect(after.links).toStrictEqual(before.map.links)
+    expect(after.links).toStrictEqual(beforeMap.links)
     expect(after.links).toHaveLength(1)
     expect(after.links[0]).toMatchObject({ from: { hexagonId: 'h1', portId: 'p-out' }, to: { hexagonId: 'h4', portId: 'p-in' } })
   })
@@ -249,7 +288,7 @@ describe('.hexa round-trip preserves several links, mixed adapters, and a patter
     ],
   })
 
-  it('every link keeps its ends, adapters, and pattern exactly, and the file stays VERSION 2', () => {
+  it('every link keeps its ends, adapters, and pattern exactly, and the file stays at the current VERSION', () => {
     const map = richLinksMap()
     expect(MapSchema.safeParse(map).success).toBe(true)
 
@@ -263,11 +302,13 @@ describe('.hexa round-trip preserves several links, mixed adapters, and a patter
 })
 
 describe('the empty-context fixture is fully authored (IMP-02 regression)', () => {
-  it('carries a named context, a second EMPTY context, kind onion, and title "Legacy System"', () => {
+  // The fixture's stored kind is "onion" (a v2-era file) — REQ-06 means it now opens as Hexagonal, same as any
+  // other legacy Onion/Clean file, rather than keeping its own historical kind.
+  it('carries a named context, a second EMPTY context, opens as hexagonal (REQ-06), and title "Legacy System"', () => {
     const result = parseHexa(v2EmptyContext)
     expect(result.ok).toBe(true)
-    if (!result.ok) return
-    expect(result.map.kind).toBe('onion')
+    if (!result.ok || result.map.kind !== 'hexagonal') return
+    expect(result.map.kind).toBe('hexagonal')
     expect(result.map.title).toBe('Legacy System')
     expect(result.map.contexts).toHaveLength(2)
     const [named, empty] = result.map.contexts
@@ -280,23 +321,23 @@ describe('the empty-context fixture is fully authored (IMP-02 regression)', () =
   it('still imports cleanly via the same gateway ordinary imports use (IMP-02 regression)', () => {
     const result = parseHexa(v2EmptyContext)
     expect(result.ok).toBe(true)
-    if (!result.ok) return
+    if (!result.ok || result.map.kind !== 'hexagonal') return
     const target = toMap(EXAMPLE_DIAGRAM)
     const view = diagramOf(result.map, result.map.hexagons[0].id)
     const { map: imported } = placeHexagon(target, view, { cell: freeCell(target, target.hexagons[0].cell) })
     expect(imported.hexagons).toHaveLength(2)
-    expect(imported.kind).toBe('hexagonal') // placeHexagon always yields hexagonal (ADR-02); the file's own onion kind is dropped
+    expect(imported.kind).toBe('hexagonal') // placeHexagon always yields hexagonal (ADR-02)
   })
 })
 
-describe('.hexa v2 serialization', () => {
+describe('.hexa v3 serialization', () => {
   it('round-trips a migrated map: migrate, serialise, parse back identical', () => {
     const map = toMap(EXAMPLE_DIAGRAM)
     expect(parseHexa(toHexa(map))).toEqual({ ok: true, map })
   })
 
-  it('tags the file with the app marker and version 2', () => {
-    expect(JSON.parse(toHexa(toMap(EXAMPLE_DIAGRAM)))).toMatchObject({ app: 'domainrings', version: 2 })
+  it('tags the file with the app marker and the current version', () => {
+    expect(JSON.parse(toHexa(toMap(EXAMPLE_DIAGRAM)))).toMatchObject({ app: 'domainrings', version: VERSION })
   })
 
   it.each([
@@ -306,6 +347,55 @@ describe('.hexa v2 serialization', () => {
   ])('migrate∘migrate is idempotent for %s', (_label, diagram) => {
     const once = toMap(diagram)
     expect(parseHexa(toHexa(once))).toEqual({ ok: true, map: once })
+  })
+})
+
+describe('committed (frozen) v3 onion fixture (REQ-02, REQ-04, REQ-05 shape)', () => {
+  // v3 is frozen (ADR-03) — same upgrade-on-open convention the v2 honeycomb fixture exercises above: the fixture
+  // parses via HexaFileV3Schema, then the version number moves to VERSION on open (kind/rings/elements untouched,
+  // since v3 already discriminated kind properly — unlike v1/v2's REQ-06 coercion).
+  it('parses as kind onion with its 4 rings intact, upgraded to the current version on open', () => {
+    const result = parseHexa(v3OnionExample)
+    expect(result.ok).toBe(true)
+    if (!result.ok || result.map.kind !== 'onion') throw new Error('fixture failed to parse as onion')
+    expect(result.map.version).toBe(VERSION)
+    expect(result.map.rings.map((r) => r.role)).toEqual(['domain', 'domainServices', 'application', 'outer'])
+    expect(result.map.elements).toHaveLength(2)
+    expect(result.map.dependencies).toHaveLength(1)
+    expect(result.map.actors).toHaveLength(1)
+  })
+
+  it('re-saving the upgraded map round-trips (no longer byte-identical to the frozen v3 source — its version moved)', () => {
+    const result = parseHexa(v3OnionExample)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const reparsed = parseHexa(toHexa(result.map))
+    expect(reparsed).toEqual(result)
+  })
+})
+
+describe('current (v4) clean fixture (REQ-02, REQ-03, REQ-04, REQ-06, REQ-07, REQ-08 shape)', () => {
+  it('parses as kind clean with its 4 rings, 3 sectors (one empty), 2 elements, 1 dependency, an actor and an external', () => {
+    const result = parseHexa(v4CleanExample)
+    expect(result.ok).toBe(true)
+    if (!result.ok || result.map.kind !== 'clean') throw new Error('fixture failed to parse as clean')
+    expect(result.map.version).toBe(VERSION)
+    expect(result.map.rings.map((r) => r.role)).toEqual(['domain', 'application', 'adapters', 'outer'])
+    expect(result.map.sectors).toHaveLength(3)
+    const elementSectorIds = new Set(result.map.elements.map((e) => e.sectorId))
+    expect(result.map.sectors.filter((s) => !elementSectorIds.has(s.id))).toHaveLength(1)
+    expect(result.map.elements).toHaveLength(2)
+    expect(result.map.dependencies).toHaveLength(1)
+    expect(result.map.actors).toHaveLength(1)
+    expect(result.map.externals).toHaveLength(1)
+  })
+
+  it('round-trips: re-saving the parsed map and re-parsing it yields the same result', () => {
+    const result = parseHexa(v4CleanExample)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const reparsed = parseHexa(toHexa(result.map))
+    expect(reparsed).toEqual(result)
   })
 })
 
@@ -353,7 +443,9 @@ describe('refusals (happy-path gateway only — the full matrix lands in a later
 // (p-extra/a-extra) and a spare driving port (p-in-h1) so the "adapter not on port" and "intra-hexagon link"
 // cells can each be produced by rewriting the link's `from`/`to`/`adapterId` alone, without touching a hexagon
 // or port that the valid base's own link depends on.
-const VALID_BASE: Omit<HexaMap, 'version'> & { app: string; version: number } = {
+// The refusal matrix exercises the frozen v2 file shape (any of the 3 kinds) via parseHexa's version===2
+// branch — HexaMap's own `kind` is narrowed to 'hexagonal' only (v3), so this borrows HexaFileV2Schema's type.
+const VALID_BASE: Omit<z.infer<typeof HexaFileV2Schema>, 'version'> & { version: number } = {
   app: 'domainrings',
   version: 2,
   kind: 'hexagonal',

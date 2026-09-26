@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { addLink, contextName, crossHexagonPorts, diagramOf, freeCell, freeSides, linkEndLabel, neighbour, nextId, placeHexagon, putDiagram, pruneLinks, removeHexagon, removeLink, SIDE_ORDER, UNTITLED_HEXAGON, updateLink, type Cell } from './map'
 import { toMap } from './hexa'
 import { EXAMPLE_DIAGRAM } from './example'
-import type { Diagram, HexaMap, Link, LinkEnd } from './schema'
+import { VERSION, type Diagram, type HexaMap, type Link, type LinkEnd } from './schema'
 
 describe('diagramOf', () => {
   it('builds the v1-shaped view of a hexagon, with the map kind and no id/contextId/cell', () => {
@@ -46,7 +46,7 @@ describe('pruneLinks', () => {
   // h1's driven port p-out (adapter a-out attached) links to h2's driving port p-in; p-unrelated exists so an
   // unrelated deletion has something to remove. h2's port shares p-out's name, to prove cross-hexagon isolation.
   const baseMap = (): HexaMap => ({
-    version: 2,
+    version: VERSION,
     kind: 'hexagonal',
     title: 'Map',
     contexts: [{ id: 'c1' }],
@@ -177,7 +177,7 @@ const emptyHexagon = (id: string, contextId: string, cell: Cell, title = id) => 
 })
 
 const oneHexMap = (): HexaMap => ({
-  version: 2,
+  version: VERSION,
   kind: 'hexagonal',
   title: 'One',
   contexts: [{ id: 'c1', name: 'Billing' }],
@@ -308,12 +308,8 @@ describe('placeHexagon (ADR-02)', () => {
     expect(next.hexagons.find((h) => h.id === hexId)?.contextId).toBe(newContext.id)
   })
 
-  it('always returns kind hexagonal, converting a Clean/Onion map', () => {
-    const clean: HexaMap = { ...oneHexMap(), kind: 'clean' }
-    const { map: next } = placeHexagon(clean, view, { cell: { q: 1, r: 0 } })
-    expect(next.kind).toBe('hexagonal')
-  })
-
+  // A Clean/Onion input is no longer constructible here at all — HexaMap's `kind` is now the literal
+  // 'hexagonal' (v3, ADR-01); the guarantee this test used to check at runtime is now enforced at compile time.
   it('assigns a fresh id via nextId and drops version/kind from the view, like putDiagram', () => {
     const map = oneHexMap()
     const { hexId, map: next } = placeHexagon(map, view, { cell: { q: 1, r: 0 }, contextId: 'c1' })
@@ -333,7 +329,7 @@ describe('placeHexagon (ADR-02)', () => {
 
 describe('removeHexagon (ADR-02, ADR-03 E2)', () => {
   const twoContextMap = (): HexaMap => ({
-    version: 2,
+    version: VERSION,
     kind: 'hexagonal',
     title: 'Two',
     contexts: [{ id: 'c1', name: 'Billing' }, { id: 'c2' }],
@@ -383,7 +379,7 @@ const hexWithPorts = (id: string, contextId: string, cell: Cell, ports: HexaMap[
 
 describe('crossHexagonPorts (ADR-02)', () => {
   const threeHexMap = (): HexaMap => ({
-    version: 2,
+    version: VERSION,
     kind: 'hexagonal',
     title: 'Three',
     contexts: [{ id: 'c1' }],
@@ -425,7 +421,7 @@ describe('crossHexagonPorts (ADR-02)', () => {
 
 describe('linkEndLabel (ADR-02)', () => {
   const oneHexMap = (): HexaMap => ({
-    version: 2,
+    version: VERSION,
     kind: 'hexagonal',
     title: 'One',
     contexts: [{ id: 'c1' }],
@@ -451,7 +447,7 @@ describe('linkEndLabel (ADR-02)', () => {
 
 describe('addLink (ADR-02)', () => {
   const twoHex = (): HexaMap => ({
-    version: 2,
+    version: VERSION,
     kind: 'hexagonal',
     title: 'Two',
     contexts: [{ id: 'c1' }],
@@ -495,7 +491,7 @@ describe('addLink (ADR-02)', () => {
 
 describe('updateLink / removeLink (ADR-02, REQ-LNK-02, REQ-LNK-04)', () => {
   const twoLinksMap = (): HexaMap => ({
-    version: 2,
+    version: VERSION,
     kind: 'hexagonal',
     title: 'Two links',
     contexts: [{ id: 'c1' }],

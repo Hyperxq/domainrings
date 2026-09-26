@@ -68,14 +68,6 @@ describe('insertionPoints', () => {
       expect(e.at.y).toBeGreaterThan(lowest)
     })
 
-    it('offers only the two sides on circles', () => {
-      const clean = byLayer(pointsFor({ ...EXAMPLE_DIAGRAM, kind: 'clean' }), 'application').filter((p) => p.action.kind === 'port')
-      expect(clean.map((p) => p.action)).toEqual([
-        { kind: 'port', side: 'driving' },
-        { kind: 'port', side: 'driven' },
-      ])
-    })
-
     it('puts an overview wall "+" past the port names that run along that wall', () => {
       const model = layoutDiagram(STRESS_DIAGRAM, { mode: 'overview' })
       const walls = insertionPoints(model, STRESS_DIAGRAM, 'overview').flatMap((p) => (p.action.kind === 'port' && p.action.wall ? [{ wall: p.action.wall, at: p.at }] : []))
@@ -95,8 +87,6 @@ describe('insertionPoints', () => {
       const stress = byLayer(pointsFor(STRESS_DIAGRAM, 'overview'), 'application').flatMap((p) => (p.action.kind === 'useCase' && p.action.placement ? [p.action.placement] : []))
       // EarnPoints sits on nw at the stack's height, so both ends of that run are taken; ne is free lower down.
       expect(stress).toEqual(['w', 'sw', 'ne', 'e', 'se'])
-      const clean = { ...EXAMPLE_DIAGRAM, kind: 'clean' as const }
-      expect(byLayer(pointsFor(clean), 'application').filter((p) => p.action.kind === 'useCase').map((p) => p.action)).toEqual([{ kind: 'useCase' }])
     })
 
     it('puts a sector "+" past the use cases already on that wall', () => {
@@ -137,8 +127,6 @@ describe('insertionPoints', () => {
       const endpoints = byLayer(points, 'adapters').filter((p) => p.action.kind === 'endpoint')
       expect(endpoints.map((p) => p.action)).toEqual([{ kind: 'endpoint', side: 'driven', adapterId: 'a-quiet' }])
       expect(endpoints[0].label).toBe('Add an external system for MetricsSink')
-      const clean = byLayer(pointsFor({ ...lonely, kind: 'clean' }), 'outer').filter((p) => p.action.kind === 'endpoint')
-      expect(clean).toHaveLength(1)
     })
   })
 })
@@ -176,7 +164,6 @@ describe('insertion points never crowd the canvas', () => {
     ['feedback with a second stacked use case', extraStacked],
     ['feedback without use cases', noUseCases],
     ['stress', STRESS_DIAGRAM],
-    ['clean feedback', { ...EXAMPLE_DIAGRAM, kind: 'clean' as const }],
     [
       'three wide seats on one wall',
       {

@@ -2,10 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { layoutDiagram, type LayoutModel, type LayoutNode, type LayoutRing, type Point } from './layout'
 import { DOMAIN_TITLE, EDGE_LABEL, measure, RING_LABEL, RING_SUBTITLE } from './text'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
-import { KINDS } from '../model/kinds'
-import { DiagramSchema, type ArchitectureKind, type Diagram } from '../model/schema'
+import { HEXAGONAL_KIND } from '../model/kinds'
+import { DiagramSchema, type Diagram } from '../model/schema'
 
-const KIND_LIST: ArchitectureKind[] = ['hexagonal', 'clean', 'onion']
 const SQRT3 = Math.sqrt(3)
 const PADDING = 16
 const MIN_BAND = 36
@@ -107,8 +106,6 @@ const DOMAIN_TEXT = new Set<LayoutNode['kind']>(['domainItem', 'note', 'portDecl
 const DOMAIN_BLOCK = new Set<LayoutNode['kind']>([...DOMAIN_TEXT, 'aggregate'])
 const intoDomain = (key: string) => key.endsWith('->domain')
 
-const withKind = (kind: ArchitectureKind, d: Diagram = EXAMPLE_DIAGRAM): Diagram => ({ ...d, kind })
-
 function withManyDrivingPorts(count: number): Diagram {
   const ports = Array.from({ length: count }, (_, i) => ({ id: `xp${i}`, name: `port${i}`, side: 'driving' as const }))
   const adapters = ports.map((p, i) => ({ id: `xa${i}`, name: `Adapter${i}`, portId: p.id }))
@@ -119,9 +116,9 @@ function withManyDrivingPorts(count: number): Diagram {
   }
 }
 
-describe.each(KIND_LIST)('layoutDiagram (%s)', (kind) => {
-  const config = KINDS[kind]
-  const model = layoutDiagram(withKind(kind))
+describe('layoutDiagram', () => {
+  const config = HEXAGONAL_KIND
+  const model = layoutDiagram(EXAMPLE_DIAGRAM)
   const app = ringOf(model, 'application')
   const adapterRing = ringOf(model, 'adapters')
   const outer = model.rings[0]
@@ -129,7 +126,7 @@ describe.each(KIND_LIST)('layoutDiagram (%s)', (kind) => {
 
   it('draws one ring per configured layer, outermost first, strictly nested', () => {
     expect(model.rings.map((r) => r.role)).toEqual(config.rings.map((r) => r.role))
-    expect(model.shape).toBe(config.shape)
+    expect(model.shape).toBe('hexagon')
     for (let i = 1; i < model.rings.length; i++) {
       expect(model.rings[i].halfWidth).toBeLessThan(model.rings[i - 1].halfWidth)
       expect(model.rings[i].apex).toBeLessThan(model.rings[i - 1].apex)
@@ -165,20 +162,10 @@ describe.each(KIND_LIST)('layoutDiagram (%s)', (kind) => {
     }
   })
 
-  if (config.endpointsInside) {
-    it('keeps actors and externals inside the outermost ring, beyond the adapters', () => {
-      for (const n of model.nodes.filter((n) => n.kind === 'actor' || n.kind === 'external')) {
-        for (const c of corners(n)) expect(inside(model, outer, c)).toBe(true)
-        const adapterEdge = Math.max(...model.nodes.filter((a) => a.kind === 'adapter').map((a) => Math.abs(a.x) + a.width / 2))
-        expect(Math.min(Math.abs(left(n)), Math.abs(right(n)))).toBeGreaterThan(adapterEdge)
-      }
-    })
-  } else {
-    it('keeps actors and externals outside the outermost ring', () => {
-      for (const n of model.nodes.filter((n) => n.kind === 'actor')) expect(right(n)).toBeLessThan(-outer.halfWidth)
-      for (const n of model.nodes.filter((n) => n.kind === 'external')) expect(left(n)).toBeGreaterThan(outer.halfWidth)
-    })
-  }
+  it('keeps actors and externals outside the outermost ring', () => {
+    for (const n of model.nodes.filter((n) => n.kind === 'actor')) expect(right(n)).toBeLessThan(-outer.halfWidth)
+    for (const n of model.nodes.filter((n) => n.kind === 'external')) expect(left(n)).toBeGreaterThan(outer.halfWidth)
+  })
 
   it('lists use cases at the top of the application ring, above the inner layers', () => {
     const innerRing = model.rings[model.rings.indexOf(app) + 1]
@@ -195,30 +182,25 @@ describe.each(KIND_LIST)('layoutDiagram (%s)', (kind) => {
 
   it('hugs the domain text block with at most 24 units of padding', () => {
     const content = [...model.nodes.filter((n) => DOMAIN_BLOCK.has(n.kind)), labelBox(domainRing)]
-    const slack =
-      model.shape === 'circle'
-        ? domainRing.halfWidth - Math.max(...content.flatMap(corners).map((c) => Math.hypot(c.x, c.y)))
-        : Math.min(...content.flatMap(corners).map((c) => halfWidth(model.shape, domainRing, c.y) - Math.abs(c.x)))
+    const slack = Math.min(...content.flatMap(corners).map((c) => halfWidth(model.shape, domainRing, c.y) - Math.abs(c.x)))
     expect(slack).toBeGreaterThanOrEqual(-1e-6)
     expect(slack).toBeLessThanOrEqual(24 + 1e-6)
   })
 
-  if (model.shape === 'hexagon') {
-    it('draws every hexagon ring regular: six equal sides, pointy-top, concentric', () => {
-      for (const ring of model.rings) {
-        const vertices = [
-          { x: 0, y: -ring.apex },
-          { x: ring.halfWidth, y: -ring.straight },
-          { x: ring.halfWidth, y: ring.straight },
-          { x: 0, y: ring.apex },
-          { x: -ring.halfWidth, y: ring.straight },
-          { x: -ring.halfWidth, y: -ring.straight },
-        ]
-        const sides = vertices.map((v, i) => Math.hypot(vertices[(i + 1) % 6].x - v.x, vertices[(i + 1) % 6].y - v.y))
-        for (const side of sides) expect(side).toBeCloseTo(ring.apex, 6)
-      }
-    })
-  }
+  it('draws every hexagon ring regular: six equal sides, pointy-top, concentric', () => {
+    for (const ring of model.rings) {
+      const vertices = [
+        { x: 0, y: -ring.apex },
+        { x: ring.halfWidth, y: -ring.straight },
+        { x: ring.halfWidth, y: ring.straight },
+        { x: 0, y: ring.apex },
+        { x: -ring.halfWidth, y: ring.straight },
+        { x: -ring.halfWidth, y: -ring.straight },
+      ]
+      const sides = vertices.map((v, i) => Math.hypot(vertices[(i + 1) % 6].x - v.x, vertices[(i + 1) % 6].y - v.y))
+      for (const side of sides) expect(side).toBeCloseTo(ring.apex, 6)
+    }
+  })
 
   it('sizes every outer ring to its content: shrinking it by 2×padding would break something', () => {
     for (let i = 0; i < model.rings.length - 1; i++) {
@@ -247,7 +229,6 @@ describe.each(KIND_LIST)('layoutDiagram (%s)', (kind) => {
           return edge < halfWidth(model.shape, inner, n.y) || edge < busLane(Math.sign(n.x)) + 12
         })
       const rowsLeaveStraightSide =
-        model.shape === 'hexagon' &&
         (ring === app || ring === adapterRing) &&
         model.nodes.filter((n) => n.kind === 'port' || n.kind === 'adapter').some((n) => Math.abs(n.y) + n.height / 2 > shrunk.straight)
       const bandTooThin = shrunk.halfWidth - inner.halfWidth < MIN_BAND
@@ -276,7 +257,7 @@ describe.each(KIND_LIST)('layoutDiagram (%s)', (kind) => {
   })
 
   it('grows the rings and the viewBox when the taller side gains rows', () => {
-    const bigger = layoutDiagram(withKind(kind, withManyDrivingPorts(8)))
+    const bigger = layoutDiagram(withManyDrivingPorts(8))
     expect(ringOf(bigger, 'application').apex).toBeGreaterThan(app.apex)
     expect(bigger.bounds.height).toBeGreaterThan(model.bounds.height)
     for (const n of bigger.nodes.filter((n) => n.kind === 'port' && n.side === 'driving')) {
@@ -317,7 +298,7 @@ describe.each(KIND_LIST)('layoutDiagram (%s)', (kind) => {
     for (const e of model.edges) {
       for (const [a, b] of segments(e.points)) {
         const deg = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI
-        const alongWall = e.kind === 'wiring' && model.shape === 'hexagon' && [30, 150, -30, -150].some((t) => Math.abs(deg - t) < 1e-6)
+        const alongWall = e.kind === 'wiring' && [30, 150, -30, -150].some((t) => Math.abs(deg - t) < 1e-6)
         expect(a.x === b.x || a.y === b.y || alongWall).toBe(true)
       }
     }
@@ -581,11 +562,9 @@ describe('type tags: one glyph + word per element', () => {
   describe.each([
     ['hexagonal feedback', EXAMPLE_DIAGRAM],
     ['hexagonal stress', STRESS_DIAGRAM],
-    ['clean stress', { ...STRESS_DIAGRAM, kind: 'clean' as const }],
-    ['onion with a service', { ...STRESS_DIAGRAM, kind: 'onion' as const, domain: [...STRESS_DIAGRAM.domain, { id: 's', name: 'Pricing', type: 'domainService' as const }] }],
   ])('%s', (_, diagram) => {
     const model = layoutDiagram(diagram)
-    const labels = KINDS[diagram.kind].labels
+    const labels = HEXAGONAL_KIND.labels
     const nodesOf = (ref: string) => model.nodes.filter((n) => n.ref === ref && n.kind !== 'portDecl')
 
     it('tags every domain item exactly once, with its type glyph', () => {
@@ -636,10 +615,6 @@ describe('guides, tones and modes', () => {
     })
   })
 
-  it('draws no spokes on circles', () => {
-    expect(layoutDiagram({ ...EXAMPLE_DIAGRAM, kind: 'clean' }).guides).toEqual([])
-  })
-
   it('colours by side: driving pills, driven adapters, slate external systems', () => {
     const m = layoutDiagram(EXAMPLE_DIAGRAM)
     const toneOf = (kind: LayoutNode['kind'], side?: string) => new Set(m.nodes.filter((n) => n.kind === kind && (!side || n.side === side)).map((n) => n.tone))
@@ -652,7 +627,6 @@ describe('guides, tones and modes', () => {
   describe.each([
     ['feedback', EXAMPLE_DIAGRAM],
     ['stress', STRESS_DIAGRAM],
-    ['clean feedback', { ...EXAMPLE_DIAGRAM, kind: 'clean' as const }],
   ])('overview of the %s example', (_, diagram) => {
     const detailed = layoutDiagram(diagram)
     const overview = layoutDiagram(diagram, { mode: 'overview' })
@@ -748,8 +722,6 @@ describe('overview port labels', () => {
   describe.each([
     ['feedback', EXAMPLE_DIAGRAM],
     ['six-wall stress', STRESS_DIAGRAM],
-    ['clean feedback', withKind('clean')],
-    ['onion stress', withKind('onion', STRESS_DIAGRAM)],
     ['long names', LONG_NAMES],
     ['lower walls', LOWER_WALLS],
     ['side walls only', SIDE_WALLS_ONLY],
@@ -843,9 +815,8 @@ describe('overview port labels', () => {
 })
 
 describe('layer membership for hover', () => {
-  it.each(KIND_LIST)('tags each element with the ring it belongs to (%s)', (kind) => {
-    const m = layoutDiagram({ ...STRESS_DIAGRAM, kind })
-    const outerRole = m.rings[0].role
+  it('tags each element with the ring it belongs to', () => {
+    const m = layoutDiagram(STRESS_DIAGRAM)
     for (const n of m.nodes) {
       const expected =
         n.kind === 'useCase'
@@ -853,7 +824,7 @@ describe('layer membership for hover', () => {
           : n.kind === 'port' || n.kind === 'adapter'
             ? 'adapters'
             : n.kind === 'actor' || n.kind === 'external'
-              ? KINDS[kind].endpointsInside ? outerRole : undefined
+              ? undefined
               : n.kind === 'composition'
                 ? undefined
                 : 'domain'
@@ -897,7 +868,6 @@ describe('domain title on sparse diagrams', () => {
   it.each([
     ['an empty diagram', empty],
     ['a single domain item', single],
-    ['an empty clean diagram', { ...empty, kind: 'clean' as const }],
   ])('keeps every title at the shared depth for %s, the domain title above the ring centre', (_, diagram) => {
     const m = layoutDiagram(diagram)
     const depths = m.rings.map((ring) => top(labelBox(ring)) + ring.apex)
@@ -1110,7 +1080,7 @@ describe('use cases placed on a wall', () => {
       const run = { x: b.x - a.x, y: b.y - a.y }
       expect(Math.abs(run.x * n.y - run.y * n.x)).toBeLessThan(1e-6)
       expect(dot(run, n)).toBeLessThan(-12)
-      expect(e.label).toBe(KINDS.hexagonal.labels.runs)
+      expect(e.label).toBe(HEXAGONAL_KIND.labels.runs)
     })
 
     it('still reaches its ports on other walls through the bus', () => {
@@ -1290,11 +1260,10 @@ describe('use cases placed on a wall', () => {
     expect(us.reduce((a, b) => a + b, 0) / us.length).toBeCloseTo(0, 6)
   })
 
-  it('treats an explicit top placement as no placement, and circles ignore placement', () => {
+  it('treats an explicit top placement as no placement', () => {
     const top = { ...STRESS_DIAGRAM, useCases: STRESS_DIAGRAM.useCases.map((u) => ({ ...u, placement: 'top' as const })) }
     const none = { ...STRESS_DIAGRAM, useCases: STRESS_DIAGRAM.useCases.map(({ placement: _, ...u }) => u) }
     expect(layoutDiagram(top)).toEqual(layoutDiagram(none))
-    expect(layoutDiagram(withKind('clean', STRESS_DIAGRAM))).toEqual(layoutDiagram(withKind('clean', none)))
   })
 })
 
@@ -1448,18 +1417,6 @@ describe('layoutDiagram placement rules', () => {
     const m = layoutDiagram(d)
     const service = find(m, 'domainItem', 'd-policy')
     for (const id of ['d-feedback', 'd-rating', 'd-email']) expect(service.y).toBeGreaterThan(find(m, 'domainItem', id).y)
-  })
-
-  it('puts onion domain services in the Domain Services ring, not the Domain Model', () => {
-    const d: Diagram = {
-      ...EXAMPLE_DIAGRAM,
-      kind: 'onion',
-      domain: [...EXAMPLE_DIAGRAM.domain, { id: 'd-policy', name: 'RatingPolicy', type: 'domainService' }],
-    }
-    const m = layoutDiagram(d)
-    const service = find(m, 'domainItem', 'd-policy')
-    expect(top(service)).toBeLessThan(-ringOf(m, 'domain').apex)
-    for (const c of corners(service)) expect(inside(m, ringOf(m, 'domainServices'), c)).toBe(true)
   })
 
   it('lays out an empty diagram with finite geometry', () => {

@@ -1,0 +1,12 @@
+{
+  "app": "domainrings",
+  "version": 1,
+  "kind": "clean",
+  "title": "Legacy Clean skin",
+  "domain": [],
+  "useCases": [],
+  "ports": [],
+  "adapters": [],
+  "actors": [],
+  "externals": []
+}

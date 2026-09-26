@@ -362,7 +362,7 @@ describe('Stage — the single fit control fits the whole map on 2+ hexagons (FI
     const restore = stubFixedSize(800, 600)
     try {
       const result = parseHexa(v2Honeycomb)
-      if (!result.ok) throw new Error('fixture failed to parse')
+      if (!result.ok || result.map.kind !== 'hexagonal') throw new Error('fixture failed to parse')
       useMapStore.getState().replace(result.map)
       const { container } = render(<Harness />)
 
@@ -743,7 +743,7 @@ describe('Stage — the honeycomb fixture stays disjoint with every hexagon curr
   }
   const honeycombMap = (): HexaMap => {
     const result = parseHexa(v2Honeycomb)
-    if (!result.ok) throw new Error('fixture failed to parse')
+    if (!result.ok || result.map.kind !== 'hexagonal') throw new Error('fixture failed to parse')
     return result.map
   }
 

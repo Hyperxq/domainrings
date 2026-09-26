@@ -1,6 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
-import { KINDS } from '../model/kinds'
+import { HEXAGONAL_KIND } from '../model/kinds'
 import {
   defaultWall,
   DomainTypeSchema,
@@ -91,8 +91,9 @@ interface FoldProps {
   children: ReactNode
 }
 
-/** A collapsible editor section, open by default; each one remembers whether it was left open. */
-function Fold({ id, title, count, actions, children }: FoldProps) {
+/** A collapsible editor section, open by default; each one remembers whether it was left open — shared with
+ * OnionEditor (its own sections follow the same fold/remember-state convention, not a parallel one). */
+export function Fold({ id, title, count, actions, children }: FoldProps) {
   const [open, setOpen] = useState(() => readSections()[id] ?? true)
   const settle = (next: boolean) => {
     setOpen(next)
@@ -366,9 +367,8 @@ export function Editor({
   onPrune: OnPrune
   onAddHexagon: () => void
   onDeleteHexagon: () => void
-  /** Imports the chosen file's one hexagon (IMP-01); `opener` is whatever had focus when the destination was
-   * chosen — the trigger below — so the caller can restore it after a conversion question (CONV-02.1). */
-  onAddFromFile: (file: File, context: Destination, opener: HTMLElement | null) => void
+  /** Imports the chosen file's one hexagon (IMP-01). */
+  onAddFromFile: (file: File, context: Destination) => void
   /** The current hexagon's own bounded context, for the import menu's "Import into {context}" choice. */
   contextLabel: string
   /** Reports a context rename/clear session (focus → blur) that actually changed the name, with the map from
@@ -385,14 +385,13 @@ export function Editor({
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   const d = diagramOf(map, hexId)
-  const labels = KINDS[d.kind].labels
+  const labels = HEXAGONAL_KIND.labels
   const adaptersOn = adaptersBySide(d)
   const sideLabel: Record<Side, string> = { driving: labels.drivingPort, driven: labels.drivenPort }
   const currentCell = map.hexagons.find((h) => h.id === hexId)?.cell
   const canGrow = !!currentCell && freeSides(map, currentCell).length > 0
   const canDelete = map.hexagons.length > 1
   const importContext = useRef<Destination>('same')
-  const importOpener = useRef<HTMLElement | null>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
   // Keyed by contextId, so renaming two contexts in the same session (unlikely, but never concurrent within one
   // input) each keeps its own pre-edit snapshot from focus to blur.
@@ -421,7 +420,6 @@ export function Editor({
             ]}
             onChoose={(context) => {
               importContext.current = context
-              importOpener.current = document.activeElement as HTMLElement | null
               importInputRef.current?.click()
             }}
           />
@@ -433,7 +431,7 @@ export function Editor({
             aria-label="Add hexagon from a .hexa file"
             onChange={(e) => {
               const file = e.currentTarget.files?.[0]
-              if (file) onAddFromFile(file, importContext.current, importOpener.current)
+              if (file) onAddFromFile(file, importContext.current)
               e.currentTarget.value = ''
             }}
           />
@@ -499,9 +497,9 @@ export function Editor({
           </HintedButton>
         </Fold>
 
-        <Fold id="layers" title="Layers" count={KINDS[d.kind].rings.length}>
+        <Fold id="layers" title="Layers" count={HEXAGONAL_KIND.rings.length}>
           <ul className="items">
-            {KINDS[d.kind].rings.map((ring) => {
+            {HEXAGONAL_KIND.rings.map((ring) => {
               const override = d.layers?.[ring.role]
               const setLayer = (patch: { title?: string; subtitle?: string }) =>
                 setMeta(hexId, { layers: { ...d.layers, [ring.role]: { ...override, ...patch } } as Diagram['layers'] })
@@ -555,17 +553,15 @@ export function Editor({
           title="Use cases"
           noun="use case"
           empty="No use cases yet. Add what the application does."
-          fields={(item, update) =>
-            KINDS[d.kind].shape === 'hexagon' && (
-              <label className="field">
-                <span>Placement</span>
-                <select aria-label="Placement" value={item.placement ?? 'top'} onChange={(e) => update({ placement: e.target.value === 'top' ? undefined : WallSchema.parse(e.target.value) })}>
-                  <option value="top">Under the title</option>
-                  {WallSchema.options.map((w) => <option key={w} value={w}>{WALL_LABEL[w]}</option>)}
-                </select>
-              </label>
-            )
-          }
+          fields={(item, update) => (
+            <label className="field">
+              <span>Placement</span>
+              <select aria-label="Placement" value={item.placement ?? 'top'} onChange={(e) => update({ placement: e.target.value === 'top' ? undefined : WallSchema.parse(e.target.value) })}>
+                <option value="top">Under the title</option>
+                {WallSchema.options.map((w) => <option key={w} value={w}>{WALL_LABEL[w]}</option>)}
+              </select>
+            </label>
+          )}
         />
 
         <Section
@@ -599,16 +595,14 @@ export function Editor({
                   {SideSchema.options.map((s) => <option key={s} value={s}>{sideLabel[s]}</option>)}
                 </select>
               </label>
-              {KINDS[d.kind].shape === 'hexagon' && (
-                <label className="field">
-                  <span>Wall</span>
-                  <select value={item.wall ?? defaultWall(item.side)} onChange={(e) => update({ wall: WallSchema.parse(e.target.value) })}>
-                    {WallSchema.options
-                      .filter((w) => DRIVING_WALLS.has(w) === (item.side === 'driving'))
-                      .map((w) => <option key={w} value={w}>{WALL_LABEL[w]}</option>)}
-                  </select>
-                </label>
-              )}
+              <label className="field">
+                <span>Wall</span>
+                <select value={item.wall ?? defaultWall(item.side)} onChange={(e) => update({ wall: WallSchema.parse(e.target.value) })}>
+                  {WallSchema.options
+                    .filter((w) => DRIVING_WALLS.has(w) === (item.side === 'driving'))
+                    .map((w) => <option key={w} value={w}>{WALL_LABEL[w]}</option>)}
+                </select>
+              </label>
               <LinkSelect label="Use case" value={item.useCaseId} options={d.useCases} onChange={(useCaseId) => update({ useCaseId })} />
             </>
           )}
