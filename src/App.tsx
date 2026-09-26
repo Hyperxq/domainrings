@@ -361,17 +361,14 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         const file = activeKind === 'onion' ? onionMap : map
         return download(toHexa(file), `${fileSlug(file.title)}.hexa`, 'application/json')
       }
-      if (activeKind === 'onion') {
-        show({ tone: 'error', message: 'Exporting an Onion diagram as SVG or PNG is not available yet.' })
-        return
-      }
       if (!svgRef.current) return
-      // Only a multi-hexagon map has a scope to honour — a single hexagon always exports map-shaped (EXPORT-03.1).
-      const scoped = exportScope === 'hexagon' && multiHexagon
-      const frame = scoped ? hexagonBounds(currentHexagon(model, hexId)) : model.bounds
-      const exportTitle = scoped ? diagram.title || UNTITLED_HEXAGON : map.title
+      // Export scope (Hexagon vs Map) only exists for a multi-hexagon Hexagonal map (EXPORT-03.1) — Onion is
+      // always one diagram, so it never scopes and never carries a legend (it has no legend panel at all).
+      const scoped = activeKind === 'hexagonal' && exportScope === 'hexagon' && multiHexagon
+      const frame = activeKind === 'onion' ? onionModel.bounds : scoped ? hexagonBounds(currentHexagon(model, hexId)) : model.bounds
+      const exportTitle = activeKind === 'onion' ? onionMap.title : scoped ? diagram.title || UNTITLED_HEXAGON : map.title
       const name = fileSlug(exportTitle)
-      const options = { legend: legendInExport, legendHeight: legendSize(legend).height, only: scoped ? hexId : undefined }
+      const options = { legend: activeKind === 'hexagonal' && legendInExport, legendHeight: legendSize(legend).height, only: scoped ? hexId : undefined }
       const markup = await svgMarkup(svgRef.current, frame, exportTitle, options)
       if (format === 'svg') download(markup, `${name}.svg`, 'image/svg+xml')
       else download(await pngBlob(markup, exportBounds(frame, { ...options, legend: legendDrawn(svgRef.current, options) })), `${name}.png`)
@@ -383,7 +380,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   return (
     <>
       <Toolbar
-        showScope={multiHexagon}
+        showScope={activeKind === 'hexagonal' && multiHexagon}
         exportScope={exportScope}
         onExportScope={setExportScope}
         themeChoice={themeChoice}

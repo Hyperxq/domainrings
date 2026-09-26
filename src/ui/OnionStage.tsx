@@ -115,6 +115,7 @@ export function OnionStage({ model, doc, svgRef, onReject }: OnionStageProps) {
         {selectedElement && !linking && validTargets.length > 0 && (
           <g
             className="onion-depend-chip"
+            data-plus=""
             transform={`translate(${selectedElement.x} ${selectedElement.y - 26})`}
             tabIndex={0}
             role="button"

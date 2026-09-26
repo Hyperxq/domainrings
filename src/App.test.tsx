@@ -2015,3 +2015,122 @@ describe('the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
     expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
   })
 })
+
+describe('Onion export (REQ-08)', () => {
+  const openOnionSample = async () => {
+    render(<App />)
+    const file = new File([v3OnionExample], 'sample.hexa', { type: 'application/json' })
+    fireEvent.change(screen.getByLabelText('Open a .hexa file, replacing the map'), { target: { files: [file] } })
+    await act(async () => {
+      await Promise.resolve()
+    })
+  }
+
+  it('never offers the Hexagon/Map export scope for Onion, even behind a dormant multi-hexagon Hexagonal map', async () => {
+    useMapStore.getState().replace(twoHexMap())
+    await openOnionSample()
+    expect(useOnionStore.getState().map.kind).toBe('onion')
+    expect(screen.queryByRole('group', { name: 'Export scope' })).toBeNull()
+  })
+
+  it('exports the Onion diagram as SVG showing its rings, elements, dependency arrow and actor, named after its own title, with no leftover "+"/"Depend on…" affordances or legend', async () => {
+    await openOnionSample()
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(clickSpy.mock.instances.at(-1)).toMatchObject({ download: `${fileSlug('Onion sample')}.svg` })
+    const markup = await captured!.text()
+    expect(markup).toContain('Domain Model') // innermost ring, drawn as-is
+    expect(markup).toContain('INFRASTRUCTURE') // outer ring, upper-cased like every non-innermost ring
+    expect(markup).toContain('>Order<') // element
+    expect(markup).toContain('>OrderController<') // element
+    expect(markup).toContain('>Web shop<') // actor
+    expect(markup).toContain('url(#onion-arrow)') // dependency/endpoint arrow
+    expect(markup).not.toMatch(/<circle[^>]*r="10"/) // no leftover ring/endpoint "+" glyph
+    expect(markup).not.toContain('Depend on…') // no leftover gesture chip
+    expect(markup).not.toMatch(/data-legend/) // Onion has no legend concept — never drawn
+
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  it('exports the Onion diagram as PNG through pngBlob, same as Hexagonal', async () => {
+    await openOnionSample()
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+
+    // jsdom implements neither image decoding nor a 2D canvas context — stub only those browser gaps so the
+    // real pngBlob (src/ui/exporters.ts) still runs its own sizing/draw/encode logic end to end. `decode` isn't
+    // defined at all on jsdom's HTMLImageElement, so it's assigned directly rather than spied on.
+    ;(HTMLImageElement.prototype as unknown as { decode: () => Promise<void> }).decode = vi.fn().mockResolvedValue(undefined)
+    const drawImage = vi.fn()
+    const contextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage } as unknown as CanvasRenderingContext2D)
+    const toBlobSpy = vi
+      .spyOn(HTMLCanvasElement.prototype, 'toBlob')
+      .mockImplementation(function (this: HTMLCanvasElement, cb: BlobCallback) {
+        cb(new Blob(['fake-png'], { type: 'image/png' }))
+      })
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export as PNG' }))
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(clickSpy.mock.instances.at(-1)).toMatchObject({ download: `${fileSlug('Onion sample')}.png` })
+    expect(drawImage).toHaveBeenCalledTimes(1)
+    expect(captured?.type).toBe('image/png')
+
+    delete (HTMLImageElement.prototype as unknown as { decode?: () => Promise<void> }).decode
+    contextSpy.mockRestore()
+    toBlobSpy.mockRestore()
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  it('still exports Hexagonal diagrams exactly as before (regression)', async () => {
+    render(<App />)
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(clickSpy.mock.instances.at(-1)).toMatchObject({ download: `${fileSlug(EXAMPLE_DIAGRAM.title)}.svg` })
+    const markup = await captured!.text()
+    expect(markup).toContain(EXAMPLE_DIAGRAM.title)
+
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+    vi.unstubAllGlobals()
+  })
+})
