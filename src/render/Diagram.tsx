@@ -14,11 +14,18 @@ const FRAMELESS = new Set<LayoutNode['kind']>(['domainItem', 'note', 'portDecl',
 
 /** An arc centred at `centerAngle`, spanning `2 * halfSpan` radians, reading left→right — the path a ringed
  * (Onion/Clean) curved `<textPath>` rides, whether a ring's own title (always centred at the top, 12 o'clock) or
- * Clean's own per-sector wedge label (Decision 4, centred at the wedge's own mid-angle instead). `M`/`A`, not a
- * closed loop: this path is never painted, only referenced. */
+ * Clean's own per-sector wedge label (Decision 4, centred anywhere around the ring, at the wedge's own mid-angle).
+ * `M`/`A`, not a closed loop: this path is never painted, only referenced. A ring's own title never leaves the
+ * top half, where `M→A` in increasing-angle order already reads left-to-right; a sector name can centre in the
+ * BOTTOM half too, where that same order runs backwards (decreasing X), rendering every glyph upside down/mirrored
+ * (the reported sector-label garbling at the bottom of the outer ring) — swapping the path's own two ends (and
+ * its sweep with them) for a bottom-half centre keeps the rendered text upright wherever it sits. */
 export function ringedArcPath(radius: number, centerAngle: number, halfSpan: number): string {
   const at = (angle: number) => `${radius * Math.cos(angle)} ${radius * Math.sin(angle)}`
-  return `M${at(centerAngle - halfSpan)}A${radius} ${radius} 0 0 1 ${at(centerAngle + halfSpan)}`
+  const flip = Math.sin(centerAngle) > 0
+  const from = flip ? centerAngle + halfSpan : centerAngle - halfSpan
+  const to = flip ? centerAngle - halfSpan : centerAngle + halfSpan
+  return `M${at(from)}A${radius} ${radius} 0 0 ${flip ? 0 : 1} ${at(to)}`
 }
 
 /** A ringed (Onion/Clean) ring's own title, curved along its band's own mid-radius arc (ADR-01: the ringed-only

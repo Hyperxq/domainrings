@@ -27,3 +27,35 @@ describe('motion tokens', () => {
     for (const token of ['--motion-fast', '--motion-base']) expect(reduce).toMatch(new RegExp(`${token}:\\s*0s`))
   })
 })
+
+// An Onion/Clean actor/external's name sits directly on the canvas background, next to its own dot — unlike a
+// Hexagonal tone pill, where the SAME `.tone-driving`/`.tone-driven` classes' text sits on top of a solid,
+// saturated fill (`--driving-fill`/`--driven-fill`). `--driving-ink`/`--driven-ink` are tuned for contrast
+// against THAT fill (near-white in every palette/theme) — reused as-is for text on the plain canvas background,
+// they vanish in light theme (near-white on a near-white page). `.node-ringedEndpoint` needs the ordinary,
+// theme-aware canvas ink instead, overriding the tone rule.
+// A Clean sector's own name used to fade to opacity 0.85 (0.75 on the domain ring) ON TOP OF an already-small,
+// already-lighter-weight font — compounding two "make it recede" signals left it nearly invisible at fit
+// (reported: "nearly invisible" sector names). --muted/--domain-ink already clear WCAG AA on their own
+// (palette.test.ts's TEXT_PAIRS); size and weight alone carry the ring > sector hierarchy now.
+describe('a Clean sector label never dims below its own already-validated text colour', () => {
+  it('.sector-label and .sector-label.on-domain carry no opacity of their own', () => {
+    for (const selector of ['.canvas .sector-label {', '.canvas .sector-label.on-domain {']) {
+      const start = css.indexOf(selector)
+      expect(start).toBeGreaterThan(-1)
+      const rule = css.slice(start, css.indexOf('}', start) + 1)
+      expect(rule).not.toMatch(/opacity:\s*0\.\d/)
+    }
+  })
+})
+
+describe('a ringed endpoint\'s own name reads on the canvas, not the tone pill\'s ink', () => {
+  it('overrides the tone-driving/tone-driven text colour with the canvas ink for .node-ringedEndpoint', () => {
+    const toneRuleIndex = css.indexOf('.canvas .tone-driven text, .canvas .tone-driven tspan { fill: var(--driven-ink); }')
+    expect(toneRuleIndex).toBeGreaterThan(-1)
+    const overrideIndex = css.indexOf('.node-ringedEndpoint')
+    expect(overrideIndex).toBeGreaterThan(toneRuleIndex)
+    const overrideRule = css.slice(overrideIndex, css.indexOf('}', overrideIndex) + 1)
+    expect(overrideRule).toContain('fill: var(--ink)')
+  })
+})

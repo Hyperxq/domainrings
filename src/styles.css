@@ -47,9 +47,13 @@
 .canvas .ring-label.on-domain { fill: var(--domain-ink); }
 .canvas .domain-title { fill: var(--domain-ink); font-weight: 600; text-anchor: middle; }
 .canvas .ring-subtitle { fill: var(--muted); text-anchor: middle; }
-/* A sector's own name (Decision 4) — smaller and lighter than a ring's own title, so the hierarchy (ring > sector) still reads. */
-.canvas .sector-label { fill: var(--muted); font-weight: 500; letter-spacing: 0.6px; text-anchor: middle; opacity: 0.85; }
-.canvas .sector-label.on-domain { fill: var(--domain-ink); opacity: 0.75; }
+/* A sector's own name (Decision 4) — smaller, lighter-weight and less letter-spaced than a ring's own title, so
+   the hierarchy (ring > sector) still reads from size/weight alone; unlike an earlier version, it is never ALSO
+   dimmed by opacity — --muted and --domain-ink already sit at their own validated 4.5:1 (palette.test.ts's own
+   TEXT_PAIRS), and fading either past that on top of a font already smaller than the ring title left it too
+   faint to read at fit (the reported near-invisible sector names). */
+.canvas .sector-label { fill: var(--muted); font-weight: 500; letter-spacing: 0.6px; text-anchor: middle; }
+.canvas .sector-label.on-domain { fill: var(--domain-ink); }
 .guide { stroke: var(--muted); stroke-opacity: var(--guide-opacity); stroke-width: 1; stroke-dasharray: 6 5; }
 .canvas .line-name { font-family: var(--font-mono); font-weight: 500; }
 .text-button[aria-pressed='true'] { background: var(--teal-soft); color: var(--teal); }
@@ -255,6 +259,10 @@
 .tone-driven .box { fill: var(--driven-fill); stroke: var(--driven-line); stroke-width: 1; }
 .canvas .tone-driving text, .canvas .tone-driving tspan { fill: var(--driving-ink); }
 .canvas .tone-driven text, .canvas .tone-driven tspan { fill: var(--driven-ink); }
+/* An Onion/Clean actor/external's own name sits directly on the canvas background, beside its dot — not on a
+   filled tone pill like Hexagonal's own driving/driven boxes, where --driving-ink/--driven-ink (near-white in
+   every theme) actually read; on the plain canvas that same near-white text vanishes in light theme. */
+.canvas .node-ringedEndpoint text, .canvas .node-ringedEndpoint tspan { fill: var(--ink); }
 .tone-slate .box { fill: var(--slate-soft); stroke: var(--slate); }
 .tone-teal .box { fill: var(--card); stroke: var(--teal); }
 .node-useCase .box { fill: none; stroke: var(--teal); stroke-width: 1.5; }

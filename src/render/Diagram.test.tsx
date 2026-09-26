@@ -2,7 +2,7 @@ import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { MapDiagram } from './Diagram'
+import { MapDiagram, ringedArcPath } from './Diagram'
 import { layoutMap } from '../layout/map'
 import { toMap } from '../model/hexa'
 import { EXAMPLE_DIAGRAM } from '../model/example'
@@ -316,5 +316,31 @@ describe('MapDiagram — context hulls and chips (CB-01, CB-02, CB-05)', () => {
       expect(chip.getAttribute('aria-hidden')).toBe('true')
       expect(chip.textContent).toBe(context.label)
     }
+  })
+})
+
+// A ring's own title always centres at the top (-π/2) — `ringedArcPath`'s M→A direction has always read correctly
+// there. A Clean sector's own name (Decision 4) can centre ANYWHERE around the ring, including the bottom half:
+// reusing the exact same start→end order there ran the path's own X backwards (start X > end X), which renders
+// every glyph upside down/mirrored (the reported sector-label "stray" garbling at the bottom of the outer ring) —
+// the fix flips the path's own direction (and sweep) whenever the centre angle falls in the lower half, so the
+// path always reads left-to-right regardless of where around the ring it sits.
+describe('ringedArcPath — the path always reads left-to-right, wherever around the ring it centres', () => {
+  it.each([
+    ['top', -Math.PI / 2],
+    ['bottom', Math.PI / 2],
+    ['upper-right', -Math.PI / 4],
+    ['upper-left', (-3 * Math.PI) / 4],
+    ['bottom-right', Math.PI / 4],
+    ['bottom-left', (3 * Math.PI) / 4],
+    // Exactly ±0/π are the one structural exception: the arc's own two ends are symmetric in X there (a sector
+    // dead centred on the ring's own left or right side), so there is no "left-to-right" reading direction to
+    // preserve — nothing here needs to hold at exactly those two angles.
+  ] as const)('%s (centerAngle=%d): the path\'s own start X is less than its end X', (_label, centerAngle) => {
+    const d = ringedArcPath(200, centerAngle, 0.3)
+    const m = d.match(/^M(-?[\d.]+) (-?[\d.]+)A[\d.]+ [\d.]+ 0 0 \d (-?[\d.]+) (-?[\d.]+)$/)
+    expect(m).not.toBeNull()
+    const [, startX, , endX] = m!.map(Number)
+    expect(startX).toBeLessThan(endX)
   })
 })
