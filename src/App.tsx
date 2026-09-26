@@ -65,7 +65,8 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // since its UI never mounts — and `activeKind` (flipped by the chooser and by swap()) decides which renders.
   const [activeKind, setActiveKind] = useState<StoredFile['kind']>(() => boot.kind ?? 'hexagonal')
   const onionMap = useOnionStore((s) => s.map)
-  const onionModel = layoutOnion(onionMap)
+  // Onion's own layout is only ever read while its view is active (export, OnionStage) — skip it on a Hexagonal render.
+  const onionModel = activeKind === 'onion' ? layoutOnion(onionMap) : undefined
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   // The undo snapshot every action below restores on request; each site takes it as-is or spreads `swap: true`.
@@ -362,7 +363,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const scoped = canScopeExport && exportScope === 'hexagon'
   const active =
     activeKind === 'onion'
-      ? { file: onionMap, bounds: onionModel.bounds, title: onionMap.title, scoped: false, legend: false }
+      ? { file: onionMap, bounds: onionModel!.bounds, title: onionMap.title, scoped: false, legend: false }
       : { file: map, bounds: scoped ? hexagonBounds(currentHexagon(model, hexId)) : model.bounds, title: scoped ? diagram.title || UNTITLED_HEXAGON : map.title, scoped, legend: legendInExport }
 
   const exportAs = async (format: 'hexa' | 'svg' | 'png') => {
@@ -484,7 +485,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       {activeKind === 'onion' && (
         <>
           <OnionEditor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} />
-          <OnionStage model={onionModel} doc={onionMap} svgRef={svgRef} onReject={(message) => show({ tone: 'error', message })} />
+          <OnionStage model={onionModel!} doc={onionMap} svgRef={svgRef} onReject={(message) => show({ tone: 'error', message })} />
         </>
       )}
       {choosingArchitecture && <ArchitectureChoiceDialog onChoose={completeNew} onCancel={() => setChoosingArchitecture(false)} />}
