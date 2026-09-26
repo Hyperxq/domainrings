@@ -2,19 +2,45 @@ import { wallFrame } from './layout'
 import type { Box, Point } from './layout'
 import type { Wall } from '../model/schema'
 
-/** One end's routing inputs: the port's world-space point, its resolved wall, and its own hexagon's map-space
- * bounding box. */
+/** One end's routing inputs: the anchor's world-space point (the port's own point, or an adapter's outer-edge
+ * point when the end carries one — REQ-LNK-05.3), its resolved wall, its own hexagon's map-space bounding box,
+ * and the OTHER node boxes in its own hexagon the escape walk must step around (REQ-LNK-05.1) — never the anchor
+ * node's own box. */
 export interface RouteEnd {
   point: Point
   wall: Wall
   box: Box
+  clear: Box[]
+}
+
+/** The axis a wall's outward normal is dominant on (ties favour x — no wall of this hexagon shape actually ties:
+ * `e`/`w` are pure-x, the four slanted walls are y-dominant since `COS30 > 0.5`), and the signed direction along
+ * it the normal points. */
+function escapeAxis(wall: Wall): { axis: 'x' | 'y'; dir: 1 | -1 } {
+  const { n } = wallFrame(wall)
+  const axis: 'x' | 'y' = Math.abs(n.x) >= Math.abs(n.y) ? 'x' : 'y'
+  const dir = (axis === 'x' ? Math.sign(n.x) : Math.sign(n.y)) as 1 | -1
+  return { axis, dir }
+}
+
+/**
+ * `box`'s own outer edge on `wall`'s dominant axis, at `box`'s own centre on the other axis (REQ-LNK-05.3,
+ * REQ-LNK-05.4) — an adapter's own outer-edge anchor. For a straight wall this is the same point the old
+ * straight-wall-only anchor used to compute by a half-width nudge; for a slanted wall this is a NEW axis-aligned
+ * point, replacing the old diagonal wall-normal projection.
+ */
+export function outwardEdgePoint(box: Box, wall: Wall): Point {
+  const { axis, dir } = escapeAxis(wall)
+  const onAxis = edge(box, axis, dir > 0 ? 'hi' : 'lo')
+  const centreOther = axis === 'x' ? box.y + box.height / 2 : box.x + box.width / 2
+  return axis === 'x' ? { x: onAxis, y: centreOther } : { x: centreOther, y: onAxis }
 }
 
 /** A quarter of `layout/map.ts`'s `MAP_GAP` (60) — a local constant, not an import: `layoutMap` calls
- * `routeLink`, so this module must not import back from `layout/map.ts`. Small enough that a stub or a detour
- * corner never travels more than `MAP_GAP/2` past its own box's edge — since two hexagon boxes are always at
- * least `MAP_GAP` apart (`layoutMap`'s own placement guarantee), a stub built from this margin can never reach
- * into the OTHER hexagon's box. */
+ * `routeLink`, so this module must never import back from `layout/map.ts`.
+ * Small enough that a stub or a detour corner never travels more than `MAP_GAP/2` past its own box's edge — since
+ * two hexagon boxes are always at least `MAP_GAP` apart (`layoutMap`'s own placement guarantee), a stub built from
+ * this margin can never reach into the OTHER hexagon's box. */
 const GAP_MARGIN = 15
 
 /** `box`'s own edge on `axis` (`'x' | 'y'`) facing `side` (`'lo'` = its min edge, `'hi'` = its max edge). */
@@ -26,18 +52,18 @@ function otherAxis(axis: 'x' | 'y'): 'x' | 'y' {
   return axis === 'x' ? 'y' : 'x'
 }
 
+/** `value`'s escape past whichever of `lo`/`hi` it sits nearer to — `GAP_MARGIN` beyond that edge, away from the
+ * box the two bound. Shared by the obstacle jog and the corner detour: both need to clear a box on the axis
+ * `value` doesn't already sweep past. */
+function pastNearerEdge(value: number, lo: number, hi: number): number {
+  return value - lo <= hi - value ? lo - GAP_MARGIN : hi + GAP_MARGIN
+}
+
 /** How far, from `p0`, a ray with velocity `d` travels before leaving `[lo, hi]` — `Infinity` when `d` never
  * carries it out (parallel to that axis). */
 function axisExit(p0: number, d: number, lo: number, hi: number): number {
   if (d === 0) return Infinity
   return d > 0 ? (hi - p0) / d : (lo - p0) / d
-}
-
-/** How far the ray `p + t·dir` (t ≥ 0) travels before leaving `box` — the smaller of the two axes' own exits,
- * since the ray has already left the box the instant either axis' range is exceeded. Assumes `p` starts inside
- * (or on) `box`, which every port does. */
-function exitDistance(p: Point, dir: Point, box: Box): number {
-  return Math.min(axisExit(p.x, dir.x, box.x, box.x + box.width), axisExit(p.y, dir.y, box.y, box.y + box.height))
 }
 
 /**
@@ -73,41 +99,75 @@ function sweepCrossesBox(mid: { axis: 'x' | 'y'; at: number }, other: number, fr
 }
 
 /**
- * One end's exit points, from its port up to (but not including) the gap-midline crossing: `[stub]`, or
- * `[stub, corner]` when the port's wall faces away from the gap and a straight stub→midline sweep would cut
- * back across the port's own hexagon.
+ * One end's exit points, from its anchor up to (but not including) the gap-midline crossing: an axis-aligned
+ * walk along the anchor's wall's own escape axis (REQ-LNK-05.4), stepping around any of this hexagon's OTHER
+ * node boxes (`end.clear`) that walk would otherwise cross (REQ-LNK-05.1), then — same as before — a corner
+ * detour when the wall faces away from the gap and a straight sweep to the midline would cut back across the
+ * end's own hexagon.
  *
- * `stub` stands the port off along its wall's own outward normal (`wallFrame`, the SAME six unit vectors
- * `layout/layout.ts` places ports and sockets with) by `GAP_MARGIN` beyond where that ray leaves the port's own
- * box — clearing the box regardless of which wall the port is on (a slanted wall's port can sit well inside the
- * box's RECTANGLE, since the box is the layout's full bounds and the hexagon's actual silhouette cuts the
- * rectangle's corners).
+ * The walk moves purely along `end.wall`'s escape axis, from `end.point` until `GAP_MARGIN` past where that axis
+ * leaves `end.box` — clearing the hexagon's own bounding box regardless of which wall the anchor is on (a slanted
+ * wall's anchor can sit well inside the box's RECTANGLE, since the box is the layout's full bounds and the
+ * hexagon's actual silhouette cuts the rectangle's corners). Along the way, each `clear` box the walk would
+ * otherwise cross — its OTHER-axis range still holds the walk's current other-axis coordinate, and its escape-axis
+ * range lies ahead — is handled in the order the walk reaches it: advance to that box's OWN near edge first (a
+ * real forward leg, never yet inside the box, since the box's escape-axis range hasn't been entered), THEN jog
+ * `GAP_MARGIN` past whichever of ITS two other-axis edges is nearer (clearing it for the rest of the walk, since
+ * every remaining leg holds the other axis fixed at the jogged value) — advancing all the way to the box's own
+ * escape-axis position BEFORE jogging is what keeps the jog leg itself from ever entering the box (a jog taken
+ * while still short of the box's near edge would sweep the OTHER axis at an escape-axis position already outside
+ * the box; the reverse order — jogging first, in place — would cut straight through the box on the way there).
+ * Bounded by `end.clear.length` (this hexagon's own node count only, REQ-LNK-05.2-safe: no other hexagon's nodes
+ * are ever in `end.clear`).
  *
- * When the wall faces roughly toward the gap, sweeping `stub` straight onto the gap's midline (keeping the
- * OTHER axis fixed at `stub`'s own value) never re-enters the box — `stub` already cleared it, and the sweep
- * only moves further along the gap axis. When the wall faces AWAY (the target lies behind it), that same sweep
- * would traverse the full width of the box at `stub`'s (still-interior) other-axis coordinate. `corner` escapes
- * first: same gap-axis coordinate as `stub` (no change yet), other axis pushed `GAP_MARGIN` past whichever of
- * the box's two other-axis edges `stub` sits closer to — which clears the box on the OTHER axis, so every
- * remaining leg (stub→corner, a pure other-axis move at a fixed, already-outside gap-axis coordinate; then
- * corner→midline, a pure gap-axis sweep at a fixed, already-outside other-axis coordinate) stays clear of it
- * regardless of the other coordinate.
+ * Once clear of `end.box`, the same corner-detour check as before (`sweepCrossesBox` against `end.box` only)
+ * decides whether one more point is needed before crossing to the gap midline: when the wall faces roughly
+ * toward the gap, sweeping straight onto the midline (keeping the other axis fixed at the walk's own final value)
+ * never re-enters the box; when it faces AWAY, that same sweep would traverse the box, so a corner escapes on
+ * the other axis first, exactly as the obstacle jogs did.
  */
 function exitPoints(end: RouteEnd, mid: { axis: 'x' | 'y'; at: number }): Point[] {
-  const normal = wallFrame(end.wall).n
-  const distance = exitDistance(end.point, normal, end.box) + GAP_MARGIN
-  const stub: Point = { x: end.point.x + normal.x * distance, y: end.point.y + normal.y * distance }
+  const { axis, dir } = escapeAxis(end.wall)
+  const oAxis = otherAxis(axis)
+  const boxExit = axisExit(end.point[axis], dir, edge(end.box, axis, 'lo'), edge(end.box, axis, 'hi'))
+  const target = end.point[axis] + dir * (boxExit + GAP_MARGIN)
 
-  const other = mid.axis === 'x' ? stub.y : stub.x
+  const points: Point[] = []
+  let pos = end.point[axis]
+  let other = end.point[oAxis]
+  const remaining = [...end.clear]
+  const nearEdge = (box: Box) => edge(box, axis, dir > 0 ? 'lo' : 'hi')
+  const farEdge = (box: Box) => edge(box, axis, dir > 0 ? 'hi' : 'lo')
+  const ahead = (box: Box) => (dir > 0 ? farEdge(box) > pos && nearEdge(box) < target : farEdge(box) < pos && nearEdge(box) > target)
+  const nextBlocking = () => remaining.find((box) => other > edge(box, oAxis, 'lo') && other < edge(box, oAxis, 'hi') && ahead(box))
+
+  for (let blocking = nextBlocking(); blocking; blocking = nextBlocking()) {
+    // Stop GAP_MARGIN short of the box's own near edge, never its exact boundary — sitting exactly ON it would
+    // leave the jog leg touching the box, and a zero-width (axis-aligned) segment touching an edge still counts
+    // as entering it once its OTHER coordinate sweeps through the box's own range on that axis. Never regresses
+    // behind the walk's current position (a box whose near edge is already behind `pos` still gets its jog here).
+    const approach = nearEdge(blocking) - dir * GAP_MARGIN
+    pos = dir > 0 ? Math.max(pos, approach) : Math.min(pos, approach)
+    points.push(axis === 'x' ? { x: pos, y: other } : { x: other, y: pos })
+    const loEdge = edge(blocking, oAxis, 'lo')
+    const hiEdge = edge(blocking, oAxis, 'hi')
+    other = pastNearerEdge(other, loEdge, hiEdge)
+    points.push(axis === 'x' ? { x: pos, y: other } : { x: other, y: pos })
+    remaining.splice(remaining.indexOf(blocking), 1)
+  }
+  const stub: Point = axis === 'x' ? { x: target, y: other } : { x: other, y: target }
+  points.push(stub)
+
+  const midOther = mid.axis === 'x' ? stub.y : stub.x
   const stubGap = mid.axis === 'x' ? stub.x : stub.y
-  if (!sweepCrossesBox(mid, other, stubGap, mid.at, end.box)) return [stub]
+  if (!sweepCrossesBox(mid, midOther, stubGap, mid.at, end.box)) return points
 
-  const oAxis = otherAxis(mid.axis)
-  const loEdge = edge(end.box, oAxis, 'lo')
-  const hiEdge = edge(end.box, oAxis, 'hi')
-  const cornerOther = other - loEdge <= hiEdge - other ? loEdge - GAP_MARGIN : hiEdge + GAP_MARGIN
+  const midOAxis = otherAxis(mid.axis)
+  const loEdge = edge(end.box, midOAxis, 'lo')
+  const hiEdge = edge(end.box, midOAxis, 'hi')
+  const cornerOther = pastNearerEdge(midOther, loEdge, hiEdge)
   const corner: Point = mid.axis === 'x' ? { x: stub.x, y: cornerOther } : { x: cornerOther, y: stub.y }
-  return [stub, corner]
+  return [...points, corner]
 }
 
 /** Drops a point that repeats the one before it — the two exit-point lists can independently land on the same
@@ -126,11 +186,10 @@ export interface LinkLabel {
 
 /**
  * Deterministic channel route between two ports (ADR-01, refined) — a pure function of the two endpoints; it
- * never inspects any hexagon but the two endpoints, so it is O(1) per link regardless of map size
- * (REQ-LNK-05.2). Crosses via the midline of the gap the two hexagons' own boxes are guaranteed to have between
- * them (`layout/map.ts` never places two boxes closer than `MAP_GAP`), reached from each port via `exitPoints` —
- * a bounded exit stub, plus a corner detour when the port's own wall faces away from the gap — so the guarantee
- * holds regardless of which wall either port sits on (REQ-LNK-05.1).
+ * never inspects any hexagon but the two endpoints, so it is O(1) per link regardless of map size (REQ-LNK-05.2). Crosses via the midline of the gap the two hexagons' own boxes are
+ * guaranteed to have between them (`layout/map.ts` never places two boxes closer than `MAP_GAP`), reached from
+ * each port via `exitPoints` — a bounded exit stub, plus a corner detour when the port's own wall faces away from
+ * the gap — so the guarantee holds regardless of which wall either port sits on (REQ-LNK-05.1).
  */
 export function routeLink(from: RouteEnd, to: RouteEnd): { points: Point[]; label: LinkLabel } {
   const mid = gapMidline(from.box, to.box)

@@ -1,9 +1,14 @@
 import { contextName, diagramOf, UNTITLED_HEXAGON } from '../model/map'
 import type { HexaMap, Link } from '../model/schema'
 import { contextRegions } from './hull'
-import { layoutDiagram, type Box, type LayoutModel, type LayoutOptions, type LayoutText, type Point } from './layout'
-import { routeLink, type LinkLabel } from './links'
+import { layoutDiagram, type Box, type LayoutModel, type LayoutNode, type LayoutOptions, type LayoutText, type NodeKind, type Point } from './layout'
+import { outwardEdgePoint, routeLink, type LinkLabel } from './links'
 import { CHIP_LABEL, measure } from './text'
+
+/** The node kinds REQ-LNK-05.1 names: a routed link must cross none of them, other than the node each end
+ * anchors on. Excludes decorative/label nodes (`portLabel`, titles) — not "node boxes" in the requirement's
+ * wording. */
+const AVOIDED_KINDS: ReadonlySet<NodeKind> = new Set(['port', 'adapter', 'actor', 'external', 'useCase', 'domainItem'])
 
 export interface MapHexagonLayout {
   id: string
@@ -16,7 +21,9 @@ export interface MapHexagonLayout {
 
 export interface MapLinkLayout {
   id: string
-  /** A routed polyline (ADR-01), not a straight segment — endpoints are still `points[0]` / `points.at(-1)`. */
+  /** A routed polyline (ADR-01), not a straight segment — endpoints are still `points[0]` / `points.at(-1)`,
+   * each either the port's own point or, when that end carries an adapter, the adapter's outer-edge point
+   * (REQ-LNK-05.3). */
   points: Point[]
   /** The link's DDD relationship tag, present only when its two hexagons are in different contexts (REQ-LNK-06.2). */
   pattern?: Link['pattern']
@@ -98,11 +105,30 @@ function portNode(model: LayoutModel, portId: string) {
   return node
 }
 
-/** A port's route end: its map-space point, its resolved wall (every hexagon-shape port node carries one —
- * `layoutDiagram` fills it via `p.wall ?? defaultWall(p.side)`), and its own hexagon's bounding box. */
-function routeEnd(hexagon: MapHexagonLayout, portId: string) {
-  const node = portNode(hexagon.model, portId)
-  return { point: { x: node.x + hexagon.centre.x, y: node.y + hexagon.centre.y }, wall: node.wall!, box: hexagonBounds(hexagon) }
+/** An adapter's `kind:'adapter'` layout node. */
+function adapterNode(model: LayoutModel, adapterId: string) {
+  const node = model.nodes.find((n) => n.kind === 'adapter' && n.ref === adapterId)
+  if (!node) throw new Error(`Adapter "${adapterId}" has no layout node`)
+  return node
+}
+
+/** `node`'s own box, in the map space its hexagon's other geometry already sits in — nodes are centre-anchored,
+ * `hexagonBounds` translates the same way. */
+function translatedNodeBox(node: LayoutNode, centre: Point): Box {
+  return { x: node.x - node.width / 2 + centre.x, y: node.y - node.height / 2 + centre.y, width: node.width, height: node.height }
+}
+
+/** A link end's route end: its map-space anchor point — the adapter's own outer-edge point when `adapterId` is
+ * set (REQ-LNK-05.3, all six walls via `outwardEdgePoint`), else the port's own point — its resolved wall (every
+ * hexagon-shape port node carries one — `layoutDiagram` fills it via `p.wall ?? defaultWall(p.side)`), its own
+ * hexagon's bounding box, and this hexagon's OTHER avoided-kind node boxes (`clear`) for the escape walk to step
+ * around (REQ-LNK-05.1) — never the node the anchor itself sits on. */
+function routeEnd(hexagon: MapHexagonLayout, portId: string, adapterId?: string) {
+  const port = portNode(hexagon.model, portId)
+  const anchorNode = adapterId ? adapterNode(hexagon.model, adapterId) : port
+  const point = adapterId ? outwardEdgePoint(translatedNodeBox(anchorNode, hexagon.centre), port.wall!) : { x: port.x + hexagon.centre.x, y: port.y + hexagon.centre.y }
+  const clear = hexagon.model.nodes.filter((n) => AVOIDED_KINDS.has(n.kind) && n !== anchorNode).map((n) => translatedNodeBox(n, hexagon.centre))
+  return { point, wall: port.wall!, box: hexagonBounds(hexagon), clear }
 }
 
 /** A hexagon's position on the affine pointy-top lattice: {0,0} sits at the origin, `e` steps by `pitch.x`,
@@ -139,7 +165,10 @@ export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout 
   const links: MapLinkLayout[] = map.links.map((link: Link) => {
     const fromHexagon = hexagonOf.get(link.from.hexagonId)!
     const toHexagon = hexagonOf.get(link.to.hexagonId)!
-    const { points, label } = routeLink(routeEnd(fromHexagon, link.from.portId), routeEnd(toHexagon, link.to.portId))
+    const { points, label } = routeLink(
+      routeEnd(fromHexagon, link.from.portId, link.from.adapterId),
+      routeEnd(toHexagon, link.to.portId, link.to.adapterId),
+    )
     // Pattern eligibility mirrors checkMap's own rule (LinkSchema refine): only a link crossing contexts may
     // carry a pattern — no hull dependency, just the two hexagons' own contextId.
     const pattern = fromHexagon.contextId !== toHexagon.contextId ? link.pattern : undefined

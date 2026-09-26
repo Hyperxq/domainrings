@@ -1,11 +1,11 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { cellCentre, hexagonBounds, layoutMap, MAP_GAP } from './map'
-import { routeLink } from './links'
+import { outwardEdgePoint, routeLink } from './links'
 import { layoutDiagram, type Box, type LayoutMode, type LayoutOptions } from './layout'
 import { toMap } from '../model/hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM } from '../model/example'
 import { freeCell, removeHexagon } from '../model/map'
-import type { Diagram, HexaMap, Hexagon } from '../model/schema'
+import type { Diagram, HexaMap, Hexagon, Wall } from '../model/schema'
 import { twoHexagonMap } from '../test/fixtures'
 
 const CORPUS: Array<[string, Diagram]> = [
@@ -104,7 +104,10 @@ describe('layoutMap — multi-hexagon placement (CANVAS-01, CANVAS-02)', () => {
     const fromPoint = { x: outNode.x + a.centre.x, y: outNode.y + a.centre.y }
     const toPoint = { x: inNode.x + b.centre.x, y: inNode.y + b.centre.y }
 
-    const expected = routeLink({ point: fromPoint, wall: outNode.wall!, box: hexagonBounds(a) }, { point: toPoint, wall: inNode.wall!, box: hexagonBounds(b) })
+    const expected = routeLink(
+      { point: fromPoint, wall: outNode.wall!, box: hexagonBounds(a), clear: [] },
+      { point: toPoint, wall: inNode.wall!, box: hexagonBounds(b), clear: [] },
+    )
 
     expect(result.links).toEqual([{ id: 'l1', points: expected.points }])
     expect(result.links[0].points[0]).toEqual(fromPoint)
@@ -130,10 +133,105 @@ describe('layoutMap — multi-hexagon placement (CANVAS-01, CANVAS-02)', () => {
     expect(result.links[0].pattern).toBe('acl')
     const [a, b] = result.hexagons
     const route = routeLink(
-      { point: result.links[0].points[0], wall: a.model.nodes.find((n) => n.kind === 'port' && n.ref === 'p-out')!.wall!, box: hexagonBounds(a) },
-      { point: result.links[0].points.at(-1)!, wall: b.model.nodes.find((n) => n.kind === 'port' && n.ref === 'p-in')!.wall!, box: hexagonBounds(b) },
+      { point: result.links[0].points[0], wall: a.model.nodes.find((n) => n.kind === 'port' && n.ref === 'p-out')!.wall!, box: hexagonBounds(a), clear: [] },
+      { point: result.links[0].points.at(-1)!, wall: b.model.nodes.find((n) => n.kind === 'port' && n.ref === 'p-in')!.wall!, box: hexagonBounds(b), clear: [] },
     )
     expect(result.links[0].label).toStrictEqual(route.label)
+  })
+})
+
+/** `twoHexagonMap`, with the given `end`'s hexagon's port moved onto `wall` and given an adapter — lets the
+ * adapter-anchor case be exercised on every wall, not just the two default straight ones. */
+function mapWithAdapterOnWall(wall: Wall, end: 'from' | 'to'): HexaMap {
+  const base = twoHexagonMap()
+  const portId = end === 'from' ? 'p-out' : 'p-in'
+  const adapterId = end === 'from' ? 'a-out' : 'a-in'
+  const hexagons = base.hexagons.map((h) => {
+    if ((end === 'from' && h.id !== 'h1') || (end === 'to' && h.id !== 'h2')) return h
+    return { ...h, ports: h.ports.map((p) => (p.id === portId ? { ...p, wall } : p)), adapters: [{ id: adapterId, name: 'Adapter', portId }] }
+  })
+  const link = end === 'from' ? { ...base.links[0], from: { ...base.links[0].from, adapterId } } : { ...base.links[0], to: { ...base.links[0].to, adapterId } }
+  return { ...base, hexagons, links: [link] }
+}
+
+describe('layoutMap — anchors a link end on its adapter’s outer edge on every wall (REQ-LNK-05.3, REQ-LNK-05.4)', () => {
+  const CASES: Array<[Wall, 'from' | 'to']> = [
+    ['e', 'from'],
+    ['w', 'to'],
+    ['ne', 'from'],
+    ['nw', 'to'],
+    ['se', 'from'],
+    ['sw', 'to'],
+  ]
+
+  for (const [wall, end] of CASES) {
+    it(`wall '${wall}' (${end} end)`, () => {
+      const map = mapWithAdapterOnWall(wall, end)
+      const result = layoutMap(map)
+      const hex = result.hexagons.find((h) => h.id === (end === 'from' ? 'h1' : 'h2'))!
+      const adapterId = end === 'from' ? 'a-out' : 'a-in'
+      const portId = end === 'from' ? 'p-out' : 'p-in'
+      const adapter = hex.model.nodes.find((n) => n.kind === 'adapter' && n.ref === adapterId)!
+      const port = hex.model.nodes.find((n) => n.kind === 'port' && n.ref === portId)!
+      const adapterBox = { x: adapter.x - adapter.width / 2 + hex.centre.x, y: adapter.y - adapter.height / 2 + hex.centre.y, width: adapter.width, height: adapter.height }
+      const expectedPoint = outwardEdgePoint(adapterBox, wall)
+      const portPoint = { x: port.x + hex.centre.x, y: port.y + hex.centre.y }
+      const linkPoint = end === 'from' ? result.links[0].points[0] : result.links[0].points.at(-1)!
+
+      expect(adapter.wall).toBe(wall)
+      expect(linkPoint).toEqual(expectedPoint)
+      expect(linkPoint).not.toEqual(portPoint)
+    })
+  }
+})
+
+describe('layoutMap — the escape walk’s obstacle set is this hexagon’s OTHER node boxes, excluding the anchor (REQ-LNK-05.1)', () => {
+  it('a leaf sitting outward of an adapter, on the same wall, forces a jog around it — the adapter’s own anchor point is unaffected', () => {
+    const base = twoHexagonMap()
+    const withoutLeaf: HexaMap = {
+      ...base,
+      hexagons: [{ ...base.hexagons[0], adapters: [{ id: 'a-out', name: 'Adapter', portId: 'p-out' }] }, base.hexagons[1]],
+      links: [{ ...base.links[0], from: { ...base.links[0].from, adapterId: 'a-out' } }],
+    }
+    const withLeaf: HexaMap = {
+      ...withoutLeaf,
+      hexagons: [{ ...withoutLeaf.hexagons[0], externals: [{ id: 'e-leaf', name: 'Leaf', adapterId: 'a-out' }] }, withoutLeaf.hexagons[1]],
+    }
+
+    const baseline = layoutMap(withoutLeaf).links[0]
+    const withObstacle = layoutMap(withLeaf).links[0]
+
+    // Same anchor point either way — the leaf, added AFTER the anchor on the escape walk, never moves it.
+    expect(withObstacle.points[0]).toEqual(baseline.points[0])
+    // A jog was inserted (at least the two points it takes: advance to the leaf's near edge, then step past it) —
+    // a longer, different route than the no-obstacle case.
+    expect(withObstacle.points.length).toBeGreaterThanOrEqual(baseline.points.length + 2)
+    expect(withObstacle.points).not.toEqual(baseline.points)
+    // The jog actually left the anchor's own y (row) to clear the leaf, on the way to point index 2.
+    expect(withObstacle.points[2].y).not.toBe(withObstacle.points[0].y)
+    // Still axis-aligned throughout (REQ-LNK-05.4): the advance leg (index 0→1) moves only x, the jog leg
+    // (index 1→2) moves only y.
+    expect(withObstacle.points[1].y).toBe(withObstacle.points[0].y)
+    expect(withObstacle.points[2].x).toBe(withObstacle.points[1].x)
+  })
+
+  it('excludes the anchor’s own port from the obstacle set — an adapter-anchored end never jogs around the port it sits in front of', () => {
+    const base = twoHexagonMap()
+    const map: HexaMap = {
+      ...base,
+      hexagons: [{ ...base.hexagons[0], adapters: [{ id: 'a-out', name: 'Adapter', portId: 'p-out' }] }, base.hexagons[1]],
+      links: [{ ...base.links[0], from: { ...base.links[0].from, adapterId: 'a-out' } }],
+    }
+
+    const result = layoutMap(map)
+    const [a] = result.hexagons
+    const adapter = a.model.nodes.find((n) => n.kind === 'adapter' && n.ref === 'a-out')!
+    const adapterEdgePoint = { x: adapter.x + adapter.width / 2 + a.centre.x, y: adapter.y + a.centre.y }
+
+    // No jog inserted before the gap crossing: exactly the plain [anchor, stub, ...] shape, same as the port-only
+    // case — the port sitting behind the adapter on the same wall was correctly excluded as an obstacle.
+    expect(result.links[0].points[0]).toEqual(adapterEdgePoint)
+    expect(result.links[0].points[1].y).toBe(adapterEdgePoint.y)
   })
 })
 
