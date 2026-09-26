@@ -723,7 +723,10 @@ describe('Stage — pinch, wheel floor, and the whole-map auto fit', () => {
       const modelAfter = layoutMap(useMapStore.getState().map)
       const after = viewportOf(container)
       const visible = visibleRect(after, { width: 800, height: 600 }, inset)
-      for (const hexagon of modelAfter.hexagons) expect(contains(visible, hexagonBounds(hexagon))).toBe(true)
+      // A cell 500 pitches out puts the fit's edge ~1e6 units away, where float rounding alone shifts it ~1e-11.
+      const EPS = 1e-6
+      const tolerant = { x: visible.x - EPS, y: visible.y - EPS, width: visible.width + 2 * EPS, height: visible.height + 2 * EPS }
+      for (const hexagon of modelAfter.hexagons) expect(contains(tolerant, hexagonBounds(hexagon))).toBe(true)
     } finally {
       restore()
     }

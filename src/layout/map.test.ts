@@ -331,10 +331,17 @@ describe('layoutMap — honeycomb lattice placement (ADR-01)', () => {
     const right = a.model.bounds.x + a.model.bounds.width
     const top = -a.model.bounds.y
     const bottom = a.model.bounds.y + a.model.bounds.height
-    const pitchX = left + right + MAP_GAP
-    const pitchY = top + bottom + MAP_GAP
+    const boxX = left + right + MAP_GAP
+    const boxY = top + bottom + MAP_GAP
+    const pitchX = Math.max(boxX, (boxY * 2) / Math.sqrt(3))
+    const pitchY = Math.max(boxY, (boxX * Math.sqrt(3)) / 2)
     expect(a.centre).toStrictEqual({ x: 0, y: 0 })
     expect(b.centre).toStrictEqual({ x: pitchX * 0.5, y: pitchY })
+  })
+
+  it('keeps the lattice regular (pitch.y = pitch.x·√3/2), so context hulls trace regular hexagons', () => {
+    const { pitch } = layoutMap(twoCellColumn())
+    expect(pitch.y / pitch.x).toBeCloseTo(Math.sqrt(3) / 2, 10)
   })
 
   it('keeps the two boxes disjoint by at least MAP_GAP', () => {

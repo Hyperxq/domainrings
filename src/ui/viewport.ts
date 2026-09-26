@@ -77,7 +77,7 @@ export const contains = (outer: Box, inner: Box): boolean =>
   inner.x >= outer.x && inner.y >= outer.y && inner.x + inner.width <= outer.x + outer.width && inner.y + inner.height <= outer.y + outer.height
 
 /** Below this scale the whole map reads as illegible clutter; fitting the current hexagon instead keeps it usable (CANVAS-04). */
-export const MIN_FIT_SCALE = 0.4
+export const MIN_FIT_SCALE = 0.35
 
 /** Fits the whole map; falls back to fitting the current hexagon when that would shrink it past MIN_FIT_SCALE. */
 export function fitMap(mapBounds: Box, currentBounds: Box, width: number, height: number, inset: Inset = NO_INSET): Viewport {

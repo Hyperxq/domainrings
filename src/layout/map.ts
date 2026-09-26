@@ -191,7 +191,11 @@ export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout 
   const right = Math.max(...perHexagon.map(({ model }) => model.bounds.x + model.bounds.width))
   const top = Math.max(...perHexagon.map(({ model }) => -model.bounds.y))
   const bottom = Math.max(...perHexagon.map(({ model }) => model.bounds.y + model.bounds.height))
-  const pitch: Point = { x: left + right + MAP_GAP, y: top + bottom + MAP_GAP }
+  // Each axis keeps its box-derived minimum (no overlap), then the shorter one grows to the regular √3/2 ratio:
+  // hull tiles only trace regular hexagons on a regular lattice.
+  const boxX = left + right + MAP_GAP
+  const boxY = top + bottom + MAP_GAP
+  const pitch: Point = { x: Math.max(boxX, (boxY * 2) / Math.sqrt(3)), y: Math.max(boxY, (boxX * Math.sqrt(3)) / 2) }
 
   const hexagons: MapHexagonLayout[] = perHexagon.map(({ hexagon, model }) => ({
     id: hexagon.id,
