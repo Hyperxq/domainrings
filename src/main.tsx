@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { autosave, browserStorage } from './model/persistence'
+import { useCleanStore } from './model/cleanStore'
 import { useOnionStore } from './model/onionStore'
 import { boot, useMapStore } from './model/store'
 import { PALETTES, paletteCss } from './ui/palette'
@@ -21,10 +22,11 @@ try {
   // Blocked storage falls back to the system theme and the default palette.
 }
 // Only the store whose map actually changes ever writes (its subscribe callback is a no-op otherwise) — safe to
-// wire both to the same slot, since only the active view's store ever mutates (ADR-02).
+// wire every document store to the same slot, since only the active view's store ever mutates (ADR-02).
 if (storage) {
   autosave(useMapStore, storage, boot.recovery)
   autosave(useOnionStore, storage, boot.recovery)
+  autosave(useCleanStore, storage, boot.recovery)
 }
 
 createRoot(document.getElementById('root')!).render(
