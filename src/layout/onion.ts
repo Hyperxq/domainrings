@@ -1,5 +1,7 @@
 import { arcAngles, ringCircumferencePositions } from '../model/rings'
-import type { OnionDependency, OnionFile, OnionRingRole } from '../model/schema'
+import type { OnionDependency, OnionElement, OnionFile, OnionRingRole } from '../model/schema'
+import { countCrossings } from './crossings'
+import { minimizeCrossings, neighborLookup, type CrossingGroup } from './crossingMinimization'
 import type { Box, LayoutRing, Point } from './layout'
 import { endpointLayout, ringedBounds, ringElementRadius, RINGED_ELEMENT_HEIGHT, ringedElementWidth, ringOutlines } from './ringed'
 
@@ -44,24 +46,25 @@ export interface OnionLayoutModel {
   bounds: Box
 }
 
-/** Innermost-first (REQ-02) — `doc.rings[0]` is the domain, the one big sentence-case title; every outer ring
- * (built from it outward) grows from its own inner neighbour (`ringOutlines`, ADR-01: shared with Clean). */
-export function layoutOnion(doc: OnionFile): OnionLayoutModel {
+/** Builds the whole model from a given per-ring element ORDER (`orderedElementsOn`) — everything Decision 3 never
+ * changes: ring sizing, element/endpoint placement, edges. Called twice by `layoutOnion` below (raw document
+ * order, and the barycenter-optimised order) so it can pick whichever actually has fewer crossings, never trusting
+ * the heuristic blind. */
+function buildOnionModel(doc: OnionFile, orderedElementsOn: (role: string) => readonly OnionElement[]): OnionLayoutModel {
   // Each ring's elements, by angle (REQ-07's spacing rule) and rendered box width, so a ring can grow to fit them
   // (`ringOutlines`) before its own radius — and thus their final positions — is known.
   const slotsOf = (role: OnionRingRole) => {
-    const onRing = doc.elements.filter((e) => e.ringRole === role)
+    const onRing = orderedElementsOn(role)
     const angles = arcAngles(onRing.length, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI)
     return onRing.map((e, k) => ({ angle: angles[k], width: ringedElementWidth(e.name) }))
   }
   const rings = ringOutlines(doc.rings, slotsOf)
 
   // Elements: grouped by ring, spread evenly around that ring's circumference (REQ-07) at its own band's MID
-  // radius (never the ring's outer edge, which the next ring out paints over) — array order decides position
-  // order, so re-adding shuffles existing elements' angles; acceptable, nothing in REQ-07 promises a stable angle
-  // per element across edits.
+  // radius (never the ring's outer edge, which the next ring out paints over) — in whichever order the caller
+  // handed in.
   const elements: OnionElementLayout[] = rings.flatMap((ring, i) => {
-    const onRing = doc.elements.filter((e) => e.ringRole === ring.role)
+    const onRing = orderedElementsOn(ring.role)
     const positions = ringCircumferencePositions(onRing.length, { halfWidth: ringElementRadius(ring, rings[i - 1]) })
     return onRing.map((e, k) => ({ key: `element:${e.id}`, ref: e.id, ringRole: e.ringRole, name: e.name, ...positions[k] }))
   })
@@ -92,4 +95,29 @@ export function layoutOnion(doc: OnionFile): OnionLayoutModel {
     edges: [...dependencyEdges, ...endpointEdges],
     bounds: ringedBounds(outer, extraReach),
   }
+}
+
+/** Innermost-first (REQ-02) — `doc.rings[0]` is the domain, the one big sentence-case title; every outer ring
+ * (built from it outward) grows from its own inner neighbour (`ringOutlines`, ADR-01: shared with Clean). */
+export function layoutOnion(doc: OnionFile): OnionLayoutModel {
+  const originalOrderOn = (role: string) => doc.elements.filter((e) => e.ringRole === role)
+  const original = buildOnionModel(doc, originalOrderOn)
+
+  // Decision 3: reorder each ring's own elements to reduce dependency-edge crossings — a full circle is one
+  // group per ring (a Clean sector's own wedge is the finer-grained equivalent, `layoutClean`). The barycenter
+  // heuristic isn't guaranteed to improve every graph on every pass count, so its result is only ever KEPT if it
+  // actually has no more crossings than the untouched order — measured with the same `countCrossings` the test
+  // suite pins its numbers with, never assumed.
+  const elementById = new Map(doc.elements.map((e) => [e.id, e]))
+  const ringGroups: CrossingGroup[] = doc.rings.map((r) => ({
+    key: r.role,
+    refs: doc.elements.filter((e) => e.ringRole === r.role).map((e) => e.id),
+    startAngle: -Math.PI / 2,
+    endAngle: -Math.PI / 2 + 2 * Math.PI,
+  }))
+  const optimizedOrder = minimizeCrossings(ringGroups, neighborLookup(doc.dependencies))
+  const optimizedOrderOn = (role: string) => (optimizedOrder.get(role) ?? []).map((id) => elementById.get(id)!)
+  const optimized = buildOnionModel(doc, optimizedOrderOn)
+
+  return countCrossings(optimized.edges) <= countCrossings(original.edges) ? optimized : original
 }

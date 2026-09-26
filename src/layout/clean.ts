@@ -1,5 +1,7 @@
 import { arcAngles, arcPositions } from '../model/rings'
-import type { CleanFile, CleanRingRole } from '../model/schema'
+import type { CleanElement, CleanFile, CleanRingRole } from '../model/schema'
+import { countCrossings } from './crossings'
+import { minimizeCrossings, neighborLookup, type CrossingGroup } from './crossingMinimization'
 import type { Box, LayoutRing } from './layout'
 import { endpointLayout, ringedBounds, ringElementRadius, RINGED_ELEMENT_HEIGHT, ringedElementWidth, ringOutlines } from './ringed'
 
@@ -75,12 +77,11 @@ function sectorWedges(doc: CleanFile): CleanSectorWedge[] {
   })
 }
 
-/** Innermost-first (REQ-02) — rings and their outlines are shared with Onion (`ringOutlines`, ADR-01); what's
- * genuinely Clean-only is the sector sub-division of each ring into wedges and placing elements inside their
- * own wedge (`arcPositions`) rather than around the whole ring. */
-export function layoutClean(doc: CleanFile): CleanLayoutModel {
-  const sectors = sectorWedges(doc)
-
+/** Builds the whole model from a given per-sector element ORDER (`orderedElementsIn`) — everything Decision 3
+ * never changes: ring/sector sizing, element/endpoint placement, edges. Called twice by `layoutClean` below (raw
+ * document order, and the barycenter-optimised order) so it can pick whichever actually has fewer crossings,
+ * never trusting the heuristic blind. */
+function buildCleanModel(doc: CleanFile, sectors: CleanSectorWedge[], orderedElementsIn: (sectorRef: string) => readonly CleanElement[]): CleanLayoutModel {
   // Every sector's own elements, flattened onto their shared ring (REQ-08's per-wedge spacing rule, but grouped
   // by ring rather than by sector) — so a ring grows to fit ALL of them, including crowding right at a wedge
   // boundary between two sectors, with no sector-specific code in `ringOutlines` at all (ADR-01).
@@ -88,7 +89,7 @@ export function layoutClean(doc: CleanFile): CleanLayoutModel {
     sectors
       .filter((s) => s.ringRole === role)
       .flatMap((sector) => {
-        const onSector = doc.elements.filter((e) => e.sectorId === sector.ref)
+        const onSector = orderedElementsIn(sector.ref)
         const angles = arcAngles(onSector.length, sector.startAngle, sector.endAngle)
         return onSector.map((e, k) => ({ angle: angles[k], width: ringedElementWidth(e.name) }))
       })
@@ -96,10 +97,11 @@ export function layoutClean(doc: CleanFile): CleanLayoutModel {
   const ringByRole = new Map(rings.map((r, i) => [r.role, { ring: r, inner: rings[i - 1] }]))
 
   // Elements sit inside their own sector's wedge (REQ-08), at their ring's own band MID radius (never its outer
-  // edge, which the next ring out paints over — same fix as Onion's own element placement, ADR-01).
+  // edge, which the next ring out paints over — same fix as Onion's own element placement, ADR-01) — in whichever
+  // order the caller handed in.
   const elements: CleanElementLayout[] = sectors.flatMap((sector) => {
     const { ring, inner } = ringByRole.get(sector.ringRole)!
-    const onSector = doc.elements.filter((e) => e.sectorId === sector.ref)
+    const onSector = orderedElementsIn(sector.ref)
     const positions = arcPositions(onSector.length, { halfWidth: ringElementRadius(ring, inner) }, sector.startAngle, sector.endAngle)
     return onSector.map((e, k) => ({ key: `element:${e.id}`, ref: e.id, ringRole: sector.ringRole, name: e.name, ...positions[k] }))
   })
@@ -131,4 +133,30 @@ export function layoutClean(doc: CleanFile): CleanLayoutModel {
     edges: [...dependencyEdges, ...endpointEdges],
     bounds: ringedBounds(outer, extraReach),
   }
+}
+
+/** Innermost-first (REQ-02) — rings and their outlines are shared with Onion (`ringOutlines`, ADR-01); what's
+ * genuinely Clean-only is the sector sub-division of each ring into wedges and placing elements inside their
+ * own wedge (`arcPositions`) rather than around the whole ring. */
+export function layoutClean(doc: CleanFile): CleanLayoutModel {
+  const sectors = sectorWedges(doc)
+
+  const originalOrderIn = (sectorRef: string) => doc.elements.filter((e) => e.sectorId === sectorRef)
+  const original = buildCleanModel(doc, sectors, originalOrderIn)
+
+  // Decision 3/4: reorder each SECTOR's own elements (never across sectors — a sector's own wedge is the group,
+  // finer-grained than Onion's whole-ring group) to reduce dependency-edge crossings. As with Onion, the
+  // barycenter result is only kept if it actually has no more crossings than the untouched order.
+  const elementById = new Map(doc.elements.map((e) => [e.id, e]))
+  const sectorGroups: CrossingGroup[] = sectors.map((s) => ({
+    key: s.ref,
+    refs: doc.elements.filter((e) => e.sectorId === s.ref).map((e) => e.id),
+    startAngle: s.startAngle,
+    endAngle: s.endAngle,
+  }))
+  const optimizedOrder = minimizeCrossings(sectorGroups, neighborLookup(doc.dependencies))
+  const optimizedOrderIn = (sectorRef: string) => (optimizedOrder.get(sectorRef) ?? []).map((id) => elementById.get(id)!)
+  const optimized = buildCleanModel(doc, sectors, optimizedOrderIn)
+
+  return countCrossings(optimized.edges) <= countCrossings(original.edges) ? optimized : original
 }

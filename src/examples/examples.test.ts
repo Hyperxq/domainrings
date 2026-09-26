@@ -5,6 +5,7 @@ import { newCleanMap, newOnionMap, parseHexa, toHexa } from '../model/hexa'
 import { layoutMap } from '../layout/map'
 import { layoutOnion } from '../layout/onion'
 import { layoutClean } from '../layout/clean'
+import { countCrossings } from '../layout/crossings'
 import { measure } from '../layout/text'
 import type { CleanFile, HexaMap, OnionFile, StoredFile } from '../model/schema'
 
@@ -299,4 +300,39 @@ describe('no two Onion/Clean element or endpoint boxes overlap', () => {
     const { overlaps } = onionOverlaps(doc)
     expect(overlaps).toEqual([])
   })
+})
+
+// Decision 3 (barycentric crossing minimisation) + measure, don't guess: the BEFORE counts here are the raw
+// document-order layout's own crossing count, captured with `countCrossings` before Decision 3 existed; AFTER is
+// pinned to the real, current layout's own count, gated by `layoutOnion`/`layoutClean`'s own "never worse than
+// the untouched order" fallback (`buildOnionModel`/`buildCleanModel`), so this can never silently regress.
+describe('Onion/Clean crossing counts (Decision 3) — after must never exceed before', () => {
+  const BEFORE: Record<string, number> = {
+    'onion-basic.hexa': 0,
+    'onion-advanced.hexa': 5,
+    'onion-stress.hexa': 24,
+    'clean-basic.hexa': 0,
+    'clean-advanced.hexa': 9,
+    'clean-stress.hexa': 33,
+  }
+  const AFTER: Record<string, number> = {
+    'onion-basic.hexa': 0,
+    'onion-advanced.hexa': 4,
+    'onion-stress.hexa': 19,
+    'clean-basic.hexa': 0,
+    'clean-advanced.hexa': 9,
+    'clean-stress.hexa': 25,
+  }
+
+  for (const file of files.filter((f) => f.startsWith('onion-') || f.startsWith('clean-'))) {
+    it(`${file}: crossings ${BEFORE[file]} → ${AFTER[file]}`, () => {
+      const parsed = parseHexa(readExample(file))
+      if (!parsed.ok) throw new Error(`"${file}" failed to parse: ${parsed.errors.join('; ')}`)
+      const map = parsed.map
+      const model = map.kind === 'onion' ? layoutOnion(map) : layoutClean(map as CleanFile)
+      const after = countCrossings(model.edges)
+      expect(after).toBeLessThanOrEqual(BEFORE[file])
+      expect(after).toBe(AFTER[file])
+    })
+  }
 })
