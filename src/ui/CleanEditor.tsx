@@ -1,10 +1,12 @@
 import { flushSync } from 'react-dom'
+import { outerRoleOf } from '../model/rings'
 import type { CleanElement, CleanRingRole, CleanSector } from '../model/schema'
 import { useCleanStore } from '../model/cleanStore'
 import { Fold, revealInEditor } from './Editor'
 import { Icon } from './Icon'
+import { DependenciesSection, ElementList, EndpointsSection } from './RingedSections'
 
-const { addSector, updateSector, removeSector, addElement, updateElement, removeElement } = useCleanStore.getState()
+const { addSector, updateSector, removeSector, addElement, updateElement, removeElement, addDependency, removeDependency, addEndpoint, removeEndpoint } = useCleanStore.getState()
 
 /** A sector's own elements (REQ-04): its "+" is the only way to create one — there is no ring-direct path. An
  * empty sector, with no elements yet, is a valid, displayable state. */
@@ -33,26 +35,7 @@ function SectorRow({ sector, elements }: { sector: CleanSector; elements: CleanE
           <Icon name="close" />
         </button>
       </div>
-      {!elements.length ? (
-        <p className="empty">No elements yet.</p>
-      ) : (
-        <ul className="items">
-          {elements.map((element) => (
-            <li key={element.id} className="item" data-item-id={element.id}>
-              <input className="name" aria-label="element name" value={element.name} onChange={(e) => updateElement(element.id, { name: e.target.value })} />
-              <button
-                type="button"
-                className="icon-button small remove"
-                aria-label={`Remove element ${element.name}`}
-                title="Remove element"
-                onClick={() => removeElement(element.id)}
-              >
-                <Icon name="close" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ElementList elements={elements} onRename={(id, name) => updateElement(id, { name })} onRemove={removeElement} />
     </li>
   )
 }
@@ -91,10 +74,16 @@ function RingSection({ role, name, sectors, elements }: { role: CleanRingRole; n
   )
 }
 
-/** Editor-panel analogue for Clean (ADR-02): rings → their sectors → each sector's elements — no dependencies or
- * endpoints section yet (those arrive in a later slice, mirrored from `RingedSections.tsx` at that point). */
+/** Editor-panel analogue for Clean (ADR-02): rings → their sectors → each sector's elements, then Dependencies/
+ * Actors/Externals shared with Onion via `RingedSections.tsx` (ADR-01) — `ringRoleOf` here resolves through the
+ * element's own sector (ADR-02), never a direct field (Onion's own indirects the other way). */
 export function CleanEditor({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const doc = useCleanStore((s) => s.map)
+  const sectorById = new Map(doc.sectors.map((s) => [s.id, s]))
+  const ringRoleOf = (elementId: string) => {
+    const element = doc.elements.find((e) => e.id === elementId)
+    return (element && sectorById.get(element.sectorId)?.ringRole) ?? ''
+  }
   return (
     <aside className={`island editor${open ? '' : ' is-collapsed'}`} aria-label="Diagram editor">
       <header className="editor-head">
@@ -107,6 +96,9 @@ export function CleanEditor({ open, onToggle }: { open: boolean; onToggle: () =>
         {doc.rings.map((ring) => (
           <RingSection key={ring.role} role={ring.role} name={ring.name} sectors={doc.sectors.filter((s) => s.ringRole === ring.role)} elements={doc.elements} />
         ))}
+        <DependenciesSection elements={doc.elements} dependencies={doc.dependencies} rings={doc.rings} ringRoleOf={ringRoleOf} onAdd={addDependency} onRemove={removeDependency} />
+        <EndpointsSection collection="actors" title="Actors" noun="actor" elements={doc.elements} items={doc.actors} outerRole={outerRoleOf(doc.rings)} ringRoleOf={ringRoleOf} onAdd={(patch) => addEndpoint('actors', patch)} onRemove={(id) => removeEndpoint('actors', id)} />
+        <EndpointsSection collection="externals" title="Externals" noun="external system" elements={doc.elements} items={doc.externals} outerRole={outerRoleOf(doc.rings)} ringRoleOf={ringRoleOf} onAdd={(patch) => addEndpoint('externals', patch)} onRemove={(id) => removeEndpoint('externals', id)} />
       </div>
     </aside>
   )

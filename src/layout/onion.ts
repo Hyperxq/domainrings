@@ -1,7 +1,7 @@
 import { ringCircumferencePositions } from '../model/rings'
-import type { OnionDependency, OnionEndpoint, OnionFile, OnionRingRole } from '../model/schema'
-import { circle, type Box, type LayoutRing, type Point } from './layout'
-import { ringedBounds, ringOutlines } from './ringed'
+import type { OnionDependency, OnionFile, OnionRingRole } from '../model/schema'
+import type { Box, LayoutRing, Point } from './layout'
+import { endpointLayout, ringedBounds, ringOutlines } from './ringed'
 
 /** An element placed on its ring's circumference (REQ-07). */
 export interface OnionElementLayout {
@@ -40,9 +40,6 @@ export interface OnionLayoutModel {
   bounds: Box
 }
 
-/** How far outside the outer ring an actor/external sits (REQ-05: "outside the outer ring", no port/adapter). */
-const ENDPOINT_GAP = 56
-
 /** Innermost-first (REQ-02) — `doc.rings[0]` is the domain, the one big sentence-case title; every outer ring
  * (built from it outward) grows from its own inner neighbour (`ringOutlines`, ADR-01: shared with Clean). */
 export function layoutOnion(doc: OnionFile): OnionLayoutModel {
@@ -58,22 +55,8 @@ export function layoutOnion(doc: OnionFile): OnionLayoutModel {
   })
   const elementAt = new Map(elements.map((e) => [e.ref, e]))
 
-  // Endpoints: actors and externals share one virtual ring outside the outer ring (REQ-05) — no port/adapter.
-  const endpointSpecs: { item: OnionEndpoint; kind: 'actor' | 'external' }[] = [
-    ...doc.actors.map((item) => ({ item, kind: 'actor' as const })),
-    ...doc.externals.map((item) => ({ item, kind: 'external' as const })),
-  ]
   const outer = rings[rings.length - 1]
-  const endpointOutline = circle(outer.apex + ENDPOINT_GAP)
-  const endpointPositions = ringCircumferencePositions(endpointSpecs.length, endpointOutline)
-  const endpoints: OnionEndpointLayout[] = endpointSpecs.map(({ item, kind }, k) => ({
-    key: `endpoint:${item.id}`,
-    ref: item.id,
-    kind,
-    name: item.name,
-    targetId: item.targetId,
-    ...endpointPositions[k],
-  }))
+  const { endpoints, extraReach } = endpointLayout(doc.actors, doc.externals, outer)
 
   const dependencyEdges: OnionEdgeLayout[] = doc.dependencies.flatMap((dep: OnionDependency) => {
     const from = elementAt.get(dep.fromId)
@@ -90,6 +73,6 @@ export function layoutOnion(doc: OnionFile): OnionLayoutModel {
     elements,
     endpoints,
     edges: [...dependencyEdges, ...endpointEdges],
-    bounds: ringedBounds(outer, endpointSpecs.length ? ENDPOINT_GAP + 24 : 0),
+    bounds: ringedBounds(outer, extraReach),
   }
 }

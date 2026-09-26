@@ -16,14 +16,22 @@ export function outerRoleOf<Role extends string>(rings: readonly { role: Role }[
   return rings[rings.length - 1].role
 }
 
-/** `count` positions spread evenly around a ring's circumference (REQ-07), instead of stacked in a column. Starts
- * offset half a gap past the top (where the ring's title sits) so no element lands under it. */
-export function ringCircumferencePositions(count: number, outline: { halfWidth: number }): { x: number; y: number }[] {
+/** `count` positions spread evenly across the arc from `startAngle` to `endAngle` (radians) — generalizes
+ * `ringCircumferencePositions`'s full-circle placement to a sector's own angular sub-range (REQ-08), so Clean's
+ * wedge placement and Onion's whole-ring placement share the same spacing rule instead of each re-deriving it.
+ * Offset half a gap past `startAngle` so the first (and last) position never lands on the arc's own boundary. */
+export function arcPositions(count: number, outline: { halfWidth: number }, startAngle: number, endAngle: number): { x: number; y: number }[] {
   if (count <= 0) return []
-  const gap = (2 * Math.PI) / count
-  const start = -Math.PI / 2 + gap / 2
+  const gap = (endAngle - startAngle) / count
+  const start = startAngle + gap / 2
   return Array.from({ length: count }, (_, i) => {
     const angle = start + i * gap
     return { x: outline.halfWidth * Math.cos(angle), y: outline.halfWidth * Math.sin(angle) }
   })
+}
+
+/** `count` positions spread evenly around a ring's whole circumference (REQ-07), instead of stacked in a column —
+ * the full-circle special case of `arcPositions`, starting at the top (where the ring's title sits). */
+export function ringCircumferencePositions(count: number, outline: { halfWidth: number }): { x: number; y: number }[] {
+  return arcPositions(count, outline, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI)
 }

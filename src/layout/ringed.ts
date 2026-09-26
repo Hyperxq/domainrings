@@ -1,4 +1,5 @@
 import type { RingRole } from '../model/kinds'
+import { ringCircumferencePositions } from '../model/rings'
 import { circle, type LayoutRing, type Outline } from './layout'
 import { DOMAIN_TITLE, measure, RING_LABEL } from './text'
 
@@ -44,4 +45,44 @@ export function ringOutlines<Role extends RingRole>(rings: readonly { role: Role
 export function ringedBounds(outer: LayoutRing, extraReach = 0, margin = 16): { x: number; y: number; width: number; height: number } {
   const reach = outer.apex + extraReach
   return { x: -reach - margin, y: -reach - margin, width: 2 * (reach + margin), height: 2 * (reach + margin) }
+}
+
+interface RingedEndpointSpec {
+  id: string
+  name: string
+  targetId?: string
+}
+
+export interface RingedEndpointPlacement {
+  key: string
+  ref: string
+  kind: 'actor' | 'external'
+  name: string
+  targetId?: string
+  x: number
+  y: number
+}
+
+/** How far outside the outer ring an actor/external sits — no port/adapter concept exists for either kind. */
+const ENDPOINT_GAP = 56
+
+/** Actors and externals share one virtual ring outside the outer ring (REQ-05/REQ-07) — identical placement for
+ * Onion and Clean (ADR-01). Returns the extra reach the endpoint ring needs added to `ringedBounds`, so a fresh
+ * document with none pays no bounds cost. */
+export function endpointLayout(actors: readonly RingedEndpointSpec[], externals: readonly RingedEndpointSpec[], outer: LayoutRing): { endpoints: RingedEndpointPlacement[]; extraReach: number } {
+  const specs: { item: RingedEndpointSpec; kind: 'actor' | 'external' }[] = [
+    ...actors.map((item) => ({ item, kind: 'actor' as const })),
+    ...externals.map((item) => ({ item, kind: 'external' as const })),
+  ]
+  const outline = circle(outer.apex + ENDPOINT_GAP)
+  const positions = ringCircumferencePositions(specs.length, outline)
+  const endpoints: RingedEndpointPlacement[] = specs.map(({ item, kind }, k) => ({
+    key: `endpoint:${item.id}`,
+    ref: item.id,
+    kind,
+    name: item.name,
+    targetId: item.targetId,
+    ...positions[k],
+  }))
+  return { endpoints, extraReach: specs.length ? ENDPOINT_GAP + 24 : 0 }
 }

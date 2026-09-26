@@ -1,29 +1,29 @@
 import { useState, type Ref } from 'react'
-import type { OnionLayoutModel } from '../layout/onion'
-import { onionInsertionItem, onionInsertionPoints, type OnionInsertionPoint } from '../layout/onionInsertion'
-import { useOnionStore } from '../model/onionStore'
-import type { OnionFile } from '../model/schema'
-import { OnionDiagram } from '../render/OnionDiagram'
+import type { CleanLayoutModel } from '../layout/clean'
+import { cleanInsertionItem, cleanInsertionPoints, type CleanInsertionPoint } from '../layout/cleanInsertion'
+import { useCleanStore } from '../model/cleanStore'
+import type { CleanFile } from '../model/schema'
+import { CleanDiagram } from '../render/CleanDiagram'
 import { PlusGlyph, useDependGesture } from './RingedCanvas'
 
-const { addElement, updateElement, removeElement, addDependency, addEndpoint } = useOnionStore.getState()
+const { addSector, addElement, updateElement, removeElement, addDependency, addEndpoint } = useCleanStore.getState()
 
-interface OnionStageProps {
-  model: OnionLayoutModel
-  doc: OnionFile
+interface CleanStageProps {
+  model: CleanLayoutModel
+  doc: CleanFile
   svgRef: Ref<SVGSVGElement>
-  /** Reports why a click while linking was refused, for the app's own toast/notice mechanism (REQ-04). */
+  /** Reports why a click while linking was refused, for the app's own toast/notice mechanism (REQ-06). */
   onReject: (message: string) => void
 }
 
 const REJECT_MESSAGE = 'A dependency can only point to the same ring or a more inward one.'
 
-/** Canvas analogue for Onion (ADR-02): the diagram, its ring/endpoint "+" affordances (REQ-05, REQ-07), and the
- * "Depend on…" gesture (REQ-04) — shared with Clean via `RingedCanvas.tsx` (ADR-01): select an element, choose
- * another in the same or a more inward ring; a valid target is marked with `data-link-target` while linking
- * (same convention Hexagonal's own link mode uses), and choosing one that is not valid cancels the gesture and
- * reports why via `onReject`, leaving the document unchanged either way. */
-export function OnionStage({ model, doc, svgRef, onReject }: OnionStageProps) {
+/** Canvas analogue for Clean (ADR-02): the diagram, its sector/element/endpoint "+" affordances (REQ-03, REQ-04,
+ * REQ-07), and the "Depend on…" gesture (REQ-06) — shared with Onion via `RingedCanvas.tsx` (ADR-01). A new
+ * sector has no canvas node of its own to attach an inline rename to (sectors only ever appear as wedge
+ * dividers, REQ-08) — renaming one happens in `CleanEditor`; only a new ELEMENT opens inline here, same as
+ * Onion's own "+" does. */
+export function CleanStage({ model, doc, svgRef, onReject }: CleanStageProps) {
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
   const { selected, linking, setLinking, selectedElement, validTargets, linkTargetRefs, clickTarget } = useDependGesture({
     elements: model.elements,
@@ -36,9 +36,11 @@ export function OnionStage({ model, doc, svgRef, onReject }: OnionStageProps) {
   // carries the real position, so the inline field re-reads it from the (now current) model every render.
   const editingElement = editing && model.elements.find((e) => e.ref === editing.id)
 
-  const pick = (point: OnionInsertionPoint) => {
-    const item = onionInsertionItem(point.action)
-    if (item.kind === 'element') {
+  const pick = (point: CleanInsertionPoint) => {
+    const item = cleanInsertionItem(point.action)
+    if (item.kind === 'sector') {
+      addSector(item.patch)
+    } else if (item.kind === 'element') {
       const id = addElement(item.patch)
       setEditing({ id, name: item.patch.name })
     } else {
@@ -52,18 +54,18 @@ export function OnionStage({ model, doc, svgRef, onReject }: OnionStageProps) {
         ref={svgRef}
         className="canvas"
         role="figure"
-        aria-label={doc.title || 'Onion diagram'}
+        aria-label={doc.title || 'Clean diagram'}
         data-link-mode={linking ? '' : undefined}
         viewBox={`${model.bounds.x} ${model.bounds.y} ${model.bounds.width} ${model.bounds.height}`}
         onClick={(e) => clickTarget((e.target as Element).closest('.node')?.getAttribute('data-ref') ?? null)}
       >
-        <OnionDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} />
-        {onionInsertionPoints(model, doc).map((point) => (
+        <CleanDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} />
+        {cleanInsertionPoints(model, doc).map((point) => (
           <PlusGlyph key={point.key} point={point} onPick={() => pick(point)} />
         ))}
         {selectedElement && !linking && validTargets.length > 0 && (
           <g
-            className="onion-depend-chip"
+            className="ringed-depend-chip"
             data-plus=""
             transform={`translate(${selectedElement.x} ${selectedElement.y - 26})`}
             tabIndex={0}
@@ -81,7 +83,7 @@ export function OnionStage({ model, doc, svgRef, onReject }: OnionStageProps) {
       </svg>
       {editing && editingElement && (
         <input
-          className="inline-name onion-inline-name"
+          className="inline-name ringed-inline-name"
           aria-label="element name"
           autoFocus
           defaultValue={editing.name}

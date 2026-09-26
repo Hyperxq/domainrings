@@ -35,6 +35,8 @@
 .ring-application { fill: var(--teal-soft); stroke: var(--teal); }
 .ring-domainServices { fill: color-mix(in srgb, var(--teal) 22%, var(--teal-soft)); stroke: var(--teal); }
 .ring-domain { fill: var(--teal-deep); stroke: var(--teal-deep); }
+/* A <path> (like `.edge`, below) is filled by default — `fill: none` is load-bearing here too. */
+.sector-divider { fill: none; stroke: var(--line); stroke-opacity: 0.6; stroke-width: 1; }
 
 .canvas .ring-label {
   fill: var(--muted);

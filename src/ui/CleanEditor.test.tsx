@@ -73,4 +73,42 @@ describe('CleanEditor', () => {
 
     expect(state().map.elements.find((e) => e.id === elementId)).toBeUndefined()
   })
+
+  it('the dependency create form only offers inward-or-same targets, sector-transparent (REQ-06), and creates one on submit', () => {
+    const domainSector = state().addSector({ name: 'Core', ringRole: 'domain' })
+    const outerSector = state().addSector({ name: 'API', ringRole: 'outer' })
+    state().addElement({ name: 'Order', sectorId: domainSector })
+    state().addElement({ name: 'OrderController', sectorId: outerSector })
+    const { container } = renderEditor()
+    const depSection = section(container, 'Dependencies')
+    const fromSelect = within(depSection).getByLabelText('From element') as HTMLSelectElement
+    fireEvent.change(fromSelect, { target: { value: state().map.elements[0].id } })
+    // Order is domain (inward): OrderController (outer) must never appear as a "To element" choice.
+    const toSelectAfterDomainFrom = within(depSection).getByLabelText('To element') as HTMLSelectElement
+    expect(within(toSelectAfterDomainFrom).queryByRole('option', { name: 'OrderController' })).toBeNull()
+
+    fireEvent.change(fromSelect, { target: { value: state().map.elements[1].id } })
+    const toSelect = within(depSection).getByLabelText('To element') as HTMLSelectElement
+    expect(within(toSelect).getByRole('option', { name: 'Order' })).toBeTruthy()
+    fireEvent.change(toSelect, { target: { value: state().map.elements[0].id } })
+    fireEvent.click(within(depSection).getByRole('button', { name: 'Create dependency' }))
+
+    expect(state().map.dependencies).toHaveLength(1)
+  })
+
+  it('the actors form only offers elements in an outer-ring sector and creates one on submit (REQ-07)', () => {
+    const domainSector = state().addSector({ name: 'Core', ringRole: 'domain' })
+    const outerSector = state().addSector({ name: 'API', ringRole: 'outer' })
+    state().addElement({ name: 'Order', sectorId: domainSector })
+    state().addElement({ name: 'OrderController', sectorId: outerSector })
+    const { container } = renderEditor()
+    const actorsSection = section(container, 'Actors')
+    const targetSelect = within(actorsSection).getByLabelText('Target (outer ring)') as HTMLSelectElement
+    expect(within(targetSelect).queryByRole('option', { name: 'Order' })).toBeNull()
+    fireEvent.change(targetSelect, { target: { value: state().map.elements[1].id } })
+    fireEvent.click(within(actorsSection).getByRole('button', { name: 'Add actor' }))
+
+    expect(state().map.actors).toHaveLength(1)
+    expect(state().map.actors[0].targetId).toBe(state().map.elements[1].id)
+  })
 })

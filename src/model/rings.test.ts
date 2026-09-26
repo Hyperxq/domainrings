@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isInwardOrSame, outerRoleOf, ringCircumferencePositions } from './rings'
+import { arcPositions, isInwardOrSame, outerRoleOf, ringCircumferencePositions } from './rings'
 
 const RINGS = [{ role: 'domain' }, { role: 'domainServices' }, { role: 'application' }, { role: 'outer' }]
 
@@ -54,5 +54,35 @@ describe('ringCircumferencePositions', () => {
       const positions = ringCircumferencePositions(count, { halfWidth: 80 })
       for (const p of positions) expect(Math.hypot(p.x - 0, p.y - -80)).toBeGreaterThan(0.01)
     }
+  })
+})
+
+describe('arcPositions (REQ-08: element placement inside a sector\'s own wedge, generalizing the full-circle case)', () => {
+  it('returns 0 positions for 0 elements', () => {
+    expect(arcPositions(0, { halfWidth: 100 }, 0, Math.PI)).toEqual([])
+  })
+
+  it('spreads N positions evenly across the given sub-arc, all at the ring radius', () => {
+    const positions = arcPositions(4, { halfWidth: 50 }, 0, Math.PI / 2)
+    expect(positions).toHaveLength(4)
+    for (const p of positions) expect(Math.hypot(p.x, p.y)).toBeCloseTo(50, 6)
+    const angles = positions.map((p) => Math.atan2(p.y, p.x))
+    for (const a of angles) expect(a).toBeGreaterThan(0)
+    for (const a of angles) expect(a).toBeLessThan(Math.PI / 2)
+  })
+
+  it('never places an element on either boundary of its own arc', () => {
+    const positions = arcPositions(3, { halfWidth: 80 }, -Math.PI / 2, 0)
+    const angles = positions.map((p) => Math.atan2(p.y, p.x))
+    for (const a of angles) {
+      expect(a).toBeGreaterThan(-Math.PI / 2)
+      expect(a).toBeLessThan(0)
+    }
+  })
+
+  it('ringCircumferencePositions is the full-circle special case of arcPositions', () => {
+    const full = ringCircumferencePositions(5, { halfWidth: 60 })
+    const viaArc = arcPositions(5, { halfWidth: 60 }, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI)
+    expect(full).toEqual(viaArc)
   })
 })

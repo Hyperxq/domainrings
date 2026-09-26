@@ -26,8 +26,8 @@ import { decodeSharePayload, encodeSharePayload, isOversizedShareLink, shareLink
 import { Stage } from './ui/Stage'
 import { Toast } from './ui/Toast'
 import { Toolbar, type ExportScope, type ThemeChoice } from './ui/Toolbar'
-import { CleanDiagram } from './render/CleanDiagram'
 import { CleanEditor } from './ui/CleanEditor'
+import { CleanStage } from './ui/CleanStage'
 import { OnionEditor } from './ui/OnionEditor'
 import { OnionStage } from './ui/OnionStage'
 
@@ -510,19 +510,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       {activeKind === 'clean' && (
         <>
           <CleanEditor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} />
-          {/* Canvas-only: sectors/elements are edited through CleanEditor; a dedicated interactive stage with its
-              own canvas gestures arrives once dependencies/endpoints do, mirroring Onion's own build order. */}
-          <main className="stage">
-            <svg
-              ref={svgRef}
-              className="canvas"
-              role="figure"
-              aria-label={cleanMap.title || 'Clean diagram'}
-              viewBox={`${cleanModel!.bounds.x} ${cleanModel!.bounds.y} ${cleanModel!.bounds.width} ${cleanModel!.bounds.height}`}
-            >
-              <CleanDiagram model={cleanModel!} />
-            </svg>
-          </main>
+          <CleanStage model={cleanModel!} doc={cleanMap} svgRef={svgRef} onReject={(message) => show({ tone: 'error', message })} />
         </>
       )}
       {choosingArchitecture && <ArchitectureChoiceDialog onChoose={completeNew} onCancel={() => setChoosingArchitecture(false)} />}

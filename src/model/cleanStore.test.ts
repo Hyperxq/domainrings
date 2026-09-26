@@ -107,3 +107,81 @@ describe('elements (REQ-04: every element belongs to a sector, never directly to
     expect(state().map.sectors).toEqual([{ id: sectorId, name: 'Billing', ringRole: 'domain' }])
   })
 })
+
+describe('clean store — dependencies (REQ-06: inward-only, sector-transparent)', () => {
+  const sectorIn = (role: 'domain' | 'application' | 'adapters' | 'outer') => state().addSector({ name: `Sector-${role}`, ringRole: role })
+
+  it('addDependency succeeds on an inward pair, regardless of sector', () => {
+    state().replace(newCleanMap('Fresh'))
+    const outerSector = sectorIn('outer')
+    const domainSector = sectorIn('domain')
+    const outerId = state().addElement({ name: 'Controller', sectorId: outerSector })
+    const domainId = state().addElement({ name: 'Order', sectorId: domainSector })
+    const id = state().addDependency(outerId, domainId)
+    expect(id).toBeDefined()
+    expect(state().map.dependencies).toEqual([{ id, fromId: outerId, toId: domainId }])
+  })
+
+  it('addDependency succeeds within the same ring even across two different sectors', () => {
+    state().replace(newCleanMap('Fresh'))
+    const sectorA = sectorIn('domain')
+    const sectorB = state().addSector({ name: 'Sector-domain-2', ringRole: 'domain' })
+    const fromId = state().addElement({ name: 'Order', sectorId: sectorA })
+    const toId = state().addElement({ name: 'Invoice', sectorId: sectorB })
+    const id = state().addDependency(fromId, toId)
+    expect(id).toBeDefined()
+  })
+
+  it('addDependency no-ops on an outward pair (REQ-06)', () => {
+    state().replace(newCleanMap('Fresh'))
+    const domainSector = sectorIn('domain')
+    const outerSector = sectorIn('outer')
+    const domainId = state().addElement({ name: 'Order', sectorId: domainSector })
+    const outerId = state().addElement({ name: 'Controller', sectorId: outerSector })
+    const before = state().map
+    const id = state().addDependency(domainId, outerId)
+    expect(id).toBeUndefined()
+    expect(state().map).toBe(before)
+  })
+
+  it('removeDependency removes an existing dependency', () => {
+    state().replace(newCleanMap('Fresh'))
+    const outerSector = sectorIn('outer')
+    const domainSector = sectorIn('domain')
+    const outerId = state().addElement({ name: 'Controller', sectorId: outerSector })
+    const domainId = state().addElement({ name: 'Order', sectorId: domainSector })
+    const id = state().addDependency(outerId, domainId)!
+    state().removeDependency(id)
+    expect(state().map.dependencies).toEqual([])
+  })
+})
+
+describe('clean store — endpoints (REQ-07: actors/externals target Frameworks & Drivers elements only)', () => {
+  it('addEndpoint succeeds when the target sits in the outer ring', () => {
+    state().replace(newCleanMap('Fresh'))
+    const sectorId = state().addSector({ name: 'API', ringRole: 'outer' })
+    const outerId = state().addElement({ name: 'Controller', sectorId })
+    const id = state().addEndpoint('actors', { name: 'Customer', targetId: outerId })
+    expect(id).toBeDefined()
+    expect(state().map.actors).toEqual([{ id, name: 'Customer', targetId: outerId }])
+  })
+
+  it('addEndpoint no-ops when the target is not in the outer ring (REQ-07)', () => {
+    state().replace(newCleanMap('Fresh'))
+    const sectorId = state().addSector({ name: 'Billing', ringRole: 'application' })
+    const appId = state().addElement({ name: 'OrderService', sectorId })
+    const before = state().map
+    const id = state().addEndpoint('externals', { name: 'Payments API', targetId: appId })
+    expect(id).toBeUndefined()
+    expect(state().map).toBe(before)
+  })
+
+  it('removeEndpoint removes an existing actor or external', () => {
+    state().replace(newCleanMap('Fresh'))
+    const sectorId = state().addSector({ name: 'API', ringRole: 'outer' })
+    const outerId = state().addElement({ name: 'Controller', sectorId })
+    const id = state().addEndpoint('actors', { name: 'Customer', targetId: outerId })!
+    state().removeEndpoint('actors', id)
+    expect(state().map.actors).toEqual([])
+  })
+})

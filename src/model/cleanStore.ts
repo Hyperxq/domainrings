@@ -1,8 +1,10 @@
 import { create } from 'zustand'
 import { newCleanMap } from './hexa'
 import * as ringedDocument from './ringedDocument'
-import { CleanFileSchema, type CleanElement, type CleanFile, type CleanSector } from './schema'
+import { CleanFileSchema, type CleanElement, type CleanEndpoint, type CleanFile, type CleanSector } from './schema'
 import { boot } from './store'
+
+type EndpointCollection = 'actors' | 'externals'
 
 interface CleanState {
   map: CleanFile
@@ -27,6 +29,14 @@ interface CleanState {
   updateElement: (id: string, patch: Partial<Omit<CleanElement, 'id'>>) => void
   /** Removes an element, pruning any dependency it took part in and clearing any endpoint target pointing to it. */
   removeElement: (id: string) => void
+  /** Creates a dependency from `fromId` to `toId` (ADR-02: validate-by-reparse, mirrors useOnionStore's own
+   * addDependency) — undefined ⇒ no-op: the pair would point to a more outward ring, sector-transparent (REQ-06). */
+  addDependency: (fromId: string, toId: string) => string | undefined
+  removeDependency: (id: string) => void
+  /** Adds an actor or external system (validate-by-reparse) — undefined ⇒ no-op: `targetId` is set but does not
+   * resolve to an element in the outer ring (REQ-07). */
+  addEndpoint: (collection: EndpointCollection, patch: Omit<CleanEndpoint, 'id'>) => string | undefined
+  removeEndpoint: (collection: EndpointCollection, id: string) => void
 }
 
 // The persisted slot holds a single StoredFile of either kind — this store only boots into the Clean arm when
@@ -65,4 +75,19 @@ export const useCleanStore = create<CleanState>()((set, get) => ({
     set({ map: next })
   },
   removeElement: (id) => set({ map: ringedDocument.removeElement(get().map, id) }),
+  addDependency: (fromId, toId) => {
+    const result = ringedDocument.addDependency(get().map, fromId, toId, () => `dependency-${crypto.randomUUID().slice(0, 8)}`, CleanFileSchema)
+    if (!result) return undefined
+    set({ map: result.doc })
+    return result.id
+  },
+  removeDependency: (id) => set({ map: ringedDocument.removeDependency(get().map, id) }),
+  addEndpoint: (collection, patch) => {
+    const makeId = () => `${collection === 'actors' ? 'actor' : 'external'}-${crypto.randomUUID().slice(0, 8)}`
+    const result = ringedDocument.addEndpoint<CleanFile, CleanEndpoint>(get().map, collection, patch, makeId, CleanFileSchema)
+    if (!result) return undefined
+    set({ map: result.doc })
+    return result.id
+  },
+  removeEndpoint: (collection, id) => set({ map: ringedDocument.removeEndpoint(get().map, collection, id) }),
 }))
