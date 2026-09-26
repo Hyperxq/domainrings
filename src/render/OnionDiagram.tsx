@@ -31,7 +31,7 @@ export function OnionDiagram({ model, selected, interactive, validTargets, legen
         </marker>
       </defs>
       {model.rings.map((ring, i) => (
-        <Ring key={ring.key} ring={ring} shape="circle" inner={model.rings[i - 1]} interactive={false} />
+        <Ring key={ring.key} ring={ring} shape="circle" inner={model.rings[i - 1]} interactive={interactive} />
       ))}
       {model.edges.map((edge) => (
         <RingedEdge key={edge.key} edge={edge} markerId="onion-arrow" />

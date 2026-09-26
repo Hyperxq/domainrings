@@ -160,6 +160,26 @@ export function useDependGesture({
 const GRID = 20
 const PAN_SLOP = 3
 
+/** Which ring (by role, `data-band`/`data-layer`) or specific element/endpoint (`data-ref`) is currently hovered
+ * or focused — everything a caller needs to decide which of its own "+" affordances to reveal (`affordanceVisible`,
+ * below). Both null when nothing in the diagram has the pointer or focus. */
+export interface RingedHover {
+  layer: string | null
+  ref: string | null
+}
+
+const NO_HOVER: RingedHover = { layer: null, ref: null }
+
+/** An insertion point's own "+" shows only while its trigger area has the pointer or keyboard focus (mirrors
+ * Hexagonal's own Stage: `visiblePoints = hovered ? points.filter(...) : []`) — a ring/sector "+" while its own
+ * ring is hovered/focused (directly, or via one of its own elements, which carry the same `data-layer`); an
+ * endpoint "+" (add an actor/external for a specific outer-ring element) only while THAT element itself is
+ * hovered/focused, never for the ring as a whole — otherwise every outer element's pair would show at once. */
+export function affordanceVisible(point: { ringRole: string; action: { kind: string; targetId?: string } }, hover: RingedHover): boolean {
+  if (point.action.kind === 'endpoint') return point.action.targetId === hover.ref
+  return point.ringRole === hover.layer
+}
+
 export interface RingedStageProps {
   /** The diagram's own bounds (`OnionLayoutModel`/`CleanLayoutModel.bounds`) — the one thing `RingedStage` fits
    * to, since neither kind ever has more than one diagram to frame or focus (unlike Hexagonal's multi-hexagon map). */
@@ -172,8 +192,11 @@ export interface RingedStageProps {
   panelOpen?: boolean
   /** Reserves the legend's own column when open, for the same reason. */
   legendOpen?: boolean
-  /** Rendered inside the `<svg>`, in diagram coordinates — the actual diagram, its "+" affordances and chips. */
-  children: ReactNode
+  /** Rendered inside the `<svg>`, in diagram coordinates — the actual diagram, its "+" affordances and chips. A
+   * render prop (not a plain node): the caller filters its own insertion points by the given `RingedHover` (via
+   * `affordanceVisible`) before rendering them, since `RingedStage` owns the hover/focus tracking the "+"
+   * affordances reveal on — the same layer-hover mechanism Hexagonal's own Stage uses. */
+  children: (hover: RingedHover) => ReactNode
   /** Rendered as an HTML sibling of the `<svg>`, in screen coordinates — an `<input>` (e.g. `InlineNameField`)
    * can't live inside an SVG tree the way an SVG-native "+" glyph can. */
   overlay?: ReactNode
@@ -195,6 +218,13 @@ export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, panel
   const [fullscreen, setFullscreen] = useState(false)
   // A press that became a pan ends in a click too; it must not run `onClick`.
   const panned = useRef(false)
+  // Which ring/element/endpoint currently has the pointer or keyboard focus — drives which "+" affordances
+  // `children` reveals (`RingedHover`, `affordanceVisible`). A mousedown moves focus to its target as a browser
+  // default action, firing `focus` before `pointerup`/`click`; that focus must not itself reveal affordances
+  // (they would sit under the next press and steal its click), only a REAL keyboard focus should — mirrors
+  // Hexagonal's own Stage.tsx `pointerPressed` guard.
+  const [hover, setHover] = useState<RingedHover>(NO_HOVER)
+  const pointerPressed = useRef(false)
 
   // A genuinely different-shaped diagram (new/opened/example file, or a ring growing/shrinking enough to change
   // the bounds' own rounded size) or the legend opening/closing refits — the same "unfreeze back to auto"
@@ -257,9 +287,17 @@ export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, panel
   const height = size.height / viewport.scale
   const gridStep = GRID * viewport.scale
 
+  // The ring a target belongs to (its own `data-band`/`data-layer`, e.g. the band itself or one of its own
+  // elements) and the specific element/endpoint it is (`data-ref`) — same convention as Hexagonal's own
+  // `layerOf` (Stage.tsx), generalised with a ref lookup for the per-element endpoint "+"s.
+  const layerOf = (target: Element) => target.closest('[data-band]')?.getAttribute('data-band') ?? target.closest('[data-layer]')?.getAttribute('data-layer') ?? null
+  const refOf = (target: Element) => target.closest('[data-ref]')?.getAttribute('data-ref') ?? null
+  const reveal = (target: Element | null) => setHover(target ? { layer: layerOf(target), ref: refOf(target) } : NO_HOVER)
+
   /** A finger lifts (up or cancel, same cleanup either way): dropping out of a pinch hands off to a one-finger
    * pan from the remaining finger's current position, so the diagram never jumps. */
   const liftPointer = (e: ReactPointerEvent<HTMLElement>) => {
+    pointerPressed.current = false
     if (!pointers.current.has(e.pointerId)) return
     const wasPinching = pointers.current.size === 2
     pointers.current.delete(e.pointerId)
@@ -282,6 +320,7 @@ export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, panel
         backgroundPosition: `${-viewport.x * viewport.scale}px ${-viewport.y * viewport.scale}px`,
       }}
       onPointerDown={(e) => {
+        pointerPressed.current = true
         if (e.button !== 0 || (e.target as Element).closest('.island, [data-plus], .inline-name')) return
         if (pointers.current.size >= 2) return // a third finger never joins the gesture
         const wasEmpty = pointers.current.size === 0
@@ -344,9 +383,22 @@ export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, panel
           if (panned.current) return
           onClick(e)
         }}
+        onPointerOver={(e) => {
+          // Panning churns through elements underneath the pointer; none of that is a real hover. Hovering a "+"
+          // itself (or the "Depend on…" chip) must not blank out whatever revealed it — it has no `data-band`/
+          // `data-layer`/`data-ref` of its own to resolve.
+          if (drag.current?.panning || (e.target as Element).closest('[data-plus]')) return
+          reveal(e.target as Element)
+        }}
+        onPointerLeave={(e) => !(e.relatedTarget as Element | null)?.closest?.('[data-plus]') && reveal(null)}
+        onFocus={(e) => {
+          if (pointerPressed.current || (e.target as Element).closest('[data-plus]')) return
+          reveal(e.target as Element)
+        }}
+        onBlur={(e) => !(e.relatedTarget as Element | null)?.closest?.('[data-plus]') && reveal(null)}
         viewBox={size.width ? `${viewport.x} ${viewport.y} ${width} ${height}` : `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`}
       >
-        {children}
+        {children(hover)}
       </svg>
       {overlay}
 

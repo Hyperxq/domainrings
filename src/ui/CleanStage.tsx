@@ -6,7 +6,7 @@ import { elementName } from '../model/ringedDocument'
 import { useCleanStore } from '../model/cleanStore'
 import type { CleanFile } from '../model/schema'
 import { CleanDiagram } from '../render/CleanDiagram'
-import { DependChip, InlineNameField, PlusGlyph, RingedStage, useDependGesture } from './RingedCanvas'
+import { affordanceVisible, DependChip, InlineNameField, PlusGlyph, RingedStage, useDependGesture } from './RingedCanvas'
 
 const { addSector, addElement, updateElement, removeElement, addDependency, addEndpoint } = useCleanStore.getState()
 
@@ -101,12 +101,18 @@ export function CleanStage({ model, doc, svgRef, onReject, onMutate = () => {}, 
         )
       }
     >
-      <CleanDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} legend={legend} />
-      {cleanInsertionPoints(model, doc).map((point) => (
-        <PlusGlyph key={point.key} point={point} onPick={() => pick(point)} />
-      ))}
-      {selectedElement && !linking && validTargets.length > 0 && (
-        <DependChip x={selectedElement.x} y={selectedElement.y} name={selectedElement.name} onLink={() => setLinking(true)} />
+      {(hover) => (
+        <>
+          <CleanDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} legend={legend} />
+          {cleanInsertionPoints(model, doc)
+            .filter((point) => affordanceVisible(point, hover))
+            .map((point) => (
+              <PlusGlyph key={point.key} point={point} onPick={() => pick(point)} />
+            ))}
+          {selectedElement && !linking && validTargets.length > 0 && (
+            <DependChip x={selectedElement.x} y={selectedElement.y} name={selectedElement.name} onLink={() => setLinking(true)} />
+          )}
+        </>
       )}
     </RingedStage>
   )

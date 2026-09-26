@@ -38,7 +38,7 @@ export function CleanDiagram({ model, selected, interactive, validTargets, legen
         </marker>
       </defs>
       {model.rings.map((ring, i) => (
-        <Ring key={ring.key} ring={ring} shape="circle" inner={model.rings[i - 1]} interactive={false} />
+        <Ring key={ring.key} ring={ring} shape="circle" inner={model.rings[i - 1]} interactive={interactive} />
       ))}
       {model.rings.map((ring, i) => (
         <SectorDividers key={`dividers:${ring.key}`} ring={ring} inner={model.rings[i - 1]} model={model} />

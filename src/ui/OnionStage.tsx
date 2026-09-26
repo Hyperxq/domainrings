@@ -6,7 +6,7 @@ import { elementName } from '../model/ringedDocument'
 import { useOnionStore } from '../model/onionStore'
 import type { OnionFile } from '../model/schema'
 import { OnionDiagram } from '../render/OnionDiagram'
-import { DependChip, InlineNameField, PlusGlyph, RingedStage, useDependGesture } from './RingedCanvas'
+import { affordanceVisible, DependChip, InlineNameField, PlusGlyph, RingedStage, useDependGesture } from './RingedCanvas'
 
 const { addElement, updateElement, removeElement, addDependency, addEndpoint } = useOnionStore.getState()
 
@@ -98,12 +98,18 @@ export function OnionStage({ model, doc, svgRef, onReject, onMutate = () => {}, 
         )
       }
     >
-      <OnionDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} legend={legend} />
-      {onionInsertionPoints(model, doc).map((point) => (
-        <PlusGlyph key={point.key} point={point} onPick={() => pick(point)} />
-      ))}
-      {selectedElement && !linking && validTargets.length > 0 && (
-        <DependChip x={selectedElement.x} y={selectedElement.y} name={selectedElement.name} onLink={() => setLinking(true)} />
+      {(hover) => (
+        <>
+          <OnionDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} legend={legend} />
+          {onionInsertionPoints(model, doc)
+            .filter((point) => affordanceVisible(point, hover))
+            .map((point) => (
+              <PlusGlyph key={point.key} point={point} onPick={() => pick(point)} />
+            ))}
+          {selectedElement && !linking && validTargets.length > 0 && (
+            <DependChip x={selectedElement.x} y={selectedElement.y} name={selectedElement.name} onLink={() => setLinking(true)} />
+          )}
+        </>
       )}
     </RingedStage>
   )

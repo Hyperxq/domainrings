@@ -44,6 +44,7 @@ export function RingedElementNode({ element, selected, target, interactive }: { 
     <g
       className="node node-ringedElement tone-teal"
       data-ref={element.ref}
+      data-layer={element.ringRole}
       data-selected={selected ? '' : undefined}
       data-link-target={target ? '' : undefined}
       tabIndex={interactive ? 0 : undefined}
