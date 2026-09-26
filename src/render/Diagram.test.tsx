@@ -126,6 +126,12 @@ describe('MapDiagram — routed link path and pattern label (REQ-LNK-05, REQ-LNK
     expect(path.getAttribute('aria-hidden')).toBe('true')
   })
 
+  it('shows its own arrowhead at the `to` end, independent of any in-hexagon adapter→port marker (REQ-LNK-05.6)', () => {
+    const { container } = renderSvg(twoHexagonMap())
+    const path = container.querySelector('path[data-map-link]')!
+    expect(path.getAttribute('marker-end')).toBe('url(#arrow)')
+  })
+
   it('renders no pattern label when the link carries none', () => {
     const { container } = renderSvg(twoHexagonMap())
     expect(container.querySelectorAll('[data-link-pattern]')).toHaveLength(0)

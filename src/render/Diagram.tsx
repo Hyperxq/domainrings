@@ -318,7 +318,7 @@ export function MapDiagram({ map, legend, showGuides, focus, selected, linkTarge
         )
       })}
       {map.links.map((link) => (
-        <path key={link.id} className="map-link" data-map-link="" aria-hidden="true" d={orthogonalPath(link.points)} />
+        <path key={link.id} className="map-link" data-map-link="" aria-hidden="true" d={orthogonalPath(link.points)} markerEnd="url(#arrow)" />
       ))}
       {map.links.map(
         (link) =>
