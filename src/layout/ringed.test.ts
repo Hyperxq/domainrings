@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { newCleanMap, newOnionMap } from '../model/hexa'
 import { arcAngles } from '../model/rings'
 import {
+  endpointLabelHeight,
+  endpointLabelWidth,
   endpointLayout,
-  RINGED_ELEMENT_METRICS,
   RINGED_ELEMENT_HEIGHT,
   RINGED_ENDPOINT_DIAMETER,
   ringedBounds,
   ringElementRadius,
   ringOutlines,
+  ringSlotRadii,
   titleFootprintBox,
   TITLE_ARC_PAD,
   TITLE_MAX_SPAN,
@@ -90,14 +92,17 @@ describe("a ring's own title never overlaps its own elements (Decision 5)", () =
   it('8 elements densely packed around the innermost ring all clear a long title', () => {
     const name = 'Entities Of The Domain Model'
     const count = 8
-    const slotsOf = () => arcAngles(count, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI).map((angle) => ({ angle, width: 90 }))
+    const angles = arcAngles(count, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI)
+    const slotsOf = () => angles.map((angle) => ({ angle, width: 90, height: RINGED_ELEMENT_HEIGHT }))
     const [ring] = ringOutlines([{ role: 'domain', name }], slotsOf)
-    const radius = ringElementRadius(ring)
+    // Decision 7: a crowded band may stagger its own elements onto more than one radial track rather than growing
+    // the whole ring around the title — so a slot's own radius is no longer always the ring's one true mid.
+    const radii = ringSlotRadii(ring, undefined, angles)
     const titleArc = measure(ring.title, RING_LABEL) + 2 * TITLE_ARC_PAD
-    const titleBox = titleFootprintBox(radius, titleArc)
-    const elementBoxes = arcAngles(count, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI).map((angle) => ({
-      x: radius * Math.cos(angle),
-      y: radius * Math.sin(angle),
+    const titleBox = titleFootprintBox(ringElementRadius(ring), titleArc)
+    const elementBoxes = angles.map((angle, k) => ({
+      x: radii[k] * Math.cos(angle),
+      y: radii[k] * Math.sin(angle),
       width: 90,
       height: RINGED_ELEMENT_HEIGHT,
     }))
@@ -136,8 +141,10 @@ describe('endpointLayout — labels count toward the bounds, never just the dot 
     for (const endpoint of endpoints) {
       const labelSide = endpoint.x >= 0 ? 1 : -1
       const textStart = endpoint.x + labelSide * (RINGED_ENDPOINT_DIAMETER / 2 + 4)
-      const textEnd = textStart + labelSide * measure(endpoint.name, RINGED_ELEMENT_METRICS)
-      const halfTextHeight = RINGED_ELEMENT_METRICS.size / 2
+      // Decision 8: a long name wraps onto more than one line, so its own reach is its WIDEST line, not the whole
+      // unbroken name.
+      const textEnd = textStart + labelSide * endpointLabelWidth(endpoint.name)
+      const halfTextHeight = endpointLabelHeight(endpoint.name) / 2
       for (const x of [textStart, textEnd]) expect(x).toBeGreaterThanOrEqual(bounds.x)
       for (const x of [textStart, textEnd]) expect(x).toBeLessThanOrEqual(bounds.x + bounds.width)
       expect(endpoint.y - halfTextHeight).toBeGreaterThanOrEqual(bounds.y)

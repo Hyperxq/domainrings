@@ -1,9 +1,9 @@
-import { outerRoleOf, ringCircumferencePositions } from '../model/rings'
+import { arcAngles, outerRoleOf } from '../model/rings'
 import type { OnionFile, OnionRingRole } from '../model/schema'
 import type { Point } from './layout'
 import type { OnionLayoutModel } from './onion'
 import { endpointInsertionPoints } from './ringedInsertion'
-import { ringElementRadius } from './ringed'
+import { ringSlotRadii } from './ringed'
 
 /** What a "+" creates (REQ-07, REQ-05) — the position of the "+" decides which ring, or which outer element an
  * endpoint targets. Onion has no port/adapter concept, so this never grows the Hexagonal `InsertionAction` union. */
@@ -25,9 +25,11 @@ export function onionInsertionPoints(model: OnionLayoutModel, doc: OnionFile): O
   const points: OnionInsertionPoint[] = []
   doc.rings.forEach((ring, i) => {
     const count = doc.elements.filter((e) => e.ringRole === ring.role).length
-    // Same mid-band radius a real element lands at (`layoutOnion`) — otherwise the "+" would sit on the ring's
-    // outer edge while the element it creates appears inside the band.
-    const at = ringCircumferencePositions(count + 1, { halfWidth: ringElementRadius(model.rings[i], model.rings[i - 1]) })[count]
+    // Same lane a real new element would land on (`layoutOnion`/`ringSlotRadii`) — otherwise the "+" would sit on
+    // the ring's outer edge, or the wrong track, while the element it creates appears somewhere else in the band.
+    const angles = arcAngles(count + 1, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI)
+    const radius = ringSlotRadii(model.rings[i], model.rings[i - 1], angles)[count]
+    const at = { x: radius * Math.cos(angles[count]), y: radius * Math.sin(angles[count]) }
     points.push({ key: `element:${ring.role}`, ringRole: ring.role, at, action: { kind: 'element', ringRole: ring.role }, label: `Add an element to ${ring.name}` })
   })
   const outerRole = outerRoleOf(doc.rings)

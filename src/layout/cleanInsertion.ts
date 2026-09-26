@@ -1,9 +1,9 @@
-import { arcPositions, outerRoleOf, ringCircumferencePositions } from '../model/rings'
+import { arcAngles, outerRoleOf, ringCircumferencePositions } from '../model/rings'
 import type { CleanFile, CleanRingRole } from '../model/schema'
 import type { Point } from './layout'
 import type { CleanLayoutModel } from './clean'
 import { endpointInsertionPoints } from './ringedInsertion'
-import { ringElementRadius } from './ringed'
+import { ringSlotRadii } from './ringed'
 
 /** What a "+" creates (REQ-03, REQ-04, REQ-07) — a ring's own "+" adds a sector to it; a sector's own "+" adds an
  * element to it (never directly to a ring, REQ-04); an outer-ring element's "+"s add an actor/external. */
@@ -31,13 +31,21 @@ export function cleanInsertionPoints(model: CleanLayoutModel, doc: CleanFile): C
     const [at] = ringCircumferencePositions(1, model.rings[i])
     points.push({ key: `sector:${ring.role}`, ringRole: ring.role, at, action: { kind: 'sector', ringRole: ring.role }, label: `Add sector to ${ring.name}` })
   })
+  const countIn = (sectorRef: string) => doc.elements.filter((e) => e.sectorId === sectorRef).length
   for (const sector of model.sectors) {
     const ringIndex = model.rings.findIndex((r) => r.role === sector.ringRole)
     const ring = model.rings[ringIndex]
-    const count = doc.elements.filter((e) => e.sectorId === sector.ref).length
-    // Same mid-band radius a real element lands at (`layoutClean`) — otherwise the "+" would sit on the ring's
-    // outer edge while the element it creates appears inside the band.
-    const at = arcPositions(count + 1, { halfWidth: ringElementRadius(ring, model.rings[ringIndex - 1]) }, sector.startAngle, sector.endAngle)[count]
+    const count = countIn(sector.ref)
+    // The new element's own slot index within its RING's flattened order (Decision 7's `ringSlotRadii`), not
+    // just its own sector's count — matches `layoutClean`'s own sector-then-element flattening so the "+" lands
+    // on the same lane the real element would, never the ring's outer edge or the wrong track. Every sibling
+    // sector contributes its own REAL angles; only this sector gets the hypothetical extra slot.
+    const siblingsInRing = model.sectors.filter((s) => s.ringRole === sector.ringRole)
+    const priorSiblingCount = siblingsInRing.slice(0, siblingsInRing.findIndex((s) => s.ref === sector.ref)).reduce((n, s) => n + countIn(s.ref), 0)
+    const ringAngles = siblingsInRing.flatMap((s) => arcAngles(s.ref === sector.ref ? count + 1 : countIn(s.ref), s.startAngle, s.endAngle))
+    const slotIndex = priorSiblingCount + count
+    const radius = ringSlotRadii(ring, model.rings[ringIndex - 1], ringAngles)[slotIndex]
+    const at = { x: radius * Math.cos(ringAngles[slotIndex]), y: radius * Math.sin(ringAngles[slotIndex]) }
     points.push({ key: `element:${sector.ref}`, ringRole: sector.ringRole, at, action: { kind: 'element', sectorId: sector.ref }, label: `Add element to ${sector.name}` })
   }
   const outerRole = outerRoleOf(doc.rings)

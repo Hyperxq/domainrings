@@ -1,9 +1,9 @@
-import { arcAngles, arcPositions } from '../model/rings'
+import { arcAngles } from '../model/rings'
 import type { CleanElement, CleanFile, CleanRingRole } from '../model/schema'
 import { countCrossings } from './crossings'
 import { minimizeCrossings, neighborLookup, type CrossingGroup } from './crossingMinimization'
 import type { Box, LayoutRing } from './layout'
-import { endpointLayout, ringedBounds, ringElementRadius, RINGED_ELEMENT_HEIGHT, ringedElementWidth, ringOutlines } from './ringed'
+import { endpointLayout, ringedBounds, ringedElementHeight, ringedElementWidth, ringOutlines, ringSlotRadii } from './ringed'
 
 /** A sector's own wedge of its ring (REQ-08) — the angular sub-range its elements are spread inside, and the
  * range `render/band.ts`'s divider primitive and `cleanInsertion.ts`'s element "+" both place themselves against. */
@@ -91,24 +91,50 @@ function buildCleanModel(doc: CleanFile, sectors: CleanSectorWedge[], orderedEle
       .flatMap((sector) => {
         const onSector = orderedElementsIn(sector.ref)
         const angles = arcAngles(onSector.length, sector.startAngle, sector.endAngle)
-        return onSector.map((e, k) => ({ angle: angles[k], width: ringedElementWidth(e.name) }))
+        return onSector.map((e, k) => ({ angle: angles[k], width: ringedElementWidth(e.name), height: ringedElementHeight(e.name) }))
       })
   const rings = ringOutlines(doc.rings, slotsOf)
   const ringByRole = new Map(rings.map((r, i) => [r.role, { ring: r, inner: rings[i - 1] }]))
 
-  // Elements sit inside their own sector's wedge (REQ-08), at their ring's own band MID radius (never its outer
-  // edge, which the next ring out paints over — same fix as Onion's own element placement, ADR-01) — in whichever
-  // order the caller handed in.
+  // Every ring's own slot radii, resolved ONCE across its whole flattened sector order (`ringSlotRadii` needs the
+  // full list — Decision 7's lane assignment is relative to a slot's own position among ALL of its ring's slots,
+  // the same order `slotsOf` above sized that ring against), then sliced back out per sector below.
+  const anglesByRole = new Map<CleanRingRole, number[]>()
+  for (const sector of sectors) {
+    const angles = arcAngles(orderedElementsIn(sector.ref).length, sector.startAngle, sector.endAngle)
+    anglesByRole.set(sector.ringRole, [...(anglesByRole.get(sector.ringRole) ?? []), ...angles])
+  }
+  const radiiByRole = new Map(
+    [...anglesByRole].map(([role, angles]) => {
+      const { ring, inner } = ringByRole.get(role)!
+      return [role, ringSlotRadii(ring, inner, angles)] as const
+    }),
+  )
+  const slotOffset = new Map<string, number>()
+  const slotCountByRole = new Map<CleanRingRole, number>()
+  for (const sector of sectors) {
+    const start = slotCountByRole.get(sector.ringRole) ?? 0
+    slotOffset.set(sector.ref, start)
+    slotCountByRole.set(sector.ringRole, start + orderedElementsIn(sector.ref).length)
+  }
+
+  // Elements sit inside their own sector's wedge (REQ-08), staggered across their ring's own radial lanes
+  // (Decision 7, never its outer edge, which the next ring out paints over — same fix as Onion's own element
+  // placement, ADR-01) — in whichever order the caller handed in.
   const elements: CleanElementLayout[] = sectors.flatMap((sector) => {
-    const { ring, inner } = ringByRole.get(sector.ringRole)!
     const onSector = orderedElementsIn(sector.ref)
-    const positions = arcPositions(onSector.length, { halfWidth: ringElementRadius(ring, inner) }, sector.startAngle, sector.endAngle)
-    return onSector.map((e, k) => ({ key: `element:${e.id}`, ref: e.id, ringRole: sector.ringRole, name: e.name, ...positions[k] }))
+    const angles = arcAngles(onSector.length, sector.startAngle, sector.endAngle)
+    const offset = slotOffset.get(sector.ref)!
+    const radii = radiiByRole.get(sector.ringRole)!
+    return onSector.map((e, k) => {
+      const radius = radii[offset + k]
+      return { key: `element:${e.id}`, ref: e.id, ringRole: sector.ringRole, name: e.name, x: radius * Math.cos(angles[k]), y: radius * Math.sin(angles[k]) }
+    })
   })
   const elementAt = new Map(elements.map((e) => [e.ref, e]))
 
   const outer = rings[rings.length - 1]
-  const outerElements = elements.filter((e) => e.ringRole === outer.role).map((e) => ({ x: e.x, y: e.y, width: ringedElementWidth(e.name), height: RINGED_ELEMENT_HEIGHT }))
+  const outerElements = elements.filter((e) => e.ringRole === outer.role).map((e) => ({ x: e.x, y: e.y, width: ringedElementWidth(e.name), height: ringedElementHeight(e.name) }))
   const { endpoints, extraReach } = endpointLayout(doc.actors, doc.externals, outer, outerElements)
 
   const dependencyEdges: CleanEdgeLayout[] = doc.dependencies.flatMap((dep) => {
@@ -137,7 +163,7 @@ function buildCleanModel(doc: CleanFile, sectors: CleanSectorWedge[], orderedEle
 
 /** Innermost-first (REQ-02) — rings and their outlines are shared with Onion (`ringOutlines`, ADR-01); what's
  * genuinely Clean-only is the sector sub-division of each ring into wedges and placing elements inside their
- * own wedge (`arcPositions`) rather than around the whole ring. */
+ * own wedge (`arcAngles`) rather than around the whole ring. */
 export function layoutClean(doc: CleanFile): CleanLayoutModel {
   const sectors = sectorWedges(doc)
 

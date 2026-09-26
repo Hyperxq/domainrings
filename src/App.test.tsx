@@ -2221,7 +2221,8 @@ describe('Onion export (REQ-08)', () => {
     expect(markup).toContain('Domain Model') // innermost ring, drawn as-is
     expect(markup).toContain('INFRASTRUCTURE') // outer ring, upper-cased like every non-innermost ring
     expect(markup).toContain('>Order<') // element
-    expect(markup).toContain('>OrderController<') // element
+    expect(markup).toContain('>Order</tspan><tspan')
+    expect(markup).toContain('>Controller</tspan>') // element ("OrderController" wraps onto two lines, Decision 8)
     expect(markup).toContain('>Web shop<') // actor
     expect(markup).toContain('url(#onion-arrow)') // dependency/endpoint arrow
     expect(markup).not.toMatch(/<circle[^>]*r="10"/) // no leftover ring/endpoint "+" glyph
@@ -2336,9 +2337,11 @@ describe('Clean export (REQ-05)', () => {
     expect(markup).toContain('FRAMEWORKS &amp; DRIVERS') // outer ring, upper-cased like every non-innermost ring
     expect(markup).toContain('data-sector-divider') // sector wedge dividers (REQ-08)
     expect(markup).toContain('>Order<') // element
-    expect(markup).toContain('>OrderController<') // element
+    expect(markup).toContain('>Order</tspan><tspan')
+    expect(markup).toContain('>Controller</tspan>') // element ("OrderController" wraps onto two lines, Decision 8)
     expect(markup).toContain('>Web shop<') // actor
-    expect(markup).toContain('>Payment gateway<') // external
+    expect(markup).toContain('>Payment</tspan><tspan')
+    expect(markup).toContain('>gateway</tspan>') // external ("Payment gateway" wraps onto two lines, Decision 8)
     expect(markup).toContain('url(#clean-arrow)') // dependency/endpoint arrow
     expect(markup).not.toMatch(/<circle[^>]*r="10"/) // no leftover ring/sector/element "+" glyph
     expect(markup).not.toContain('Depend on…') // no leftover gesture chip

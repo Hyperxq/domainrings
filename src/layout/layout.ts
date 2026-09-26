@@ -68,6 +68,9 @@ export interface LayoutRing {
   labelAt: Point
   /** The title and subtitle block, which nothing may cover. */
   titleBox: Box
+  /** Onion/Clean only (ADR-01, Decision 7): how many concentric radial lanes this ring's own elements are
+   * staggered across (`ringSlotRadius`, layout/ringed.ts) — undefined for Hexagonal, which has no such concept. */
+  tracks?: number
 }
 
 export interface LayoutEdge {

@@ -6,7 +6,8 @@ import { layoutMap } from '../layout/map'
 import { layoutOnion } from '../layout/onion'
 import { layoutClean } from '../layout/clean'
 import { countCrossings } from '../layout/crossings'
-import { measure } from '../layout/text'
+import { ringedElementHeight, ringedElementWidth } from '../layout/ringed'
+import { fitTo, islandInset } from '../ui/viewport'
 import type { CleanFile, HexaMap, OnionFile, StoredFile } from '../model/schema'
 
 const EXAMPLES_DIR = __dirname
@@ -82,19 +83,17 @@ function overlappingPairs(boxes: Box[]): string[] {
 }
 
 // Onion/Clean elements and endpoints carry only their centre point (RingedElementLayout/RingedEndpointLayout) —
-// their rendered box comes from render/RingedNodes.tsx's own (module-private) sizing, duplicated here so this
-// suite checks the same boxes the SVG actually draws, not an invented approximation.
-const RINGED_NAME_METRICS = { size: 13, em: 0.6, tracking: 0 }
-const RINGED_PAD_X = 10
-const RINGED_NODE_HEIGHT = 26
+// their rendered box comes from `layout/ringed`'s own sizing (Decision 8: a long name wraps onto more than one
+// line, so its box is no longer a fixed height), imported directly rather than re-derived so this suite checks
+// the SAME box the SVG actually draws, never a stale approximation of it.
 const RINGED_ENDPOINT_RADIUS = 4
 
 const ringedElementBox = (key: string, name: string, x: number, y: number): Box => ({
   key,
   x,
   y,
-  width: measure(name, RINGED_NAME_METRICS) + 2 * RINGED_PAD_X,
-  height: RINGED_NODE_HEIGHT,
+  width: ringedElementWidth(name),
+  height: ringedElementHeight(name),
 })
 
 const ringedEndpointBox = (key: string, x: number, y: number): Box => ({
@@ -321,7 +320,7 @@ describe('Onion/Clean crossing counts (Decision 3) — after must never exceed b
     'onion-stress.hexa': 21,
     'clean-basic.hexa': 0,
     'clean-advanced.hexa': 9,
-    'clean-stress.hexa': 29,
+    'clean-stress.hexa': 24,
   }
 
   for (const file of files.filter((f) => f.startsWith('onion-') || f.startsWith('clean-'))) {
@@ -333,6 +332,32 @@ describe('Onion/Clean crossing counts (Decision 3) — after must never exceed b
       const after = countCrossings(model.edges)
       expect(after).toBeLessThanOrEqual(BEFORE[file])
       expect(after).toBe(AFTER[file])
+    })
+  }
+})
+
+// A diagram nobody can read without zooming in isn't readable — a crowded ring used to grow far past what its own
+// content needed (every element forced onto one circumference, dodging the ring's own title), leaving a fit at
+// 1440×900 as low as ~34%. Pinned against the app's own real fit math (`fitTo` + `islandInset`, RingedStage's
+// default collapsed-editor/closed-legend framing) so this never regresses back to microscopic text.
+describe('Onion/Clean examples read at a usable size when fit to a 1440×900 stage', () => {
+  const STAGE = { width: 1440, height: 900 }
+  const INSET = islandInset(STAGE, false, false)
+  const MIN_FIT_PERCENT: Record<string, number> = {
+    'onion-advanced.hexa': 70,
+    'onion-stress.hexa': 55,
+    'clean-advanced.hexa': 70,
+    'clean-stress.hexa': 55,
+  }
+
+  for (const [file, minPercent] of Object.entries(MIN_FIT_PERCENT)) {
+    it(`${file}: fits at ${minPercent}% or more`, () => {
+      const parsed = parseHexa(readExample(file))
+      if (!parsed.ok) throw new Error(`"${file}" failed to parse: ${parsed.errors.join('; ')}`)
+      const map = parsed.map
+      const model = map.kind === 'onion' ? layoutOnion(map as OnionFile) : layoutClean(map as CleanFile)
+      const { scale } = fitTo(model.bounds, STAGE.width, STAGE.height, INSET)
+      expect(scale * 100).toBeGreaterThanOrEqual(minPercent)
     })
   }
 })
