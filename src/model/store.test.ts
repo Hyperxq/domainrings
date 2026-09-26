@@ -225,9 +225,6 @@ describe('map store', () => {
       expect(state().map).toBe(map)
     })
 
-    // A non-hexagonal HexaMap is no longer constructible at all (REQ-01, kind is a literal type) — the convert
-    // escape hatch these two tests exercised is already unreachable in practice; S-001 removes the dead code.
-
     it('every output parses MapSchema', () => {
       state().addHexagon(state().focus, { context: 'new' })
       expect(MapSchema.safeParse(state().map).success).toBe(true)

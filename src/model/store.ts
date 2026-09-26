@@ -7,8 +7,7 @@ import { MapSchema, REFERENCES, type CollectionKey, type Diagram, type HexaMap, 
 
 export type Item<K extends CollectionKey> = Diagram[K][number]
 type HexagonMeta = Partial<Pick<Hexagon, 'title' | 'subtitle' | 'composition' | 'layers'>>
-// `kind` is immutable once a file exists (REQ-01) — no longer settable here; the multi-hexagon kind-lock this
-// used to gate is gone with it (S-001 finishes removing the now-unreachable convert escape hatch it guarded).
+// `kind` is immutable once a file exists (REQ-01) — no longer settable here.
 type MapMeta = Partial<Pick<HexaMap, 'title'>>
 
 const NEW_ITEM: { [K in CollectionKey]: Omit<Item<K>, 'id'> } = {
@@ -38,14 +37,12 @@ interface MapState {
   updateItem: <K extends CollectionKey>(hexId: string, key: K, id: string, patch: Partial<Omit<Item<K>, 'id'>>) => Link[]
   removeItem: (hexId: string, key: CollectionKey, id: string) => Link[]
   /** Grows the map from `from`'s given (or first free, in SIDE_ORDER) side, into that hexagon's own context or a
-   * fresh one. Undefined — a no-op — when `from` has no free side, or the map isn't hexagonal and `convert` isn't
-   * set (ADR-02). Focuses the new hexagon; never bumps `revision`. */
-  addHexagon: (from: string, opts: { side?: Wall; context: Destination; convert?: boolean }) => string | undefined
+   * fresh one. Undefined — a no-op — when `from` has no free side. Focuses the new hexagon; never bumps `revision`. */
+  addHexagon: (from: string, opts: { side?: Wall; context: Destination }) => string | undefined
   /** Imports `file`'s one hexagon onto the first free cell from the current hexagon, into its own context or a
    * fresh one — sharing `addHexagon`'s destination vocabulary and the same write path (ADR-02). Undefined when
-   * `file` does not hold exactly one hexagon (IMP-04), or the map isn't hexagonal and `convert` isn't set. Focuses
-   * the imported hexagon; never bumps `revision`. */
-  importHexagon: (file: HexaMap, opts: { context: Destination; convert?: boolean }) => string | undefined
+   * `file` does not hold exactly one hexagon (IMP-04). Focuses the imported hexagon; never bumps `revision`. */
+  importHexagon: (file: HexaMap, opts: { context: Destination }) => string | undefined
   /** Removes `hexId`, pruning its links and dropping its own now-empty context; moves focus to `hexagons[0]` when
    * the deleted one was current. No-op ([]), leaving the map untouched, on the map's last hexagon (DEL-01) — a
    * map is never left with zero. Never bumps `revision`. */
@@ -89,9 +86,8 @@ export const useMapStore = create<MapState>()((set, get) => {
     return pruned
   }
   // Single placement path for addHexagon/importHexagon (ADR-02): both resolve their own cell/source, then share
-  // the hexagonal-kind guard, the placeHexagon call, and the focus-setting write.
-  const placeAndFocus = (map: HexaMap, view: Diagram, cell: Cell, contextId: string | undefined, convert: boolean | undefined): string | undefined => {
-    if (map.kind !== 'hexagonal' && !convert) return undefined
+  // the placeHexagon call and the focus-setting write.
+  const placeAndFocus = (map: HexaMap, view: Diagram, cell: Cell, contextId: string | undefined): string | undefined => {
     const { map: next, hexId } = placeHexagon(map, view, { cell, contextId })
     set({ map: next, focus: hexId })
     return hexId
@@ -122,21 +118,21 @@ export const useMapStore = create<MapState>()((set, get) => {
         }
         return next
       }),
-    addHexagon: (from, { side, context, convert }) => {
+    addHexagon: (from, { side, context }) => {
       const map = get().map
       const source = map.hexagons.find((h) => h.id === from)
       if (!source) return undefined
       const growSide = side ?? freeSides(map, source.cell)[0]
       if (growSide === undefined) return undefined
       const view: Diagram = { version: 1, kind: 'hexagonal', title: UNTITLED_HEXAGON, domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }
-      return placeAndFocus(map, view, neighbour(source.cell, growSide), context === 'same' ? source.contextId : undefined, convert)
+      return placeAndFocus(map, view, neighbour(source.cell, growSide), context === 'same' ? source.contextId : undefined)
     },
-    importHexagon: (file, { context, convert }) => {
+    importHexagon: (file, { context }) => {
       if (file.hexagons.length !== 1) return undefined
       const map = get().map
       const current = map.hexagons.find((h) => h.id === get().focus)!
       const view = diagramOf(file, file.hexagons[0].id)
-      return placeAndFocus(map, view, freeCell(map, current.cell), context === 'same' ? current.contextId : undefined, convert)
+      return placeAndFocus(map, view, freeCell(map, current.cell), context === 'same' ? current.contextId : undefined)
     },
     removeHexagon: (hexId) => {
       const map = get().map

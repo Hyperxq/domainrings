@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { newOnionMap } from '../model/hexa'
 import { layoutOnion } from './onion'
 
-describe('layoutOnion (rings only — S-000)', () => {
+describe('layoutOnion (rings only)', () => {
   it('lays out exactly the 4 rings the document declares, innermost-first, each strictly inside the next', () => {
     const model = layoutOnion(newOnionMap('Fresh'))
     expect(model.rings).toHaveLength(4)

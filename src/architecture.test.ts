@@ -116,8 +116,8 @@ describe('dependency fences', () => {
   })
 })
 
-// Direct regression guard for the halt this change's S-000 fixed (obs #7433): a document-root union (`StoredFile`)
-// must never reach a Hexagonal-only module — those keep reading `HexaMap` only, exactly as before Onion existed.
+// Regression guard (ADR-01): a document-root union (`StoredFile`) must never reach a Hexagonal-only module —
+// those keep reading `HexaMap` only, exactly as before Onion existed.
 describe('Hexagonal-only modules never import StoredFile/OnionFile (ADR-01)', () => {
   const HEXAGONAL_ONLY_MODULES = ['./model/map.ts', './model/store.ts', './layout/map.ts', './ui/Editor.tsx', './ui/Stage.tsx']
 

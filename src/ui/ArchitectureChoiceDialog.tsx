@@ -14,8 +14,8 @@ const CHOICES: { kind: ArchitectureChoice; label: string }[] = [
 
 /**
  * The one-time, permanent architecture choice for a brand-new file (REQ-01) — Hexagonal or Onion only, Clean is
- * not offered until it exists natively. Same modal `<dialog>` pattern as ConvertDialog: real focus-trapping,
- * Esc closes without choosing, Undo never bubbles past it.
+ * not offered until it exists natively. A modal `<dialog>` with real focus-trapping: Esc closes without choosing,
+ * Undo never bubbles past it.
  */
 export function ArchitectureChoiceDialog({ onChoose, onCancel }: ArchitectureChoiceDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)

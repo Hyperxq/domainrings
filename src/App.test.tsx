@@ -19,6 +19,7 @@ import v1Minimal from './model/fixtures/v1-minimal.hexa?raw'
 import v1Maximal from './model/fixtures/v1-maximal.hexa?raw'
 import v2EmptyContext from './model/fixtures/v2-empty-context.hexa?raw'
 import v2Honeycomb from './model/fixtures/v2-honeycomb.hexa?raw'
+import v3OnionExample from './model/fixtures/v3-onion-example.hexa?raw'
 
 const scrollIntoView = vi.fn()
 
@@ -1477,13 +1478,20 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     expect(useMapStore.getState().map).toStrictEqual(before)
     expect(useMapStore.getState().focus).toBe(beforeFocus)
   })
-})
 
-// The ConvertDialog these two suites asked before growing/importing into a Clean/Onion map is unreachable now:
-// HexaMap's `kind` is the literal 'hexagonal' (REQ-01/ADR-01), so there is no way left to construct the map
-// state they depended on. S-001 deletes ConvertDialog and this dead code outright; this suite already can't
-// build the precondition — 5 tests removed (2 growing/importing scenarios, 2 conversion-dialog-open scenarios,
-// plus the multi-hexagon-file refusal "even when Clean/Onion" variant above, redundant with the plain case).
+  it('refuses a v3 Onion file, leaving the map untouched (REQ-03)', async () => {
+    render(<App />)
+    openEditor()
+    const before = useMapStore.getState().map
+    openImportMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
+    await pickFile(v3OnionExample, 'sample.hexa')
+
+    expect(useMapStore.getState().map).toBe(before)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole('alert').textContent).toBe('sample.hexa is an Onion file. Add hexagon from file… only accepts a Hexagonal map.')
+  })
+})
 
 // --- The two end-to-end author journeys, starting from New, UI only --------------------------------------------
 
@@ -1955,7 +1963,7 @@ describe('an embedded link wins over a remote address when both are present (REQ
   })
 })
 
-describe('S-000 walking skeleton: the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
+describe('the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
   it('New opens the chooser; picking Hexagonal is pixel-identical to the old direct New', () => {
     const { container } = render(<App />)
 

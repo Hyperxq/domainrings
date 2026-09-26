@@ -260,7 +260,7 @@ const OnionFileObject = z.object({
 })
 
 // The ring-direction (REQ-04) and outer-target (REQ-05) rules land with rings.ts's real logic once elements can
-// exist (S-002) — here only structural duplicate-id integrity is enforced, same convention as v1's checkIntegrity.
+// exist — here only structural duplicate-id integrity is enforced, same convention as v1's checkIntegrity.
 function checkOnionIntegrity(d: Pick<z.infer<typeof OnionFileObject>, 'elements' | 'dependencies' | 'actors' | 'externals'>, ctx: z.RefinementCtx) {
   const collections = [
     ['elements', d.elements],
