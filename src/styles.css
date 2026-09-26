@@ -143,6 +143,19 @@
 }
 .plus-menu .text-button { justify-content: start; font-family: var(--font-mono); font-weight: 500; }
 
+/* Onion/Clean's own ring/sector/endpoint "+" (RingedCanvas.tsx's `PlusGlyph`) and "Depend on…" chip
+   (`DependChip`) are plain SVG glyphs, not HTML buttons like `.plus` above — same look (a teal circle with a
+   card-coloured centre), drawn with fill/stroke rather than background/border. Without these rules the circle's
+   default SVG fill (black) and unstyled lines were the reported solid black dots. */
+.ringed-plus,
+.ringed-depend-chip { cursor: pointer; }
+.ringed-plus circle { fill: var(--card); stroke: var(--teal); stroke-width: 1.5px; }
+.ringed-plus line { stroke: var(--teal); stroke-width: 1.5px; }
+.ringed-plus:hover circle { fill: var(--teal-soft); }
+.ringed-depend-chip rect { fill: var(--card); stroke: var(--teal); stroke-width: 1px; }
+.ringed-depend-chip text { fill: var(--teal); font-size: 12px; font-weight: 600; text-anchor: middle; }
+.ringed-depend-chip:hover rect { fill: var(--teal-soft); }
+
 /* Grow-the-map side "+": a ChoiceMenu (GROW-01) positioned at the shared cell-edge midpoint, styled to match .plus.
    No `transform` here — ChoiceMenu's own menu relies on `position: fixed` resolving against the viewport, which a
    transformed ancestor would hijack as its containing block instead; the centering offset is baked into left/top. */
@@ -691,6 +704,8 @@ span.swatch-domain { background: var(--teal-deep); border-color: var(--teal-deep
 span.swatch-driving { background: var(--driving-fill); border-color: var(--driving-line); }
 span.swatch-driven { background: var(--driven-fill); border-color: var(--driven-line); }
 span.swatch-external { background: var(--slate-soft); border-color: var(--slate); }
+/* Matches a ringed (Onion/Clean) element box's own fill/stroke (`.tone-teal .box`, styles.css above). */
+span.swatch-element { background: var(--card); border-color: var(--teal); }
 .legend-line { flex: none; }
 .legend-tags { font-family: var(--font-mono); }
 .legend-footer { padding: 8px 0; border-top: 1px solid var(--line); }
