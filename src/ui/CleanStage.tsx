@@ -4,7 +4,7 @@ import { cleanInsertionItem, cleanInsertionPoints, type CleanInsertionPoint } fr
 import { useCleanStore } from '../model/cleanStore'
 import type { CleanFile } from '../model/schema'
 import { CleanDiagram } from '../render/CleanDiagram'
-import { PlusGlyph, useDependGesture } from './RingedCanvas'
+import { DependChip, InlineNameField, PlusGlyph, useDependGesture } from './RingedCanvas'
 
 const { addSector, addElement, updateElement, removeElement, addDependency, addEndpoint } = useCleanStore.getState()
 
@@ -64,42 +64,18 @@ export function CleanStage({ model, doc, svgRef, onReject }: CleanStageProps) {
           <PlusGlyph key={point.key} point={point} onPick={() => pick(point)} />
         ))}
         {selectedElement && !linking && validTargets.length > 0 && (
-          <g
-            className="ringed-depend-chip"
-            data-plus=""
-            transform={`translate(${selectedElement.x} ${selectedElement.y - 26})`}
-            tabIndex={0}
-            role="button"
-            aria-label={`Depend on… from ${selectedElement.name}`}
-            onClick={(e) => {
-              e.stopPropagation()
-              setLinking(true)
-            }}
-          >
-            <rect x={-38} y={-11} width={76} height={22} rx={11} />
-            <text x={0} y={0} dominantBaseline="middle" textAnchor="middle">Depend on…</text>
-          </g>
+          <DependChip x={selectedElement.x} y={selectedElement.y} name={selectedElement.name} onLink={() => setLinking(true)} />
         )}
       </svg>
       {editing && editingElement && (
-        <input
-          className="inline-name ringed-inline-name"
-          aria-label="element name"
-          autoFocus
+        <InlineNameField
           defaultValue={editing.name}
-          onFocus={(e) => e.currentTarget.select()}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') e.currentTarget.blur()
-            if (e.key === 'Escape') {
-              e.stopPropagation()
-              removeElement(editing.id)
-              setEditing(null)
-            }
+          onCommit={(name) => {
+            updateElement(editing.id, { name })
+            setEditing(null)
           }}
-          onBlur={(e) => {
-            const name = e.currentTarget.value.trim()
-            if (name) updateElement(editing.id, { name })
-            else removeElement(editing.id)
+          onCancel={() => {
+            removeElement(editing.id)
             setEditing(null)
           }}
         />

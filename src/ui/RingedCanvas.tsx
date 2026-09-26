@@ -34,6 +34,63 @@ export function PlusGlyph({ point, onPick }: { point: RingedInsertionPoint; onPi
   )
 }
 
+/** The "Depend on…" chip offered above a selected element with at least one valid target — shared by Onion and
+ * Clean (ADR-01): both stages render it identically, positioned off the element it was invoked from. */
+export function DependChip({ x, y, name, onLink }: { x: number; y: number; name: string; onLink: () => void }) {
+  return (
+    <g
+      className="ringed-depend-chip"
+      data-plus=""
+      transform={`translate(${x} ${y - 26})`}
+      tabIndex={0}
+      role="button"
+      aria-label={`Depend on… from ${name}`}
+      onClick={(e) => {
+        e.stopPropagation()
+        onLink()
+      }}
+    >
+      <rect x={-38} y={-11} width={76} height={22} rx={11} />
+      <text x={0} y={0} dominantBaseline="middle" textAnchor="middle">Depend on…</text>
+    </g>
+  )
+}
+
+/** The inline rename field a fresh element's "+" opens immediately — shared by Onion and Clean (ADR-01): Enter
+ * commits (via blur), Escape and an empty-name blur both cancel (the caller decides what cancelling means, e.g.
+ * removing the just-created element). */
+export function InlineNameField({
+  defaultValue,
+  onCommit,
+  onCancel,
+}: {
+  defaultValue: string
+  onCommit: (name: string) => void
+  onCancel: () => void
+}) {
+  return (
+    <input
+      className="inline-name ringed-inline-name"
+      aria-label="element name"
+      autoFocus
+      defaultValue={defaultValue}
+      onFocus={(e) => e.currentTarget.select()}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur()
+        if (e.key === 'Escape') {
+          e.stopPropagation()
+          onCancel()
+        }
+      }}
+      onBlur={(e) => {
+        const name = e.currentTarget.value.trim()
+        if (name) onCommit(name)
+        else onCancel()
+      }}
+    />
+  )
+}
+
 interface RingedDependElement {
   ref: string
   ringRole: string
