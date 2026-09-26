@@ -7,6 +7,7 @@ import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, SEED_VERSION, TWO_SLICES_MAP } from './
 import { useMapStore } from './store'
 import { twoHexagonMap } from '../test/fixtures'
 import type { Diagram, HexaMap } from './schema'
+import v3OnionExample from './fixtures/v3-onion-example.hexa?raw'
 
 const memoryStorage = (initial: Record<string, string> = {}) => {
   const data = new Map(Object.entries(initial))
@@ -237,6 +238,35 @@ describe('RT-01: the shipped "Two slices, one link" example round-trips through 
     // current when the edit was made — through the real replace() action, not just the map's own hexagon order.
     useMapStore.getState().replace(reloaded.map)
     expect(useMapStore.getState().focus).toBe(reloaded.map.hexagons[0].id)
+  })
+})
+
+describe('an Onion document with elements, dependencies and actors round-trips through autosave and reload', () => {
+  afterEach(() => vi.useRealTimers())
+
+  it('parses, autosaves to domainrings:map only, and reloads deep-equal — the elements/dependency/actor survive intact', () => {
+    vi.useFakeTimers()
+    const parsed = parseHexa(v3OnionExample)
+    if (!parsed.ok || parsed.map.kind !== 'onion') throw new Error('fixture failed to parse as onion')
+    const map = parsed.map
+
+    const store = createStore(() => ({ map }))
+    const storage = memoryStorage()
+    autosave(store, storage, 'none', 300)
+    store.setState({ map: { ...map, title: 'Renamed' } })
+    vi.advanceTimersByTime(300)
+
+    expect(storage.setItem).toHaveBeenCalledTimes(1)
+    expect(storage.setItem).toHaveBeenCalledWith(MAP_KEY, expect.any(String))
+
+    const reloaded = loadMap(storage)
+    expect(reloaded).toEqual({ map: { ...map, title: 'Renamed' }, recovery: 'none' })
+    if (reloaded.map.kind !== 'onion') throw new Error('expected an onion reload')
+    expect(reloaded.map.elements).toEqual(map.elements)
+    expect(reloaded.map.dependencies).toEqual(map.dependencies)
+    expect(reloaded.map.actors).toEqual(map.actors)
+    // The .hexa export/reopen round-trip for this same fixture is covered by model/hexa.test.ts's
+    // "committed v3 onion fixture" describe block — not duplicated here.
   })
 })
 

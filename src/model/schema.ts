@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isInwardOrSame } from './rings'
 
 const id = z.string().min(1)
 const note = z.string().optional()
@@ -259,9 +260,10 @@ const OnionFileObject = z.object({
   externals: z.array(OnionEndpointSchema),
 })
 
-// The ring-direction (REQ-04) and outer-target (REQ-05) rules land with rings.ts's real logic once elements can
-// exist — here only structural duplicate-id integrity is enforced, same convention as v1's checkIntegrity.
-function checkOnionIntegrity(d: Pick<z.infer<typeof OnionFileObject>, 'elements' | 'dependencies' | 'actors' | 'externals'>, ctx: z.RefinementCtx) {
+function checkOnionIntegrity(
+  d: Pick<z.infer<typeof OnionFileObject>, 'rings' | 'elements' | 'dependencies' | 'actors' | 'externals'>,
+  ctx: z.RefinementCtx,
+) {
   const collections = [
     ['elements', d.elements],
     ['dependencies', d.dependencies],
@@ -273,6 +275,30 @@ function checkOnionIntegrity(d: Pick<z.infer<typeof OnionFileObject>, 'elements'
     items.forEach((item, i) => {
       if (seen.has(item.id)) ctx.addIssue({ code: 'custom', message: `Duplicate id "${item.id}"`, path: [key, i, 'id'] })
       seen.add(item.id)
+    })
+  }
+  const elementById = new Map(d.elements.map((e) => [e.id, e]))
+  const outerRole = d.rings[d.rings.length - 1].role
+  // REQ-04: a dependency may only point to the same ring or a more inward one.
+  d.dependencies.forEach((dep, i) => {
+    const from = elementById.get(dep.fromId)
+    const to = elementById.get(dep.toId)
+    if (!from) ctx.addIssue({ code: 'custom', message: `Unknown element id "${dep.fromId}"`, path: ['dependencies', i, 'fromId'] })
+    if (!to) ctx.addIssue({ code: 'custom', message: `Unknown element id "${dep.toId}"`, path: ['dependencies', i, 'toId'] })
+    if (from && to && !isInwardOrSame(d.rings, from.ringRole, to.ringRole)) {
+      ctx.addIssue({ code: 'custom', message: 'A dependency cannot point to a more outward ring', path: ['dependencies', i, 'toId'] })
+    }
+  })
+  // REQ-05: an actor/external may only target an outer-ring element.
+  for (const key of ['actors', 'externals'] as const) {
+    d[key].forEach((endpoint, i) => {
+      if (endpoint.targetId === undefined) return
+      const target = elementById.get(endpoint.targetId)
+      if (!target) {
+        ctx.addIssue({ code: 'custom', message: `Unknown element id "${endpoint.targetId}"`, path: [key, i, 'targetId'] })
+      } else if (target.ringRole !== outerRole) {
+        ctx.addIssue({ code: 'custom', message: 'An actor or external system can only target an outer-ring element', path: [key, i, 'targetId'] })
+      }
     })
   }
 }

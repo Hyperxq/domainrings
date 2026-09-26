@@ -1970,7 +1970,7 @@ describe('the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
     expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
   })
 
-  it('New → Onion mounts a bare 4-ring OnionDiagram, with no Hexagonal editor/stage, and never touches the Hexagonal store', () => {
+  it('New → Onion mounts its own OnionEditor/OnionStage — a bare 4-ring diagram, no Hexagonal editor/stage — and never touches the Hexagonal store', () => {
     const { container } = render(<App />)
     const hexaMapBefore = useMapStore.getState().map
 
@@ -1979,7 +1979,9 @@ describe('the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
 
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(container.querySelectorAll('svg.canvas .ring')).toHaveLength(4)
-    expect(screen.queryByRole('button', { name: 'Expand editor' })).toBeNull()
+    // OnionEditor has its own "Expand editor" toggle — what must be absent is anything Hexagonal-only.
+    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Add a driving port' })).toBeNull()
     expect(container.querySelector('[data-hex]')).toBeNull()
     expect(useOnionStore.getState().map.kind).toBe('onion')
     expect(useOnionStore.getState().map.rings.map((r) => r.role)).toEqual(['domain', 'domainServices', 'application', 'outer'])

@@ -91,8 +91,9 @@ interface FoldProps {
   children: ReactNode
 }
 
-/** A collapsible editor section, open by default; each one remembers whether it was left open. */
-function Fold({ id, title, count, actions, children }: FoldProps) {
+/** A collapsible editor section, open by default; each one remembers whether it was left open — shared with
+ * OnionEditor (its own sections follow the same fold/remember-state convention, not a parallel one). */
+export function Fold({ id, title, count, actions, children }: FoldProps) {
   const [open, setOpen] = useState(() => readSections()[id] ?? true)
   const settle = (next: boolean) => {
     setOpen(next)

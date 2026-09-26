@@ -24,7 +24,8 @@ import { decodeSharePayload, encodeSharePayload, isOversizedShareLink, shareLink
 import { Stage } from './ui/Stage'
 import { Toast } from './ui/Toast'
 import { Toolbar, type ExportScope, type ThemeChoice } from './ui/Toolbar'
-import { OnionDiagram } from './render/OnionDiagram'
+import { OnionEditor } from './ui/OnionEditor'
+import { OnionStage } from './ui/OnionStage'
 
 
 interface Notice {
@@ -482,9 +483,10 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         </>
       )}
       {activeKind === 'onion' && (
-        <svg className="canvas" viewBox={`${onionModel.bounds.x} ${onionModel.bounds.y} ${onionModel.bounds.width} ${onionModel.bounds.height}`}>
-          <OnionDiagram model={onionModel} />
-        </svg>
+        <>
+          <OnionEditor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} />
+          <OnionStage model={onionModel} doc={onionMap} svgRef={svgRef} />
+        </>
       )}
       {choosingArchitecture && <ArchitectureChoiceDialog onChoose={completeNew} onCancel={() => setChoosingArchitecture(false)} />}
       {linking && <Toast key={`link:${linking}`} sticky message={`Choose a target for ${nameOf(linking)} · Esc to cancel`} onClose={() => setLinking(null)} />}

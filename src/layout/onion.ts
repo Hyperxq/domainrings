@@ -1,11 +1,47 @@
-import type { OnionFile } from '../model/schema'
-import { circle, type Box, type LayoutRing, type Outline } from './layout'
+import { ringCircumferencePositions } from '../model/rings'
+import type { OnionDependency, OnionEndpoint, OnionFile, OnionRingRole } from '../model/schema'
+import { circle, type Box, type LayoutRing, type Outline, type Point } from './layout'
 import { DOMAIN_TITLE, measure, RING_LABEL } from './text'
+
+/** An element placed on its ring's circumference (REQ-07). */
+export interface OnionElementLayout {
+  key: string
+  ref: string
+  ringRole: OnionRingRole
+  name: string
+  x: number
+  y: number
+}
+
+/** An actor or external system, placed outside the outer ring (REQ-05). */
+export interface OnionEndpointLayout {
+  key: string
+  ref: string
+  kind: 'actor' | 'external'
+  name: string
+  targetId?: string
+  x: number
+  y: number
+}
+
+/** A dependency arrow (element → element) or an endpoint arrow (endpoint → its outer-ring target). */
+export interface OnionEdgeLayout {
+  key: string
+  kind: 'dependency' | 'endpoint'
+  from: Point
+  to: Point
+}
 
 export interface OnionLayoutModel {
   rings: LayoutRing[]
+  elements: OnionElementLayout[]
+  endpoints: OnionEndpointLayout[]
+  edges: OnionEdgeLayout[]
   bounds: Box
 }
+
+/** How far outside the outer ring an actor/external sits (REQ-05: "outside the outer ring", no port/adapter). */
+const ENDPOINT_GAP = 56
 
 /** Same floor as the Hexagonal/Clean rings' MIN_BAND — keeps ring bands visually consistent across kinds. */
 const MIN_BAND = 36
@@ -43,9 +79,49 @@ export function layoutOnion(doc: OnionFile): OnionLayoutModel {
     }
   })
 
+  // Elements: grouped by ring, spread evenly around that ring's circumference (REQ-07) — array order decides
+  // position order, so re-adding shuffles existing elements' angles; acceptable, nothing in REQ-07 promises a
+  // stable angle per element across edits.
+  const elements: OnionElementLayout[] = doc.rings.flatMap((ring, i) => {
+    const onRing = doc.elements.filter((e) => e.ringRole === ring.role)
+    const positions = ringCircumferencePositions(onRing.length, outlines[i])
+    return onRing.map((e, k) => ({ key: `element:${e.id}`, ref: e.id, ringRole: e.ringRole, name: e.name, ...positions[k] }))
+  })
+  const elementAt = new Map(elements.map((e) => [e.ref, e]))
+
+  // Endpoints: actors and externals share one virtual ring outside the outer ring (REQ-05) — no port/adapter.
+  const endpointSpecs: { item: OnionEndpoint; kind: 'actor' | 'external' }[] = [
+    ...doc.actors.map((item) => ({ item, kind: 'actor' as const })),
+    ...doc.externals.map((item) => ({ item, kind: 'external' as const })),
+  ]
+  const endpointOutline = circle(outlines[last].apex + ENDPOINT_GAP)
+  const endpointPositions = ringCircumferencePositions(endpointSpecs.length, endpointOutline)
+  const endpoints: OnionEndpointLayout[] = endpointSpecs.map(({ item, kind }, k) => ({
+    key: `endpoint:${item.id}`,
+    ref: item.id,
+    kind,
+    name: item.name,
+    targetId: item.targetId,
+    ...endpointPositions[k],
+  }))
+
+  const dependencyEdges: OnionEdgeLayout[] = doc.dependencies.flatMap((dep: OnionDependency) => {
+    const from = elementAt.get(dep.fromId)
+    const to = elementAt.get(dep.toId)
+    return from && to ? [{ key: `dependency:${dep.id}`, kind: 'dependency' as const, from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y } }] : []
+  })
+  const endpointEdges: OnionEdgeLayout[] = endpoints.flatMap((endpoint) => {
+    const target = endpoint.targetId ? elementAt.get(endpoint.targetId) : undefined
+    return target ? [{ key: `endpoint-edge:${endpoint.ref}`, kind: 'endpoint' as const, from: { x: endpoint.x, y: endpoint.y }, to: { x: target.x, y: target.y } }] : []
+  })
+
   const outer = outlines[last]
+  const reach = outer.apex + (endpointSpecs.length ? ENDPOINT_GAP + 24 : 0)
   return {
     rings,
-    bounds: { x: -outer.halfWidth - MARGIN, y: -outer.apex - MARGIN, width: 2 * (outer.halfWidth + MARGIN), height: 2 * (outer.apex + MARGIN) },
+    elements,
+    endpoints,
+    edges: [...dependencyEdges, ...endpointEdges],
+    bounds: { x: -reach - MARGIN, y: -reach - MARGIN, width: 2 * (reach + MARGIN), height: 2 * (reach + MARGIN) },
   }
 }

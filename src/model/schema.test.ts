@@ -158,6 +158,53 @@ describe('newOnionMap', () => {
   })
 })
 
+describe('OnionFileSchema integrity (REQ-04, REQ-05)', () => {
+  const withElements = () => ({
+    ...newOnionMap('Fresh architecture'),
+    elements: [
+      { id: 'e-domain', name: 'Domain', ringRole: 'domain' as const },
+      { id: 'e-app', name: 'Application', ringRole: 'application' as const },
+      { id: 'e-outer-1', name: 'Outer 1', ringRole: 'outer' as const },
+      { id: 'e-outer-2', name: 'Outer 2', ringRole: 'outer' as const },
+    ],
+  })
+
+  it('accepts a dependency pointing inward (outer → application)', () => {
+    const doc = { ...withElements(), dependencies: [{ id: 'd1', fromId: 'e-app', toId: 'e-domain' }] }
+    expect(OnionFileSchema.safeParse(doc).success).toBe(true)
+  })
+
+  it('accepts a dependency within the same ring', () => {
+    const doc = { ...withElements(), dependencies: [{ id: 'd1', fromId: 'e-outer-1', toId: 'e-outer-2' }] }
+    expect(OnionFileSchema.safeParse(doc).success).toBe(true)
+  })
+
+  it('rejects a dependency pointing outward (domain → application)', () => {
+    const doc = { ...withElements(), dependencies: [{ id: 'd1', fromId: 'e-domain', toId: 'e-app' }] }
+    const result = OnionFileSchema.safeParse(doc)
+    expect(result.success).toBe(false)
+    if (!result.success) expect(result.error.issues.some((i) => i.path.join('.') === 'dependencies.0.toId')).toBe(true)
+  })
+
+  it('accepts an endpoint targeting an outer-ring element', () => {
+    const doc = { ...withElements(), actors: [{ id: 'a1', name: 'Customer', targetId: 'e-outer-1' }] }
+    expect(OnionFileSchema.safeParse(doc).success).toBe(true)
+  })
+
+  it('rejects an endpoint targeting a non-outer-ring element', () => {
+    const doc = { ...withElements(), externals: [{ id: 'x1', name: 'Payments API', targetId: 'e-app' }] }
+    const result = OnionFileSchema.safeParse(doc)
+    expect(result.success).toBe(false)
+    if (!result.success) expect(result.error.issues.some((i) => i.path.join('.') === 'externals.0.targetId')).toBe(true)
+  })
+
+  it('rejects an endpoint whose targetId does not resolve to any element', () => {
+    const doc = { ...withElements(), actors: [{ id: 'a1', name: 'Customer', targetId: 'unknown-id' }] }
+    const result = OnionFileSchema.safeParse(doc)
+    expect(result.success).toBe(false)
+  })
+})
+
 describe('use case placement', () => {
   const withPlacement = (placement: unknown) => ({ ...EXAMPLE_DIAGRAM, useCases: EXAMPLE_DIAGRAM.useCases.map((u, i) => (i === 0 ? { ...u, placement } : u)) })
 
