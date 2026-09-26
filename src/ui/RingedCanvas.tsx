@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type Ref } from 'react'
-import type { Box, Point } from '../layout/layout'
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type Ref } from 'react'
+import type { Box } from '../layout/layout'
 import { isInwardOrSame } from '../model/rings'
-import { Icon } from './Icon'
-import { fitTo, islandInset, MIN_SCALE, panBy, pinch, zoomAt, type Viewport } from './viewport'
+import { fitTo, islandInset } from './viewport'
+import { gridBackgroundStyle, useElementSize, useViewportInteractions, ZoomControls } from './viewportChrome'
 
 export interface RingedInsertionPoint {
   key: string
@@ -157,9 +157,6 @@ export function useDependGesture({
   return { selected, linking, setLinking, selectedElement, validTargets, linkTargetRefs, clickTarget }
 }
 
-const GRID = 20
-const PAN_SLOP = 3
-
 /** Which ring (by role, `data-band`/`data-layer`) or specific element/endpoint (`data-ref`) is currently hovered
  * or focused — everything a caller needs to decide which of its own "+" affordances to reveal (`affordanceVisible`,
  * below). Both null when nothing in the diagram has the pointer or focus. */
@@ -203,21 +200,12 @@ export interface RingedStageProps {
 }
 
 /** The viewport chrome shared by Onion and Clean (ADR-01) — pan, wheel/pinch zoom, fit-to-screen, fullscreen and
- * the dotted grid background, reusing Hexagonal's own `viewport.ts` primitives and `Icon` rather than a parallel
- * implementation. A single-bounds, single-diagram version of Hexagonal's own `Stage`: neither kind has more than
- * one diagram to fit, so there is no multi-hexagon framing, growing, or cross-diagram linking to carry over. */
+ * the dotted grid background, via `useViewportInteractions` (`viewportChrome.tsx`), shared with Hexagonal's own
+ * `Stage` rather than a parallel implementation. A single-bounds, single-diagram version of Hexagonal's own
+ * `Stage`: neither kind has more than one diagram to fit, so there is no multi-hexagon framing, growing, or
+ * cross-diagram linking to carry over. */
 export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, panelOpen = false, legendOpen = false, children, overlay }: RingedStageProps) {
   const mainRef = useRef<HTMLElement>(null)
-  const drag = useRef<{ x: number; y: number; panning: boolean } | null>(null)
-  // Active touches on the stage itself, screen coordinates relative to its rect (same frame the wheel handler
-  // anchors zoomAt with) — mirrors Hexagonal's own Stage.tsx.
-  const pointers = useRef<Map<number, Point>>(new Map())
-  const [size, setSize] = useState({ width: 0, height: 0 })
-  const [view, setView] = useState<'auto' | Viewport>('auto')
-  const [dragging, setDragging] = useState(false)
-  const [fullscreen, setFullscreen] = useState(false)
-  // A press that became a pan ends in a click too; it must not run `onClick`.
-  const panned = useRef(false)
   // Which ring/element/endpoint currently has the pointer or keyboard focus — drives which "+" affordances
   // `children` reveals (`RingedHover`, `affordanceVisible`). A mousedown moves focus to its target as a browser
   // default action, firing `focus` before `pointerup`/`click`; that focus must not itself reveal affordances
@@ -226,66 +214,25 @@ export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, panel
   const [hover, setHover] = useState<RingedHover>(NO_HOVER)
   const pointerPressed = useRef(false)
 
-  // A genuinely different-shaped diagram (new/opened/example file, or a ring growing/shrinking enough to change
-  // the bounds' own rounded size) or the legend opening/closing refits — the same "unfreeze back to auto"
-  // convention Hexagonal's own Stage uses for its own fitKey.
-  const fitKey = `${Math.round(bounds.width)}:${Math.round(bounds.height)}:${legendOpen}`
-  const [seenFitKey, setSeenFitKey] = useState(fitKey)
-  if (fitKey !== seenFitKey) {
-    setSeenFitKey(fitKey)
-    setView('auto')
-  }
-
+  const size = useElementSize(mainRef)
   const inset = islandInset(size, panelOpen, legendOpen)
   const effectiveSize = { width: size.width || bounds.width, height: size.height || bounds.height }
   const wholeFit = fitTo(bounds, effectiveSize.width, effectiveSize.height, inset, 0)
   const autoFit = fitTo(bounds, effectiveSize.width, effectiveSize.height, inset)
-  const viewport = view === 'auto' ? autoFit : view
   const centre = { x: size.width / 2, y: size.height / 2 }
-  // The floor a manual zoom (wheel or button) can reach: never above MIN_SCALE, but never above what fitting the
-  // whole diagram itself needs either, so a view already fitted to it never snaps back in.
-  const zoomFloor = Math.min(MIN_SCALE, wholeFit.scale)
-
-  useEffect(() => {
-    const el = mainRef.current
-    if (!el) return
-    const observer = new ResizeObserver(([entry]) => setSize({ width: entry.contentRect.width, height: entry.contentRect.height }))
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
-  useEffect(() => {
-    const el = mainRef.current
-    if (!el) return
-    // React's onWheel is passive, so preventDefault (to stop page zoom on pinch) needs a native listener.
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault()
-      const rect = el.getBoundingClientRect()
-      const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY
-      setView(zoomAt(viewport, Math.exp(-delta * 0.0015), { x: e.clientX - rect.left, y: e.clientY - rect.top }, zoomFloor))
-    }
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
-  }, [viewport, zoomFloor])
-
-  useEffect(() => {
-    if (!fullscreen) return
-    const el = mainRef.current
-    el?.requestFullscreen?.().catch(() => {})
-    const onChange = () => !document.fullscreenElement && setFullscreen(false)
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setFullscreen(false)
-    document.addEventListener('fullscreenchange', onChange)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('fullscreenchange', onChange)
-      document.removeEventListener('keydown', onKey)
-      if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
-    }
-  }, [fullscreen])
+  // A genuinely different-shaped diagram (new/opened/example file, or a ring growing/shrinking enough to change
+  // the bounds' own rounded size) or the legend opening/closing refits — the same "unfreeze back to auto"
+  // convention Hexagonal's own Stage uses for its own fitKey.
+  const fitKey = `${Math.round(bounds.width)}:${Math.round(bounds.height)}:${legendOpen}`
+  const { viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useViewportInteractions({
+    mainRef,
+    autoFit,
+    wholeFitScale: wholeFit.scale,
+    fitKey,
+  })
 
   const width = size.width / viewport.scale
   const height = size.height / viewport.scale
-  const gridStep = GRID * viewport.scale
 
   // The ring a target belongs to (its own `data-band`/`data-layer`, e.g. the band itself or one of its own
   // elements) and the specific element/endpoint it is (`data-ref`) — same convention as Hexagonal's own
@@ -294,84 +241,24 @@ export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, panel
   const refOf = (target: Element) => target.closest('[data-ref]')?.getAttribute('data-ref') ?? null
   const reveal = (target: Element | null) => setHover(target ? { layer: layerOf(target), ref: refOf(target) } : NO_HOVER)
 
-  /** A finger lifts (up or cancel, same cleanup either way): dropping out of a pinch hands off to a one-finger
-   * pan from the remaining finger's current position, so the diagram never jumps. */
-  const liftPointer = (e: ReactPointerEvent<HTMLElement>) => {
-    pointerPressed.current = false
-    if (!pointers.current.has(e.pointerId)) return
-    const wasPinching = pointers.current.size === 2
-    pointers.current.delete(e.pointerId)
-    if (wasPinching && pointers.current.size === 1) {
-      const rect = e.currentTarget.getBoundingClientRect()
-      const [remaining] = pointers.current.values()
-      drag.current = { x: remaining.x + rect.left, y: remaining.y + rect.top, panning: true }
-      return
-    }
-    drag.current = null
-    setDragging(false)
-  }
-
   return (
     <main
       ref={mainRef}
       className={`stage${dragging ? ' is-dragging' : ''}${fullscreen ? ' is-fullscreen' : ''}`}
-      style={{
-        backgroundSize: `${gridStep}px ${gridStep}px`,
-        backgroundPosition: `${-viewport.x * viewport.scale}px ${-viewport.y * viewport.scale}px`,
-      }}
+      style={gridBackgroundStyle(viewport)}
       onPointerDown={(e) => {
         pointerPressed.current = true
-        if (e.button !== 0 || (e.target as Element).closest('.island, [data-plus], .inline-name')) return
-        if (pointers.current.size >= 2) return // a third finger never joins the gesture
-        const wasEmpty = pointers.current.size === 0
-        const rect = e.currentTarget.getBoundingClientRect()
-        pointers.current.set(e.pointerId, { x: e.clientX - rect.left, y: e.clientY - rect.top })
-        if (wasEmpty) {
-          panned.current = false
-          drag.current = { x: e.clientX, y: e.clientY, panning: false }
-          return
-        }
-        // The second finger turns this into a pinch: it never selects, links, or counts as a click.
-        e.currentTarget.setPointerCapture(e.pointerId)
-        drag.current = null
-        panned.current = true
-        setDragging(true)
+        onPointerDown(e)
       }}
-      onPointerMove={(e) => {
-        if (pointers.current.has(e.pointerId)) {
-          const rect = e.currentTarget.getBoundingClientRect()
-          const point = { x: e.clientX - rect.left, y: e.clientY - rect.top }
-          if (pointers.current.size === 2) {
-            const [idA, idB] = pointers.current.keys()
-            const from: [Point, Point] = [pointers.current.get(idA)!, pointers.current.get(idB)!]
-            pointers.current.set(e.pointerId, point)
-            const to: [Point, Point] = [pointers.current.get(idA)!, pointers.current.get(idB)!]
-            // The functional updater is required: the browser can dispatch each finger's pointermove synchronously
-            // in the same tick, and React batches both setView calls into one render.
-            setView((prev) => pinch(typeof prev === 'string' ? viewport : prev, from, to, zoomFloor))
-            return
-          }
-          pointers.current.set(e.pointerId, point)
-        }
-        const d = drag.current
-        if (!d) return
-        if (!(e.buttons & 1)) {
-          drag.current = null
-          return
-        }
-        if (!d.panning) {
-          // Capturing retargets click to the stage, so a press that barely moves stays a click on its element.
-          if (Math.hypot(e.clientX - d.x, e.clientY - d.y) <= PAN_SLOP) return
-          e.currentTarget.setPointerCapture(e.pointerId)
-          d.panning = true
-          panned.current = true
-          setDragging(true)
-        }
-        setView(panBy(viewport, e.clientX - d.x, e.clientY - d.y))
-        drag.current = { x: e.clientX, y: e.clientY, panning: true }
+      onPointerMove={onPointerMove}
+      onPointerUp={(e) => {
+        pointerPressed.current = false
+        onPointerUp(e)
       }}
-      onPointerUp={liftPointer}
-      onPointerCancel={liftPointer}
+      onPointerCancel={(e) => {
+        pointerPressed.current = false
+        onPointerCancel(e)
+      }}
     >
       <svg
         ref={svgRef}
@@ -387,7 +274,7 @@ export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, panel
           // Panning churns through elements underneath the pointer; none of that is a real hover. Hovering a "+"
           // itself (or the "Depend on…" chip) must not blank out whatever revealed it — it has no `data-band`/
           // `data-layer`/`data-ref` of its own to resolve.
-          if (drag.current?.panning || (e.target as Element).closest('[data-plus]')) return
+          if (dragging || (e.target as Element).closest('[data-plus]')) return
           reveal(e.target as Element)
         }}
         onPointerLeave={(e) => !(e.relatedTarget as Element | null)?.closest?.('[data-plus]') && reveal(null)}
@@ -402,30 +289,7 @@ export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, panel
       </svg>
       {overlay}
 
-      <div className="island zoom" role="group" aria-label="Zoom">
-        <button type="button" className="icon-button" aria-label="Zoom out" title="Zoom out" onClick={() => setView(zoomAt(viewport, 1 / 1.2, centre, zoomFloor))}>
-          <Icon name="minus" />
-        </button>
-        <button type="button" className="zoom-level" aria-label="Reset zoom to 100%" title="Reset zoom" onClick={() => setView(zoomAt(viewport, 1 / viewport.scale, centre, zoomFloor))}>
-          {Math.round(viewport.scale * 100)}%
-        </button>
-        <button type="button" className="icon-button" aria-label="Zoom in" title="Zoom in" onClick={() => setView(zoomAt(viewport, 1.2, centre, zoomFloor))}>
-          <Icon name="plus" />
-        </button>
-        <button type="button" className="icon-button" aria-label="Fit diagram to screen" title="Fit to screen" onClick={() => setView('auto')}>
-          <Icon name="fit" />
-        </button>
-        <button
-          type="button"
-          className="icon-button"
-          aria-label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-          aria-pressed={fullscreen}
-          title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen'}
-          onClick={() => setFullscreen(!fullscreen)}
-        >
-          <Icon name={fullscreen ? 'shrink' : 'expand'} />
-        </button>
-      </div>
+      <ZoomControls viewport={viewport} zoomFloor={zoomFloor} centre={centre} setView={setView} fullscreen={fullscreen} setFullscreen={setFullscreen} />
     </main>
   )
 }

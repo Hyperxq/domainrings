@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type Ref } from 'react'
+import { useEffect, useRef, useState, type Ref } from 'react'
 import { flushSync } from 'react-dom'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
 import type { LayoutMode, LayoutNode, Point } from '../layout/layout'
@@ -13,7 +13,8 @@ import { Affordances, InlineName } from './Affordances'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
 import { typing } from './keys'
-import { contains, fitMap, fitTo, islandInset, MIN_SCALE, panBy, pinch, visibleRect, zoomAt, type Viewport } from './viewport'
+import { contains, fitMap, fitTo, islandInset, visibleRect } from './viewport'
+import { gridBackgroundStyle, useElementSize, useViewportInteractions, ZoomControls } from './viewportChrome'
 
 /** Lowercase, hyphenated compass names for the grow "+" aria-label ("Add hexagon to the {…} of {title}"). */
 const SIDE_NAME: Record<Wall, string> = { e: 'east', se: 'south-east', sw: 'south-west', w: 'west', nw: 'north-west', ne: 'north-east' }
@@ -55,8 +56,6 @@ interface StageProps {
   onNamingCancel: () => void
 }
 
-const GRID = 20
-const PAN_SLOP = 3
 const { addItem, updateItem, removeItem, setFocus } = useMapStore.getState()
 const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
   domain: 'domainItem',
@@ -78,10 +77,6 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
   const hex = currentHexagon(model, hexId)
   const hexModel = hex.model
   const mainRef = useRef<HTMLElement>(null)
-  const drag = useRef<{ x: number; y: number; panning: boolean } | null>(null)
-  // Active touches on the stage itself, screen coordinates relative to its rect (same frame the wheel handler
-  // anchors zoomAt with). A third finger is never added: it neither joins nor disturbs an ongoing pinch.
-  const pointers = useRef<Map<number, Point>>(new Map())
   // The first click of a real click/click/dblclick gesture can already flip the current hexagon (via
   // flushSync), so by the time dblclick fires `hexId` no longer reflects what was current when the gesture
   // began. `detail === 1` is a real click's own gesture start (browsers never send 0 or repeat 1), so it is
@@ -91,34 +86,17 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
   // That focus must not reveal "+" buttons (they would sit under the next press and steal its click/dblclick) —
   // only a real keyboard focus should. `pointerdown`/`pointerup` on the stage bracket every such press.
   const pointerPressed = useRef(false)
-  const [size, setSize] = useState({ width: 0, height: 0 })
-  // 'auto' resolves by hexagon count: on 2+ hexagons it always shows the whole map, at
-  // whatever zoom that takes, never falling back to a partial view (FIT-01); on exactly one it fits that diagram,
-  // falling back to a usable scale the same way main always has (CANVAS-04). A concrete Viewport is whatever the
-  // author panned/zoomed to (ADR-05).
-  const [view, setView] = useState<'auto' | Viewport>('auto')
-  const [dragging, setDragging] = useState(false)
+  const size = useElementSize(mainRef)
   // The layer under the pointer (or keyboard focus); CSS does the highlighting from data-hover on the current [data-hex] group.
   const [hovered, setHovered] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
-  // A press that became a pan ends in a click too; it must not change the selection.
-  const panned = useRef(false)
   // hexId records which hexagon the edit started on, so a commit that lands after the current hexagon switches still targets it (ADR-05).
   const [editing, setEditing] = useState<{ id: string; collection: CollectionKey; name: string; at: Point; hexId: string } | null>(null)
-  const [fullscreen, setFullscreen] = useState(false)
   const [announcement, setAnnouncement] = useState('')
-  // A new diagram, or the legend opening or closing, refits (unfreezes a manual viewport back to 'auto') — unlike
-  // grow/import/delete, these bump `revision`, so this key alone can never see the map-shape changes FIT-02 covers.
-  const fitKey = `${revision}:${legendOpen}`
-  const [seenFitKey, setSeenFitKey] = useState(fitKey)
-  if (fitKey !== seenFitKey) {
-    setSeenFitKey(fitKey)
-    setView('auto')
-  }
 
   // Whatever moves the store's focus — a click/keyboard switch (also handled in focusHexagon) or an Undo outside
   // Stage's own handlers — leaves no stale selection or link mode pointing at a hexagon that is no longer current.
-  // An effect, not a render-phase update like fitKey above: onLinking sets App's own state, and React disallows
+  // An effect, not a render-phase update like fitKey below: onLinking sets App's own state, and React disallows
   // updating a different component's state while this one renders.
   useEffect(() => {
     setSelected(null)
@@ -134,11 +112,17 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
   // On 2+ hexagons 'auto' IS the whole-map fit — it never falls back to the current hexagon alone, even
   // when that fit would read as illegible clutter (MIN_FIT_SCALE only still applies on a single-hexagon map).
   const autoFit = model.hexagons.length >= 2 ? wholeFit : singleFit
-  const viewport = view === 'auto' ? autoFit : view
+  // A new diagram, or the legend opening or closing, refits (unfreezes a manual viewport back to 'auto') — unlike
+  // grow/import/delete, these bump `revision`, so this key alone can never see the map-shape changes FIT-02 covers.
+  const fitKey = `${revision}:${legendOpen}`
+  const { view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useViewportInteractions({
+    mainRef,
+    autoFit,
+    wholeFitScale: wholeFit.scale,
+    fitKey,
+    onPanStart: () => setHovered(null),
+  })
   const centre = { x: size.width / 2, y: size.height / 2 }
-  // The floor a manual zoom (wheel or button) can reach: never above MIN_SCALE, but never above what the whole-map
-  // fit itself needs either, so a view already fitted to the whole map never snaps back in (FIT-01, ADR-05).
-  const zoomFloor = Math.min(MIN_SCALE, wholeFit.scale)
 
   // Grow/import/delete/undo never bump `revision` (ADR-02/ADR-05), so the fitKey reset above can't see them — this
   // tracks the hexagon id set instead. A `Viewport` the author set stays iff every added/removed box is still fully
@@ -153,30 +137,6 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
     setSeenHexagons({ key: hexKey, hexagons: model.hexagons })
     if (typeof view !== 'string' && !changed.every((h) => contains(visibleRect(view, effectiveSize, inset), hexagonBounds(h)))) setView('auto')
   }
-
-  useEffect(() => {
-    const el = mainRef.current
-    if (!el) return
-    const observer = new ResizeObserver(([entry]) =>
-      setSize({ width: entry.contentRect.width, height: entry.contentRect.height }),
-    )
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
-  useEffect(() => {
-    const el = mainRef.current
-    if (!el) return
-    // React's onWheel is passive, so preventDefault (to stop page zoom on pinch) needs a native listener.
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault()
-      const rect = el.getBoundingClientRect()
-      const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY
-      setView(zoomAt(viewport, Math.exp(-delta * 0.0015), { x: e.clientX - rect.left, y: e.clientY - rect.top }, zoomFloor))
-    }
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
-  }, [viewport, zoomFloor])
 
   // ADR-02: a port's cross-hexagon targets — every port of the opposite side on another hexagon. Non-ports (and
   // an unselected ref) have none; only ports carry map-level links.
@@ -215,21 +175,6 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
     document.addEventListener('pointerdown', away)
     return () => document.removeEventListener('pointerdown', away)
   }, [linking, onLinking])
-
-  useEffect(() => {
-    if (!fullscreen) return
-    const el = mainRef.current
-    el?.requestFullscreen?.().catch(() => {})
-    const onChange = () => !document.fullscreenElement && setFullscreen(false)
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setFullscreen(false)
-    document.addEventListener('fullscreenchange', onChange)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('fullscreenchange', onChange)
-      document.removeEventListener('keydown', onKey)
-      if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
-    }
-  }, [fullscreen])
 
   /** Clears selection, ends link mode, and commits any inline name being typed — the settle-on-switch contract (FOCUS-04). */
   const settleFocusSwitch = () => {
@@ -320,89 +265,25 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
 
   const width = size.width / viewport.scale
   const height = size.height / viewport.scale
-  const gridStep = GRID * viewport.scale
-
-  /** A finger lifts (up or cancel, same cleanup either way): dropping out of a pinch hands off to a one-finger
-   * pan from the remaining finger's current position, so the diagram never jumps. */
-  const liftPointer = (e: ReactPointerEvent<HTMLElement>) => {
-    pointerPressed.current = false
-    if (!pointers.current.has(e.pointerId)) return
-    const wasPinching = pointers.current.size === 2
-    pointers.current.delete(e.pointerId)
-    if (wasPinching && pointers.current.size === 1) {
-      const rect = e.currentTarget.getBoundingClientRect()
-      const [remaining] = pointers.current.values()
-      drag.current = { x: remaining.x + rect.left, y: remaining.y + rect.top, panning: true }
-      return
-    }
-    drag.current = null
-    setDragging(false)
-  }
 
   return (
     <main
       ref={mainRef}
       className={`stage${dragging ? ' is-dragging' : ''}${fullscreen ? ' is-fullscreen' : ''}`}
-      style={{
-        backgroundSize: `${gridStep}px ${gridStep}px`,
-        backgroundPosition: `${-viewport.x * viewport.scale}px ${-viewport.y * viewport.scale}px`,
-      }}
+      style={gridBackgroundStyle(viewport)}
       onPointerDown={(e) => {
         pointerPressed.current = true
-        if (e.button !== 0 || (e.target as Element).closest('.island, [data-plus], .inline-name')) return
-        if (pointers.current.size >= 2) return // a third finger never joins the gesture
-        const wasEmpty = pointers.current.size === 0
-        const rect = e.currentTarget.getBoundingClientRect()
-        pointers.current.set(e.pointerId, { x: e.clientX - rect.left, y: e.clientY - rect.top })
-        if (wasEmpty) {
-          panned.current = false
-          drag.current = { x: e.clientX, y: e.clientY, panning: false }
-          return
-        }
-        // The second finger turns this into a pinch: it never selects, links, or counts as a click.
-        e.currentTarget.setPointerCapture(e.pointerId)
-        drag.current = null
-        panned.current = true
-        setDragging(true)
-        setHovered(null)
+        onPointerDown(e)
       }}
-      onPointerMove={(e) => {
-        if (pointers.current.has(e.pointerId)) {
-          const rect = e.currentTarget.getBoundingClientRect()
-          const point = { x: e.clientX - rect.left, y: e.clientY - rect.top }
-          if (pointers.current.size === 2) {
-            const [idA, idB] = pointers.current.keys()
-            const from: [Point, Point] = [pointers.current.get(idA)!, pointers.current.get(idB)!]
-            pointers.current.set(e.pointerId, point)
-            const to: [Point, Point] = [pointers.current.get(idA)!, pointers.current.get(idB)!]
-            // The functional updater is required: the browser can dispatch each finger's pointermove
-            // synchronously in the same tick, and React batches both setView calls into one render, so the
-            // second call's `viewport` closure would otherwise be stale relative to the first.
-            setView((prev) => pinch(typeof prev === 'string' ? viewport : prev, from, to, zoomFloor))
-            return
-          }
-          pointers.current.set(e.pointerId, point)
-        }
-        const d = drag.current
-        if (!d) return
-        if (!(e.buttons & 1)) {
-          drag.current = null
-          return
-        }
-        if (!d.panning) {
-          // Capturing retargets click and dblclick to the stage, so a press that barely moves stays a click on its element.
-          if (Math.hypot(e.clientX - d.x, e.clientY - d.y) <= PAN_SLOP) return
-          e.currentTarget.setPointerCapture(e.pointerId)
-          d.panning = true
-          panned.current = true
-          setDragging(true)
-          setHovered(null)
-        }
-        setView(panBy(viewport, e.clientX - d.x, e.clientY - d.y))
-        drag.current = { x: e.clientX, y: e.clientY, panning: true }
+      onPointerMove={onPointerMove}
+      onPointerUp={(e) => {
+        pointerPressed.current = false
+        onPointerUp(e)
       }}
-      onPointerUp={liftPointer}
-      onPointerCancel={liftPointer}
+      onPointerCancel={(e) => {
+        pointerPressed.current = false
+        onPointerCancel(e)
+      }}
     >
       <svg
         ref={svgRef}
@@ -410,7 +291,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
         role="figure"
         aria-label={title || 'Architecture diagram'}
         onPointerOver={(e) => {
-          if (drag.current?.panning) return
+          if (dragging) return
           const target = e.target as Element
           if (target.closest('[data-hex]')?.getAttribute('data-hex') !== hexId) return setHovered(null)
           setHovered(layerOf(target))
@@ -519,30 +400,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
         <InlineName key={`naming:${hexId}`} at={mapToScreen(hex.centre)} initial={diagram.title} label="Hexagon title" emptyCommits onCommit={onNamed} onCancel={onNamingCancel} />
       )}
 
-      <div className="island zoom" role="group" aria-label="Zoom">
-        <button type="button" className="icon-button" aria-label="Zoom out" title="Zoom out" onClick={() => setView(zoomAt(viewport, 1 / 1.2, centre, zoomFloor))}>
-          <Icon name="minus" />
-        </button>
-        <button type="button" className="zoom-level" aria-label="Reset zoom to 100%" title="Reset zoom" onClick={() => setView(zoomAt(viewport, 1 / viewport.scale, centre, zoomFloor))}>
-          {Math.round(viewport.scale * 100)}%
-        </button>
-        <button type="button" className="icon-button" aria-label="Zoom in" title="Zoom in" onClick={() => setView(zoomAt(viewport, 1.2, centre, zoomFloor))}>
-          <Icon name="plus" />
-        </button>
-        <button type="button" className="icon-button" aria-label="Fit diagram to screen" title="Fit to screen" onClick={() => setView('auto')}>
-          <Icon name="fit" />
-        </button>
-        <button
-          type="button"
-          className="icon-button"
-          aria-label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-          aria-pressed={fullscreen}
-          title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen'}
-          onClick={() => setFullscreen(!fullscreen)}
-        >
-          <Icon name={fullscreen ? 'shrink' : 'expand'} />
-        </button>
-      </div>
+      <ZoomControls viewport={viewport} zoomFloor={zoomFloor} centre={centre} setView={setView} fullscreen={fullscreen} setFullscreen={setFullscreen} />
     </main>
   )
 }
