@@ -1,11 +1,11 @@
 ---
-name: domainrings-hexagonal
+name: domainrings
 description: Draw a codebase's hexagonal architecture (ports and adapters) as a domainrings map and hand back a link that opens it in the browser at diagrams.pbuilder.dev. Covers a single hexagon and a honeycomb of several hexagons across bounded contexts, with links between them. Use when the user asks to draw, diagram, visualize, map or represent their hexagon, hexagonal architecture, ports and adapters, bounded contexts or context map, or asks for a domainrings / .hexa file.
 ---
 
-# domainrings — hexagonal maps
+# domainrings
 
-domainrings (https://diagrams.pbuilder.dev/) draws a hexagonal architecture from a JSON model, a `.hexa` file. You never lay anything out: you describe what exists and how it connects, and the app draws the rings, walls and arrows. Your job is to read the user's code, write that JSON, and give back a link that opens it.
+domainrings (https://diagrams.pbuilder.dev/) draws a hexagonal architecture from a JSON model, a `.hexa` file. You never lay anything out: you describe what exists and how it connects, and the app draws the rings, walls and arrows. Your job is to read the user's code, write that JSON, and give back a link that opens it. This skill covers hexagonal architecture only; Onion and Clean are not supported yet.
 
 ## Workflow
 
@@ -44,7 +44,7 @@ Hints:
 {
   "app": "domainrings",          // always this
   "version": 2,                  // always 2
-  "kind": "hexagonal",           // always "hexagonal" for this skill
+  "kind": "hexagonal",           // the only kind this skill covers so far
   "title": "Shop",               // the map's title
   "contexts": [{ "id": "c1", "name": "Sales" }],   // at least one; name optional
   "hexagons": [ /* at least one, see below */ ],

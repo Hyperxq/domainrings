@@ -9,9 +9,9 @@ import { installCompressionStreamPolyfill } from './test/fixtures'
 
 // The published skill is copied out of this repo on install, so it carries its own examples and script. These
 // tests keep both honest against the app: every example must open, and every link the script prints must load.
-const SKILL = resolve(__dirname, '../skills/domainrings-hexagonal')
+const SKILL = resolve(__dirname, '../skills/domainrings')
 const SCRIPT = join(SKILL, 'scripts/share-link.mjs')
-const examples = import.meta.glob('../skills/domainrings-hexagonal/references/*.hexa', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+const examples = import.meta.glob('../skills/domainrings/references/*.hexa', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
 
 beforeEach(installCompressionStreamPolyfill)
 afterEach(() => vi.unstubAllGlobals())
