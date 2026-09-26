@@ -6,7 +6,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { App } from './App'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM, TWO_SLICES_MAP } from './model/example'
 import { layoutDiagram } from './layout/layout'
-import { parseHexa, toHexa, toMap } from './model/hexa'
+import { newCleanMap, newOnionMap, parseHexa, toHexa, toMap } from './model/hexa'
 import { diagramOf, UNTITLED_HEXAGON } from './model/map'
 import { autosave, MAP_KEY } from './model/persistence'
 import { VERSION, type HexaMap } from './model/schema'
@@ -1855,6 +1855,76 @@ describe('copy the current map as a link (REQ-05, REQ-06)', () => {
     await vi.waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Use Save'))
 
     expect(writeText).not.toHaveBeenCalled()
+  })
+
+  it('copies a link to the active ONION document, not the Hexagonal map, when Onion is active', async () => {
+    const writeText = stubClipboard()
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
+    await act(async () => {
+      await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+    })
+
+    const url = writeText.mock.calls[0][0] as string
+    const decoded = await decodeSharePayload(url.slice(url.indexOf(SHARE_HASH_PREFIX) + SHARE_HASH_PREFIX.length))
+    const result = parseHexa(decoded!)
+    expect(result.ok && result.map).toEqual(useOnionStore.getState().map)
+  })
+
+  it('copies a link to the active CLEAN document, not the Hexagonal map, when Clean is active', async () => {
+    const writeText = stubClipboard()
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
+    await act(async () => {
+      await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+    })
+
+    const url = writeText.mock.calls[0][0] as string
+    const decoded = await decodeSharePayload(url.slice(url.indexOf(SHARE_HASH_PREFIX) + SHARE_HASH_PREFIX.length))
+    const result = parseHexa(decoded!)
+    expect(result.ok && result.map).toEqual(useCleanStore.getState().map)
+  })
+})
+
+describe('opening a share link for a non-Hexagonal document routes it to the matching store (regression: only Hexagonal was ever exercised)', () => {
+  beforeEach(installCompressionStreamPolyfill)
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    history.replaceState(null, '', '/')
+  })
+
+  it('opens an Onion share link into the Onion store, leaving the Hexagonal map untouched', async () => {
+    const shared = newOnionMap('Shared onion')
+    location.hash = `${SHARE_HASH_PREFIX}${await encodeSharePayload(shared)}`
+    const hexaBefore = useMapStore.getState().map
+
+    render(<App />)
+    await act(async () => {
+      await vi.waitFor(() => expect(useOnionStore.getState().map).toStrictEqual(shared))
+    })
+
+    expect(toastEl()!.textContent).toContain('Opened from a link.')
+    expect(useMapStore.getState().map).toBe(hexaBefore)
+  })
+
+  it('opens a Clean share link into the Clean store, leaving the Hexagonal map untouched', async () => {
+    const shared = newCleanMap('Shared clean')
+    location.hash = `${SHARE_HASH_PREFIX}${await encodeSharePayload(shared)}`
+    const hexaBefore = useMapStore.getState().map
+
+    render(<App />)
+    await act(async () => {
+      await vi.waitFor(() => expect(useCleanStore.getState().map).toStrictEqual(shared))
+    })
+
+    expect(toastEl()!.textContent).toContain('Opened from a link.')
+    expect(useMapStore.getState().map).toBe(hexaBefore)
   })
 })
 

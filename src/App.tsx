@@ -338,10 +338,10 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // REQ-05/06: always the whole map (`map`, not the export-scoped diagram) — a link scoped to one hexagon
-  // would reopen missing the rest, which "Copy link" never promises.
+  // REQ-05/06: the ACTIVE document's whole file (`active.file`, the same single resolution `exportAs` uses) —
+  // not always the Hexagonal map, and never scoped to one hexagon, which "Copy link" never promises.
   const handleCopyLink = async () => {
-    const url = shareLinkURL(location.origin, location.pathname, await encodeSharePayload(map))
+    const url = shareLinkURL(location.origin, location.pathname, await encodeSharePayload(active.file))
     if (isOversizedShareLink(url)) {
       show({ tone: 'error', message: 'This map is too large for a link. Use Save to share it as .hexa instead.' })
       return
