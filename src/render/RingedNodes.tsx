@@ -1,4 +1,4 @@
-import type { Point } from '../layout/layout'
+import type { LayoutMode, Point } from '../layout/layout'
 import { RINGED_ELEMENT_HEIGHT, RINGED_ELEMENT_METRICS, RINGED_ENDPOINT_DIAMETER, ringedElementWidth } from '../layout/ringed'
 
 const NODE_HEIGHT = RINGED_ELEMENT_HEIGHT
@@ -32,10 +32,35 @@ export interface RingedEdgeLayout {
   to: Point
 }
 
-/** Extracted verbatim from `OnionDiagram.tsx` (ADR-01) — no behaviour change; the marker id is the caller's own
- * `<defs>` concern, since Onion's and Clean's own diagrams each declare their own arrow marker. */
-export function RingedEdge({ edge, markerId }: { edge: RingedEdgeLayout; markerId: string }) {
-  return <line className="edge edge-import" markerEnd={`url(#${markerId})`} x1={edge.from.x} y1={edge.from.y} x2={edge.to.x} y2={edge.to.y} />
+/** Decision 1 (Overview/Detailed toolbar switch, shared by Onion and Clean — ADR-01): Detailed draws every edge;
+ * Overview draws only the ones touching the hovered or selected element (`activeRefs`), and none at all while
+ * nothing is hovered/selected/focused — keyboard focus counts as hover since `RingedStage` reveals on both. */
+export function ringedVisibleEdges<E extends { fromRef: string; toRef: string }>(edges: readonly E[], mode: LayoutMode, activeRefs: ReadonlySet<string>): readonly E[] {
+  if (mode !== 'overview') return edges
+  if (activeRefs.size === 0) return []
+  return edges.filter((e) => activeRefs.has(e.fromRef) || activeRefs.has(e.toRef))
+}
+
+/** Bows a dependency arrow's chord away from the diagram's own centre (Decision 1, Detailed view): drawn all at
+ * once, straight chords through the centre overlap into an unreadable knot — curving each one outward by a
+ * fraction of its own length spreads them into distinguishable arcs, the same "bow away from the pole" idiom
+ * chord diagrams use. Falls back to a straight line where a chord already starts at the centre (`away` undefined). */
+function edgePath(from: Point, to: Point, curved: boolean): string {
+  if (!curved) return `M${from.x} ${from.y}L${to.x} ${to.y}`
+  const mid = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
+  const centreDist = Math.hypot(mid.x, mid.y)
+  const chordLength = Math.hypot(to.x - from.x, to.y - from.y)
+  const bow = chordLength * 0.18
+  const away = centreDist > 1e-6 ? { x: mid.x / centreDist, y: mid.y / centreDist } : { x: 0, y: 0 }
+  const control = { x: mid.x + away.x * bow, y: mid.y + away.y * bow }
+  return `M${from.x} ${from.y}Q${control.x} ${control.y} ${to.x} ${to.y}`
+}
+
+/** The marker id is the caller's own `<defs>` concern, since Onion's and Clean's own diagrams each declare their
+ * own arrow marker. `curved` follows the Overview/Detailed toolbar switch (Decision 1): straight chords for the
+ * few edges Overview ever shows at once, curved for Detailed's every-edge view. */
+export function RingedEdge({ edge, markerId, curved = false }: { edge: RingedEdgeLayout; markerId: string; curved?: boolean }) {
+  return <path className="edge edge-import" markerEnd={`url(#${markerId})`} d={edgePath(edge.from, edge.to, curved)} />
 }
 
 export function RingedElementNode({ element, selected, target, interactive }: { element: RingedElementLayout; selected: boolean; target: boolean; interactive: boolean }) {

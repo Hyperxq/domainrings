@@ -1,4 +1,5 @@
 import { useState, type Ref } from 'react'
+import type { LayoutMode } from '../layout/layout'
 import type { OnionLayoutModel } from '../layout/onion'
 import { onionInsertionItem, onionInsertionPoints, type OnionInsertionPoint } from '../layout/onionInsertion'
 import { legendForOnion } from '../layout/legend'
@@ -13,6 +14,9 @@ const { addElement, updateElement, removeElement, addDependency, addEndpoint } =
 interface OnionStageProps {
   model: OnionLayoutModel
   doc: OnionFile
+  /** Overview/Detailed toolbar switch (Decision 1) — threaded down to `OnionDiagram`, which decides which
+   * dependency arrows to draw and whether to curve them. */
+  mode: LayoutMode
   svgRef: Ref<SVGSVGElement>
   /** Reports why a click while linking was refused, for the app's own toast/notice mechanism (REQ-04). */
   onReject: (message: string) => void
@@ -39,7 +43,7 @@ const REJECT_MESSAGE = 'A dependency can only point to the same ring or a more i
  * another in the same or a more inward ring; a valid target is marked with `data-link-target` while linking
  * (same convention Hexagonal's own link mode uses), and choosing one that is not valid cancels the gesture and
  * reports why via `onReject`, leaving the document unchanged either way. */
-export function OnionStage({ model, doc, svgRef, onReject, onMutate = () => {}, onCancelMutate = () => {}, panelOpen = false, legendOpen = false }: OnionStageProps) {
+export function OnionStage({ model, doc, mode, svgRef, onReject, onMutate = () => {}, onCancelMutate = () => {}, panelOpen = false, legendOpen = false }: OnionStageProps) {
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
   const legend = legendForOnion(doc)
   const { selected, linking, setLinking, selectedElement, validTargets, linkTargetRefs, clickTarget } = useDependGesture({
@@ -100,7 +104,7 @@ export function OnionStage({ model, doc, svgRef, onReject, onMutate = () => {}, 
     >
       {(hover) => (
         <>
-          <OnionDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} legend={legend} />
+          <OnionDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} legend={legend} mode={mode} hoverRef={hover.ref} />
           {onionInsertionPoints(model, doc)
             .filter((point) => affordanceVisible(point, hover))
             .map((point) => (

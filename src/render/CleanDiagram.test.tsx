@@ -6,11 +6,19 @@ import { layoutClean } from '../layout/clean'
 import { legendForClean } from '../layout/legend'
 import { CleanDiagram } from './CleanDiagram'
 
-const renderDiagram = (doc: CleanFile) => {
+const renderDiagram = (doc: CleanFile, opts: { selected?: string | null; mode?: 'overview' | 'detailed'; hoverRef?: string | null } = {}) => {
   const model = layoutClean(doc)
   return render(
     <svg>
-      <CleanDiagram model={model} selected={null} interactive validTargets={new Set()} legend={legendForClean(doc)} />
+      <CleanDiagram
+        model={model}
+        selected={opts.selected ?? null}
+        interactive
+        validTargets={new Set()}
+        legend={legendForClean(doc)}
+        mode={opts.mode ?? 'detailed'}
+        hoverRef={opts.hoverRef ?? null}
+      />
     </svg>,
   )
 }
@@ -70,9 +78,54 @@ describe('CleanDiagram — elements, endpoints and edges', () => {
     const model = layoutClean(doc)
     const { container } = render(
       <svg>
-        <CleanDiagram model={model} selected={null} interactive validTargets={new Set(['e1'])} legend={legendForClean(doc)} />
+        <CleanDiagram model={model} selected={null} interactive validTargets={new Set(['e1'])} legend={legendForClean(doc)} mode="detailed" hoverRef={null} />
       </svg>,
     )
     expect(container.querySelector('[data-ref="e1"]')!.hasAttribute('data-link-target')).toBe(true)
+  })
+})
+
+// Decision 1: the Overview/Detailed toolbar switch controls which dependency arrows are drawn — Overview shows
+// only the hovered/selected element's own edges (as straight chords), Detailed shows every edge, curved.
+describe('CleanDiagram — arrow visibility follows Overview/Detailed (Decision 1)', () => {
+  const docWithDependency = (): CleanFile => ({
+    ...newCleanMap('Fresh'),
+    sectors: [
+      { id: 's1', name: 'API', ringRole: 'outer' },
+      { id: 's2', name: 'Core', ringRole: 'domain' },
+    ],
+    elements: [
+      { id: 'e1', name: 'Controller', sectorId: 's1' },
+      { id: 'e2', name: 'Order', sectorId: 's2' },
+    ],
+    dependencies: [{ id: 'd1', fromId: 'e1', toId: 'e2' }],
+  })
+
+  it('Overview, nothing hovered/selected: draws zero edges', () => {
+    const { container } = renderDiagram(docWithDependency(), { mode: 'overview' })
+    expect(container.querySelectorAll('.edge')).toHaveLength(0)
+  })
+
+  it('Overview, the edge\'s own element hovered: draws that edge', () => {
+    const { container } = renderDiagram(docWithDependency(), { mode: 'overview', hoverRef: 'e1' })
+    expect(container.querySelectorAll('.edge')).toHaveLength(1)
+  })
+
+  it('Overview, an unrelated element hovered: still draws zero edges', () => {
+    const doc: CleanFile = { ...docWithDependency(), elements: [...docWithDependency().elements, { id: 'e3', name: 'Unrelated', sectorId: 's2' }] }
+    const { container } = renderDiagram(doc, { mode: 'overview', hoverRef: 'e3' })
+    expect(container.querySelectorAll('.edge')).toHaveLength(0)
+  })
+
+  it('Overview, the edge\'s own element selected (not hovered): draws that edge', () => {
+    const { container } = renderDiagram(docWithDependency(), { mode: 'overview', selected: 'e2' })
+    expect(container.querySelectorAll('.edge')).toHaveLength(1)
+  })
+
+  it('Detailed: draws every edge, as a curve rather than a straight chord', () => {
+    const { container } = renderDiagram(docWithDependency(), { mode: 'detailed' })
+    const edges = container.querySelectorAll('.edge')
+    expect(edges).toHaveLength(1)
+    expect(edges[0].getAttribute('d')).toContain('Q')
   })
 })

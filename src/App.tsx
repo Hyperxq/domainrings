@@ -552,6 +552,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           <OnionStage
             model={onionModel!}
             doc={onionMap}
+            mode={mode}
             svgRef={svgRef}
             onReject={(message) => show({ tone: 'error', message })}
             onMutate={mutateOnion}
@@ -580,6 +581,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           <CleanStage
             model={cleanModel!}
             doc={cleanMap}
+            mode={mode}
             svgRef={svgRef}
             onReject={(message) => show({ tone: 'error', message })}
             onMutate={mutateClean}

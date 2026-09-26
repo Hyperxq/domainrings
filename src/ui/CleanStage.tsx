@@ -1,5 +1,6 @@
 import { useState, type Ref } from 'react'
 import type { CleanLayoutModel } from '../layout/clean'
+import type { LayoutMode } from '../layout/layout'
 import { cleanInsertionItem, cleanInsertionPoints, type CleanInsertionPoint } from '../layout/cleanInsertion'
 import { legendForClean } from '../layout/legend'
 import { elementName } from '../model/ringedDocument'
@@ -13,6 +14,9 @@ const { addSector, addElement, updateElement, removeElement, addDependency, addE
 interface CleanStageProps {
   model: CleanLayoutModel
   doc: CleanFile
+  /** Overview/Detailed toolbar switch (Decision 1) — threaded down to `CleanDiagram`, which decides which
+   * dependency arrows to draw and whether to curve them. */
+  mode: LayoutMode
   svgRef: Ref<SVGSVGElement>
   /** Reports why a click while linking was refused, for the app's own toast/notice mechanism (REQ-06). */
   onReject: (message: string) => void
@@ -38,7 +42,7 @@ const REJECT_MESSAGE = 'A dependency can only point to the same ring or a more i
  * sector has no canvas node of its own to attach an inline rename to (sectors only ever appear as wedge
  * dividers, REQ-08) — renaming one happens in `CleanEditor`; only a new ELEMENT opens inline here, same as
  * Onion's own "+" does. */
-export function CleanStage({ model, doc, svgRef, onReject, onMutate = () => {}, onCancelMutate = () => {}, panelOpen = false, legendOpen = false }: CleanStageProps) {
+export function CleanStage({ model, doc, mode, svgRef, onReject, onMutate = () => {}, onCancelMutate = () => {}, panelOpen = false, legendOpen = false }: CleanStageProps) {
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
   const legend = legendForClean(doc)
   const { selected, linking, setLinking, selectedElement, validTargets, linkTargetRefs, clickTarget } = useDependGesture({
@@ -103,7 +107,7 @@ export function CleanStage({ model, doc, svgRef, onReject, onMutate = () => {}, 
     >
       {(hover) => (
         <>
-          <CleanDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} legend={legend} />
+          <CleanDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} legend={legend} mode={mode} hoverRef={hover.ref} />
           {cleanInsertionPoints(model, doc)
             .filter((point) => affordanceVisible(point, hover))
             .map((point) => (

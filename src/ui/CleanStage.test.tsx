@@ -26,7 +26,7 @@ afterEach(cleanup)
 function Harness({ onReject = () => {} }: { onReject?: (message: string) => void } = {}) {
   const doc = useCleanStore((s) => s.map)
   const svgRef = createRef<SVGSVGElement>()
-  return <CleanStage model={layoutClean(doc)} doc={doc} svgRef={svgRef} onReject={onReject} />
+  return <CleanStage model={layoutClean(doc)} doc={doc} mode="detailed" svgRef={svgRef} onReject={onReject} />
 }
 
 const renderStage = (props?: { onReject?: (message: string) => void }) => render(<Harness {...props} />)

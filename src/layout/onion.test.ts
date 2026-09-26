@@ -67,6 +67,14 @@ describe('layoutOnion (dependency edges, REQ-04)', () => {
     const e2 = model.elements.find((e) => e.ref === 'e2')!
     expect(model.edges[0]).toMatchObject({ kind: 'dependency', from: { x: e3.x, y: e3.y }, to: { x: e2.x, y: e2.y } })
   })
+
+  // Decision 1 (Overview mode): the canvas filters edges down to the ones touching a hovered/selected element,
+  // which needs the two element refs an edge connects, not just its endpoints' screen coordinates.
+  it('carries the fromId/toId refs of the elements it connects', () => {
+    const doc: OnionFile = { ...withElements(), dependencies: [{ id: 'd1', fromId: 'e3', toId: 'e2' }] }
+    const model = layoutOnion(doc)
+    expect(model.edges[0]).toMatchObject({ fromRef: 'e3', toRef: 'e2' })
+  })
 })
 
 describe('layoutOnion (endpoints, REQ-05)', () => {
@@ -81,6 +89,7 @@ describe('layoutOnion (endpoints, REQ-05)', () => {
     const e3 = model.elements.find((e) => e.ref === 'e3')!
     expect(edge.to).toEqual({ x: e3.x, y: e3.y })
     expect(edge.from).toEqual({ x: model.endpoints[0].x, y: model.endpoints[0].y })
+    expect(edge).toMatchObject({ fromRef: 'a1', toRef: 'e3' })
   })
 
   it('an endpoint with no target draws no edge', () => {

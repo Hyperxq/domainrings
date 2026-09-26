@@ -27,7 +27,7 @@ afterEach(cleanup)
 function Harness({ onReject = () => {} }: { onReject?: (message: string) => void } = {}) {
   const doc = useOnionStore((s) => s.map)
   const svgRef = createRef<SVGSVGElement>()
-  return <OnionStage model={layoutOnion(doc)} doc={doc} svgRef={svgRef} onReject={onReject} />
+  return <OnionStage model={layoutOnion(doc)} doc={doc} mode="detailed" svgRef={svgRef} onReject={onReject} />
 }
 
 const renderStage = (props?: { onReject?: (message: string) => void }) => render(<Harness {...props} />)

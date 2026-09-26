@@ -36,10 +36,14 @@ export interface CleanEndpointLayout {
   y: number
 }
 
-/** A dependency arrow (element → element) or an endpoint arrow (endpoint → its outer-ring target). */
+/** A dependency arrow (element → element) or an endpoint arrow (endpoint → its outer-ring target). `fromRef`/
+ * `toRef` — the element/endpoint refs it connects, not just their screen coordinates — are what Decision 1
+ * (Overview mode) filters edges by: only the ones touching the hovered/selected element. */
 export interface CleanEdgeLayout {
   key: string
   kind: 'dependency' | 'endpoint'
+  fromRef: string
+  toRef: string
   from: { x: number; y: number }
   to: { x: number; y: number }
 }
@@ -108,11 +112,15 @@ export function layoutClean(doc: CleanFile): CleanLayoutModel {
   const dependencyEdges: CleanEdgeLayout[] = doc.dependencies.flatMap((dep) => {
     const from = elementAt.get(dep.fromId)
     const to = elementAt.get(dep.toId)
-    return from && to ? [{ key: `dependency:${dep.id}`, kind: 'dependency' as const, from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y } }] : []
+    return from && to
+      ? [{ key: `dependency:${dep.id}`, kind: 'dependency' as const, fromRef: dep.fromId, toRef: dep.toId, from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y } }]
+      : []
   })
   const endpointEdges: CleanEdgeLayout[] = endpoints.flatMap((endpoint) => {
     const target = endpoint.targetId ? elementAt.get(endpoint.targetId) : undefined
-    return target ? [{ key: `endpoint-edge:${endpoint.ref}`, kind: 'endpoint' as const, from: { x: endpoint.x, y: endpoint.y }, to: { x: target.x, y: target.y } }] : []
+    return target
+      ? [{ key: `endpoint-edge:${endpoint.ref}`, kind: 'endpoint' as const, fromRef: endpoint.ref, toRef: endpoint.targetId!, from: { x: endpoint.x, y: endpoint.y }, to: { x: target.x, y: target.y } }]
+      : []
   })
 
   return {
