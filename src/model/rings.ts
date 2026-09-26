@@ -16,18 +16,22 @@ export function outerRoleOf<Role extends string>(rings: readonly { role: Role }[
   return rings[rings.length - 1].role
 }
 
-/** `count` positions spread evenly across the arc from `startAngle` to `endAngle` (radians) — generalizes
- * `ringCircumferencePositions`'s full-circle placement to a sector's own angular sub-range (REQ-08), so Clean's
- * wedge placement and Onion's whole-ring placement share the same spacing rule instead of each re-deriving it.
- * Offset half a gap past `startAngle` so the first (and last) position never lands on the arc's own boundary. */
-export function arcPositions(count: number, outline: { halfWidth: number }, startAngle: number, endAngle: number): { x: number; y: number }[] {
+/** `count` angles spread evenly across the arc from `startAngle` to `endAngle` (radians), offset half a gap past
+ * `startAngle` so the first (and last) angle never lands on the arc's own boundary — the angle half of
+ * `arcPositions`, split out so a ring's radius can be sized (`fitCircumference`, layout/ringed.ts) against each
+ * element's real angle before that radius is known, using the exact same spacing rule its final placement uses. */
+export function arcAngles(count: number, startAngle: number, endAngle: number): number[] {
   if (count <= 0) return []
   const gap = (endAngle - startAngle) / count
   const start = startAngle + gap / 2
-  return Array.from({ length: count }, (_, i) => {
-    const angle = start + i * gap
-    return { x: outline.halfWidth * Math.cos(angle), y: outline.halfWidth * Math.sin(angle) }
-  })
+  return Array.from({ length: count }, (_, i) => start + i * gap)
+}
+
+/** `count` positions spread evenly across the arc from `startAngle` to `endAngle` (radians) — generalizes
+ * `ringCircumferencePositions`'s full-circle placement to a sector's own angular sub-range (REQ-08), so Clean's
+ * wedge placement and Onion's whole-ring placement share the same spacing rule instead of each re-deriving it. */
+export function arcPositions(count: number, outline: { halfWidth: number }, startAngle: number, endAngle: number): { x: number; y: number }[] {
+  return arcAngles(count, startAngle, endAngle).map((angle) => ({ x: outline.halfWidth * Math.cos(angle), y: outline.halfWidth * Math.sin(angle) }))
 }
 
 /** `count` positions spread evenly around a ring's whole circumference (REQ-07), instead of stacked in a column —

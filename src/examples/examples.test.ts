@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { parseHexa, toHexa } from '../model/hexa'
+import { newOnionMap, parseHexa, toHexa } from '../model/hexa'
 import { layoutMap } from '../layout/map'
 import { layoutOnion } from '../layout/onion'
 import { layoutClean } from '../layout/clean'
@@ -204,5 +204,34 @@ describe('example .hexa files', () => {
         report.map((r) => `  ${r.file}: ${r.itemCount} items, ${r.overlaps.length} overlapping box pair(s)${r.overlaps.length ? ` [${r.overlaps.join(', ')}]` : ''}`).join('\n'),
     )
     expect(report).toHaveLength(files.length)
+  })
+})
+
+// Onion/Clean ring placement spaced elements evenly by angle and count only, ignoring each element's rendered box
+// width — the stress/advanced examples above exposed real overlaps this way. Hexagonal is excluded: its own
+// reported "overlaps" are an aggregate's outline around its own members, which is intentional, not a bug.
+describe('no two Onion/Clean element or endpoint boxes overlap', () => {
+  for (const file of files.filter((f) => f.startsWith('onion-') || f.startsWith('clean-'))) {
+    it(`${file} lays out with zero overlapping box pairs`, () => {
+      const parsed = parseHexa(readExample(file))
+      if (!parsed.ok) throw new Error(`"${file}" failed to parse: ${parsed.errors.join('; ')}`)
+      const map = parsed.map
+      const { overlaps } = map.kind === 'onion' ? onionOverlaps(map) : cleanOverlaps(map as CleanFile)
+      expect(overlaps).toEqual([])
+    })
+  }
+
+  it('a ring crowded with long-named elements still lays out with zero overlaps (synthetic)', () => {
+    const doc: OnionFile = {
+      ...newOnionMap('Fresh'),
+      elements: [
+        { id: 'e1', name: 'A Very Long Bounded Context Element Name', ringRole: 'outer' },
+        { id: 'e2', name: 'Another Rather Long Element Name Here', ringRole: 'outer' },
+        { id: 'e3', name: 'Yet One More Long Named Domain Element', ringRole: 'outer' },
+        { id: 'e4', name: 'And A Fourth Long Named Element Too', ringRole: 'outer' },
+      ],
+    }
+    const { overlaps } = onionOverlaps(doc)
+    expect(overlaps).toEqual([])
   })
 })

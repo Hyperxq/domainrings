@@ -1,7 +1,7 @@
-import { ringCircumferencePositions } from '../model/rings'
+import { arcAngles, ringCircumferencePositions } from '../model/rings'
 import type { OnionDependency, OnionFile, OnionRingRole } from '../model/schema'
 import type { Box, LayoutRing, Point } from './layout'
-import { endpointLayout, ringedBounds, ringOutlines } from './ringed'
+import { endpointLayout, ringedBounds, RINGED_ELEMENT_HEIGHT, ringedElementWidth, ringOutlines } from './ringed'
 
 /** An element placed on its ring's circumference (REQ-07). */
 export interface OnionElementLayout {
@@ -43,7 +43,14 @@ export interface OnionLayoutModel {
 /** Innermost-first (REQ-02) — `doc.rings[0]` is the domain, the one big sentence-case title; every outer ring
  * (built from it outward) grows from its own inner neighbour (`ringOutlines`, ADR-01: shared with Clean). */
 export function layoutOnion(doc: OnionFile): OnionLayoutModel {
-  const rings = ringOutlines(doc.rings)
+  // Each ring's elements, by angle (REQ-07's spacing rule) and rendered box width, so a ring can grow to fit them
+  // (`ringOutlines`) before its own radius — and thus their final positions — is known.
+  const slotsOf = (role: OnionRingRole) => {
+    const onRing = doc.elements.filter((e) => e.ringRole === role)
+    const angles = arcAngles(onRing.length, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI)
+    return onRing.map((e, k) => ({ angle: angles[k], width: ringedElementWidth(e.name) }))
+  }
+  const rings = ringOutlines(doc.rings, slotsOf)
 
   // Elements: grouped by ring, spread evenly around that ring's circumference (REQ-07) — array order decides
   // position order, so re-adding shuffles existing elements' angles; acceptable, nothing in REQ-07 promises a
@@ -56,7 +63,8 @@ export function layoutOnion(doc: OnionFile): OnionLayoutModel {
   const elementAt = new Map(elements.map((e) => [e.ref, e]))
 
   const outer = rings[rings.length - 1]
-  const { endpoints, extraReach } = endpointLayout(doc.actors, doc.externals, outer)
+  const outerElements = elements.filter((e) => e.ringRole === outer.role).map((e) => ({ x: e.x, y: e.y, width: ringedElementWidth(e.name), height: RINGED_ELEMENT_HEIGHT }))
+  const { endpoints, extraReach } = endpointLayout(doc.actors, doc.externals, outer, outerElements)
 
   const dependencyEdges: OnionEdgeLayout[] = doc.dependencies.flatMap((dep: OnionDependency) => {
     const from = elementAt.get(dep.fromId)

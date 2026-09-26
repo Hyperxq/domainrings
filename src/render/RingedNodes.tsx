@@ -1,10 +1,8 @@
 import type { Point } from '../layout/layout'
-import { measure } from '../layout/text'
+import { RINGED_ELEMENT_HEIGHT, RINGED_ELEMENT_METRICS, RINGED_ENDPOINT_DIAMETER, ringedElementWidth } from '../layout/ringed'
 
-const NAME_METRICS = { size: 13, em: 0.6, tracking: 0 }
-const PAD_X = 10
-const NODE_HEIGHT = 26
-const ENDPOINT_RADIUS = 4
+const NODE_HEIGHT = RINGED_ELEMENT_HEIGHT
+const ENDPOINT_RADIUS = RINGED_ENDPOINT_DIAMETER / 2
 
 /** What every "ringed" document kind (Onion, Clean — ADR-01) lays an element out as: its own ring role (Onion: a
  * direct field; Clean: resolved through its sector, ADR-02) is already flattened in by the layout step, so these
@@ -41,7 +39,7 @@ export function RingedEdge({ edge, markerId }: { edge: RingedEdgeLayout; markerI
 }
 
 export function RingedElementNode({ element, selected, target, interactive }: { element: RingedElementLayout; selected: boolean; target: boolean; interactive: boolean }) {
-  const width = measure(element.name, NAME_METRICS) + 2 * PAD_X
+  const width = ringedElementWidth(element.name)
   return (
     <g
       className="node node-ringedElement tone-teal"
@@ -53,7 +51,7 @@ export function RingedElementNode({ element, selected, target, interactive }: { 
       aria-label={interactive ? `${element.name} (${element.ringRole})` : undefined}
     >
       <rect className="box" x={element.x - width / 2} y={element.y - NODE_HEIGHT / 2} width={width} height={NODE_HEIGHT} rx={8} />
-      <text className="centered" x={element.x} y={element.y} dominantBaseline="middle" fontSize={NAME_METRICS.size}>
+      <text className="centered" x={element.x} y={element.y} dominantBaseline="middle" fontSize={RINGED_ELEMENT_METRICS.size}>
         {element.name}
       </text>
     </g>
@@ -72,7 +70,7 @@ export function RingedEndpointNode({ endpoint, selected, interactive }: { endpoi
       aria-label={interactive ? `${endpoint.kind === 'actor' ? 'Actor' : 'External system'} ${endpoint.name}` : undefined}
     >
       <circle className="box" cx={endpoint.x} cy={endpoint.y} r={ENDPOINT_RADIUS} />
-      <text className={labelSide > 0 ? undefined : 'end'} x={endpoint.x + labelSide * (ENDPOINT_RADIUS + 4)} y={endpoint.y} dominantBaseline="middle" fontSize={NAME_METRICS.size}>
+      <text className={labelSide > 0 ? undefined : 'end'} x={endpoint.x + labelSide * (ENDPOINT_RADIUS + 4)} y={endpoint.y} dominantBaseline="middle" fontSize={RINGED_ELEMENT_METRICS.size}>
         {endpoint.name}
       </text>
     </g>

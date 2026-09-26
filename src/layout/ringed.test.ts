@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { newCleanMap, newOnionMap } from '../model/hexa'
 import { ringedBounds, ringOutlines } from './ringed'
+import { DOMAIN_TITLE, measure, RING_LABEL } from './text'
 
 // Direct unit coverage for the shared ring-outline/bounds sizing (ADR-01) — previously exercised only
 // indirectly through layout/onion.test.ts and the Clean creation test (verify-in-loop-1, WARNING b).
@@ -39,5 +41,27 @@ describe('ringedBounds', () => {
     const plain = ringedBounds(ring)
     const extended = ringedBounds(ring, 56)
     expect(extended.width).toBeGreaterThan(plain.width)
+  })
+})
+
+// A ring's band is a filled disc/annulus; the next ring out is painted afterward (render/band.ts's bandPath), so
+// a label wider than THIS ring's own chord at its label height gets its overflow covered by that later fill —
+// the reported "Domain Mod", "MAIN SERVIC" clipping on an otherwise-empty Onion file.
+describe('ring labels fit inside their own band (no clipping by the next ring out)', () => {
+  function assertLabelsFit(rings: ReturnType<typeof ringOutlines>) {
+    rings.forEach((ring, i) => {
+      const metrics = i === 0 ? DOMAIN_TITLE : RING_LABEL
+      const halfWidth = measure(ring.title, metrics) / 2
+      const chordHalf = Math.sqrt(Math.max(0, ring.apex ** 2 - ring.labelAt.y ** 2))
+      expect(halfWidth).toBeLessThanOrEqual(chordHalf)
+    })
+  }
+
+  it('an empty Onion file: every ring label fits inside its own band', () => {
+    assertLabelsFit(ringOutlines(newOnionMap('Fresh').rings))
+  })
+
+  it('an empty Clean file: every ring label fits inside its own band', () => {
+    assertLabelsFit(ringOutlines(newCleanMap('Fresh').rings))
   })
 })

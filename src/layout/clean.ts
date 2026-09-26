@@ -1,7 +1,7 @@
-import { arcPositions } from '../model/rings'
+import { arcAngles, arcPositions } from '../model/rings'
 import type { CleanFile, CleanRingRole } from '../model/schema'
 import type { Box, LayoutRing } from './layout'
-import { endpointLayout, ringedBounds, ringOutlines } from './ringed'
+import { endpointLayout, ringedBounds, RINGED_ELEMENT_HEIGHT, ringedElementWidth, ringOutlines } from './ringed'
 
 /** A sector's own wedge of its ring (REQ-08) — the angular sub-range its elements are spread inside, and the
  * range `render/band.ts`'s divider primitive and `cleanInsertion.ts`'s element "+" both place themselves against. */
@@ -75,10 +75,21 @@ function sectorWedges(doc: CleanFile): CleanSectorWedge[] {
  * genuinely Clean-only is the sector sub-division of each ring into wedges and placing elements inside their
  * own wedge (`arcPositions`) rather than around the whole ring. */
 export function layoutClean(doc: CleanFile): CleanLayoutModel {
-  const rings = ringOutlines(doc.rings)
-  const ringByRole = new Map(rings.map((r) => [r.role, r]))
-
   const sectors = sectorWedges(doc)
+
+  // Every sector's own elements, flattened onto their shared ring (REQ-08's per-wedge spacing rule, but grouped
+  // by ring rather than by sector) — so a ring grows to fit ALL of them, including crowding right at a wedge
+  // boundary between two sectors, with no sector-specific code in `ringOutlines` at all (ADR-01).
+  const slotsOf = (role: CleanRingRole) =>
+    sectors
+      .filter((s) => s.ringRole === role)
+      .flatMap((sector) => {
+        const onSector = doc.elements.filter((e) => e.sectorId === sector.ref)
+        const angles = arcAngles(onSector.length, sector.startAngle, sector.endAngle)
+        return onSector.map((e, k) => ({ angle: angles[k], width: ringedElementWidth(e.name) }))
+      })
+  const rings = ringOutlines(doc.rings, slotsOf)
+  const ringByRole = new Map(rings.map((r) => [r.role, r]))
 
   const elements: CleanElementLayout[] = sectors.flatMap((sector) => {
     const ring = ringByRole.get(sector.ringRole)!
@@ -89,7 +100,8 @@ export function layoutClean(doc: CleanFile): CleanLayoutModel {
   const elementAt = new Map(elements.map((e) => [e.ref, e]))
 
   const outer = rings[rings.length - 1]
-  const { endpoints, extraReach } = endpointLayout(doc.actors, doc.externals, outer)
+  const outerElements = elements.filter((e) => e.ringRole === outer.role).map((e) => ({ x: e.x, y: e.y, width: ringedElementWidth(e.name), height: RINGED_ELEMENT_HEIGHT }))
+  const { endpoints, extraReach } = endpointLayout(doc.actors, doc.externals, outer, outerElements)
 
   const dependencyEdges: CleanEdgeLayout[] = doc.dependencies.flatMap((dep) => {
     const from = elementAt.get(dep.fromId)
