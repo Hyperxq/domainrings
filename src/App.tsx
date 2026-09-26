@@ -138,23 +138,25 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const legend = legendFor(diagram)
   const [exportScope, setExportScope] = useState<ExportScope>('map')
 
+  // The document being replaced (REQ-09), captured before any store mutation whatever kind is currently active —
+  // Undo restores it into its own store (`restoreUndo`) and the toast's onUndo below flips `activeKind` back from
+  // `undo.map.kind`, so the view returns with it. One snapshot, one restore path, for every swap direction.
+  const beforeSwap: UndoSnapshot = activeKind === 'onion' ? { map: onionMap, swap: true } : activeKind === 'clean' ? { map: cleanMap, swap: true } : { ...before, swap: true }
+
   // The one kind-dispatch outside the render fork (ADR-02): routes a newly created/opened/loaded document to
-  // whichever store matches its own kind and flips the active view. Undo is only offered when staying within
-  // the kind already on screen — switching kind mid-session is rare enough that a wrong-kind undo isn't worth it.
+  // whichever store matches its own kind and flips the active view.
   const swap = (file: StoredFile, message: string) => {
+    show({ tone: 'status', message, undo: beforeSwap })
     if (file.kind === 'onion') {
-      show({ tone: 'status', message })
       replaceOnion(file)
       setActiveKind('onion')
       return
     }
     if (file.kind === 'clean') {
-      show({ tone: 'status', message })
       replaceClean(file)
       setActiveKind('clean')
       return
     }
-    show({ tone: 'status', message, undo: activeKind === 'hexagonal' ? { ...before, swap: true } : undefined })
     replace(file)
     setActiveKind('hexagonal')
     setExportScope('map')
@@ -552,6 +554,9 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
             notice.undo &&
             (() => {
               restoreUndo(notice.undo!)
+              // The restored document's own kind IS the view to bring back (REQ-09) — a same-kind edit's undo
+              // just re-sets the kind already on screen, a no-op render.
+              setActiveKind(notice.undo!.map.kind)
               setNotice(null)
               // Undoing a grow through the toast is the same restore as Esc-while-naming — close the field too.
               setGrowing(null)

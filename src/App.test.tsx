@@ -2530,3 +2530,56 @@ describe('Clean undo (REQ-09)', () => {
     expect(toastEl()).toBeNull()
   })
 })
+
+// REQ-09: swap() (New, Open, an Example, a share link) offers Undo whatever kind is active before and after —
+// Undo restores the replaced document into its own store and brings back its view (activeKind), not just when
+// staying within the kind already on screen.
+describe('swap undo across kinds (REQ-09)', () => {
+  it('Onion → Hexagonal via New, then Undo restores the Onion document and its view', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
+    const onionBefore = useOnionStore.getState().map
+
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Hexagonal' }))
+    expect(useMapStore.getState().map.kind).toBe('hexagonal')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useOnionStore.getState().map).toBe(onionBefore)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    expect(screen.getByRole('button', { name: 'Add element to Domain Model' })).toBeTruthy()
+  })
+
+  it('from a Clean document, loading an Example then Undo restores the Clean document', () => {
+    const { container } = render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
+    const cleanBefore = useCleanStore.getState().map
+
+    const option = screen.getByRole('option', { name: 'Two slices, one link' }) as HTMLOptionElement
+    fireEvent.change(screen.getByLabelText('Load an example'), { target: { value: option.value } })
+    expect(useMapStore.getState().map).toStrictEqual(TWO_SLICES_MAP)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useCleanStore.getState().map).toBe(cleanBefore)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    expect(within(container.querySelector('aside.editor')!).getByRole('button', { name: 'Add sector to Entities' })).toBeTruthy()
+  })
+
+  it('Hexagonal → Onion via New, then Undo restores the Hexagonal map and its view', () => {
+    const { container } = render(<App />)
+    const hexBefore = useMapStore.getState().map
+
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
+    expect(useOnionStore.getState().map.kind).toBe('onion')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useMapStore.getState().map).toBe(hexBefore)
+    expect(container.querySelector('[data-hex]')).not.toBeNull()
+  })
+})
