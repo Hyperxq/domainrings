@@ -12,13 +12,13 @@ const BOX_PAD_X = 12
 // The domain block is plain text on the solid domain ring.
 const FRAMELESS = new Set<LayoutNode['kind']>(['domainItem', 'note', 'portDecl', 'portLabel'])
 
-/** An arc centred at the top (12 o'clock), spanning `2 * halfSpan` radians, reading left→right — the path a
- * ringed (Onion/Clean) ring's own `<textPath>` rides. `M`/`A`, not a closed loop: this path is never painted,
- * only referenced. */
-function titleArcPath(radius: number, halfSpan: number): string {
-  const top = -Math.PI / 2
+/** An arc centred at `centerAngle`, spanning `2 * halfSpan` radians, reading left→right — the path a ringed
+ * (Onion/Clean) curved `<textPath>` rides, whether a ring's own title (always centred at the top, 12 o'clock) or
+ * Clean's own per-sector wedge label (Decision 4, centred at the wedge's own mid-angle instead). `M`/`A`, not a
+ * closed loop: this path is never painted, only referenced. */
+export function ringedArcPath(radius: number, centerAngle: number, halfSpan: number): string {
   const at = (angle: number) => `${radius * Math.cos(angle)} ${radius * Math.sin(angle)}`
-  return `M${at(top - halfSpan)}A${radius} ${radius} 0 0 1 ${at(top + halfSpan)}`
+  return `M${at(centerAngle - halfSpan)}A${radius} ${radius} 0 0 1 ${at(centerAngle + halfSpan)}`
 }
 
 /** A ringed (Onion/Clean) ring's own title, curved along its band's own mid-radius arc (ADR-01: the ringed-only
@@ -33,7 +33,7 @@ function RingedTitle({ ring, inner }: { ring: LayoutRing; inner?: LayoutRing }) 
   const arcId = `ring-title-arc-${ring.role}`
   return (
     <>
-      <path id={arcId} d={titleArcPath(radius, halfSpan)} fill="none" stroke="none" aria-hidden="true" />
+      <path id={arcId} d={ringedArcPath(radius, -Math.PI / 2, halfSpan)} fill="none" stroke="none" aria-hidden="true" />
       <text className={innermost ? 'domain-title' : 'ring-label'} data-layer={ring.role} data-ref={ref} fontSize={RING_LABEL.size}>
         <textPath href={`#${arcId}`} xlinkHref={`#${arcId}`} startOffset="50%" textAnchor="middle">
           {ring.title}

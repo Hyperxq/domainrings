@@ -44,6 +44,39 @@ describe('CleanDiagram — sector wedges (REQ-08)', () => {
   })
 })
 
+// Decision 4: a sector's own name is drawn on the canvas, curved along its own wedge, so the wedges read as
+// named divisions — not just unlabelled radial lines.
+describe('CleanDiagram — sector names drawn on canvas (Decision 4)', () => {
+  it('draws one curved label per sector, named after it', () => {
+    const doc: CleanFile = {
+      ...newCleanMap('Fresh'),
+      sectors: [
+        { id: 's1', name: 'Billing', ringRole: 'domain' },
+        { id: 's2', name: 'Catalog', ringRole: 'domain' },
+      ],
+    }
+    const { container } = renderDiagram(doc)
+    const labels = container.querySelectorAll('[data-sector-label]')
+    expect(labels).toHaveLength(2)
+    const names = [...labels].map((l) => l.textContent)
+    expect(names).toEqual(expect.arrayContaining(['Billing', 'Catalog']))
+  })
+
+  it('a sector\'s label rides its own curved arc, not a straight line', () => {
+    const doc: CleanFile = { ...newCleanMap('Fresh'), sectors: [{ id: 's1', name: 'Billing', ringRole: 'domain' }] }
+    const { container } = renderDiagram(doc)
+    const textPath = container.querySelector('[data-sector-label="s1"] textPath')!
+    const arcId = textPath.getAttribute('href')!.replace('#', '')
+    const arc = container.querySelector(`#${CSS.escape(arcId)}`)!
+    expect(arc.getAttribute('d')).toContain('A')
+  })
+
+  it('draws no sector labels for a ring with no sectors', () => {
+    const { container } = renderDiagram(newCleanMap('Fresh'))
+    expect(container.querySelectorAll('[data-sector-label]')).toHaveLength(0)
+  })
+})
+
 describe('CleanDiagram — elements, endpoints and edges', () => {
   it('renders an element node for each element, positioned inside its own sector wedge', () => {
     const doc: CleanFile = {

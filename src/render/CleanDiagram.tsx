@@ -1,8 +1,10 @@
-import type { CleanLayoutModel } from '../layout/clean'
-import type { LayoutMode } from '../layout/layout'
+import type { CleanLayoutModel, CleanSectorWedge } from '../layout/clean'
+import type { LayoutMode, LayoutRing } from '../layout/layout'
 import type { LegendModel } from '../layout/legend'
+import { ringElementRadius, titleHalfSpan, TITLE_ARC_PAD } from '../layout/ringed'
+import { measure, RING_SUBTITLE } from '../layout/text'
 import { sectorDividers } from './band'
-import { Ring, SvgLegend } from './Diagram'
+import { Ring, ringedArcPath, SvgLegend } from './Diagram'
 import { RingedEdge, ringedVisibleEdges, RingedElementNode, RingedEndpointNode } from './RingedNodes'
 
 interface CleanDiagramProps {
@@ -32,6 +34,29 @@ function SectorDividers({ ring, inner, model }: { ring: CleanLayoutModel['rings'
   return <path className="sector-divider" data-sector-divider={ring.role} d={sectorDividers(ring, inner, boundaries)} />
 }
 
+/** A sector's own name (Decision 4), curved along its own wedge's mid-angle at the ring's element radius —
+ * reuses the ring title's own curved-arc primitive (`ringedArcPath`, `render/Diagram.tsx`), just centred on the
+ * wedge's own mid-angle instead of always the top. Sized to fit within its own wedge span (never the shared
+ * `TITLE_MAX_SPAN` a ring title grows the whole ring to guarantee — a narrow sector's label may run past its own
+ * wedge for a long name, since nothing here grows the ring to prevent it, unlike the ring title). */
+function SectorLabel({ sector, ring, inner, innermost }: { sector: CleanSectorWedge; ring: LayoutRing; inner?: LayoutRing; innermost: boolean }) {
+  const radius = ringElementRadius(ring, inner)
+  const centerAngle = (sector.startAngle + sector.endAngle) / 2
+  const wedgeHalfSpan = Math.max(0, (sector.endAngle - sector.startAngle) / 2 - TITLE_ARC_PAD / Math.max(radius, 1))
+  const halfSpan = Math.min(wedgeHalfSpan, titleHalfSpan(measure(sector.name, RING_SUBTITLE) + 2 * TITLE_ARC_PAD, radius))
+  const arcId = `sector-title-arc-${sector.ref}`
+  return (
+    <>
+      <path id={arcId} d={ringedArcPath(radius, centerAngle, halfSpan)} fill="none" stroke="none" aria-hidden="true" />
+      <text className={innermost ? 'sector-label on-domain' : 'sector-label'} data-sector-label={sector.ref} fontSize={RING_SUBTITLE.size}>
+        <textPath href={`#${arcId}`} xlinkHref={`#${arcId}`} startOffset="50%" textAnchor="middle">
+          {sector.name}
+        </textPath>
+      </text>
+    </>
+  )
+}
+
 /** A Clean document's 4 fixed rings (reusing the same `<Ring>` primitive Hexagonal/Onion render with, ADR-01),
  * each ring's own sectors drawn as wedge dividers (REQ-08), its elements spread inside their own sector's wedge,
  * inward-only dependency arrows (REQ-06), and actors/external systems outside the outer ring with a direct arrow
@@ -51,6 +76,10 @@ export function CleanDiagram({ model, selected, interactive, validTargets, legen
       {model.rings.map((ring, i) => (
         <SectorDividers key={`dividers:${ring.key}`} ring={ring} inner={model.rings[i - 1]} model={model} />
       ))}
+      {model.sectors.map((sector) => {
+        const ringIndex = model.rings.findIndex((r) => r.role === sector.ringRole)
+        return <SectorLabel key={`label:${sector.key}`} sector={sector} ring={model.rings[ringIndex]} inner={model.rings[ringIndex - 1]} innermost={ringIndex === 0} />
+      })}
       {ringedVisibleEdges(model.edges, mode, activeRefs).map((edge) => (
         <RingedEdge key={edge.key} edge={edge} markerId="clean-arrow" curved={mode === 'detailed'} />
       ))}
