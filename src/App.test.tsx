@@ -1505,12 +1505,6 @@ describe('journey', () => {
       await Promise.resolve()
     })
   }
-  /** Confirms the conversion dialog if one is showing — needed only when the map isn't already hexagonal at the
-   * point of the import; a no-op otherwise, so the same helper works whichever kind the map starts as. */
-  const confirmConversionIfAsked = () => {
-    const dialog = screen.queryByRole('dialog')
-    if (dialog) fireEvent.click(screen.getByRole('button', { name: 'Convert and import' }))
-  }
   /** Save via the toolbar's ".hexa" export, capturing the downloaded text exactly as the "Two slices" export test
    * does (App.test.tsx's own precedent, `createSpy`/`captured` pattern) — the design's own suggested approach. */
   const saveHexa = async (): Promise<string> => {
@@ -1547,20 +1541,17 @@ describe('journey', () => {
     openImportMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
     await pickFile(v1Minimal, 'v1-minimal.hexa')
-    confirmConversionIfAsked()
     expect(useMapStore.getState().map.hexagons).toHaveLength(2)
 
     openImportMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
     await pickFile(v1Maximal, 'v1-maximal.hexa')
-    confirmConversionIfAsked()
     expect(useMapStore.getState().map.hexagons).toHaveLength(3)
     expect(useMapStore.getState().map.contexts).toHaveLength(1)
 
     openImportMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
     await pickFile(v2EmptyContext, 'legacy.hexa')
-    confirmConversionIfAsked()
     expect(useMapStore.getState().map.hexagons).toHaveLength(4)
     expect(useMapStore.getState().map.contexts).toHaveLength(2)
 

@@ -366,9 +366,8 @@ export function Editor({
   onPrune: OnPrune
   onAddHexagon: () => void
   onDeleteHexagon: () => void
-  /** Imports the chosen file's one hexagon (IMP-01); `opener` is whatever had focus when the destination was
-   * chosen — the trigger below — so the caller can restore it after a conversion question (CONV-02.1). */
-  onAddFromFile: (file: File, context: Destination, opener: HTMLElement | null) => void
+  /** Imports the chosen file's one hexagon (IMP-01). */
+  onAddFromFile: (file: File, context: Destination) => void
   /** The current hexagon's own bounded context, for the import menu's "Import into {context}" choice. */
   contextLabel: string
   /** Reports a context rename/clear session (focus → blur) that actually changed the name, with the map from
@@ -392,7 +391,6 @@ export function Editor({
   const canGrow = !!currentCell && freeSides(map, currentCell).length > 0
   const canDelete = map.hexagons.length > 1
   const importContext = useRef<Destination>('same')
-  const importOpener = useRef<HTMLElement | null>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
   // Keyed by contextId, so renaming two contexts in the same session (unlikely, but never concurrent within one
   // input) each keeps its own pre-edit snapshot from focus to blur.
@@ -421,7 +419,6 @@ export function Editor({
             ]}
             onChoose={(context) => {
               importContext.current = context
-              importOpener.current = document.activeElement as HTMLElement | null
               importInputRef.current?.click()
             }}
           />
@@ -433,7 +430,7 @@ export function Editor({
             aria-label="Add hexagon from a .hexa file"
             onChange={(e) => {
               const file = e.currentTarget.files?.[0]
-              if (file) onAddFromFile(file, importContext.current, importOpener.current)
+              if (file) onAddFromFile(file, importContext.current)
               e.currentTarget.value = ''
             }}
           />

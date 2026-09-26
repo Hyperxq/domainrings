@@ -20,7 +20,7 @@ afterEach(cleanup)
 const renderEditor = (
   onAddHexagon: () => void = () => {},
   onDeleteHexagon: () => void = () => {},
-  onAddFromFile: (file: File, context: 'same' | 'new', opener: HTMLElement | null) => void = () => {},
+  onAddFromFile: (file: File, context: 'same' | 'new') => void = () => {},
   contextLabel = 'Context 1',
   onRenameContext: (before: HexaMap, contextId: string) => void = () => {},
   onCreateLink: (from: LinkEnd, to: LinkEnd) => void = () => {},
@@ -294,7 +294,6 @@ describe('"Add hexagon from file…" in the Map section (IMP-01, IMP-01.4)', () 
   it('choosing "Import into {context}" opens the hidden file input before onAddFromFile fires, then reports the picked file with "same"', () => {
     const onAddFromFile = vi.fn()
     const { container } = renderEditor(() => {}, () => {}, onAddFromFile, 'Billing')
-    const trigger = within(section(container, 'Map')).getByRole('button', { name: 'Add hexagon from file…' })
     openMenu(container)
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Billing' }))
@@ -304,7 +303,7 @@ describe('"Add hexagon from file…" in the Map section (IMP-01, IMP-01.4)', () 
     fireEvent.change(input, { target: { files: [file] } })
 
     expect(onAddFromFile).toHaveBeenCalledOnce()
-    expect(onAddFromFile).toHaveBeenCalledWith(file, 'same', trigger)
+    expect(onAddFromFile).toHaveBeenCalledWith(file, 'same')
     expect(input.value).toBe('')
   })
 
@@ -317,7 +316,7 @@ describe('"Add hexagon from file…" in the Map section (IMP-01, IMP-01.4)', () 
     const file = new File(['{}'], 'billing.hexa', { type: 'application/json' })
     fireEvent.change(screen.getByLabelText('Add hexagon from a .hexa file'), { target: { files: [file] } })
 
-    expect(onAddFromFile).toHaveBeenCalledWith(file, 'new', expect.anything())
+    expect(onAddFromFile).toHaveBeenCalledWith(file, 'new')
   })
 
   it('does not call onAddFromFile when the file picker is cancelled (no file chosen)', () => {

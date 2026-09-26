@@ -450,6 +450,14 @@ label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
 .choice-menu [aria-checked='true'] { background: var(--teal-soft); color: var(--teal); }
 .choice-description { color: var(--muted); font-size: 12px; font-weight: 400; }
 
+.architecture-choice-dialog {
+  inset: 0;
+  margin: auto;
+  max-width: 320px;
+  padding: 16px;
+}
+.architecture-choice-dialog::backdrop { background: rgb(0 0 0 / 0.4); }
+.architecture-choice-dialog p { margin: 0 0 16px; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
 .editor {
