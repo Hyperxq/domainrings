@@ -1,0 +1,71 @@
+{
+  "app": "domainrings",
+  "version": 4,
+  "kind": "hexagonal",
+  "title": "Stress test",
+  "contexts": [
+    { "id": "c1" }
+  ],
+  "hexagons": [
+    {
+      "id": "h1",
+      "contextId": "c1",
+      "cell": { "q": 0, "r": 0 },
+      "title": "Stress test",
+      "subtitle": "Ten domain items, three use cases (one beside its port), ports on all six walls",
+      "domain": [
+        { "id": "g-order", "name": "Order", "type": "aggregate" },
+        { "id": "e-line", "name": "OrderLine", "type": "entity", "parentId": "g-order" },
+        { "id": "v-money", "name": "Money", "type": "valueObject", "parentId": "e-line" },
+        { "id": "v-qty", "name": "Quantity", "type": "valueObject", "parentId": "e-line" },
+        { "id": "v-address", "name": "ShippingAddress", "type": "valueObject", "parentId": "g-order" },
+        { "id": "g-customer", "name": "Customer", "type": "aggregate" },
+        { "id": "e-account", "name": "Account", "type": "entity", "parentId": "g-customer" },
+        { "id": "v-email", "name": "Email", "type": "valueObject", "parentId": "e-account" },
+        { "id": "e-loyalty", "name": "LoyaltyCard", "type": "entity", "parentId": "g-customer" },
+        { "id": "v-points", "name": "Points", "type": "valueObject", "parentId": "e-loyalty" }
+      ],
+      "useCases": [
+        { "id": "uc-place", "name": "PlaceOrder", "note": "execute(cmd): Promise<OrderId>\nprice, reserve stock, charge" },
+        { "id": "uc-cancel", "name": "CancelOrder", "note": "execute(cmd): Promise<void>\nrelease stock, notify" },
+        { "id": "uc-earn", "name": "EarnPoints", "placement": "nw", "note": "execute(evt): Promise<void>\ncredit the loyalty card" }
+      ],
+      "ports": [
+        { "id": "p-orders", "name": "ordersApi", "side": "driving", "wall": "w", "useCaseId": "uc-place", "note": "(command)" },
+        { "id": "p-events", "name": "loyaltyEvents", "side": "driving", "wall": "nw", "useCaseId": "uc-earn", "note": "(event)" },
+        { "id": "p-admin", "name": "adminCommands", "side": "driving", "wall": "sw", "useCaseId": "uc-cancel", "note": "(command)" },
+        { "id": "p-order-repo", "name": "OrderRepository", "side": "driven", "wall": "ne", "useCaseId": "uc-place" },
+        { "id": "p-payments", "name": "PaymentGateway", "side": "driven", "wall": "ne", "useCaseId": "uc-place" },
+        { "id": "p-stock", "name": "StockLevels", "side": "driven", "wall": "e", "useCaseId": "uc-place" },
+        { "id": "p-notify", "name": "CustomerNotifier", "side": "driven", "wall": "e", "useCaseId": "uc-cancel" },
+        { "id": "p-customer-repo", "name": "CustomerRepository", "side": "driven", "wall": "se", "useCaseId": "uc-earn" },
+        { "id": "p-clock", "name": "Clock", "side": "driven", "wall": "se", "useCaseId": "uc-earn" }
+      ],
+      "adapters": [
+        { "id": "a-rest", "name": "orders.routes", "portId": "p-orders", "note": "HTTP → command" },
+        { "id": "a-queue", "name": "loyalty.consumer", "portId": "p-events", "note": "event → command" },
+        { "id": "a-admin", "name": "admin.cli", "portId": "p-admin", "note": "CLI → command" },
+        { "id": "a-order-repo", "name": "KnexOrderRepository", "portId": "p-order-repo" },
+        { "id": "a-stripe", "name": "StripePaymentGateway", "portId": "p-payments" },
+        { "id": "a-stock", "name": "WarehouseStockClient", "portId": "p-stock" },
+        { "id": "a-ses", "name": "SesCustomerNotifier", "portId": "p-notify" },
+        { "id": "a-customer-repo", "name": "KnexCustomerRepository", "portId": "p-customer-repo" },
+        { "id": "a-clock", "name": "SystemClock", "portId": "p-clock" }
+      ],
+      "actors": [
+        { "id": "act-web", "name": "Web shop", "adapterId": "a-rest", "note": "checkout" },
+        { "id": "act-bus", "name": "Event bus", "adapterId": "a-queue", "note": "order.paid" },
+        { "id": "act-ops", "name": "Ops", "adapterId": "a-admin", "note": "support desk" }
+      ],
+      "externals": [
+        { "id": "ext-orders-db", "name": "Postgres", "adapterId": "a-order-repo", "note": "orders" },
+        { "id": "ext-stripe", "name": "Stripe", "adapterId": "a-stripe", "note": "charges API" },
+        { "id": "ext-warehouse", "name": "Warehouse API", "adapterId": "a-stock", "note": "REST" },
+        { "id": "ext-ses", "name": "AWS SES", "adapterId": "a-ses", "note": "email" },
+        { "id": "ext-customers-db", "name": "Postgres", "adapterId": "a-customer-repo", "note": "customers" }
+      ],
+      "composition": { "name": "composition.ts", "note": "wires adapters into the use cases" }
+    }
+  ],
+  "links": []
+}

@@ -1,0 +1,80 @@
+{
+  "app": "domainrings",
+  "version": 4,
+  "kind": "clean",
+  "title": "Order processing — Clean (stress)",
+  "rings": [
+    { "role": "domain", "name": "Entities" },
+    { "role": "application", "name": "Use Cases" },
+    { "role": "adapters", "name": "Interface Adapters" },
+    { "role": "outer", "name": "Frameworks & Drivers" }
+  ],
+  "sectors": [
+    { "id": "sec-orders-domain", "name": "Orders", "ringRole": "domain" },
+    { "id": "sec-payments-domain", "name": "Payments", "ringRole": "domain" },
+    { "id": "sec-shipping-domain", "name": "Shipping", "ringRole": "domain" },
+    { "id": "sec-orders-app", "name": "Orders", "ringRole": "application" },
+    { "id": "sec-payments-app", "name": "Payments", "ringRole": "application" },
+    { "id": "sec-shipping-app", "name": "Shipping", "ringRole": "application" },
+    { "id": "sec-controllers", "name": "Controllers", "ringRole": "adapters" },
+    { "id": "sec-presenters", "name": "Presenters", "ringRole": "adapters" },
+    { "id": "sec-web", "name": "Web", "ringRole": "outer" },
+    { "id": "sec-persistence", "name": "Persistence", "ringRole": "outer" },
+    { "id": "sec-external-clients", "name": "External Clients", "ringRole": "outer" }
+  ],
+  "elements": [
+    { "id": "el-order", "name": "Order", "sectorId": "sec-orders-domain" },
+    { "id": "el-orderline", "name": "OrderLine", "sectorId": "sec-orders-domain" },
+    { "id": "el-payment", "name": "Payment", "sectorId": "sec-payments-domain" },
+    { "id": "el-charge", "name": "Charge", "sectorId": "sec-payments-domain" },
+    { "id": "el-shipment", "name": "Shipment", "sectorId": "sec-shipping-domain" },
+    { "id": "el-parcel", "name": "Parcel", "sectorId": "sec-shipping-domain" },
+    { "id": "el-place-order", "name": "PlaceOrderUseCase", "sectorId": "sec-orders-app" },
+    { "id": "el-cancel-order", "name": "CancelOrderUseCase", "sectorId": "sec-orders-app" },
+    { "id": "el-process-payment", "name": "ProcessPaymentUseCase", "sectorId": "sec-payments-app" },
+    { "id": "el-refund-payment", "name": "RefundPaymentUseCase", "sectorId": "sec-payments-app" },
+    { "id": "el-arrange-shipment", "name": "ArrangeShipmentUseCase", "sectorId": "sec-shipping-app" },
+    { "id": "el-order-controller", "name": "OrderController", "sectorId": "sec-controllers" },
+    { "id": "el-payment-controller", "name": "PaymentController", "sectorId": "sec-controllers" },
+    { "id": "el-shipping-controller", "name": "ShippingController", "sectorId": "sec-controllers" },
+    { "id": "el-order-presenter", "name": "OrderPresenter", "sectorId": "sec-presenters" },
+    { "id": "el-payment-presenter", "name": "PaymentPresenter", "sectorId": "sec-presenters" },
+    { "id": "el-web-framework", "name": "ExpressApp", "sectorId": "sec-web" },
+    { "id": "el-http-client", "name": "HttpClient", "sectorId": "sec-web" },
+    { "id": "el-order-repo", "name": "OrderRepositoryImpl", "sectorId": "sec-persistence" },
+    { "id": "el-payment-repo", "name": "PaymentRepositoryImpl", "sectorId": "sec-persistence" },
+    { "id": "el-stripe-client", "name": "StripeClient", "sectorId": "sec-external-clients" },
+    { "id": "el-carrier-client", "name": "CarrierClient", "sectorId": "sec-external-clients" }
+  ],
+  "dependencies": [
+    { "id": "dep-1", "fromId": "el-order-controller", "toId": "el-place-order" },
+    { "id": "dep-2", "fromId": "el-payment-controller", "toId": "el-process-payment" },
+    { "id": "dep-3", "fromId": "el-shipping-controller", "toId": "el-arrange-shipment" },
+    { "id": "dep-4", "fromId": "el-order-controller", "toId": "el-order-presenter" },
+    { "id": "dep-5", "fromId": "el-payment-controller", "toId": "el-payment-presenter" },
+    { "id": "dep-6", "fromId": "el-place-order", "toId": "el-order" },
+    { "id": "dep-7", "fromId": "el-place-order", "toId": "el-process-payment" },
+    { "id": "dep-8", "fromId": "el-cancel-order", "toId": "el-order" },
+    { "id": "dep-9", "fromId": "el-process-payment", "toId": "el-payment" },
+    { "id": "dep-10", "fromId": "el-process-payment", "toId": "el-charge" },
+    { "id": "dep-11", "fromId": "el-refund-payment", "toId": "el-payment" },
+    { "id": "dep-12", "fromId": "el-arrange-shipment", "toId": "el-shipment" },
+    { "id": "dep-13", "fromId": "el-arrange-shipment", "toId": "el-process-payment" },
+    { "id": "dep-14", "fromId": "el-order-repo", "toId": "el-order" },
+    { "id": "dep-15", "fromId": "el-payment-repo", "toId": "el-payment" },
+    { "id": "dep-16", "fromId": "el-stripe-client", "toId": "el-payment" },
+    { "id": "dep-17", "fromId": "el-carrier-client", "toId": "el-shipment" },
+    { "id": "dep-18", "fromId": "el-web-framework", "toId": "el-order-controller" },
+    { "id": "dep-19", "fromId": "el-http-client", "toId": "el-payment-controller" }
+  ],
+  "actors": [
+    { "id": "act-web", "name": "Web shop", "targetId": "el-web-framework" },
+    { "id": "act-mobile", "name": "Mobile app", "targetId": "el-web-framework" },
+    { "id": "act-admin", "name": "Ops console", "targetId": "el-web-framework" }
+  ],
+  "externals": [
+    { "id": "ext-stripe", "name": "Stripe", "targetId": "el-stripe-client" },
+    { "id": "ext-carrier", "name": "Carrier API", "targetId": "el-carrier-client" },
+    { "id": "ext-db", "name": "Postgres", "targetId": "el-order-repo" }
+  ]
+}

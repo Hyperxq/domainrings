@@ -1,0 +1,30 @@
+{
+  "app": "domainrings",
+  "version": 4,
+  "kind": "clean",
+  "title": "Checkout — Clean (basic)",
+  "rings": [
+    { "role": "domain", "name": "Entities" },
+    { "role": "application", "name": "Use Cases" },
+    { "role": "adapters", "name": "Interface Adapters" },
+    { "role": "outer", "name": "Frameworks & Drivers" }
+  ],
+  "sectors": [
+    { "id": "sec-order-domain", "name": "Order", "ringRole": "domain" },
+    { "id": "sec-order-app", "name": "Order", "ringRole": "application" },
+    { "id": "sec-api", "name": "API", "ringRole": "outer" }
+  ],
+  "elements": [
+    { "id": "el-order", "name": "Order", "sectorId": "sec-order-domain" },
+    { "id": "el-place-order-uc", "name": "PlaceOrderUseCase", "sectorId": "sec-order-app" },
+    { "id": "el-order-controller", "name": "OrderController", "sectorId": "sec-api" }
+  ],
+  "dependencies": [
+    { "id": "dep-1", "fromId": "el-order-controller", "toId": "el-place-order-uc" },
+    { "id": "dep-2", "fromId": "el-place-order-uc", "toId": "el-order" }
+  ],
+  "actors": [
+    { "id": "act-web", "name": "Web shop", "targetId": "el-order-controller" }
+  ],
+  "externals": []
+}
