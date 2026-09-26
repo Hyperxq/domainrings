@@ -485,7 +485,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       {activeKind === 'onion' && (
         <>
           <OnionEditor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} />
-          <OnionStage model={onionModel} doc={onionMap} svgRef={svgRef} />
+          <OnionStage model={onionModel} doc={onionMap} svgRef={svgRef} onReject={(message) => show({ tone: 'error', message })} />
         </>
       )}
       {choosingArchitecture && <ArchitectureChoiceDialog onChoose={completeNew} onCancel={() => setChoosingArchitecture(false)} />}

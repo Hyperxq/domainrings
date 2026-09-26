@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { isInwardOrSame } from './rings'
+import { isInwardOrSame, outerRoleOf } from './rings'
 
 const id = z.string().min(1)
 const note = z.string().optional()
@@ -278,7 +278,7 @@ function checkOnionIntegrity(
     })
   }
   const elementById = new Map(d.elements.map((e) => [e.id, e]))
-  const outerRole = d.rings[d.rings.length - 1].role
+  const outerRole = outerRoleOf(d.rings)
   // REQ-04: a dependency may only point to the same ring or a more inward one.
   d.dependencies.forEach((dep, i) => {
     const from = elementById.get(dep.fromId)

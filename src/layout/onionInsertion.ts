@@ -1,4 +1,4 @@
-import { ringCircumferencePositions } from '../model/rings'
+import { outerRoleOf, ringCircumferencePositions } from '../model/rings'
 import type { OnionFile, OnionRingRole } from '../model/schema'
 import type { Point } from './layout'
 import type { OnionLayoutModel } from './onion'
@@ -28,7 +28,7 @@ export function onionInsertionPoints(model: OnionLayoutModel, doc: OnionFile): O
     const at = ringCircumferencePositions(count + 1, model.rings[i])[count]
     points.push({ key: `element:${ring.role}`, ringRole: ring.role, at, action: { kind: 'element', ringRole: ring.role }, label: `Add an element to ${ring.name}` })
   })
-  const outerRole = doc.rings[doc.rings.length - 1].role
+  const outerRole = outerRoleOf(doc.rings)
   for (const element of model.elements.filter((e) => e.ringRole === outerRole)) {
     const reach = Math.hypot(element.x, element.y) || 1
     const dir = { x: element.x / reach, y: element.y / reach }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isInwardOrSame, ringCircumferencePositions } from './rings'
+import { isInwardOrSame, outerRoleOf, ringCircumferencePositions } from './rings'
 
 const RINGS = [{ role: 'domain' }, { role: 'domainServices' }, { role: 'application' }, { role: 'outer' }]
 
@@ -15,6 +15,16 @@ describe('isInwardOrSame', () => {
       })
     }
   }
+})
+
+describe('outerRoleOf', () => {
+  it('returns the last ring\'s role in a 4-ring list', () => {
+    expect(outerRoleOf(RINGS)).toBe('outer')
+  })
+
+  it('returns the last ring\'s role regardless of how many rings there are', () => {
+    expect(outerRoleOf([{ role: 'domain' }, { role: 'edge' }])).toBe('edge')
+  })
 })
 
 describe('ringCircumferencePositions', () => {

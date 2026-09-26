@@ -12,7 +12,12 @@ interface OnionStageProps {
   model: OnionLayoutModel
   doc: OnionFile
   svgRef: Ref<SVGSVGElement>
+  /** Reports why a click while linking was refused, for the app's own toast/notice mechanism (REQ-04). */
+  onReject: (message: string) => void
 }
+
+const NO_TARGETS = new Set<string>()
+const REJECT_MESSAGE = 'A dependency can only point to the same ring or a more inward one.'
 
 /** A ring or endpoint "+", drawn as a plain SVG glyph — Onion has no pan/zoom yet (nothing in REQ-04/05/07 needs
  * it), so there is no screen/diagram coordinate split to bridge; every affordance lives in the same SVG. */
@@ -40,10 +45,11 @@ function PlusGlyph({ point, onPick }: { point: OnionInsertionPoint; onPick: () =
 }
 
 /** Canvas analogue for Onion (ADR-02): the diagram, its ring/endpoint "+" affordances (REQ-05, REQ-07), and the
- * "Depend on…" gesture (REQ-04) — select an element, choose another in the same or a more inward ring; choosing
- * one that is not a valid target simply cancels the gesture, same as Hexagonal's own link mode does for a
- * non-target click, leaving the document unchanged either way. */
-export function OnionStage({ model, doc, svgRef }: OnionStageProps) {
+ * "Depend on…" gesture (REQ-04) — select an element, choose another in the same or a more inward ring; a valid
+ * target is marked with `data-link-target` while linking (same convention Hexagonal's own link mode uses), and
+ * choosing one that is not valid cancels the gesture and reports why via `onReject`, leaving the document
+ * unchanged either way. */
+export function OnionStage({ model, doc, svgRef, onReject }: OnionStageProps) {
   const [selected, setSelected] = useState<string | null>(null)
   const [linking, setLinking] = useState(false)
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
@@ -60,6 +66,7 @@ export function OnionStage({ model, doc, svgRef }: OnionStageProps) {
 
   const selectedElement = selected ? model.elements.find((e) => e.ref === selected) : undefined
   const validTargets = selectedElement ? model.elements.filter((e) => e.ref !== selected && isInwardOrSame(doc.rings, selectedElement.ringRole, e.ringRole)) : []
+  const linkTargetRefs = linking ? new Set(validTargets.map((e) => e.ref)) : NO_TARGETS
   // The "+" that just created `editing`'s element hasn't been laid out yet on this render; its own next render
   // carries the real position, so the inline field re-reads it from the (now current) model every render.
   const editingElement = editing && model.elements.find((e) => e.ref === editing.id)
@@ -82,6 +89,7 @@ export function OnionStage({ model, doc, svgRef }: OnionStageProps) {
     }
     if (linking && selected) {
       if (validTargets.some((e) => e.ref === ref)) addDependency(selected, ref)
+      else onReject(REJECT_MESSAGE)
       setLinking(false)
       setSelected(null)
       return
@@ -100,7 +108,7 @@ export function OnionStage({ model, doc, svgRef }: OnionStageProps) {
         viewBox={`${model.bounds.x} ${model.bounds.y} ${model.bounds.width} ${model.bounds.height}`}
         onClick={(e) => clickTarget((e.target as Element).closest('.node')?.getAttribute('data-ref') ?? null)}
       >
-        <OnionDiagram model={model} selected={selected} interactive />
+        <OnionDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} />
         {onionInsertionPoints(model, doc).map((point) => (
           <PlusGlyph key={point.key} point={point} onPick={() => pick(point)} />
         ))}

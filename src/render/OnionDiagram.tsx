@@ -13,19 +13,23 @@ interface OnionDiagramProps {
   selected: string | null
   /** False for a canvas that only previews the diagram (none today) — mirrors Hexagonal's Node contract. */
   interactive: boolean
+  /** While linking (OnionStage), the element refs a dependency from the selection may legally target (REQ-04) —
+   * drives the same `data-link-target` CSS Hexagonal's own link mode uses (styles.css:250-252). Empty otherwise. */
+  validTargets: ReadonlySet<string>
 }
 
 function OnionEdge({ edge }: { edge: OnionEdgeLayout }) {
   return <line className="edge edge-import" markerEnd="url(#onion-arrow)" x1={edge.from.x} y1={edge.from.y} x2={edge.to.x} y2={edge.to.y} />
 }
 
-function OnionElementNode({ element, selected, interactive }: { element: OnionElementLayout; selected: boolean; interactive: boolean }) {
+function OnionElementNode({ element, selected, target, interactive }: { element: OnionElementLayout; selected: boolean; target: boolean; interactive: boolean }) {
   const width = measure(element.name, NAME_METRICS) + 2 * PAD_X
   return (
     <g
       className="node node-onionElement tone-teal"
       data-ref={element.ref}
       data-selected={selected ? '' : undefined}
+      data-link-target={target ? '' : undefined}
       tabIndex={interactive ? 0 : undefined}
       role={interactive ? 'button' : undefined}
       aria-label={interactive ? `${element.name} (${element.ringRole})` : undefined}
@@ -60,7 +64,7 @@ function OnionEndpointNode({ endpoint, selected, interactive }: { endpoint: Onio
 /** An Onion document's 4 fixed rings (reusing the same `<Ring>` primitive Hexagonal/Clean render with, ADR-01),
  * its elements spread along their ring (REQ-07), inward-only dependency arrows (REQ-04), and actors/external
  * systems outside the outer ring with a direct arrow to their target (REQ-05) — no ports or adapters. */
-export function OnionDiagram({ model, selected, interactive }: OnionDiagramProps) {
+export function OnionDiagram({ model, selected, interactive, validTargets }: OnionDiagramProps) {
   return (
     <>
       <defs>
@@ -75,7 +79,7 @@ export function OnionDiagram({ model, selected, interactive }: OnionDiagramProps
         <OnionEdge key={edge.key} edge={edge} />
       ))}
       {model.elements.map((element) => (
-        <OnionElementNode key={element.key} element={element} selected={element.ref === selected} interactive={interactive} />
+        <OnionElementNode key={element.key} element={element} selected={element.ref === selected} target={validTargets.has(element.ref)} interactive={interactive} />
       ))}
       {model.endpoints.map((endpoint) => (
         <OnionEndpointNode key={endpoint.key} endpoint={endpoint} selected={endpoint.ref === selected} interactive={interactive} />

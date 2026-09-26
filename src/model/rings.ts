@@ -9,6 +9,13 @@ export function isInwardOrSame(rings: readonly { role: string }[], fromRole: str
   return toIndex <= fromIndex
 }
 
+/** The outermost ring's role (REQ-05: only its elements may receive an actor/external's direct arrow) — `rings`
+ * is innermost-first, so it is always the last entry regardless of how many rings there are. Generic over the
+ * role type (rather than widening to `string`) so a caller's literal role union survives the round trip. */
+export function outerRoleOf<Role extends string>(rings: readonly { role: Role }[]): Role {
+  return rings[rings.length - 1].role
+}
+
 /** `count` positions spread evenly around a ring's circumference (REQ-07), instead of stacked in a column. Starts
  * offset half a gap past the top (where the ring's title sits) so no element lands under it. */
 export function ringCircumferencePositions(count: number, outline: { halfWidth: number }): { x: number; y: number }[] {

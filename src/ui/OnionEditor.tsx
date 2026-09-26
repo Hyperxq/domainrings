@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { flushSync } from 'react-dom'
-import { isInwardOrSame } from '../model/rings'
+import { isInwardOrSame, outerRoleOf } from '../model/rings'
 import type { OnionFile, OnionRingRole } from '../model/schema'
 import { useOnionStore } from '../model/onionStore'
 import { Fold, revealInEditor } from './Editor'
@@ -130,7 +130,7 @@ function DependenciesSection({ doc }: { doc: OnionFile }) {
 /** An actors or externals create form (REQ-05): the target select only ever lists outer-ring elements, so a
  * non-outer target is never reachable from here. */
 function EndpointsSection({ collection, title, noun, doc }: { collection: 'actors' | 'externals'; title: string; noun: string; doc: OnionFile }) {
-  const outerRole = doc.rings[doc.rings.length - 1].role
+  const outerRole = outerRoleOf(doc.rings)
   const outerElements = doc.elements.filter((e) => e.ringRole === outerRole)
   const items = doc[collection]
   const elementName = (id?: string) => (id ? doc.elements.find((e) => e.id === id)?.name : undefined) ?? ''

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createRef } from 'react'
 import { layoutOnion } from '../layout/onion'
@@ -16,13 +16,13 @@ afterEach(cleanup)
 /** The stage as the app wires it: laid out fresh from the live store on every render, exactly like App.tsx's own
  * `layoutOnion(onionMap)` recompute — a plain fixed `model` prop would go stale the instant a test mutates the
  * store (Stage.test.tsx's own Harness solves the same problem for Hexagonal). */
-function Harness() {
+function Harness({ onReject = () => {} }: { onReject?: (message: string) => void } = {}) {
   const doc = useOnionStore((s) => s.map)
   const svgRef = createRef<SVGSVGElement>()
-  return <OnionStage model={layoutOnion(doc)} doc={doc} svgRef={svgRef} />
+  return <OnionStage model={layoutOnion(doc)} doc={doc} svgRef={svgRef} onReject={onReject} />
 }
 
-const renderStage = () => render(<Harness />)
+const renderStage = (props?: { onReject?: (message: string) => void }) => render(<Harness {...props} />)
 
 describe('OnionStage', () => {
   it('offers a "+" for every ring on a fresh map', () => {
@@ -86,11 +86,27 @@ describe('OnionStage', () => {
     expect(screen.queryByRole('button', { name: /Depend on…/ })).toBeNull()
   })
 
-  it('choosing an invalid (outward) target while linking cancels the gesture, leaving the document unchanged (REQ-04)', () => {
+  it('marks only the valid targets with data-link-target while linking, not the source or an outward element (REQ-04)', () => {
+    const outerId = state().addElement({ name: 'Controller', ringRole: 'outer' })
+    const appId = state().addElement({ name: 'OrderService', ringRole: 'application' })
+    const domainId = state().addElement({ name: 'Order', ringRole: 'domain' })
+    const { container } = renderStage()
+    const markedRef = (ref: string) => container.querySelector(`[data-ref="${ref}"]`)!.hasAttribute('data-link-target')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Controller (outer)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Depend on… from Controller' }))
+
+    expect(markedRef(appId)).toBe(true)
+    expect(markedRef(domainId)).toBe(true)
+    expect(markedRef(outerId)).toBe(false)
+  })
+
+  it('choosing an invalid (outward) target while linking calls onReject, leaving the document unchanged (REQ-04)', () => {
     state().addElement({ name: 'Order', ringRole: 'domain' })
     state().addElement({ name: 'OrderService', ringRole: 'application' })
     state().addElement({ name: 'Controller', ringRole: 'outer' })
-    renderStage()
+    const onReject = vi.fn()
+    renderStage({ onReject })
     const before = state().map
     fireEvent.click(screen.getByRole('button', { name: 'OrderService (application)' }))
     fireEvent.click(screen.getByRole('button', { name: 'Depend on… from OrderService' }))
@@ -98,5 +114,7 @@ describe('OnionStage', () => {
 
     expect(state().map).toBe(before)
     expect(state().map.dependencies).toEqual([])
+    expect(onReject).toHaveBeenCalledTimes(1)
+    expect(onReject.mock.calls[0][0]).toMatch(/same ring or a more inward one/)
   })
 })
