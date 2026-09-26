@@ -276,17 +276,18 @@ const OnionFileObjectV3 = z.object({ version: z.literal(3), kind: z.literal('oni
 
 const OnionFileObject = z.object({ version: z.literal(VERSION), kind: z.literal('onion'), ...OnionFields })
 
-function checkOnionIntegrity(
-  d: Pick<z.infer<typeof OnionFileObject>, 'rings' | 'elements' | 'dependencies' | 'actors' | 'externals'>,
+/** Shared by Onion and Clean (ADR-01): the duplicate-id check, the inward-dependency rule and the outer-ring
+ * endpoint rule — the only difference between the two kinds is how an element's ring role is looked up (Onion:
+ * `element.ringRole` directly; Clean: through its sector, ADR-02), so callers pass that lookup as `ringRoleOf`,
+ * the same indirection RingedSections.tsx/RingedNodes.tsx already take as a prop. `idCollections` varies too —
+ * Clean's includes `sectors`, Onion's doesn't — so it stays a caller-supplied list rather than a fixed key set. */
+function checkRingedIntegrity(
+  d: { rings: readonly { role: string }[]; elements: readonly { id: string }[]; dependencies: readonly { id: string; fromId: string; toId: string }[]; actors: readonly { id: string; targetId?: string }[]; externals: readonly { id: string; targetId?: string }[] },
+  idCollections: readonly (readonly [string, readonly { id: string }[]])[],
+  ringRoleOf: (elementId: string) => string | undefined,
   ctx: z.RefinementCtx,
 ) {
-  const collections = [
-    ['elements', d.elements],
-    ['dependencies', d.dependencies],
-    ['actors', d.actors],
-    ['externals', d.externals],
-  ] as const
-  for (const [key, items] of collections) {
+  for (const [key, items] of idCollections) {
     const seen = new Set<string>()
     items.forEach((item, i) => {
       if (seen.has(item.id)) ctx.addIssue({ code: 'custom', message: `Duplicate id "${item.id}"`, path: [key, i, 'id'] })
@@ -295,28 +296,44 @@ function checkOnionIntegrity(
   }
   const elementById = new Map(d.elements.map((e) => [e.id, e]))
   const outerRole = outerRoleOf(d.rings)
-  // REQ-04: a dependency may only point to the same ring or a more inward one.
+  // Inward-dependency rule: a dependency may only point to the same ring or a more inward one.
   d.dependencies.forEach((dep, i) => {
     const from = elementById.get(dep.fromId)
     const to = elementById.get(dep.toId)
     if (!from) ctx.addIssue({ code: 'custom', message: `Unknown element id "${dep.fromId}"`, path: ['dependencies', i, 'fromId'] })
     if (!to) ctx.addIssue({ code: 'custom', message: `Unknown element id "${dep.toId}"`, path: ['dependencies', i, 'toId'] })
-    if (from && to && !isInwardOrSame(d.rings, from.ringRole, to.ringRole)) {
+    const fromRole = from && ringRoleOf(dep.fromId)
+    const toRole = to && ringRoleOf(dep.toId)
+    if (fromRole && toRole && !isInwardOrSame(d.rings, fromRole, toRole)) {
       ctx.addIssue({ code: 'custom', message: 'A dependency cannot point to a more outward ring', path: ['dependencies', i, 'toId'] })
     }
   })
-  // REQ-05: an actor/external may only target an outer-ring element.
+  // Outer-ring endpoint rule: an actor/external may only target an outer-ring element.
   for (const key of ['actors', 'externals'] as const) {
     d[key].forEach((endpoint, i) => {
       if (endpoint.targetId === undefined) return
       const target = elementById.get(endpoint.targetId)
       if (!target) {
         ctx.addIssue({ code: 'custom', message: `Unknown element id "${endpoint.targetId}"`, path: [key, i, 'targetId'] })
-      } else if (target.ringRole !== outerRole) {
+      } else if (ringRoleOf(endpoint.targetId) !== outerRole) {
         ctx.addIssue({ code: 'custom', message: 'An actor or external system can only target an outer-ring element', path: [key, i, 'targetId'] })
       }
     })
   }
+}
+
+function checkOnionIntegrity(
+  d: Pick<z.infer<typeof OnionFileObject>, 'rings' | 'elements' | 'dependencies' | 'actors' | 'externals'>,
+  ctx: z.RefinementCtx,
+) {
+  const idCollections = [
+    ['elements', d.elements],
+    ['dependencies', d.dependencies],
+    ['actors', d.actors],
+    ['externals', d.externals],
+  ] as const
+  const elementById = new Map(d.elements.map((e) => [e.id, e]))
+  checkRingedIntegrity(d, idCollections, (elementId) => elementById.get(elementId)?.ringRole, ctx)
 }
 
 export const OnionFileSchema = OnionFileObject.superRefine(checkOnionIntegrity)
@@ -356,53 +373,23 @@ function checkCleanIntegrity(
   d: Pick<z.infer<typeof CleanFileObject>, 'rings' | 'sectors' | 'elements' | 'dependencies' | 'actors' | 'externals'>,
   ctx: z.RefinementCtx,
 ) {
-  const collections = [
+  const idCollections = [
     ['sectors', d.sectors],
     ['elements', d.elements],
     ['dependencies', d.dependencies],
     ['actors', d.actors],
     ['externals', d.externals],
   ] as const
-  for (const [key, items] of collections) {
-    const seen = new Set<string>()
-    items.forEach((item, i) => {
-      if (seen.has(item.id)) ctx.addIssue({ code: 'custom', message: `Duplicate id "${item.id}"`, path: [key, i, 'id'] })
-      seen.add(item.id)
-    })
-  }
   const sectorById = new Map(d.sectors.map((s) => [s.id, s]))
   // Every element must name a real sector (REQ-04: no ring-direct placement exists) — its ring role is always
-  // resolved through the sector, never stored on the element itself (ADR-02).
+  // resolved through the sector, never stored on the element itself (ADR-02). Genuinely Clean-specific: Onion
+  // elements carry their ring role directly and have nothing to validate here.
   d.elements.forEach((e, i) => {
     if (!sectorById.has(e.sectorId)) ctx.addIssue({ code: 'custom', message: `Unknown sector id "${e.sectorId}"`, path: ['elements', i, 'sectorId'] })
   })
   const elementById = new Map(d.elements.map((e) => [e.id, e]))
   const ringRoleOf = (elementId: string) => sectorById.get(elementById.get(elementId)?.sectorId ?? '')?.ringRole
-  const outerRole = outerRoleOf(d.rings)
-  // REQ-06: a dependency may only point to the same ring or a more inward one.
-  d.dependencies.forEach((dep, i) => {
-    const from = elementById.get(dep.fromId)
-    const to = elementById.get(dep.toId)
-    if (!from) ctx.addIssue({ code: 'custom', message: `Unknown element id "${dep.fromId}"`, path: ['dependencies', i, 'fromId'] })
-    if (!to) ctx.addIssue({ code: 'custom', message: `Unknown element id "${dep.toId}"`, path: ['dependencies', i, 'toId'] })
-    const fromRole = from && ringRoleOf(dep.fromId)
-    const toRole = to && ringRoleOf(dep.toId)
-    if (fromRole && toRole && !isInwardOrSame(d.rings, fromRole, toRole)) {
-      ctx.addIssue({ code: 'custom', message: 'A dependency cannot point to a more outward ring', path: ['dependencies', i, 'toId'] })
-    }
-  })
-  // REQ-07: an actor/external may only target an outer-ring element.
-  for (const key of ['actors', 'externals'] as const) {
-    d[key].forEach((endpoint, i) => {
-      if (endpoint.targetId === undefined) return
-      const target = elementById.get(endpoint.targetId)
-      if (!target) {
-        ctx.addIssue({ code: 'custom', message: `Unknown element id "${endpoint.targetId}"`, path: [key, i, 'targetId'] })
-      } else if (ringRoleOf(endpoint.targetId) !== outerRole) {
-        ctx.addIssue({ code: 'custom', message: 'An actor or external system can only target an outer-ring element', path: [key, i, 'targetId'] })
-      }
-    })
-  }
+  checkRingedIntegrity(d, idCollections, ringRoleOf, ctx)
 }
 
 export const CleanFileSchema = CleanFileObject.superRefine(checkCleanIntegrity)
