@@ -1,4 +1,4 @@
-import { APP, HexaFileV1Schema, HexaFileV2Schema, HexaFileV3Schema, VERSION, type HexaMap, type LegacyDiagram, type OnionFile, type StoredFile } from './schema'
+import { APP, HexaFileV1Schema, HexaFileV2Schema, HexaFileV3Schema, HexaFileV4Schema, VERSION, type CleanFile, type HexaMap, type LegacyDiagram, type OnionFile, type StoredFile } from './schema'
 import type { z } from 'zod'
 
 export type HexaParseResult = { ok: true; map: StoredFile; v1?: LegacyDiagram } | { ok: false; reason: 'invalid' | 'newer'; errors: string[] }
@@ -32,6 +32,19 @@ const ONION_RINGS: OnionFile['rings'] = [
 /** A fresh Onion file: the 4 canonical rings, nothing in them yet (REQ-02). */
 export function newOnionMap(title: string): OnionFile {
   return { version: VERSION, kind: 'onion', title, rings: ONION_RINGS, elements: [], dependencies: [], actors: [], externals: [] }
+}
+
+// Innermost-first (REQ-02) — fixed at creation, never grown/reordered/re-typed once a file exists.
+const CLEAN_RINGS: CleanFile['rings'] = [
+  { role: 'domain', name: 'Entities' },
+  { role: 'application', name: 'Use Cases' },
+  { role: 'adapters', name: 'Interface Adapters' },
+  { role: 'outer', name: 'Frameworks & Drivers' },
+]
+
+/** A fresh Clean file: the 4 canonical rings, no sectors yet (REQ-02). */
+export function newCleanMap(title: string): CleanFile {
+  return { version: VERSION, kind: 'clean', title, rings: CLEAN_RINGS, sectors: [], elements: [], dependencies: [], actors: [], externals: [] }
 }
 
 function issuesOf(error: z.ZodError, version: number): string[] {
@@ -74,8 +87,17 @@ export function parseHexa(text: string): HexaParseResult {
     const { app: _app, version: _version, kind: _kind, ...map } = result.data
     return { ok: true, map: { ...map, version: VERSION, kind: 'hexagonal' } }
   }
-  if (version === VERSION) {
+  if (version === 3) {
     const result = HexaFileV3Schema.safeParse(json)
+    if (!result.success) return { ok: false, reason: 'invalid', errors: issuesOf(result.error, 3) }
+    // ADR-03: v3 is frozen — upgraded to the current version on open, same convention as v1/v2 (toMap above,
+    // the version===2 branch). Unlike v1/v2's REQ-06 kind coercion, v3 already discriminates kind properly
+    // (native Onion's own document-root split), so only the version number moves.
+    const { app: _app, version: _version, ...map } = result.data
+    return { ok: true, map: { ...map, version: VERSION } as StoredFile }
+  }
+  if (version === VERSION) {
+    const result = HexaFileV4Schema.safeParse(json)
     if (!result.success) return { ok: false, reason: 'invalid', errors: issuesOf(result.error, VERSION) }
     const { app: _app, ...file } = result.data
     return { ok: true, map: file }

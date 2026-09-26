@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { DiagramSchema, linkEndProblem, MapSchema, OnionFileSchema } from './schema'
+import { CleanFileSchema, DiagramSchema, linkEndProblem, MapSchema, OnionFileSchema, VERSION } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
-import { newOnionMap, toMap } from './hexa'
+import { newCleanMap, newOnionMap, toMap } from './hexa'
 
 const issuePaths = (input: unknown) => {
   const result = DiagramSchema.safeParse(input)
@@ -101,7 +101,7 @@ describe('DiagramSchema', () => {
 })
 
 const TWO_HEXAGON_MAP = {
-  version: 3 as const,
+  version: VERSION,
   kind: 'hexagonal' as const,
   title: 'Two hexagons',
   contexts: [{ id: 'c1' }],
@@ -155,6 +155,77 @@ describe('newOnionMap', () => {
     expect(onion.dependencies).toEqual([])
     expect(onion.actors).toEqual([])
     expect(onion.externals).toEqual([])
+  })
+})
+
+describe('newCleanMap', () => {
+  it('starts with exactly 4 rings, innermost-first, in the fixed role order, no sectors (REQ-02)', () => {
+    const clean = newCleanMap('Fresh architecture')
+    expect(CleanFileSchema.safeParse(clean).success).toBe(true)
+    expect(clean.rings).toHaveLength(4)
+    expect(clean.rings.map((r) => r.role)).toEqual(['domain', 'application', 'adapters', 'outer'])
+    expect(clean.sectors).toEqual([])
+    expect(clean.elements).toEqual([])
+    expect(clean.dependencies).toEqual([])
+    expect(clean.actors).toEqual([])
+    expect(clean.externals).toEqual([])
+  })
+
+  it('round-trips through CleanFileSchema at version, kind and VERSION unchanged', () => {
+    const clean = newCleanMap('Fresh architecture')
+    expect(CleanFileSchema.parse(clean)).toEqual(clean)
+    expect(clean.version).toBe(VERSION)
+    expect(clean.kind).toBe('clean')
+  })
+})
+
+describe('CleanFileSchema integrity (REQ-06, REQ-07)', () => {
+  const withSectorsAndElements = () => {
+    const base = newCleanMap('Fresh architecture')
+    const sectors = [
+      { id: 's-domain', name: 'Orders', ringRole: 'domain' as const },
+      { id: 's-app', name: 'Order flows', ringRole: 'application' as const },
+      { id: 's-outer-1', name: 'Web', ringRole: 'outer' as const },
+      { id: 's-outer-2', name: 'CLI', ringRole: 'outer' as const },
+    ]
+    const elements = [
+      { id: 'e-domain', name: 'Order', sectorId: 's-domain' },
+      { id: 'e-app', name: 'PlaceOrder', sectorId: 's-app' },
+      { id: 'e-outer-1', name: 'WebController', sectorId: 's-outer-1' },
+      { id: 'e-outer-2', name: 'CliController', sectorId: 's-outer-2' },
+    ]
+    return { ...base, sectors, elements }
+  }
+
+  it('accepts a dependency pointing inward (outer → application, via each element\'s own sector)', () => {
+    const doc = { ...withSectorsAndElements(), dependencies: [{ id: 'd1', fromId: 'e-outer-1', toId: 'e-app' }] }
+    expect(CleanFileSchema.safeParse(doc).success).toBe(true)
+  })
+
+  it('rejects a dependency pointing outward (domain → application)', () => {
+    const doc = { ...withSectorsAndElements(), dependencies: [{ id: 'd1', fromId: 'e-domain', toId: 'e-app' }] }
+    const result = CleanFileSchema.safeParse(doc)
+    expect(result.success).toBe(false)
+    if (!result.success) expect(result.error.issues.some((i) => i.path.join('.') === 'dependencies.0.toId')).toBe(true)
+  })
+
+  it('accepts an endpoint targeting an outer-ring element (resolved through its sector)', () => {
+    const doc = { ...withSectorsAndElements(), actors: [{ id: 'a1', name: 'Customer', targetId: 'e-outer-1' }] }
+    expect(CleanFileSchema.safeParse(doc).success).toBe(true)
+  })
+
+  it('rejects an endpoint targeting a non-outer-ring element', () => {
+    const doc = { ...withSectorsAndElements(), externals: [{ id: 'x1', name: 'Payments API', targetId: 'e-app' }] }
+    const result = CleanFileSchema.safeParse(doc)
+    expect(result.success).toBe(false)
+    if (!result.success) expect(result.error.issues.some((i) => i.path.join('.') === 'externals.0.targetId')).toBe(true)
+  })
+
+  it('rejects an element naming a sector that does not exist', () => {
+    const doc = { ...newCleanMap('Fresh'), sectors: [], elements: [{ id: 'e1', name: 'Order', sectorId: 'missing' }] }
+    const result = CleanFileSchema.safeParse(doc)
+    expect(result.success).toBe(false)
+    if (!result.success) expect(result.error.issues.some((i) => i.path.join('.') === 'elements.0.sectorId')).toBe(true)
   })
 })
 

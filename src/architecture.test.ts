@@ -110,8 +110,8 @@ describe('dependency fences', () => {
     expect(violations).toEqual([])
   })
 
-  it('zustand is imported only from model/store.ts, model/onionStore.ts, or model/persistence.ts', () => {
-    const allowed = new Set(['./model/store.ts', './model/onionStore.ts', './model/persistence.ts'])
+  it('zustand is imported only from model/store.ts, model/onionStore.ts, model/cleanStore.ts, or model/persistence.ts', () => {
+    const allowed = new Set(['./model/store.ts', './model/onionStore.ts', './model/cleanStore.ts', './model/persistence.ts'])
     const violations = productionPaths.filter((p) => !allowed.has(p) && importsOf(files[p]).some((s) => s === 'zustand' || s.startsWith('zustand/')))
     expect(violations).toEqual([])
   })

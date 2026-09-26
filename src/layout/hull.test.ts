@@ -3,7 +3,7 @@ import { contextRegions, pointInRegion } from './hull'
 import { layoutMap } from './map'
 import { parseHexa } from '../model/hexa'
 import { neighbour, type Cell } from '../model/map'
-import type { HexaMap } from '../model/schema'
+import { VERSION, type HexaMap } from '../model/schema'
 import type { LayoutMode } from './layout'
 import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
 
@@ -106,7 +106,7 @@ function seededMap(seed: number): HexaMap {
   const usedContexts = [...new Set(contextIdOf)]
   const emptyDiagram = { domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }
   return {
-    version: 3,
+    version: VERSION,
     kind: 'hexagonal',
     title: `Seeded map ${seed}`,
     contexts: usedContexts.map((id) => ({ id })),

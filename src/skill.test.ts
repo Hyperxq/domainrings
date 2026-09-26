@@ -79,6 +79,21 @@ describe('share-link script', () => {
     expect(run.stderr).toMatch(/domainrings/)
   })
 
+  // v3 is frozen and v4 (Hexagonal + Onion + Clean) is current — the script accepts either version's Hexagonal
+  // file, and refuses a v4 Clean file the same way it already refuses Onion.
+  it('accepts a version 4, kind hexagonal file', () => {
+    const run = shareLink(tempHexa({ app: 'domainrings', version: 4, kind: 'hexagonal', title: 'V4', contexts: [{ id: 'c1' }], hexagons: [{ id: 'h1', contextId: 'c1', cell: { q: 0, r: 0 }, title: 'V4', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }], links: [] }))
+    expect(run.status).toBe(0)
+    expect(run.stdout.trim().startsWith('https://diagrams.pbuilder.dev/#m=')).toBe(true)
+  })
+
+  it('refuses a version 4, kind clean file — this skill covers Hexagonal only', () => {
+    const run = shareLink(tempHexa({ app: 'domainrings', version: 4, kind: 'clean', title: 'V4 clean' }))
+    expect(run.status).not.toBe(0)
+    expect(run.stdout).toBe('')
+    expect(run.stderr).toMatch(/domainrings/)
+  })
+
   it(`warns when the link is longer than the app's ${SHARE_LINK_MAX_CHARS}-character budget`, () => {
     const ports = Array.from({ length: 800 }, (_, i) => ({ id: `p-${i}-${Math.random().toString(36).slice(2)}`, name: `Port${i}`, side: 'driven' }))
     const run = shareLink(tempHexa({ app: 'domainrings', version: 2, kind: 'hexagonal', title: 'Big', contexts: [{ id: 'c1' }], hexagons: [{ id: 'h1', contextId: 'c1', cell: { q: 0, r: 0 }, title: 'Big', domain: [], useCases: [], ports, adapters: [], actors: [], externals: [] }], links: [] }))

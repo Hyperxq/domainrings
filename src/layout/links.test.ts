@@ -3,7 +3,7 @@ import { routeLink, type RouteEnd } from './links'
 import { wallFrame, type Box, type NodeKind, type Point } from './layout'
 import { layoutMap, type MapHexagonLayout } from './map'
 import { freeCell } from '../model/map'
-import type { HexaMap, Hexagon, Wall } from '../model/schema'
+import { VERSION, type HexaMap, type Hexagon, type Wall } from '../model/schema'
 
 /** The node kinds REQ-LNK-05.1 names, mirrored from `layout/map.ts`'s own (private) `AVOIDED_KINDS` — duplicating
  * one small set is cheaper than exporting a map.ts-internal constant just for this test file. */
@@ -155,7 +155,7 @@ function seededLinkedMap(seed: number, n: number): HexaMap {
   hexagons[a] = { ...hexagons[a], ports: [{ id: 'p-from', name: 'from', side: 'driven' }] }
   hexagons[b] = { ...hexagons[b], ports: [{ id: 'p-to', name: 'to', side: 'driving' }] }
   return {
-    version: 3,
+    version: VERSION,
     kind: 'hexagonal',
     title: `Seed ${seed}`,
     contexts: [{ id: 'c1' }],
@@ -168,7 +168,7 @@ function seededLinkedMap(seed: number, n: number): HexaMap {
  * the "wall faces away" cases be built deterministically instead of hoping a random seed hits them. */
 function facingPairMap(bCell: Hexagon['cell'], wallA: Wall, wallB: Wall): HexaMap {
   return {
-    version: 3,
+    version: VERSION,
     kind: 'hexagonal',
     title: 'Facing pair',
     contexts: [{ id: 'c1' }],
@@ -449,7 +449,7 @@ describe('routeLink — laneOffset shifts the gap midline crossing (REQ-LNK-05.5
  * (REQ-LNK-05.5), not from incidental geometry (e.g. sibling-port obstacle jogs a second, distinct port could add). */
 function twoLinksSharedGapMap(): HexaMap {
   return {
-    version: 3,
+    version: VERSION,
     kind: 'hexagonal',
     title: 'Two links, one gap',
     contexts: [{ id: 'c1' }],

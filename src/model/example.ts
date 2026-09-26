@@ -1,5 +1,5 @@
 import { toMap } from './hexa'
-import type { Diagram, HexaMap } from './schema'
+import { VERSION, type Diagram, type HexaMap } from './schema'
 
 export const EXAMPLE_DIAGRAM: Diagram = {
   version: 1,
@@ -124,7 +124,7 @@ export const STRESS_DIAGRAM: Diagram = {
  * context; h1's driven port links to h2's driving port (EX-01).
  */
 export const TWO_SLICES_MAP: HexaMap = {
-  version: 3,
+  version: VERSION,
   kind: 'hexagonal',
   title: 'Two slices, one link',
   contexts: [{ id: 'c1' }],

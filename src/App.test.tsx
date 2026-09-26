@@ -9,9 +9,10 @@ import { layoutDiagram } from './layout/layout'
 import { parseHexa, toHexa, toMap } from './model/hexa'
 import { diagramOf, UNTITLED_HEXAGON } from './model/map'
 import { autosave, MAP_KEY } from './model/persistence'
-import type { HexaMap } from './model/schema'
+import { VERSION, type HexaMap } from './model/schema'
 import { useMapStore } from './model/store'
 import { useOnionStore } from './model/onionStore'
+import { useCleanStore } from './model/cleanStore'
 import { fileSlug } from './ui/exporters'
 import { decodeSharePayload, encodeSharePayload, SHARE_HASH_PREFIX } from './ui/shareLink'
 import { card, currentDiagram, hexGroup, installCompressionStreamPolyfill, installDialogPolyfill, linkedTwoHexMap, twoHexMap } from './test/fixtures'
@@ -1622,7 +1623,7 @@ describe('journey', () => {
     // Two driven ports on h1 (same context c1 as h2, a different one c2 as h3), so one link can be created from
     // the canvas chip within a context and the other from the Links section across contexts (pattern-eligible).
     const journeyMap: HexaMap = {
-      version: 3,
+      version: VERSION,
       kind: 'hexagonal',
       title: 'Release journey',
       contexts: [{ id: 'c1' }, { id: 'c2' }],
@@ -1735,7 +1736,7 @@ describe('journey', () => {
     // Save and reopen: every link's ends, adapter, and pattern survive exactly (REQ-LNK-08.2, 08.3).
     const beforeSave = useMapStore.getState().map
     const savedText = await saveHexa()
-    expect(JSON.parse(savedText).version).toBe(3)
+    expect(JSON.parse(savedText).version).toBe(VERSION)
 
     await reopen(savedText)
 
@@ -1988,6 +1989,27 @@ describe('the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
     expect(useOnionStore.getState().map.title).toBe('Untitled architecture')
     // The Hexagonal store was never touched by choosing Onion (App reads it unconditionally but never mutates it).
     expect(useMapStore.getState().map).toBe(hexaMapBefore)
+  })
+
+  it('New → Clean mounts a bare 4-ring diagram, no editor or "+" affordances yet, and never touches the other stores', () => {
+    const { container } = render(<App />)
+    const hexaMapBefore = useMapStore.getState().map
+    const onionMapBefore = useOnionStore.getState().map
+
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(container.querySelectorAll('svg.canvas .ring')).toHaveLength(4)
+    // Canvas-only so far (REQ-01/REQ-02) — no editor panel, no sectors/elements to add yet.
+    expect(screen.queryByRole('button', { name: 'Expand editor' })).toBeNull()
+    expect(useCleanStore.getState().map.kind).toBe('clean')
+    expect(useCleanStore.getState().map.rings.map((r) => r.role)).toEqual(['domain', 'application', 'adapters', 'outer'])
+    expect(useCleanStore.getState().map.sectors).toEqual([])
+    expect(useCleanStore.getState().map.title).toBe('Untitled architecture')
+    // Neither other store was touched by choosing Clean.
+    expect(useMapStore.getState().map).toBe(hexaMapBefore)
+    expect(useOnionStore.getState().map).toBe(onionMapBefore)
   })
 
   it('Esc on the chooser leaves the current view untouched', () => {

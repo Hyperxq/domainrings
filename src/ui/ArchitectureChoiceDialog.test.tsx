@@ -14,13 +14,14 @@ function renderDialog() {
 }
 
 describe('ArchitectureChoiceDialog (REQ-01)', () => {
-  it('opens as a modal dialog offering exactly Hexagonal and Onion', () => {
+  it('opens as a modal dialog offering exactly Hexagonal, Onion and Clean', () => {
     renderDialog()
     const dialog = screen.getByRole('dialog')
     expect(dialog.hasAttribute('open')).toBe(true)
     expect(screen.getByRole('button', { name: 'Hexagonal' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Onion' })).toBeTruthy()
-    expect(screen.getAllByRole('button')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Clean' })).toBeTruthy()
+    expect(screen.getAllByRole('button')).toHaveLength(3)
   })
 
   it('picking Hexagonal calls onChoose with "hexagonal", never onCancel', () => {
@@ -34,6 +35,13 @@ describe('ArchitectureChoiceDialog (REQ-01)', () => {
     const { onChoose, onCancel } = renderDialog()
     fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
     expect(onChoose).toHaveBeenCalledExactlyOnceWith('onion')
+    expect(onCancel).not.toHaveBeenCalled()
+  })
+
+  it('picking Clean calls onChoose with "clean", never onCancel', () => {
+    const { onChoose, onCancel } = renderDialog()
+    fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
+    expect(onChoose).toHaveBeenCalledExactlyOnceWith('clean')
     expect(onCancel).not.toHaveBeenCalled()
   })
 

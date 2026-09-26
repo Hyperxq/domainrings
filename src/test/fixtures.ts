@@ -4,12 +4,12 @@ import { toMap } from '../model/hexa'
 import { diagramOf } from '../model/map'
 import { EXAMPLE_DIAGRAM } from '../model/example'
 import { useMapStore } from '../model/store'
-import type { HexaMap, Link } from '../model/schema'
+import { VERSION, type HexaMap, type Link } from '../model/schema'
 
 /** One context, cells {0,0}/{1,0}: h1's driven port links to h2's driving port — the shape of the shipped example. */
 export function twoHexagonMap(): HexaMap {
   return {
-    version: 3,
+    version: VERSION,
     kind: 'hexagonal',
     title: 'Two slices, one link',
     contexts: [{ id: 'c1' }],

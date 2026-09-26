@@ -3,11 +3,13 @@ import { flushSync } from 'react-dom'
 import type { LayoutMode } from './layout/layout'
 import { currentHexagon, hexagonBounds, layoutMap } from './layout/map'
 import { legendFor, legendSize } from './layout/legend'
+import { layoutClean } from './layout/clean'
 import { layoutOnion } from './layout/onion'
 import { EXAMPLES } from './model/example'
-import { newOnionMap, parseHexa, toHexa, toMap } from './model/hexa'
+import { newCleanMap, newOnionMap, parseHexa, toHexa, toMap } from './model/hexa'
 import { collectionOf, type LinkChoice } from './model/links'
 import { contextName, diagramOf, linkEndLabel, UNTITLED_HEXAGON, type Destination, type LinkPatch } from './model/map'
+import { useCleanStore } from './model/cleanStore'
 import { useOnionStore } from './model/onionStore'
 import type { Recovery } from './model/persistence'
 import type { HexaMap, Link, LinkEnd, StoredFile, Wall } from './model/schema'
@@ -24,6 +26,7 @@ import { decodeSharePayload, encodeSharePayload, isOversizedShareLink, shareLink
 import { Stage } from './ui/Stage'
 import { Toast } from './ui/Toast'
 import { Toolbar, type ExportScope, type ThemeChoice } from './ui/Toolbar'
+import { CleanDiagram } from './render/CleanDiagram'
 import { OnionEditor } from './ui/OnionEditor'
 import { OnionStage } from './ui/OnionStage'
 
@@ -55,6 +58,7 @@ const HIGHLIGHT_KEY = 'domainrings:highlight'
 const LEGEND_OPEN_KEY = 'domainrings:legend-open'
 const { replace, restore, removeItem, updateItem, addHexagon, importHexagon, removeHexagon, setMeta, addLink, updateLink: updateLinkAction, removeLink: removeLinkAction } = useMapStore.getState()
 const { replace: replaceOnion } = useOnionStore.getState()
+const { replace: replaceClean } = useCleanStore.getState()
 
 interface AppProps {
   boot?: { recovery: Recovery; unreadableText?: string; kind?: StoredFile['kind'] }
@@ -67,6 +71,8 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const onionMap = useOnionStore((s) => s.map)
   // Onion's own layout is only ever read while its view is active (export, OnionStage) — skip it on a Hexagonal render.
   const onionModel = activeKind === 'onion' ? layoutOnion(onionMap) : undefined
+  const cleanMap = useCleanStore((s) => s.map)
+  const cleanModel = activeKind === 'clean' ? layoutClean(cleanMap) : undefined
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   // The undo snapshot every action below restores on request; each site takes it as-is or spreads `swap: true`.
@@ -114,6 +120,12 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       setActiveKind('onion')
       return
     }
+    if (file.kind === 'clean') {
+      show({ tone: 'status', message })
+      replaceClean(file)
+      setActiveKind('clean')
+      return
+    }
     show({ tone: 'status', message, undo: activeKind === 'hexagonal' ? { ...before, swap: true } : undefined })
     replace(file)
     setActiveKind('hexagonal')
@@ -127,6 +139,10 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     setChoosingArchitecture(false)
     if (kind === 'onion') {
       swap(newOnionMap('Untitled architecture'), 'Started a new Onion diagram.')
+      return
+    }
+    if (kind === 'clean') {
+      swap(newCleanMap('Untitled architecture'), 'Started a new Clean diagram.')
       return
     }
     swap(toMap({ version: 1, kind: 'hexagonal', title: 'Untitled architecture', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }), 'Started a new diagram.')
@@ -356,15 +372,17 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     completeImport(parsed, context, file.name)
   }
 
-  // Export scope (Hexagon vs Map) only exists for a multi-hexagon Hexagonal map (EXPORT-03.1) — Onion is always
-  // one diagram, so it never scopes and never carries a legend (it has no legend panel at all). Resolved once,
-  // here, so a third kind only ever touches this one branch instead of every read below it.
+  // Export scope (Hexagon vs Map) only exists for a multi-hexagon Hexagonal map (EXPORT-03.1) — Onion and Clean
+  // are always one diagram, so neither scopes or carries a legend (neither has a legend panel at all). Resolved
+  // once, here, so a third kind only ever touches this one branch instead of every read below it.
   const canScopeExport = activeKind === 'hexagonal' && multiHexagon
   const scoped = canScopeExport && exportScope === 'hexagon'
   const active =
     activeKind === 'onion'
       ? { file: onionMap, bounds: onionModel!.bounds, title: onionMap.title, scoped: false, legend: false }
-      : { file: map, bounds: scoped ? hexagonBounds(currentHexagon(model, hexId)) : model.bounds, title: scoped ? diagram.title || UNTITLED_HEXAGON : map.title, scoped, legend: legendInExport }
+      : activeKind === 'clean'
+        ? { file: cleanMap, bounds: cleanModel!.bounds, title: cleanMap.title, scoped: false, legend: false }
+        : { file: map, bounds: scoped ? hexagonBounds(currentHexagon(model, hexId)) : model.bounds, title: scoped ? diagram.title || UNTITLED_HEXAGON : map.title, scoped, legend: legendInExport }
 
   const exportAs = async (format: 'hexa' | 'svg' | 'png') => {
     try {
@@ -487,6 +505,21 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           <OnionEditor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} />
           <OnionStage model={onionModel!} doc={onionMap} svgRef={svgRef} onReject={(message) => show({ tone: 'error', message })} />
         </>
+      )}
+      {activeKind === 'clean' && (
+        // Canvas-only: a fresh Clean file has no sectors or elements yet, so there is nothing to edit or click
+        // on — a dedicated editor/stage arrives once it does, mirroring how Onion shipped canvas before editor.
+        <main className="stage">
+          <svg
+            ref={svgRef}
+            className="canvas"
+            role="figure"
+            aria-label={cleanMap.title || 'Clean diagram'}
+            viewBox={`${cleanModel!.bounds.x} ${cleanModel!.bounds.y} ${cleanModel!.bounds.width} ${cleanModel!.bounds.height}`}
+          >
+            <CleanDiagram model={cleanModel!} />
+          </svg>
+        </main>
       )}
       {choosingArchitecture && <ArchitectureChoiceDialog onChoose={completeNew} onCancel={() => setChoosingArchitecture(false)} />}
       {linking && <Toast key={`link:${linking}`} sticky message={`Choose a target for ${nameOf(linking)} · Esc to cancel`} onClose={() => setLinking(null)} />}

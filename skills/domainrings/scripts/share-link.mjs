@@ -21,11 +21,11 @@ try {
   console.error(`Could not read ${file} as JSON: ${error.message}`)
   process.exit(1)
 }
-// This skill covers Hexagonal architecture only (Onion is not supported yet) — a v3 file is accepted only
-// when its kind is hexagonal; v2 predates the kind split and is always hexagonal.
-const isSupportedVersion = map?.version === 2 || (map?.version === 3 && map?.kind === 'hexagonal')
+// This skill covers Hexagonal architecture only (Onion/Clean are not supported yet) — a v3 or v4 file is
+// accepted only when its kind is hexagonal; v2 predates the kind split and is always hexagonal.
+const isSupportedVersion = map?.version === 2 || ((map?.version === 3 || map?.version === 4) && map?.kind === 'hexagonal')
 if (map?.app !== 'domainrings' || !isSupportedVersion) {
-  console.error('Not a domainrings map: expected "app": "domainrings" and "version": 2, or "version": 3 with "kind": "hexagonal".')
+  console.error('Not a domainrings map: expected "app": "domainrings" and "version": 2, or "version": 3 or 4 with "kind": "hexagonal".')
   process.exit(1)
 }
 

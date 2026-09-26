@@ -104,8 +104,9 @@ function checkIntegrity(d: Pick<z.infer<typeof DiagramObject>, CollectionKey>, c
 // Zod 4 refuses to .extend() a refined object, so the refinement is applied to each variant.
 export const DiagramSchema = DiagramObject.superRefine(checkIntegrity)
 export const APP = 'domainrings'
-/** The current, in-memory document version — the Hexagonal and Onion arms of `StoredFile` share it (ADR-01). */
-export const VERSION = 3
+/** The current, in-memory document version — the Hexagonal, Onion and Clean arms of `StoredFile` share it
+ * (ADR-01/ADR-03: one version number per document, not a per-kind counter). */
+export const VERSION = 4
 // Files saved before the rename still open; parseHexa drops the marker, so they re-export under the current name.
 // Frozen: the file format a v1 build wrote and still reads — including a Clean/Onion `kind` from the old kind
 // switcher (REQ-06 coerces it back to hexagonal in parseHexa, it does not touch what a v1 file is allowed to
@@ -218,16 +219,21 @@ function checkMap(m: MapLike, ctx: z.RefinementCtx) {
 const MapObjectV2 = z.object({ version: z.literal(2), kind: KindSchema, ...MapFields })
 export const HexaFileV2Schema = MapObjectV2.extend({ app: z.literal(APP) }).superRefine(checkMap)
 
-// Current (v3): the Hexagonal arm of `StoredFile`. Same shape as v2's map — only the version literal moves, and
-// `kind` narrows to `'hexagonal'` only: Onion is a wholly separate document shape below, never a `kind` of this
-// one (ADR-01). A document-root union is what keeps every existing Hexagonal-only consumer (`model/map.ts`,
-// `layout/map.ts`, `App.tsx`'s old render path) untouched — they read `HexaMap`, never `StoredFile`.
-const HexagonalObjectV3 = z.object({ version: z.literal(VERSION), kind: z.literal('hexagonal'), ...MapFields })
+// Frozen (v3): the Hexagonal arm a v3 build wrote (native-onion's own "current" before this change froze it,
+// ADR-03) — never change this schema, a data-bearing addition belongs on the v4 map instead.
+const HexagonalObjectV3 = z.object({ version: z.literal(3), kind: z.literal('hexagonal'), ...MapFields })
 export const HexagonalFileV3Schema = HexagonalObjectV3.superRefine(checkMap)
+
+// Current (v4): the Hexagonal arm of `StoredFile`. Same shape as v3's map — only the version literal moves, and
+// `kind` narrows to `'hexagonal'` only: Onion and Clean are wholly separate document shapes below, never a
+// `kind` of this one (ADR-01). A document-root union is what keeps every existing Hexagonal-only consumer
+// (`model/map.ts`, `layout/map.ts`, `App.tsx`'s old render path) untouched — they read `HexaMap`, never `StoredFile`.
+const HexagonalObjectV4 = z.object({ version: z.literal(VERSION), kind: z.literal('hexagonal'), ...MapFields })
+export const HexagonalFileV4Schema = HexagonalObjectV4.superRefine(checkMap)
 /** Alias kept for the many call sites (`model/store.ts`'s validate-by-reparse, tests) that already know this
  * name as "the current map's schema" — it always means the live `HexaMap` shape, whichever version that is. */
-export const MapSchema = HexagonalFileV3Schema
-export type HexaMap = z.infer<typeof HexagonalFileV3Schema>
+export const MapSchema = HexagonalFileV4Schema
+export type HexaMap = z.infer<typeof HexagonalFileV4Schema>
 export type ArchitectureKind = z.infer<typeof KindSchema>
 export type DomainType = z.infer<typeof DomainTypeSchema>
 export type Side = z.infer<typeof SideSchema>
@@ -255,9 +261,7 @@ export type OnionElement = z.infer<typeof OnionElementSchema>
 export type OnionDependency = z.infer<typeof OnionDependencySchema>
 export type OnionEndpoint = z.infer<typeof OnionEndpointSchema>
 
-const OnionFileObject = z.object({
-  version: z.literal(VERSION),
-  kind: z.literal('onion'),
+const OnionFields = {
   title: z.string(),
   // Innermost-first, fixed at creation (REQ-02) — never grown, reordered or re-typed after a file exists.
   rings: z.tuple([OnionRingSchema, OnionRingSchema, OnionRingSchema, OnionRingSchema]),
@@ -265,7 +269,12 @@ const OnionFileObject = z.object({
   dependencies: z.array(OnionDependencySchema),
   actors: z.array(OnionEndpointSchema),
   externals: z.array(OnionEndpointSchema),
-})
+}
+
+// Frozen (v3): the Onion arm a v3 build wrote — never change this schema, ADR-03.
+const OnionFileObjectV3 = z.object({ version: z.literal(3), kind: z.literal('onion'), ...OnionFields })
+
+const OnionFileObject = z.object({ version: z.literal(VERSION), kind: z.literal('onion'), ...OnionFields })
 
 function checkOnionIntegrity(
   d: Pick<z.infer<typeof OnionFileObject>, 'rings' | 'elements' | 'dependencies' | 'actors' | 'externals'>,
@@ -313,13 +322,109 @@ function checkOnionIntegrity(
 export const OnionFileSchema = OnionFileObject.superRefine(checkOnionIntegrity)
 export type OnionFile = z.infer<typeof OnionFileSchema>
 
-// --- StoredFile: the document-root union — the ONLY place Hexagonal and Onion meet (ADR-01). ---
+// --- Clean: a 3rd document shape (ADR-01) — same flat, always-one-diagram shape as Onion, but every element
+// belongs to a free, user-named sector, never directly to a ring (ADR-02: sector owns the ring role). ---
 
-export type StoredFile = HexaMap | OnionFile
+export const CleanRingRoleSchema = z.enum(['domain', 'application', 'adapters', 'outer'])
+const CleanRingSchema = z.object({ role: CleanRingRoleSchema, name: z.string() })
+const CleanSectorSchema = z.object({ id, name: z.string(), ringRole: CleanRingRoleSchema })
+const CleanElementSchema = z.object({ id, name: z.string(), sectorId: id, note })
+const CleanDependencySchema = z.object({ id, fromId: id, toId: id })
+const CleanEndpointSchema = z.object({ id, name: z.string(), targetId: id.optional(), note })
+
+export type CleanRingRole = z.infer<typeof CleanRingRoleSchema>
+export type CleanSector = z.infer<typeof CleanSectorSchema>
+export type CleanElement = z.infer<typeof CleanElementSchema>
+export type CleanDependency = z.infer<typeof CleanDependencySchema>
+export type CleanEndpoint = z.infer<typeof CleanEndpointSchema>
+
+const CleanFileObject = z.object({
+  version: z.literal(VERSION),
+  kind: z.literal('clean'),
+  title: z.string(),
+  // Innermost-first, fixed at creation (REQ-02) — never grown, reordered or re-typed after a file exists.
+  rings: z.tuple([CleanRingSchema, CleanRingSchema, CleanRingSchema, CleanRingSchema]),
+  // Free — the user creates and names them inside any ring (REQ-03); 0..N per ring, including 0.
+  sectors: z.array(CleanSectorSchema),
+  elements: z.array(CleanElementSchema),
+  dependencies: z.array(CleanDependencySchema),
+  actors: z.array(CleanEndpointSchema),
+  externals: z.array(CleanEndpointSchema),
+})
+
+function checkCleanIntegrity(
+  d: Pick<z.infer<typeof CleanFileObject>, 'rings' | 'sectors' | 'elements' | 'dependencies' | 'actors' | 'externals'>,
+  ctx: z.RefinementCtx,
+) {
+  const collections = [
+    ['sectors', d.sectors],
+    ['elements', d.elements],
+    ['dependencies', d.dependencies],
+    ['actors', d.actors],
+    ['externals', d.externals],
+  ] as const
+  for (const [key, items] of collections) {
+    const seen = new Set<string>()
+    items.forEach((item, i) => {
+      if (seen.has(item.id)) ctx.addIssue({ code: 'custom', message: `Duplicate id "${item.id}"`, path: [key, i, 'id'] })
+      seen.add(item.id)
+    })
+  }
+  const sectorById = new Map(d.sectors.map((s) => [s.id, s]))
+  // Every element must name a real sector (REQ-04: no ring-direct placement exists) — its ring role is always
+  // resolved through the sector, never stored on the element itself (ADR-02).
+  d.elements.forEach((e, i) => {
+    if (!sectorById.has(e.sectorId)) ctx.addIssue({ code: 'custom', message: `Unknown sector id "${e.sectorId}"`, path: ['elements', i, 'sectorId'] })
+  })
+  const elementById = new Map(d.elements.map((e) => [e.id, e]))
+  const ringRoleOf = (elementId: string) => sectorById.get(elementById.get(elementId)?.sectorId ?? '')?.ringRole
+  const outerRole = outerRoleOf(d.rings)
+  // REQ-06: a dependency may only point to the same ring or a more inward one.
+  d.dependencies.forEach((dep, i) => {
+    const from = elementById.get(dep.fromId)
+    const to = elementById.get(dep.toId)
+    if (!from) ctx.addIssue({ code: 'custom', message: `Unknown element id "${dep.fromId}"`, path: ['dependencies', i, 'fromId'] })
+    if (!to) ctx.addIssue({ code: 'custom', message: `Unknown element id "${dep.toId}"`, path: ['dependencies', i, 'toId'] })
+    const fromRole = from && ringRoleOf(dep.fromId)
+    const toRole = to && ringRoleOf(dep.toId)
+    if (fromRole && toRole && !isInwardOrSame(d.rings, fromRole, toRole)) {
+      ctx.addIssue({ code: 'custom', message: 'A dependency cannot point to a more outward ring', path: ['dependencies', i, 'toId'] })
+    }
+  })
+  // REQ-07: an actor/external may only target an outer-ring element.
+  for (const key of ['actors', 'externals'] as const) {
+    d[key].forEach((endpoint, i) => {
+      if (endpoint.targetId === undefined) return
+      const target = elementById.get(endpoint.targetId)
+      if (!target) {
+        ctx.addIssue({ code: 'custom', message: `Unknown element id "${endpoint.targetId}"`, path: [key, i, 'targetId'] })
+      } else if (ringRoleOf(endpoint.targetId) !== outerRole) {
+        ctx.addIssue({ code: 'custom', message: 'An actor or external system can only target an outer-ring element', path: [key, i, 'targetId'] })
+      }
+    })
+  }
+}
+
+export const CleanFileSchema = CleanFileObject.superRefine(checkCleanIntegrity)
+export type CleanFile = z.infer<typeof CleanFileSchema>
+
+// --- StoredFile: the document-root union — the ONLY place Hexagonal, Onion and Clean meet (ADR-01). ---
+
+export type StoredFile = HexaMap | OnionFile | CleanFile
 // The on-disk/share-link shape (`app` wrapper), same convention as HexaFileV1Schema/HexaFileV2Schema — kept
-// separate from HexagonalFileV3Schema/OnionFileSchema (app-less, the in-memory `StoredFile` shape) because a
-// refined object can't be `.extend()`-ed (see the v1 comment above).
+// separate from HexagonalFileV4Schema/OnionFileSchema/CleanFileSchema (app-less, the in-memory `StoredFile`
+// shape) because a refined object can't be `.extend()`-ed (see the v1 comment above).
+
+// Frozen (v3): the 2-way (Hexagonal|Onion) shape a v3 build wrote — Clean did not exist yet (ADR-03). Only
+// parseHexa's version===3 branch reads this, to upgrade a v3 file to the current version on open.
 export const HexaFileV3Schema = z.discriminatedUnion('kind', [
   HexagonalObjectV3.extend({ app: z.literal(APP) }).superRefine(checkMap),
+  OnionFileObjectV3.extend({ app: z.literal(APP) }).superRefine(checkOnionIntegrity),
+])
+
+// Current (v4): the 3-way union — Hexagonal, Onion, and Clean.
+export const HexaFileV4Schema = z.discriminatedUnion('kind', [
+  HexagonalObjectV4.extend({ app: z.literal(APP) }).superRefine(checkMap),
   OnionFileObject.extend({ app: z.literal(APP) }).superRefine(checkOnionIntegrity),
+  CleanFileObject.extend({ app: z.literal(APP) }).superRefine(checkCleanIntegrity),
 ])

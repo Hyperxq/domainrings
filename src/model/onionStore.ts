@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import { newOnionMap } from './hexa'
+import * as ringedDocument from './ringedDocument'
 import { OnionFileSchema, type OnionElement, type OnionEndpoint, type OnionFile } from './schema'
 import { boot } from './store'
-import { validated } from './validated'
 
 type EndpointCollection = 'actors' | 'externals'
 
@@ -42,42 +42,29 @@ export const useOnionStore = create<OnionState>()((set, get) => ({
   replace: (map) => set({ map, revision: get().revision + 1 }),
   restore: ({ map, swap }) => set((s) => ({ map, revision: swap ? s.revision + 1 : s.revision })),
   addElement: (patch) => {
-    const id = `element-${crypto.randomUUID().slice(0, 8)}`
-    set((s) => ({ map: { ...s.map, elements: [...s.map.elements, { ...patch, id }] } }))
+    const { doc, id } = ringedDocument.addElement<OnionFile, OnionElement>(get().map, patch, () => `element-${crypto.randomUUID().slice(0, 8)}`)
+    set({ map: doc })
     return id
   },
   updateElement: (id, patch) => {
-    const candidate: OnionFile = { ...get().map, elements: get().map.elements.map((e) => (e.id === id ? { ...e, ...patch } : e)) }
-    const next = validated(OnionFileSchema, candidate)
+    const next = ringedDocument.updateElement<OnionFile, OnionElement>(get().map, id, patch, OnionFileSchema)
     if (!next) return
     set({ map: next })
   },
-  removeElement: (id) =>
-    set((s) => ({
-      map: {
-        ...s.map,
-        elements: s.map.elements.filter((e) => e.id !== id),
-        dependencies: s.map.dependencies.filter((d) => d.fromId !== id && d.toId !== id),
-        actors: s.map.actors.map((a) => (a.targetId === id ? { ...a, targetId: undefined } : a)),
-        externals: s.map.externals.map((x) => (x.targetId === id ? { ...x, targetId: undefined } : x)),
-      },
-    })),
+  removeElement: (id) => set({ map: ringedDocument.removeElement(get().map, id) }),
   addDependency: (fromId, toId) => {
-    const id = `dependency-${crypto.randomUUID().slice(0, 8)}`
-    const candidate: OnionFile = { ...get().map, dependencies: [...get().map.dependencies, { id, fromId, toId }] }
-    const next = validated(OnionFileSchema, candidate)
-    if (!next) return undefined
-    set({ map: next })
-    return id
+    const result = ringedDocument.addDependency(get().map, fromId, toId, () => `dependency-${crypto.randomUUID().slice(0, 8)}`, OnionFileSchema)
+    if (!result) return undefined
+    set({ map: result.doc })
+    return result.id
   },
-  removeDependency: (id) => set((s) => ({ map: { ...s.map, dependencies: s.map.dependencies.filter((d) => d.id !== id) } })),
+  removeDependency: (id) => set({ map: ringedDocument.removeDependency(get().map, id) }),
   addEndpoint: (collection, patch) => {
-    const id = `${collection === 'actors' ? 'actor' : 'external'}-${crypto.randomUUID().slice(0, 8)}`
-    const candidate: OnionFile = { ...get().map, [collection]: [...get().map[collection], { ...patch, id }] }
-    const next = validated(OnionFileSchema, candidate)
-    if (!next) return undefined
-    set({ map: next })
-    return id
+    const makeId = () => `${collection === 'actors' ? 'actor' : 'external'}-${crypto.randomUUID().slice(0, 8)}`
+    const result = ringedDocument.addEndpoint<OnionFile, OnionEndpoint>(get().map, collection, patch, makeId, OnionFileSchema)
+    if (!result) return undefined
+    set({ map: result.doc })
+    return result.id
   },
-  removeEndpoint: (collection, id) => set((s) => ({ map: { ...s.map, [collection]: s.map[collection].filter((e) => e.id !== id) } })),
+  removeEndpoint: (collection, id) => set({ map: ringedDocument.removeEndpoint(get().map, collection, id) }),
 }))
