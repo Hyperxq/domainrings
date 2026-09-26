@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { newOnionMap } from '../model/hexa'
 import type { OnionFile } from '../model/schema'
 import { layoutOnion } from './onion'
+import { ringElementRadius } from './ringed'
 
 const withElements = (): OnionFile => ({
   ...newOnionMap('Fresh'),
@@ -46,12 +47,14 @@ describe('layoutOnion (elements, REQ-07)', () => {
     expect(model.elements.find((e) => e.ref === 'e1')).toMatchObject({ ringRole: 'domain', name: 'Order' })
   })
 
-  it('spreads N elements on the same ring at distinct positions on that ring\'s circumference', () => {
+  it('spreads N elements on the same ring at distinct positions inside that ring\'s own band (its mid radius, never its outer edge)', () => {
     const model = layoutOnion(withElements())
-    const outerRing = model.rings.find((r) => r.role === 'outer')!
+    const outerIndex = model.rings.findIndex((r) => r.role === 'outer')
+    const outerRing = model.rings[outerIndex]
     const [e3, e4] = ['e3', 'e4'].map((ref) => model.elements.find((e) => e.ref === ref)!)
     expect(e3.x !== e4.x || e3.y !== e4.y).toBe(true)
-    for (const e of [e3, e4]) expect(Math.hypot(e.x, e.y)).toBeCloseTo(outerRing.apex, 6)
+    const radius = ringElementRadius(outerRing, model.rings[outerIndex - 1])
+    for (const e of [e3, e4]) expect(Math.hypot(e.x, e.y)).toBeCloseTo(radius, 6)
   })
 })
 

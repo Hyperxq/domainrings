@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { newCleanMap } from '../model/hexa'
 import type { CleanFile } from '../model/schema'
 import { layoutClean } from './clean'
+import { ringElementRadius } from './ringed'
 
 describe('layoutClean — sector wedges (REQ-08)', () => {
   it('a ring with no sectors has no wedges', () => {
@@ -46,7 +47,7 @@ describe('layoutClean — sector wedges (REQ-08)', () => {
 })
 
 describe('layoutClean — elements placed inside their own sector\'s wedge (REQ-08)', () => {
-  it('an element sits at the ring radius, at an angle strictly inside its sector\'s own span', () => {
+  it('an element sits inside its own ring\'s band (its mid radius, never its outer edge), at an angle strictly inside its sector\'s own span', () => {
     const doc: CleanFile = {
       ...newCleanMap('Fresh'),
       sectors: [
@@ -58,8 +59,9 @@ describe('layoutClean — elements placed inside their own sector\'s wedge (REQ-
     const model = layoutClean(doc)
     const [element] = model.elements
     const sector = model.sectors.find((s) => s.ref === 's1')!
-    const ring = model.rings.find((r) => r.role === 'domain')!
-    expect(Math.hypot(element.x, element.y)).toBeCloseTo(ring.apex, 6)
+    const ringIndex = model.rings.findIndex((r) => r.role === 'domain')
+    const ring = model.rings[ringIndex]
+    expect(Math.hypot(element.x, element.y)).toBeCloseTo(ringElementRadius(ring, model.rings[ringIndex - 1]), 6)
     const angle = Math.atan2(element.y, element.x)
     expect(angle).toBeGreaterThan(sector.startAngle)
     expect(angle).toBeLessThan(sector.endAngle)

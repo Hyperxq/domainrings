@@ -1,13 +1,21 @@
 import type { RingRole } from '../model/kinds'
 import { arcAngles } from '../model/rings'
 import { circle, type LayoutRing, type Outline } from './layout'
-import { DOMAIN_TITLE, measure, RING_LABEL } from './text'
+import { measure, RING_LABEL } from './text'
 
 /** Same floor as the Hexagonal rings' MIN_BAND — keeps ring bands visually consistent across kinds. */
 const MIN_BAND = 36
-const LABEL_PAD_X = 8
 const TITLE_LINE = RING_LABEL.size + 4
 const SUBTITLE_GAP = 4
+/** Padding kept between a curved title's own ends and the rest of its ring's own arc. */
+export const TITLE_ARC_PAD = 8
+/** The most a ring title's curved arc may span, centred at the top — leaves the lower part of the ring free of
+ * title text; a ring only ever grows past MIN_BAND for a title that wouldn't fit even at this generous a span. */
+export const TITLE_MAX_SPAN = Math.PI
+/** Half the angle a title of arc-length `arcLength` needs at `radius`, capped at `TITLE_MAX_SPAN / 2` — shared by
+ * the ring-sizing floor below and `render/Diagram.tsx`'s curved `<textPath>`, so the two never disagree about how
+ * wide a title reads. */
+export const titleHalfSpan = (arcLength: number, radius: number): number => (radius > 0 ? Math.min(TITLE_MAX_SPAN / 2, arcLength / 2 / radius) : 0)
 
 /** The one place an element's or endpoint's rendered box size is defined — `render/RingedNodes.tsx` draws to
  * these exact numbers, so a ring sized against them never drifts from what actually gets painted. */
@@ -27,22 +35,24 @@ export interface RingedBox {
   height: number
 }
 
-/** Smallest `t` (whatever radius `place` treats it as) at which no two boxes `place(t)` returns overlap by less
- * than `BOX_GAP` — the same "grow it until its contents fit" idiom as `fitRing` (layout.ts), but by binary search
- * against the real axis-aligned box test rather than a closed-form Need list: unlike a hexagon's straight sides,
- * boxes spread around an arc (evenly or not, one ring or mixed with another) have no such formula. Only ever
- * grows `t`, never shrinks it below `minT`, so a ring already large enough for its title pays nothing extra. */
-function growUntilFits(minT: number, place: (t: number) => RingedBox[]): number {
-  const fits = (t: number) => {
-    const boxes = place(t)
-    for (let i = 0; i < boxes.length; i++) {
-      for (let j = i + 1; j < boxes.length; j++) {
-        const [a, b] = [boxes[i], boxes[j]]
-        if (Math.abs(a.x - b.x) < (a.width + b.width) / 2 + BOX_GAP && Math.abs(a.y - b.y) < (a.height + b.height) / 2 + BOX_GAP) return false
-      }
+/** True while no two boxes overlap by less than `BOX_GAP`. */
+function noOverlap(boxes: readonly RingedBox[]): boolean {
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      const [a, b] = [boxes[i], boxes[j]]
+      if (Math.abs(a.x - b.x) < (a.width + b.width) / 2 + BOX_GAP && Math.abs(a.y - b.y) < (a.height + b.height) / 2 + BOX_GAP) return false
     }
-    return true
   }
+  return true
+}
+
+/** Smallest `t` (whatever radius `fits` treats it as) satisfying `fits` — the same "grow it until its contents
+ * fit" idiom as `fitRing` (layout.ts), but by binary search rather than a closed-form Need list: unlike a
+ * hexagon's straight sides, boxes spread around an arc (evenly or not, one ring or mixed with another) have no
+ * such formula. Only ever grows `t`, never shrinks it below `minT`, so a ring already large enough for its title
+ * and its own elements pays nothing extra. `fits` need not be strictly monotonic in `t` — every `hi` this ever
+ * returns is one `fits` already confirmed true, so the result is always safe, if not always the smallest. */
+function growUntilFits(minT: number, fits: (t: number) => boolean): number {
   if (fits(minT)) return minT
   let hi = Math.max(minT, 1)
   while (!fits(hi)) hi *= 2
@@ -61,27 +71,35 @@ export interface RingedSlot {
   width: number
 }
 
-/** Smallest radius at which a label of half-width `halfWidth` (already padded), centred `offset` below the
- * ring's own apex (`labelAt`, below), still fits inside THIS ring's own circular chord at that height. A ring's
- * band is a filled disc/annulus (`render/band.ts`'s `bandPath`); the next ring out is painted afterward, so
- * anything the label pokes past this ring's own curve gets covered by that later fill — the reported "Domain
- * Mod", "MAIN SERVIC" clipping. The circle's chord half-width at distance `offset` below the pole is
- * `sqrt(2·r·offset − offset²)` (Pythagoras on the radius, the pole-to-label distance `r − offset`, and the
- * chord); requiring that ≥ `halfWidth` and solving for `r` gives this formula — always ≥ the plain `halfWidth`
- * floor a straight-sided ring would need, since a circle only narrows as it curves toward its own pole. */
-function labelRadius(halfWidth: number, offset: number): number {
-  return (halfWidth * halfWidth + offset * offset) / (2 * offset)
+/** Radius at which a ring's OWN elements (and, via `titleHalfSpan` above, its own curved title) sit: the middle
+ * of its band, between its inner neighbour's own edge (or the origin, for the innermost ring/disc) and this
+ * ring's own outer edge — never at the outer edge itself, which is exactly the line the next ring out paints
+ * over (the reported straddling "NewElement" box, and before it the clipped "Domain Mod"/"MAIN SERVIC" titles). */
+export function ringElementRadius(ring: Pick<LayoutRing, 'apex'>, inner?: Pick<LayoutRing, 'apex'>): number {
+  return ((inner?.apex ?? 0) + ring.apex) / 2
 }
 
-const titleHeightOf = (innermost: boolean) => (innermost ? DOMAIN_TITLE.size + 4 : TITLE_LINE)
+/** True when every corner of an axis-aligned box centred at `(x, y)` lies within `[inner, outer]` distance from
+ * the origin (touching either edge allowed) — the EXACT test, not a same-direction radial projection: a box not
+ * centred on an axis has corners that reach further from the origin than its centre-plus-projection alone would
+ * suggest (Pythagoras combines the radial and tangential offsets), so only checking the actual farthest and
+ * nearest corners is safe. */
+function boxWithinBand(box: RingedBox, inner: number, outer: number): boolean {
+  const [ax, ay] = [Math.abs(box.x), Math.abs(box.y)]
+  const [hw, hh] = [box.width / 2, box.height / 2]
+  const farthest = Math.hypot(ax + hw, ay + hh)
+  const nearest = Math.hypot(Math.max(0, ax - hw), Math.max(0, ay - hh))
+  return farthest <= outer + 1e-9 && nearest >= inner - 1e-9
+}
 
 /** Ring outline sizing shared by every "ringed" document kind (Onion, Clean — ADR-01): each ring grows from its
- * own title width, its inner neighbour's edge plus a minimum band, or — new — however far out its own elements
- * need to be for none of their real boxes to overlap at their placement angles, whichever is largest. The
- * innermost ring's title renders sentence-case, every other ring's uppercase. `slotsOf` returns every element
- * landing on a ring regardless of sub-grouping (Onion: the whole ring is one group; Clean: every sector's own
- * elements, flattened — this is what makes cross-sector wedge-boundary crowding size the ring too, with no
- * sector-specific code here at all). */
+ * inner neighbour's edge plus a minimum band, its own title's curved arc length, or however far out its own
+ * elements need to be — both for none of their real boxes to overlap at their placement angles, and for every one
+ * of them to stay fully inside its own band (`boxWithinBand`) — whichever is largest. Every ring's title renders
+ * at `RING_LABEL` size (the innermost ring keeps sentence case, every other ring uppercase); `slotsOf` returns
+ * every element landing on a ring regardless of sub-grouping (Onion: the whole ring is one group; Clean: every
+ * sector's own elements, flattened — this is what makes cross-sector wedge-boundary crowding size the ring too,
+ * with no sector-specific code here at all). */
 export function ringOutlines<Role extends RingRole>(
   rings: readonly { role: Role; name: string }[],
   slotsOf: (role: Role) => readonly RingedSlot[] = () => [],
@@ -94,23 +112,33 @@ export function ringOutlines<Role extends RingRole>(
   for (let i = 0; i <= last; i++) {
     const spec = rings[i]
     const innermost = i === 0
-    const metrics = innermost ? DOMAIN_TITLE : RING_LABEL
-    const titleRadius = labelRadius(measure(spec.name, metrics) / 2 + LABEL_PAD_X, titleHeightOf(innermost) / 2)
+    const title = innermost ? spec.name : spec.name.toUpperCase()
     const inner = outlines[i - 1]
-    const floor = Math.max(inner ? inner.apex + MIN_BAND : 0, titleRadius)
+    const innerApex = inner ? inner.apex : 0
+    const mid = (r: number) => (innerApex + r) / 2
+    // Smallest OUTER radius `r` whose mid-band radius, `mid(r)`, gives the title's own curved arc length enough
+    // room within TITLE_MAX_SPAN — the inverse of `titleHalfSpan` above, so sizing and rendering never disagree.
+    const titleArc = measure(title, RING_LABEL) + 2 * TITLE_ARC_PAD
+    const titleFloor = 2 * (titleArc / TITLE_MAX_SPAN) - innerApex
     const slots = allSlots[i]
-    // The inner ring's own elements, already fixed at its resolved radius (MIN_BAND alone only keeps two ADJACENT
-    // rings' circumferences apart — it says nothing about a wide box aligned radially, e.g. two elements both
-    // near angle 0, whose combined half-widths can exceed the band).
-    const innerBoxes = inner ? boxesAt(inner.apex, allSlots[i - 1]) : []
-    const radius = slots.length || innerBoxes.length ? growUntilFits(floor, (r) => [...boxesAt(r, slots), ...innerBoxes]) : floor
+    const floor = Math.max(inner ? inner.apex + MIN_BAND : 0, titleFloor)
+    // The inner ring's own elements, already fixed at its own resolved mid-band radius (MIN_BAND alone only keeps
+    // two ADJACENT rings' circumferences apart — it says nothing about a wide box aligned radially, e.g. two
+    // elements both near angle 0, whose combined half-widths can exceed the band).
+    const innerMid = inner ? ringElementRadius(inner, outlines[i - 2]) : 0
+    const innerBoxes = inner ? boxesAt(innerMid, allSlots[i - 1]) : []
+    const fits = (r: number) => {
+      const own = boxesAt(mid(r), slots)
+      return noOverlap([...own, ...innerBoxes]) && own.every((b) => boxWithinBand(b, innerApex, r))
+    }
+    const radius = slots.length || innerBoxes.length ? growUntilFits(floor, fits) : floor
     outlines[i] = circle(radius)
   }
   return rings.map((spec, i) => {
     const innermost = i === 0
     const title = innermost ? spec.name : spec.name.toUpperCase()
-    const titleWidth = measure(title, innermost ? DOMAIN_TITLE : RING_LABEL)
-    const titleHeight = titleHeightOf(innermost)
+    const titleWidth = measure(title, RING_LABEL)
+    const titleHeight = TITLE_LINE
     return {
       key: `ring:${spec.role}`,
       role: spec.role,
@@ -165,10 +193,12 @@ export function endpointLayout(
   ]
   if (!specs.length) return { endpoints: [], extraReach: 0 }
   const angles = arcAngles(specs.length, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI)
-  const radius = growUntilFits(outer.apex + ENDPOINT_GAP, (r) => [
-    ...angles.map((angle) => ({ x: r * Math.cos(angle), y: r * Math.sin(angle), width: RINGED_ENDPOINT_DIAMETER, height: RINGED_ENDPOINT_DIAMETER })),
-    ...outerElements,
-  ])
+  const radius = growUntilFits(outer.apex + ENDPOINT_GAP, (r) =>
+    noOverlap([
+      ...angles.map((angle) => ({ x: r * Math.cos(angle), y: r * Math.sin(angle), width: RINGED_ENDPOINT_DIAMETER, height: RINGED_ENDPOINT_DIAMETER })),
+      ...outerElements,
+    ]),
+  )
   const endpoints: RingedEndpointPlacement[] = specs.map(({ item, kind }, k) => ({
     key: `endpoint:${item.id}`,
     ref: item.id,

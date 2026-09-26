@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { newOnionMap, parseHexa, toHexa } from '../model/hexa'
+import { newCleanMap, newOnionMap, parseHexa, toHexa } from '../model/hexa'
 import { layoutMap } from '../layout/map'
 import { layoutOnion } from '../layout/onion'
 import { layoutClean } from '../layout/clean'
@@ -210,6 +210,71 @@ describe('example .hexa files', () => {
 // Onion/Clean ring placement spaced elements evenly by angle and count only, ignoring each element's rendered box
 // width — the stress/advanced examples above exposed real overlaps this way. Hexagonal is excluded: its own
 // reported "overlaps" are an aggregate's outline around its own members, which is intentional, not a bug.
+/** True when an axis-aligned, centre-anchored box lies fully between `innerApex` and `outerApex` — every corner's
+ * own distance from the origin stays within the band, touching its edges allowed (a small epsilon guards float
+ * tangency, matching `boxesOverlap`'s own convention). Catches the reported "NewElement" box straddling the ring
+ * line between Domain Model and Domain Services: its own box would reach past whichever edge it was closest to. */
+function boxInsideBand(box: Box, innerApex: number, outerApex: number, eps = 1e-6): boolean {
+  const corners = [
+    { x: box.x - box.width / 2, y: box.y - box.height / 2 },
+    { x: box.x + box.width / 2, y: box.y - box.height / 2 },
+    { x: box.x - box.width / 2, y: box.y + box.height / 2 },
+    { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+  ]
+  return corners.every((c) => {
+    const r = Math.hypot(c.x, c.y)
+    return r >= innerApex - eps && r <= outerApex + eps
+  })
+}
+
+describe('every Onion/Clean element box lies fully inside its own ring band', () => {
+  function elementsOutsideTheirBand(rings: { role: string; apex: number }[], elements: { key: string; ringRole: string; x: number; y: number; name: string }[]): string[] {
+    const apexOf = new Map(rings.map((r, i) => [r.role, { inner: i > 0 ? rings[i - 1].apex : 0, outer: r.apex }]))
+    return elements.flatMap((e) => {
+      const band = apexOf.get(e.ringRole)!
+      const box = ringedElementBox(e.key, e.name, e.x, e.y)
+      return boxInsideBand(box, band.inner, band.outer) ? [] : [e.key]
+    })
+  }
+
+  for (const file of files.filter((f) => f.startsWith('onion-') || f.startsWith('clean-'))) {
+    it(`${file}: every element sits fully inside its own ring's band`, () => {
+      const parsed = parseHexa(readExample(file))
+      if (!parsed.ok) throw new Error(`"${file}" failed to parse: ${parsed.errors.join('; ')}`)
+      const map = parsed.map
+      const model = map.kind === 'onion' ? layoutOnion(map) : layoutClean(map as CleanFile)
+      expect(elementsOutsideTheirBand(model.rings, model.elements)).toEqual([])
+    })
+  }
+
+  it('a synthetic Onion element on a crowded outer ring still sits inside its own band', () => {
+    const doc: OnionFile = {
+      ...newOnionMap('Fresh'),
+      elements: [
+        { id: 'e1', name: 'A Very Long Bounded Context Element Name', ringRole: 'outer' },
+        { id: 'e2', name: 'Order', ringRole: 'domain' },
+        { id: 'e3', name: 'NewElement', ringRole: 'domain' },
+      ],
+    }
+    const model = layoutOnion(doc)
+    expect(elementsOutsideTheirBand(model.rings, model.elements)).toEqual([])
+  })
+
+  it('a synthetic Clean element in a narrow sector still sits inside its own band', () => {
+    const doc: CleanFile = {
+      ...newCleanMap('Fresh'),
+      sectors: [
+        { id: 's1', name: 'Billing', ringRole: 'domain' },
+        { id: 's2', name: 'Catalog', ringRole: 'domain' },
+        { id: 's3', name: 'Shipping', ringRole: 'domain' },
+      ],
+      elements: [{ id: 'e1', name: 'Invoice', sectorId: 's1' }],
+    }
+    const model = layoutClean(doc)
+    expect(elementsOutsideTheirBand(model.rings, model.elements)).toEqual([])
+  })
+})
+
 describe('no two Onion/Clean element or endpoint boxes overlap', () => {
   for (const file of files.filter((f) => f.startsWith('onion-') || f.startsWith('clean-'))) {
     it(`${file} lays out with zero overlapping box pairs`, () => {

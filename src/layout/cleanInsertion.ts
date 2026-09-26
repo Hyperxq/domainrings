@@ -3,6 +3,7 @@ import type { CleanFile, CleanRingRole } from '../model/schema'
 import type { Point } from './layout'
 import type { CleanLayoutModel } from './clean'
 import { endpointInsertionPoints } from './ringedInsertion'
+import { ringElementRadius } from './ringed'
 
 /** What a "+" creates (REQ-03, REQ-04, REQ-07) — a ring's own "+" adds a sector to it; a sector's own "+" adds an
  * element to it (never directly to a ring, REQ-04); an outer-ring element's "+"s add an actor/external. */
@@ -31,9 +32,12 @@ export function cleanInsertionPoints(model: CleanLayoutModel, doc: CleanFile): C
     points.push({ key: `sector:${ring.role}`, ringRole: ring.role, at, action: { kind: 'sector', ringRole: ring.role }, label: `Add sector to ${ring.name}` })
   })
   for (const sector of model.sectors) {
-    const ring = model.rings.find((r) => r.role === sector.ringRole)!
+    const ringIndex = model.rings.findIndex((r) => r.role === sector.ringRole)
+    const ring = model.rings[ringIndex]
     const count = doc.elements.filter((e) => e.sectorId === sector.ref).length
-    const at = arcPositions(count + 1, ring, sector.startAngle, sector.endAngle)[count]
+    // Same mid-band radius a real element lands at (`layoutClean`) — otherwise the "+" would sit on the ring's
+    // outer edge while the element it creates appears inside the band.
+    const at = arcPositions(count + 1, { halfWidth: ringElementRadius(ring, model.rings[ringIndex - 1]) }, sector.startAngle, sector.endAngle)[count]
     points.push({ key: `element:${sector.ref}`, ringRole: sector.ringRole, at, action: { kind: 'element', sectorId: sector.ref }, label: `Add element to ${sector.name}` })
   }
   const outerRole = outerRoleOf(doc.rings)

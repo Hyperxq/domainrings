@@ -1,7 +1,7 @@
 import { arcAngles, ringCircumferencePositions } from '../model/rings'
 import type { OnionDependency, OnionFile, OnionRingRole } from '../model/schema'
 import type { Box, LayoutRing, Point } from './layout'
-import { endpointLayout, ringedBounds, RINGED_ELEMENT_HEIGHT, ringedElementWidth, ringOutlines } from './ringed'
+import { endpointLayout, ringedBounds, ringElementRadius, RINGED_ELEMENT_HEIGHT, ringedElementWidth, ringOutlines } from './ringed'
 
 /** An element placed on its ring's circumference (REQ-07). */
 export interface OnionElementLayout {
@@ -52,12 +52,13 @@ export function layoutOnion(doc: OnionFile): OnionLayoutModel {
   }
   const rings = ringOutlines(doc.rings, slotsOf)
 
-  // Elements: grouped by ring, spread evenly around that ring's circumference (REQ-07) — array order decides
-  // position order, so re-adding shuffles existing elements' angles; acceptable, nothing in REQ-07 promises a
-  // stable angle per element across edits.
-  const elements: OnionElementLayout[] = rings.flatMap((ring) => {
+  // Elements: grouped by ring, spread evenly around that ring's circumference (REQ-07) at its own band's MID
+  // radius (never the ring's outer edge, which the next ring out paints over) — array order decides position
+  // order, so re-adding shuffles existing elements' angles; acceptable, nothing in REQ-07 promises a stable angle
+  // per element across edits.
+  const elements: OnionElementLayout[] = rings.flatMap((ring, i) => {
     const onRing = doc.elements.filter((e) => e.ringRole === ring.role)
-    const positions = ringCircumferencePositions(onRing.length, ring)
+    const positions = ringCircumferencePositions(onRing.length, { halfWidth: ringElementRadius(ring, rings[i - 1]) })
     return onRing.map((e, k) => ({ key: `element:${e.id}`, ref: e.id, ringRole: e.ringRole, name: e.name, ...positions[k] }))
   })
   const elementAt = new Map(elements.map((e) => [e.ref, e]))

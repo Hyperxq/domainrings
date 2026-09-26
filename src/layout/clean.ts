@@ -1,7 +1,7 @@
 import { arcAngles, arcPositions } from '../model/rings'
 import type { CleanFile, CleanRingRole } from '../model/schema'
 import type { Box, LayoutRing } from './layout'
-import { endpointLayout, ringedBounds, RINGED_ELEMENT_HEIGHT, ringedElementWidth, ringOutlines } from './ringed'
+import { endpointLayout, ringedBounds, ringElementRadius, RINGED_ELEMENT_HEIGHT, ringedElementWidth, ringOutlines } from './ringed'
 
 /** A sector's own wedge of its ring (REQ-08) — the angular sub-range its elements are spread inside, and the
  * range `render/band.ts`'s divider primitive and `cleanInsertion.ts`'s element "+" both place themselves against. */
@@ -89,12 +89,14 @@ export function layoutClean(doc: CleanFile): CleanLayoutModel {
         return onSector.map((e, k) => ({ angle: angles[k], width: ringedElementWidth(e.name) }))
       })
   const rings = ringOutlines(doc.rings, slotsOf)
-  const ringByRole = new Map(rings.map((r) => [r.role, r]))
+  const ringByRole = new Map(rings.map((r, i) => [r.role, { ring: r, inner: rings[i - 1] }]))
 
+  // Elements sit inside their own sector's wedge (REQ-08), at their ring's own band MID radius (never its outer
+  // edge, which the next ring out paints over — same fix as Onion's own element placement, ADR-01).
   const elements: CleanElementLayout[] = sectors.flatMap((sector) => {
-    const ring = ringByRole.get(sector.ringRole)!
+    const { ring, inner } = ringByRole.get(sector.ringRole)!
     const onSector = doc.elements.filter((e) => e.sectorId === sector.ref)
-    const positions = arcPositions(onSector.length, ring, sector.startAngle, sector.endAngle)
+    const positions = arcPositions(onSector.length, { halfWidth: ringElementRadius(ring, inner) }, sector.startAngle, sector.endAngle)
     return onSector.map((e, k) => ({ key: `element:${e.id}`, ref: e.id, ringRole: sector.ringRole, name: e.name, ...positions[k] }))
   })
   const elementAt = new Map(elements.map((e) => [e.ref, e]))

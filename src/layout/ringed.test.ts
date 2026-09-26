@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { newCleanMap, newOnionMap } from '../model/hexa'
-import { ringedBounds, ringOutlines } from './ringed'
-import { DOMAIN_TITLE, measure, RING_LABEL } from './text'
+import { ringedBounds, ringElementRadius, ringOutlines, TITLE_ARC_PAD, TITLE_MAX_SPAN } from './ringed'
+import { measure, RING_LABEL } from './text'
 
 // Direct unit coverage for the shared ring-outline/bounds sizing (ADR-01) — previously exercised only
 // indirectly through layout/onion.test.ts and the Clean creation test (verify-in-loop-1, WARNING b).
@@ -44,24 +44,42 @@ describe('ringedBounds', () => {
   })
 })
 
-// A ring's band is a filled disc/annulus; the next ring out is painted afterward (render/band.ts's bandPath), so
-// a label wider than THIS ring's own chord at its label height gets its overflow covered by that later fill —
-// the reported "Domain Mod", "MAIN SERVIC" clipping on an otherwise-empty Onion file.
-describe('ring labels fit inside their own band (no clipping by the next ring out)', () => {
+// A ring's title now reads along a curved arc at its own band's MID radius (render/Diagram.tsx's `<textPath>`),
+// not as straight text near the pole — so the only thing that must fit is the label's own arc length against the
+// USABLE arc length its mid-band radius offers within TITLE_MAX_SPAN, never a straight chord (that was af5734e's
+// approach, reverted: it inflated an empty ring's radius from its title alone).
+describe('ring titles fit the usable arc length at their own band (no clipping by the next ring out)', () => {
   function assertLabelsFit(rings: ReturnType<typeof ringOutlines>) {
     rings.forEach((ring, i) => {
-      const metrics = i === 0 ? DOMAIN_TITLE : RING_LABEL
-      const halfWidth = measure(ring.title, metrics) / 2
-      const chordHalf = Math.sqrt(Math.max(0, ring.apex ** 2 - ring.labelAt.y ** 2))
-      expect(halfWidth).toBeLessThanOrEqual(chordHalf)
+      const labelArcLength = measure(ring.title, RING_LABEL) + 2 * TITLE_ARC_PAD
+      const usableArcLength = TITLE_MAX_SPAN * ringElementRadius(ring, rings[i - 1])
+      expect(labelArcLength).toBeLessThanOrEqual(usableArcLength + 1e-6)
     })
   }
 
-  it('an empty Onion file: every ring label fits inside its own band', () => {
+  it('an empty Onion file: every ring title fits the usable arc length at its own band', () => {
     assertLabelsFit(ringOutlines(newOnionMap('Fresh').rings))
   })
 
-  it('an empty Clean file: every ring label fits inside its own band', () => {
+  it('an empty Clean file: every ring title fits the usable arc length at its own band', () => {
     assertLabelsFit(ringOutlines(newCleanMap('Fresh').rings))
+  })
+})
+
+// af5734e's pole-chord growth inflated an empty Onion file's outer ring from ~198px (measured against the
+// pre-af5734e formula: half title width + a flat pad, growing only by MIN_BAND per ring) to ~783px. The curved
+// title fix above removes that growth; this pins the outer ring back to a comparable, compact size.
+describe('an empty ringed file stays compact (no title-driven blow-up)', () => {
+  const PRE_AF5734E_ONION_OUTER_APEX = 198
+  const COMPACT_BOUND = PRE_AF5734E_ONION_OUTER_APEX * 1.5
+
+  it("an empty Onion file's outer ring stays compact, comparable to its pre-af5734e size", () => {
+    const rings = ringOutlines(newOnionMap('Fresh').rings)
+    expect(rings[rings.length - 1].apex).toBeLessThan(COMPACT_BOUND)
+  })
+
+  it("an empty Clean file's outer ring stays compact, comparable to its pre-af5734e size", () => {
+    const rings = ringOutlines(newCleanMap('Fresh').rings)
+    expect(rings[rings.length - 1].apex).toBeLessThan(COMPACT_BOUND)
   })
 })

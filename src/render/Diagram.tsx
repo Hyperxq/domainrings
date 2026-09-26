@@ -1,15 +1,47 @@
 import type { ReactNode } from 'react'
 import { currentHexagon, hexagonBounds, hexagonTitle, type MapContextLayout, type MapLayout } from '../layout/map'
+import { ringElementRadius, titleHalfSpan, TITLE_ARC_PAD } from '../layout/ringed'
 import { bandPath, type Shape } from './band'
 import type { LayoutEdge, LayoutModel, LayoutNode, LayoutRing, LayoutText, Point } from '../layout/layout'
 import type { Box } from '../layout/layout'
 import { LEGEND_GAP, LEGEND_HEADING, LEGEND_PAD, LEGEND_ROW, legendSections, LEGEND_SWATCH, legendSize, type LegendModel } from '../layout/legend'
-import { CHIP_LABEL, DOMAIN_TITLE, EDGE_LABEL, LINE_METRICS, RING_LABEL, RING_SUBTITLE, SUBTITLE, TAG_GAP, TITLE } from '../layout/text'
+import { CHIP_LABEL, DOMAIN_TITLE, EDGE_LABEL, LINE_METRICS, measure, RING_LABEL, RING_SUBTITLE, SUBTITLE, TAG_GAP, TITLE } from '../layout/text'
 
 const SUBTITLE_GAP = 4
 const BOX_PAD_X = 12
 // The domain block is plain text on the solid domain ring.
 const FRAMELESS = new Set<LayoutNode['kind']>(['domainItem', 'note', 'portDecl', 'portLabel'])
+
+/** An arc centred at the top (12 o'clock), spanning `2 * halfSpan` radians, reading left→right — the path a
+ * ringed (Onion/Clean) ring's own `<textPath>` rides. `M`/`A`, not a closed loop: this path is never painted,
+ * only referenced. */
+function titleArcPath(radius: number, halfSpan: number): string {
+  const top = -Math.PI / 2
+  const at = (angle: number) => `${radius * Math.cos(angle)} ${radius * Math.sin(angle)}`
+  return `M${at(top - halfSpan)}A${radius} ${radius} 0 0 1 ${at(top + halfSpan)}`
+}
+
+/** A ringed (Onion/Clean) ring's own title, curved along its band's own mid-radius arc (ADR-01: the ringed-only
+ * path `Ring` below branches to) — never straight text near the pole, which the next ring's own fill paints over
+ * once it pokes past this ring's own curve (the reported "Domain Mod", "MAIN SERVIC" clipping). Sized so its arc
+ * length always fits within `TITLE_MAX_SPAN` (`ringOutlines`, layout/ringed.ts, grows the ring to guarantee it). */
+function RingedTitle({ ring, inner }: { ring: LayoutRing; inner?: LayoutRing }) {
+  const innermost = !inner
+  const ref = `layer:${ring.role}`
+  const radius = ringElementRadius(ring, inner)
+  const halfSpan = titleHalfSpan(measure(ring.title, RING_LABEL) + 2 * TITLE_ARC_PAD, radius)
+  const arcId = `ring-title-arc-${ring.role}`
+  return (
+    <>
+      <path id={arcId} d={titleArcPath(radius, halfSpan)} fill="none" stroke="none" aria-hidden="true" />
+      <text className={innermost ? 'domain-title' : 'ring-label'} data-layer={ring.role} data-ref={ref} fontSize={RING_LABEL.size}>
+        <textPath href={`#${arcId}`} xlinkHref={`#${arcId}`} startOffset="50%" textAnchor="middle">
+          {ring.title}
+        </textPath>
+      </text>
+    </>
+  )
+}
 
 export function Ring({ ring, shape, inner, interactive }: { ring: LayoutRing; shape: Shape; inner?: LayoutRing; interactive: boolean }) {
   const innermost = !inner
@@ -28,16 +60,20 @@ export function Ring({ ring, shape, inner, interactive }: { ring: LayoutRing; sh
         role={interactive ? 'group' : undefined}
         aria-label={interactive ? ring.title : undefined}
       />
-      <text
-        className={innermost ? 'domain-title' : 'ring-label'}
-        data-layer={ring.role}
-        data-ref={ref}
-        x={ring.labelAt.x}
-        y={ring.labelAt.y}
-        fontSize={innermost ? DOMAIN_TITLE.size : RING_LABEL.size}
-      >
-        {ring.title}
-      </text>
+      {shape === 'circle' ? (
+        <RingedTitle ring={ring} inner={inner} />
+      ) : (
+        <text
+          className={innermost ? 'domain-title' : 'ring-label'}
+          data-layer={ring.role}
+          data-ref={ref}
+          x={ring.labelAt.x}
+          y={ring.labelAt.y}
+          fontSize={innermost ? DOMAIN_TITLE.size : RING_LABEL.size}
+        >
+          {ring.title}
+        </text>
+      )}
       {ring.subtitle && (
         <text
           className={`ring-subtitle${innermost ? ' on-domain' : ''}`}
@@ -151,8 +187,10 @@ function Heading({ text }: { text: LayoutText }) {
   )
 }
 
-/** The legend drawn under the diagram's bottom-right corner; hidden on the canvas, shown only in exports. */
-function SvgLegend({ legend, bounds }: { legend: LegendModel; bounds: Box }) {
+/** The legend drawn under a diagram's bottom-right corner — shared by Hexagonal's own `MapDiagram` (below) and,
+ * via export, Onion's/Clean's own diagrams (ADR-01): hidden on the canvas (`.canvas .svg-legend`), shown only in
+ * exports (`ui/exporters.ts` toggles the `.exporting` class before capturing markup). */
+export function SvgLegend({ legend, bounds }: { legend: LegendModel; bounds: Box }) {
   const size = legendSize(legend)
   const rows: ReactNode[] = []
   let y = LEGEND_PAD
