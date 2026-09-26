@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { newOnionMap } from './hexa'
 import { OnionFileSchema, type OnionElement, type OnionEndpoint, type OnionFile } from './schema'
 import { boot } from './store'
+import { validated } from './validated'
 
 type EndpointCollection = 'actors' | 'externals'
 
@@ -46,8 +47,9 @@ export const useOnionStore = create<OnionState>()((set, get) => ({
     return id
   },
   updateElement: (id, patch) => {
-    const next: OnionFile = { ...get().map, elements: get().map.elements.map((e) => (e.id === id ? { ...e, ...patch } : e)) }
-    if (!OnionFileSchema.safeParse(next).success) return
+    const candidate: OnionFile = { ...get().map, elements: get().map.elements.map((e) => (e.id === id ? { ...e, ...patch } : e)) }
+    const next = validated(OnionFileSchema, candidate)
+    if (!next) return
     set({ map: next })
   },
   removeElement: (id) =>
@@ -62,16 +64,18 @@ export const useOnionStore = create<OnionState>()((set, get) => ({
     })),
   addDependency: (fromId, toId) => {
     const id = `dependency-${crypto.randomUUID().slice(0, 8)}`
-    const next: OnionFile = { ...get().map, dependencies: [...get().map.dependencies, { id, fromId, toId }] }
-    if (!OnionFileSchema.safeParse(next).success) return undefined
+    const candidate: OnionFile = { ...get().map, dependencies: [...get().map.dependencies, { id, fromId, toId }] }
+    const next = validated(OnionFileSchema, candidate)
+    if (!next) return undefined
     set({ map: next })
     return id
   },
   removeDependency: (id) => set((s) => ({ map: { ...s.map, dependencies: s.map.dependencies.filter((d) => d.id !== id) } })),
   addEndpoint: (collection, patch) => {
     const id = `${collection === 'actors' ? 'actor' : 'external'}-${crypto.randomUUID().slice(0, 8)}`
-    const next: OnionFile = { ...get().map, [collection]: [...get().map[collection], { ...patch, id }] }
-    if (!OnionFileSchema.safeParse(next).success) return undefined
+    const candidate: OnionFile = { ...get().map, [collection]: [...get().map[collection], { ...patch, id }] }
+    const next = validated(OnionFileSchema, candidate)
+    if (!next) return undefined
     set({ map: next })
     return id
   },

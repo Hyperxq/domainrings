@@ -4,6 +4,7 @@ import { EXAMPLE_DIAGRAM } from './example'
 import { toMap } from './hexa'
 import { browserStorage, loadMap } from './persistence'
 import { MapSchema, REFERENCES, type CollectionKey, type Diagram, type HexaMap, type Hexagon, type Link, type LinkEnd, type Linkable, type Wall } from './schema'
+import { validated } from './validated'
 
 export type Item<K extends CollectionKey> = Diagram[K][number]
 type HexagonMeta = Partial<Pick<Hexagon, 'title' | 'subtitle' | 'composition' | 'layers'>>
@@ -149,15 +150,16 @@ export const useMapStore = create<MapState>()((set, get) => {
         },
       })),
     addLink: (from, to) => {
-      const { map: next, linkId } = addLinkToMap(get().map, from, to)
-      if (!MapSchema.safeParse(next).success) return undefined
+      const { map: candidate, linkId } = addLinkToMap(get().map, from, to)
+      const next = validated(MapSchema, candidate)
+      if (!next) return undefined
       set({ map: next })
       return linkId
     },
     updateLink: (id, patch) => {
       if (!get().map.links.some((l) => l.id === id)) return undefined
-      const next = updateLinkOnMap(get().map, id, patch)
-      if (!MapSchema.safeParse(next).success) return undefined
+      const next = validated(MapSchema, updateLinkOnMap(get().map, id, patch))
+      if (!next) return undefined
       set({ map: next })
       return next.links.find((l) => l.id === id)
     },
