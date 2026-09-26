@@ -1,7 +1,7 @@
 import type { StoreApi } from 'zustand/vanilla'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, SEED_VERSION } from './example'
 import { parseHexa, toHexa, toMap } from './hexa'
-import type { Diagram, HexaMap, StoredFile } from './schema'
+import type { HexaMap, LegacyDiagram, StoredFile } from './schema'
 
 export const MAP_KEY = 'domainrings:map'
 export const UNREADABLE_KEY = 'domainrings:map.unreadable'
@@ -29,7 +29,7 @@ function safeText(storage: Pick<Storage, 'getItem'> | undefined, key: string): s
 }
 
 /** An autosave from an older seed version that still equals that seed, byte for byte, was never edited. */
-function staleUpgrade(text: string, diagram: Diagram): HexaMap | undefined {
+function staleUpgrade(text: string, diagram: LegacyDiagram): HexaMap | undefined {
   let seedVersion: unknown
   try {
     seedVersion = JSON.parse(text).seedVersion

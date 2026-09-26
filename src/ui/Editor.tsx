@@ -1,6 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
-import { KINDS } from '../model/kinds'
+import { HEXAGONAL_KIND } from '../model/kinds'
 import {
   defaultWall,
   DomainTypeSchema,
@@ -385,7 +385,7 @@ export function Editor({
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   const d = diagramOf(map, hexId)
-  const labels = KINDS[d.kind].labels
+  const labels = HEXAGONAL_KIND.labels
   const adaptersOn = adaptersBySide(d)
   const sideLabel: Record<Side, string> = { driving: labels.drivingPort, driven: labels.drivenPort }
   const currentCell = map.hexagons.find((h) => h.id === hexId)?.cell
@@ -497,9 +497,9 @@ export function Editor({
           </HintedButton>
         </Fold>
 
-        <Fold id="layers" title="Layers" count={KINDS[d.kind].rings.length}>
+        <Fold id="layers" title="Layers" count={HEXAGONAL_KIND.rings.length}>
           <ul className="items">
-            {KINDS[d.kind].rings.map((ring) => {
+            {HEXAGONAL_KIND.rings.map((ring) => {
               const override = d.layers?.[ring.role]
               const setLayer = (patch: { title?: string; subtitle?: string }) =>
                 setMeta(hexId, { layers: { ...d.layers, [ring.role]: { ...override, ...patch } } as Diagram['layers'] })
@@ -553,17 +553,15 @@ export function Editor({
           title="Use cases"
           noun="use case"
           empty="No use cases yet. Add what the application does."
-          fields={(item, update) =>
-            KINDS[d.kind].shape === 'hexagon' && (
-              <label className="field">
-                <span>Placement</span>
-                <select aria-label="Placement" value={item.placement ?? 'top'} onChange={(e) => update({ placement: e.target.value === 'top' ? undefined : WallSchema.parse(e.target.value) })}>
-                  <option value="top">Under the title</option>
-                  {WallSchema.options.map((w) => <option key={w} value={w}>{WALL_LABEL[w]}</option>)}
-                </select>
-              </label>
-            )
-          }
+          fields={(item, update) => (
+            <label className="field">
+              <span>Placement</span>
+              <select aria-label="Placement" value={item.placement ?? 'top'} onChange={(e) => update({ placement: e.target.value === 'top' ? undefined : WallSchema.parse(e.target.value) })}>
+                <option value="top">Under the title</option>
+                {WallSchema.options.map((w) => <option key={w} value={w}>{WALL_LABEL[w]}</option>)}
+              </select>
+            </label>
+          )}
         />
 
         <Section
@@ -597,16 +595,14 @@ export function Editor({
                   {SideSchema.options.map((s) => <option key={s} value={s}>{sideLabel[s]}</option>)}
                 </select>
               </label>
-              {KINDS[d.kind].shape === 'hexagon' && (
-                <label className="field">
-                  <span>Wall</span>
-                  <select value={item.wall ?? defaultWall(item.side)} onChange={(e) => update({ wall: WallSchema.parse(e.target.value) })}>
-                    {WallSchema.options
-                      .filter((w) => DRIVING_WALLS.has(w) === (item.side === 'driving'))
-                      .map((w) => <option key={w} value={w}>{WALL_LABEL[w]}</option>)}
-                  </select>
-                </label>
-              )}
+              <label className="field">
+                <span>Wall</span>
+                <select value={item.wall ?? defaultWall(item.side)} onChange={(e) => update({ wall: WallSchema.parse(e.target.value) })}>
+                  {WallSchema.options
+                    .filter((w) => DRIVING_WALLS.has(w) === (item.side === 'driving'))
+                    .map((w) => <option key={w} value={w}>{WALL_LABEL[w]}</option>)}
+                </select>
+              </label>
               <LinkSelect label="Use case" value={item.useCaseId} options={d.useCases} onChange={(useCaseId) => update({ useCaseId })} />
             </>
           )}

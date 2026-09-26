@@ -21,9 +21,7 @@ const PortSchema = z.object({ id, name: z.string(), side: SideSchema, wall: Wall
 const AdapterSchema = z.object({ id, name: z.string(), portId: id.optional(), note })
 const EndpointSchema = z.object({ id, name: z.string(), adapterId: id.optional(), note })
 
-const DiagramObject = z.object({
-  version: z.literal(1),
-  kind: KindSchema,
+const DiagramFields = {
   title: z.string(),
   subtitle: z.string().optional(),
   domain: z.array(DomainItemSchema),
@@ -35,7 +33,11 @@ const DiagramObject = z.object({
   composition: z.object({ name: z.string(), note }).optional(),
   /** Per-layer title/subtitle overrides; an empty or missing value falls back to the kind's default. */
   layers: z.partialRecord(LayerRoleSchema, LayerTextSchema).optional(),
-})
+}
+
+// Live shape: no Diagram this build renders can be anything but Hexagonal (the Clean/Onion kind switcher is
+// gone; native Onion is a wholly separate document, ADR-01) — kind narrows to the literal.
+const DiagramObject = z.object({ version: z.literal(1), kind: z.literal('hexagonal'), ...DiagramFields })
 
 export const COLLECTIONS = ['domain', 'useCases', 'ports', 'adapters', 'actors', 'externals'] as const
 
@@ -105,11 +107,16 @@ export const APP = 'domainrings'
 /** The current, in-memory document version — the Hexagonal and Onion arms of `StoredFile` share it (ADR-01). */
 export const VERSION = 3
 // Files saved before the rename still open; parseHexa drops the marker, so they re-export under the current name.
-// Frozen: the file format a v1 build wrote and still reads. Never change this schema — a data-bearing addition
-// belongs on the v3 map instead.
-export const HexaFileV1Schema = DiagramObject.extend({ app: z.enum([APP, 'archviz']) }).superRefine(checkIntegrity)
+// Frozen: the file format a v1 build wrote and still reads — including a Clean/Onion `kind` from the old kind
+// switcher (REQ-06 coerces it back to hexagonal in parseHexa, it does not touch what a v1 file is allowed to
+// contain). Never change this schema — a data-bearing addition belongs on the v3 map instead.
+const LegacyDiagramObject = z.object({ version: z.literal(1), kind: KindSchema, ...DiagramFields })
+export const HexaFileV1Schema = LegacyDiagramObject.extend({ app: z.enum([APP, 'archviz']) }).superRefine(checkIntegrity)
 
 export type Diagram = z.infer<typeof DiagramSchema>
+/** The wider, as-stored shape a v1 file may carry (any of the 3 legacy kinds) — kept distinct from the live
+ * `Diagram` type (kind narrowed to 'hexagonal') so a genuinely non-hexagonal legacy file still parses. */
+export type LegacyDiagram = z.infer<typeof LegacyDiagramObject>
 
 // --- v2/v3: a map holds one or more hexagons, each keeping the v1 shape (minus version/kind, which move to the map). ---
 

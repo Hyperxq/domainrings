@@ -1,4 +1,4 @@
-import { KINDS } from '../model/kinds'
+import { HEXAGONAL_KIND } from '../model/kinds'
 import type { Diagram, LayerRole } from '../model/schema'
 import { adapterTag, DOMAIN_TAGS, portTag, USE_CASE_TAG } from './tags'
 import { LINE_METRICS, measure } from './text'
@@ -13,7 +13,7 @@ export interface LegendModel {
 }
 
 export function legendFor(d: Diagram): LegendModel {
-  const { rings, labels } = KINDS[d.kind]
+  const { rings, labels } = HEXAGONAL_KIND
   const sideOfAdapter = (portId?: string) => d.ports.find((p) => p.id === portId)?.side ?? 'driving'
   const present = [
     ...(['aggregate', 'entity', 'valueObject', 'domainService'] as const).filter((t) => d.domain.some((i) => i.type === t)).map((t) => DOMAIN_TAGS[t]),

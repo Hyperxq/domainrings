@@ -1,5 +1,8 @@
 import type { LayoutRing } from '../layout/layout'
-import type { Shape } from '../model/kinds'
+
+/** Ring geometry the shared `<Ring>` primitive can draw: 'hexagon' for a Hexagonal map's layout, 'circle' for
+ * Onion's (ADR-01) — independent of the (now hexagonal-only) architecture-kind config in model/kinds. */
+export type Shape = 'hexagon' | 'circle'
 
 function outline(shape: Shape, r: Pick<LayoutRing, 'halfWidth' | 'straight' | 'apex'>): string {
   if (shape === 'circle') {

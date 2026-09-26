@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { currentHexagon, hexagonBounds, hexagonTitle, type MapContextLayout, type MapLayout } from '../layout/map'
-import type { Shape } from '../model/kinds'
-import { bandPath } from './band'
+import { bandPath, type Shape } from './band'
 import type { LayoutEdge, LayoutModel, LayoutNode, LayoutRing, LayoutText, Point } from '../layout/layout'
 import type { Box } from '../layout/layout'
 import { LEGEND_GAP, LEGEND_HEADING, LEGEND_PAD, LEGEND_ROW, legendSections, LEGEND_SWATCH, legendSize, type LegendModel } from '../layout/legend'

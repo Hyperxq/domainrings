@@ -12,12 +12,6 @@ describe('legendFor', () => {
       'Driven side',
       'External systems',
     ])
-    expect(legendFor({ ...EXAMPLE_DIAGRAM, kind: 'clean' }).colours.map((r) => r.label).slice(0, 4)).toEqual([
-      'Frameworks & Drivers',
-      'Interface Adapters',
-      'Use Cases',
-      'Entities',
-    ])
   })
 
   it('lists the stroke channel: dashed contract, solid implementation, dotted wiring', () => {
@@ -38,7 +32,6 @@ describe('legendFor', () => {
       '⇥ infrastructure/in',
       '⇤ infrastructure/out',
     ])
-    expect(legendFor({ ...STRESS_DIAGRAM, kind: 'clean' }).tags).toContain('⇥ input port')
     expect(legendFor(STRESS_DIAGRAM).tags).toContain('● entity')
   })
 })

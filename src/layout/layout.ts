@@ -1,4 +1,4 @@
-import { KINDS, type RingRole, type Shape } from '../model/kinds'
+import { HEXAGONAL_KIND, type RingRole } from '../model/kinds'
 import { defaultWall, type Adapter, type Diagram, type DomainItem, type Endpoint, type Port, type Side, type UseCase, type Wall } from '../model/schema'
 import { adapterTag, DOMAIN_TAGS, portTag, USE_CASE_TAG } from './tags'
 import { DOMAIN_TITLE, EDGE_LABEL, LINE_METRICS, lineWidth, measure, noteLines, RING_LABEL, RING_SUBTITLE, styled, SUBTITLE, TITLE, type TextLine } from './text'
@@ -98,7 +98,7 @@ export interface LayoutOptions {
 }
 
 export interface LayoutModel {
-  shape: Shape
+  shape: 'hexagon'
   rings: LayoutRing[]
   /** Hexagons only: dashed spokes from each outer vertex in to the matching domain vertex. */
   guides: { from: Point; to: Point }[]
@@ -232,39 +232,33 @@ export interface Need {
   y: number
 }
 
-function halfWidthAt(shape: Shape, o: Outline, dy: number): number {
+function halfWidthAt(o: Outline, dy: number): number {
   const a = Math.abs(dy)
-  if (shape === 'circle') return Math.sqrt(Math.max(0, o.halfWidth ** 2 - a * a))
   return a <= o.straight ? o.halfWidth : Math.max(0, o.halfWidth - (a - o.straight) * SQRT3)
 }
 
 /** Distance from the centre line to the ring's top edge at horizontal offset x (0 outside the ring). */
-function topAt(shape: Shape, o: Outline, x: number): number {
+function topAt(o: Outline, x: number): number {
   const a = Math.abs(x)
-  if (a >= o.halfWidth) return shape === 'circle' ? 0 : o.straight
-  return shape === 'circle' ? Math.sqrt(o.halfWidth ** 2 - a * a) : o.straight + (o.halfWidth - a) / SQRT3
+  if (a >= o.halfWidth) return o.straight
+  return o.straight + (o.halfWidth - a) / SQRT3
 }
 
 /** Depth below the apex from which the ring is at least 2·half wide. */
-function depthAt(shape: Shape, o: Outline, half: number): number {
-  if (shape === 'circle') return o.apex - Math.sqrt(Math.max(0, o.apex ** 2 - half ** 2))
+function depthAt(o: Outline, half: number): number {
   return Math.min(half / SQRT3, o.apex - o.straight)
 }
 
 export const circle = (r: number): Outline => ({ halfWidth: r, straight: 0, apex: r })
 export const hexagon = (r: number): Outline => ({ halfWidth: r * COS30, straight: r / 2, apex: r })
-export const outlineOf = (shape: Shape, r: number) => (shape === 'circle' ? circle(r) : hexagon(r))
 
 /**
  * Smallest ring around `inner` holding every need. A regular hexagon's half-width at dy is
  * min(r·cos30, (r − |dy|)·√3), so a point (x, y) needs r >= x/cos30 and r >= y + x/√3. `side` needs
  * must also land on the straight vertical side (|dy| <= r/2), where ports and adapters line up.
  */
-export function fitRing(shape: Shape, inner: Outline, side: Need[], vertical: Need[], minApothem = 0): Outline {
+export function fitRing(inner: Outline, side: Need[], vertical: Need[], minApothem = 0): Outline {
   const needs = [...side, ...vertical]
-  if (shape === 'circle') {
-    return circle(Math.max(inner.halfWidth + MIN_BAND, ...needs.map((n) => Math.hypot(n.x, n.y))))
-  }
   return hexagon(
     Math.max(
       minApothem / COS30,
@@ -372,15 +366,15 @@ const farthest = (y: number, height: number) => Math.abs(y) + height / 2
 
 export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions = {}): LayoutModel {
   const overview = mode === 'overview'
-  const config = KINDS[d.kind]
-  const { shape, labels } = config
+  const config = HEXAGONAL_KIND
+  const { labels } = config
   const ports = new Map(d.ports.map((p) => [p.id, p]))
   const portOf = (a: Adapter) => (a.portId ? ports.get(a.portId) : undefined)
   const adapterSide = (a: Adapter): Side =>
     portOf(a)?.side ??
     (d.externals.some((e) => e.adapterId === a.id) && !d.actors.some((e) => e.adapterId === a.id) ? 'driven' : 'driving')
   // Hexagons honour each port's wall; circles keep every port in the left or right column.
-  const wallOf = (p: Port): Wall => (shape === 'hexagon' ? (p.wall ?? defaultWall(p.side)) : defaultWall(p.side))
+  const wallOf = (p: Port): Wall => p.wall ?? defaultWall(p.side)
   const slantedPorts = d.ports.filter((p) => SLANTED_WALLS.has(wallOf(p)))
   const slantedAdapters = new Set(d.adapters.filter((a) => slantedPorts.some((p) => p.id === a.portId)).map((a) => a.id))
   const claimed = new Set([...d.actors, ...d.externals].filter((e) => e.adapterId && slantedAdapters.has(e.adapterId)).map((e) => e.id))
@@ -392,7 +386,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   const hasSlanted = slantedPorts.length > 0
   // Once any wall hosts something of its own (a slanted port, a seated use case), w/e column content keeps to its
   // sector too, so no two walls' content can meet.
-  const sectored = hasSlanted || (shape === 'hexagon' && d.useCases.some((u) => u.placement && u.placement !== 'top'))
+  const sectored = hasSlanted || d.useCases.some((u) => u.placement && u.placement !== 'top')
 
   // 1. Box contents: every size below derives from the text a box has to hold.
   // Overview pills carry the name only, unwrapped; its sockets are bare notches on the ring edge.
@@ -438,7 +432,6 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
 
   const planned: Planned[] = []
   const edgePlan: Array<[string, string, string?]> = []
-  const slotRows = new Map<string, number>()
   for (const side of SIDES) {
     const col = columns[side]
     const inward = side === 'driving'
@@ -456,7 +449,6 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
         const span = Math.max(1, leaves.length)
         const key = `adapter:${adapter.id}`
         plan(key, adapter.id, 'adapter', (yOf(row) + yOf(row + span - 1)) / 2)
-        slotRows.set(key, span)
         adapterKeys.push(key)
         leaves.forEach((leaf, i) => {
           const leafKey = `${leafKind}:${leaf.id}`
@@ -686,7 +678,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     return frame([...styled('tag', USE_CASE_TAG), ...styled('name', u.name), ...styled('mono', signature, 34), ...steps.flatMap((s) => styled('muted', s, 34))], 120)
   })
   // A hexagon can seat a use case on a wall, in that wall's sector; circles ignore it, as they ignore port walls.
-  const seatWall = (u: UseCase): Wall | undefined => (shape === 'hexagon' && u.placement && u.placement !== 'top' ? u.placement : undefined)
+  const seatWall = (u: UseCase): Wall | undefined => (u.placement && u.placement !== 'top' ? u.placement : undefined)
   /** Indices into d.useCases of the use cases stacked under the application title. */
   const stack = d.useCases.flatMap((u, i) => (seatWall(u) ? [] : [i]))
   const stackFrames = stack.map((i) => useCaseFrames[i])
@@ -709,7 +701,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   // A hexagon is no wider at a fixed depth under its vertex however big it grows, so a box too wide for the slope
   // just under the title can only fit lower: the body (never the title) drops until every box clears the slope.
   const bodyShift = (o: Outline) =>
-    Math.max(0, ...coreBoxes.map((r) => depthAt(shape, o, Math.abs(r.x) + r.frame.width / 2 + DOMAIN_PAD) - (TITLE_DEPTH + r.top)))
+    Math.max(0, ...coreBoxes.map((r) => depthAt(o, Math.abs(r.x) + r.frame.width / 2 + DOMAIN_PAD) - (TITLE_DEPTH + r.top)))
   let domainShift = 0
 
   /** Centres of the stacked use cases under the application title, in stack order (see placement below). */
@@ -718,9 +710,9 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     const depth = Math.max(
       titleBottom + GAP,
       ...stackFrames.flatMap((f, j) => [
-        depthAt(shape, appO, useCaseBlock.width / 2 + PAD) - useCaseOffsets[j],
+        depthAt(appO, useCaseBlock.width / 2 + PAD) - useCaseOffsets[j],
         // Bus corners only exist in Detailed, as in the solver: on a circle they would sink the stack into the domain.
-        ...(overview ? [] : SIDES.map((s) => depthAt(shape, appO, busX(s, stack[j], insideO.halfWidth) + PAD) - useCaseOffsets[j] - f.height / 2)),
+        ...(overview ? [] : SIDES.map((s) => depthAt(appO, busX(s, stack[j], insideO.halfWidth) + PAD) - useCaseOffsets[j] - f.height / 2)),
       ]),
     )
     let y = -appO.apex + depth
@@ -742,7 +734,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
           ...of('port').map((p) => {
             const f = portLabel(ports.get(p.ref)!)
             const sign = p.side === 'driving' ? -1 : 1
-            const x = sign * (halfWidthAt(shape, appO, p.y) - widths[p.side].socketHalf - LABEL_GAP - f.width / 2)
+            const x = sign * (halfWidthAt(appO, p.y) - widths[p.side].socketHalf - LABEL_GAP - f.width / 2)
             return { ref: p.ref, side: p.side, frame: f, x, y: p.y, rotation: undefined, align: p.side === 'driving' ? ('start' as const) : ('end' as const) }
           }),
           ...wallBoxes
@@ -884,16 +876,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   // inner ring (use cases, then the title) is absolute here; titles move up under the top vertex afterwards.
   const outlines: Outline[] = []
   const appIndex = config.rings.findIndex((r) => r.role === 'application')
-  const leafX = (side: Side) => {
-    const w = widths[side]
-    if (!config.endpointsInside) return outlines[0].halfWidth + OUTSIDE_GAP + w.leaf / 2
-    if (config.rings[0].role === 'outer') return outlines[1].halfWidth + GAP + w.leaf / 2
-    return outlines[appIndex].halfWidth + w.socketHalf + GAP + w.adapter + GAP + w.leaf / 2
-  }
-  const leafNeeds = (side: Side): Need[] =>
-    [...of('actor'), ...of('external')]
-      .filter((p) => p.side === side)
-      .map((p) => ({ x: leafX(side) + widths[side].leaf / 2 + PAD, y: farthest(p.y, p.height) }))
+  const leafX = (side: Side) => outlines[0].halfWidth + OUTSIDE_GAP + widths[side].leaf / 2
 
   for (let i = last; i >= 0; i--) {
     const role = config.rings[i].role
@@ -901,7 +884,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     if (role === 'domain') {
       // The block hangs TITLE_DEPTH under the apex, so its corners move with the radius; the width at a fixed
       // depth under the apex only grows with r, which makes the smallest fitting radius a binary search.
-      const outline = (r: number) => outlineOf(shape, r)
+      const outline = (r: number) => hexagon(r)
       const fits = (o: Outline) => {
         const top = -o.apex + TITLE_DEPTH
         const shift = bodyShift(o)
@@ -912,7 +895,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
         // The title stays in the upper half even when the domain is empty, so it never floats mid-ring.
         const titleUp = top + titleHeight(i) <= -LABEL_LINE / 2
         // A body shifted onto the slope touches it exactly; the tolerance keeps that tangency from failing on rounding.
-        return titleUp && boxes.every((b) => [top + b.from, top + b.to].every((y) => Math.abs(y) <= o.apex + 1e-6 && halfWidthAt(shape, o, y) >= b.x - 1e-6))
+        return titleUp && boxes.every((b) => [top + b.from, top + b.to].every((y) => Math.abs(y) <= o.apex + 1e-6 && halfWidthAt(o, y) >= b.x - 1e-6))
       }
       let [lo, hi] = [1, 64]
       while (!fits(outline(hi))) hi *= 2
@@ -934,7 +917,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     }
     if (role === 'application') {
       for (const p of of('port')) {
-        const clear = Math.max(halfWidthAt(shape, inner, nearest(p.y, p.height)) + GAP, socketClearance(p.side, inner.halfWidth))
+        const clear = Math.max(halfWidthAt(inner, nearest(p.y, p.height)) + GAP, socketClearance(p.side, inner.halfWidth))
         side.push({ x: clear + widths[p.side].socketHalf + labelReach(ports.get(p.ref)!), y: farthest(p.y, p.height) })
       }
       if (stack.length) {
@@ -953,12 +936,11 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     if (role === 'adapters') {
       for (const p of of('adapter')) {
         const w = widths[p.side]
-        side.push({ x: halfWidthAt(shape, inner, p.y) + w.socketHalf + GAP + w.adapter + PAD, y: farthest(p.y, p.height) })
+        side.push({ x: halfWidthAt(inner, p.y) + w.socketHalf + GAP + w.adapter + PAD, y: farthest(p.y, p.height) })
       }
     }
-    if (i === 0 && config.endpointsInside) side.push(...leafNeeds('driving'), ...leafNeeds('driven'))
     let minApothem = 0
-    if (shape === 'hexagon' && role === 'application') {
+    if (role === 'application') {
       for (const b of wallBoxes.filter((b) => !b.outer)) for (const c of localCorners(b)) minApothem = Math.max(minApothem, sectorApothem(c.u, c.v))
       for (const b of wallBoxes.filter((b) => b.kind === 'port')) {
         const label = portLabel(ports.get(b.ref)!)
@@ -992,25 +974,22 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
         for (const c of columnCorners('adapter', (p) => [widths[p.side].socketHalf + GAP])) minApothem = Math.max(minApothem, sectorApothem(c.u, c.v))
       }
     }
-    if (shape === 'hexagon' && role === 'adapters') {
+    if (role === 'adapters') {
       const appApothem = inner.halfWidth
       for (const b of wallBoxes.filter((b) => b.kind === 'adapter')) for (const c of localCorners(b)) minApothem = Math.max(minApothem, appApothem + c.v + PAD)
       for (const b of wallBoxes.filter((b) => b.outer)) for (const c of localCorners(b)) minApothem = Math.max(minApothem, sectorApothem(c.u, c.v))
       if (hasSlanted) for (const c of columnCorners('actor', () => [OUTSIDE_GAP]).concat(columnCorners('external', () => [OUTSIDE_GAP]))) minApothem = Math.max(minApothem, sectorApothem(c.u, c.v))
     }
-    let fitted = fitRing(shape, inner, side, vertical, minApothem)
+    let fitted = fitRing(inner, side, vertical, minApothem)
     // Sockets on the upper walls, and overview port names, lean in toward the use cases and the title: grow until
     // none of them touch.
     if (role === 'application' && (hasSlanted || overview || stack.length < d.useCases.length)) {
-      for (let guard = 0; guard < 400 && appClashes(fitted, inner); guard++) fitted = outlineOf(shape, fitted.apex * 1.01)
+      for (let guard = 0; guard < 400 && appClashes(fitted, inner); guard++) fitted = hexagon(fitted.apex * 1.01)
     }
-    // The title must fit TITLE_DEPTH under the top: a circle grows until its chord there is wide enough; a
-    // hexagon's slope already is by construction, so only its straight width can bind.
+    // The title must fit TITLE_DEPTH under the top: the hexagon's slope is wide enough by construction, so only
+    // its straight width can bind.
     const w = titleWidth(i) / 2 + LABEL_PAD_X
-    outlines[i] =
-      shape === 'circle'
-        ? circle(Math.max(fitted.apex, (w * w + TITLE_DEPTH * TITLE_DEPTH) / (2 * TITLE_DEPTH)))
-        : hexagon(Math.max(fitted.apex, w / COS30))
+    outlines[i] = hexagon(Math.max(fitted.apex, w / COS30))
   }
 
   const app = outlines[appIndex]
@@ -1061,7 +1040,6 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   // Column items of a hexagon sit on the w or e wall when they belong to a port (unassigned ones have no wall).
   const endpointAdapter = new Map([...d.actors, ...d.externals].map((e) => [e.id, e.adapterId]))
   const columnWall = (p: Planned): Wall | undefined => {
-    if (shape !== 'hexagon') return undefined
     const adapterId = p.kind === 'adapter' ? p.ref : p.kind === 'port' ? undefined : endpointAdapter.get(p.ref)
     const linked = p.kind === 'port' || !!(adapterId && portOf(d.adapters.find((a) => a.id === adapterId)!))
     return linked ? defaultWall(p.side) : undefined
@@ -1069,7 +1047,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   for (const p of planned) {
     const sign = p.side === 'driving' ? -1 : 1
     const w = widths[p.side]
-    const edge = halfWidthAt(shape, app, p.y)
+    const edge = halfWidthAt(app, p.y)
     const x =
       p.kind === 'port'
         ? sign * edge
@@ -1274,7 +1252,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     return { declaration, socket, head, face, from: exitY, to: face ? face.y : socket.y + socket.height / 4 }
   })
   const ranks = laneOrder(links.map((l) => [l.from, l.to]))
-  const isInsideDomain = (p: Point) => Math.abs(p.x) <= halfWidthAt(shape, domain, p.y) && Math.abs(p.y) <= domain.apex
+  const isInsideDomain = (p: Point) => Math.abs(p.x) <= halfWidthAt(domain, p.y) && Math.abs(p.y) <= domain.apex
   links.forEach(({ declaration, socket, head, face, from, to }, i) => {
     const lane = insideApp.halfWidth + LANE * (ranks[i] + 1)
     const tail = face
@@ -1307,60 +1285,29 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     const f = frame([...styled('mono', d.composition.name), ...noteLines(d.composition.note)], 120)
     const root = place('composition', 'composition', 'composition', 'muted', f, 0, outer.apex + GAP + f.height / 2)
     root.align = 'center'
-    if (shape === 'hexagon') {
-      // Hexagon: one trunk per side hugging the outer ring, just inside the endpoints. Each branch runs in along its
-      // wall's normal to the adapter's outer face, a quarter of the box off the endpoint arrow, so it meets no box.
-      const r = outer.apex + TRUNK_GAP / COS30
-      const vertex = (k: number) => ({ x: r * VERTEX[k].x, y: r * VERTEX[k].y })
-      const rootTop = { x: 0, y: root.y - root.height / 2 }
-      const walls: Record<Side, Wall[]> = { driving: ['sw', 'w', 'nw'], driven: ['se', 'e', 'ne'] }
-      const vertices: Record<Side, number[]> = { driving: [3, 4, 5, 0], driven: [3, 2, 1, 0] }
-      for (const side of SIDES) {
-        const adapters = nodes.filter((n) => n.kind === 'adapter' && n.side === side && n.wall)
-        if (!adapters.length) continue
-        const reachWall = Math.max(...adapters.map((a) => walls[side].indexOf(a.wall!)))
-        edges.push({
-          key: `composition->trunk:${side}`,
-          kind: 'wiring',
-          points: dedupe([rootTop, ...vertices[side].slice(0, reachWall + 2).map(vertex)]),
-        })
-        for (const a of adapters) {
-          const { n, dir } = wallFrame(a.wall!)
-          const lateral = reach(a.width, a.height, dir) / 2
-          const onLane = { x: a.x + dir.x * lateral, y: a.y + dir.y * lateral }
-          const trunkDepth = outer.halfWidth + TRUNK_GAP
-          const start = { x: onLane.x + n.x * (trunkDepth - dot(onLane, n)), y: onLane.y + n.y * (trunkDepth - dot(onLane, n)) }
-          edges.push({ key: `composition->${a.key}`, kind: 'wiring', points: [start, enterBox(a, start, { x: -n.x, y: -n.y })] })
-        }
-      }
-    }
-    // Circles: one vertical trunk per side just outside the outer ring. Each branch runs inward along the empty row
-    // gap under its adapter and turns up into the adapter's bottom edge, so it crosses each ring edge at most once.
-    for (const side of shape === 'circle' ? SIDES : []) {
-      const adapters = nodes.filter((n) => n.kind === 'adapter' && n.side === side)
+    // One trunk per side hugging the outer ring, just inside the endpoints. Each branch runs in along its wall's
+    // normal to the adapter's outer face, a quarter of the box off the endpoint arrow, so it meets no box.
+    const r = outer.apex + TRUNK_GAP / COS30
+    const vertex = (k: number) => ({ x: r * VERTEX[k].x, y: r * VERTEX[k].y })
+    const rootTop = { x: 0, y: root.y - root.height / 2 }
+    const walls: Record<Side, Wall[]> = { driving: ['sw', 'w', 'nw'], driven: ['se', 'e', 'ne'] }
+    const vertices: Record<Side, number[]> = { driving: [3, 4, 5, 0], driven: [3, 2, 1, 0] }
+    for (const side of SIDES) {
+      const adapters = nodes.filter((n) => n.kind === 'adapter' && n.side === side && n.wall)
       if (!adapters.length) continue
-      const sign = side === 'driving' ? -1 : 1
-      const trunkX = sign * (outer.halfWidth + (config.endpointsInside ? GAP : OUTSIDE_GAP / 2))
-      const gapY = (a: LayoutNode) => a.y + ((slotRows.get(a.key) ?? 1) * ROW) / 2
+      const reachWall = Math.max(...adapters.map((a) => walls[side].indexOf(a.wall!)))
       edges.push({
         key: `composition->trunk:${side}`,
         kind: 'wiring',
-        points: [
-          { x: (sign * root.width) / 2, y: root.y },
-          { x: trunkX, y: root.y },
-          { x: trunkX, y: Math.min(...adapters.map(gapY)) },
-        ],
+        points: dedupe([rootTop, ...vertices[side].slice(0, reachWall + 2).map(vertex)]),
       })
       for (const a of adapters) {
-        edges.push({
-          key: `composition->${a.key}`,
-          kind: 'wiring',
-          points: [
-            { x: trunkX, y: gapY(a) },
-            { x: a.x, y: gapY(a) },
-            { x: a.x, y: a.y + a.height / 2 },
-          ],
-        })
+        const { n, dir } = wallFrame(a.wall!)
+        const lateral = reach(a.width, a.height, dir) / 2
+        const onLane = { x: a.x + dir.x * lateral, y: a.y + dir.y * lateral }
+        const trunkDepth = outer.halfWidth + TRUNK_GAP
+        const start = { x: onLane.x + n.x * (trunkDepth - dot(onLane, n)), y: onLane.y + n.y * (trunkDepth - dot(onLane, n)) }
+        edges.push({ key: `composition->${a.key}`, kind: 'wiring', points: [start, enterBox(a, start, { x: -n.x, y: -n.y })] })
       }
     }
   }
@@ -1392,7 +1339,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     const blockW = Math.max(...heading.map((t) => measure(t.text, t.m)))
     const blockH = heading.reduce((h, t) => h + t.m.size + 8, 0)
     const x = extent.left
-    const clearance = Math.max(...[x, x + blockW, ...(x < 0 && x + blockW > 0 ? [0] : [])].map((px) => topAt(shape, outer, px)))
+    const clearance = Math.max(...[x, x + blockW, ...(x < 0 && x + blockW > 0 ? [0] : [])].map((px) => topAt(outer, px)))
     let ty = Math.min(extent.top, -clearance - GAP - blockH)
     for (const t of heading) {
       texts.push({ key: t.key, text: t.text, x, y: ty + t.m.size / 2, style: t.style })
@@ -1407,20 +1354,17 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   const layerOf = (n: LayoutNode): RingRole | undefined => {
     if (n.kind === 'useCase') return 'application'
     if (n.kind === 'port' || n.kind === 'portLabel' || n.kind === 'adapter') return 'adapters'
-    if (n.kind === 'actor' || n.kind === 'external') return config.endpointsInside ? config.rings[0].role : undefined
+    if (n.kind === 'actor' || n.kind === 'external') return undefined
     if (n.kind === 'composition') return undefined
     return serviceIds.has(n.ref) ? 'domainServices' : 'domain'
   }
   for (const n of nodes) n.layer = layerOf(n)
 
   // Spokes run along the centre-to-vertex lines, from each outer vertex in to the domain's, never over its fill.
-  const guides =
-    shape === 'hexagon'
-      ? VERTEX.map((v) => ({ from: { x: v.x * outer.apex, y: v.y * outer.apex }, to: { x: v.x * domain.apex, y: v.y * domain.apex } }))
-      : []
+  const guides = VERTEX.map((v) => ({ from: { x: v.x * outer.apex, y: v.y * outer.apex }, to: { x: v.x * domain.apex, y: v.y * domain.apex } }))
 
   return {
-    shape,
+    shape: 'hexagon',
     rings,
     guides,
     nodes,

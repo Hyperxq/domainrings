@@ -1,7 +1,7 @@
-import { APP, HexaFileV1Schema, HexaFileV2Schema, HexaFileV3Schema, VERSION, type Diagram, type HexaMap, type OnionFile, type StoredFile } from './schema'
+import { APP, HexaFileV1Schema, HexaFileV2Schema, HexaFileV3Schema, VERSION, type HexaMap, type LegacyDiagram, type OnionFile, type StoredFile } from './schema'
 import type { z } from 'zod'
 
-export type HexaParseResult = { ok: true; map: StoredFile; v1?: Diagram } | { ok: false; reason: 'invalid' | 'newer'; errors: string[] }
+export type HexaParseResult = { ok: true; map: StoredFile; v1?: LegacyDiagram } | { ok: false; reason: 'invalid' | 'newer'; errors: string[] }
 
 export function toHexa(file: StoredFile): string {
   return JSON.stringify({ app: APP, ...file }, null, 2)
@@ -9,7 +9,7 @@ export function toHexa(file: StoredFile): string {
 
 /** Deterministic: a migrated v1 file always becomes context "c1" holding hexagon "h1" at the origin cell. Always
  * hexagonal (REQ-06): a v1 file's own `kind` (Clean/Onion under the old switcher) is never carried forward. */
-export function toMap(diagram: Diagram): HexaMap {
+export function toMap(diagram: LegacyDiagram): HexaMap {
   const { version: _version, kind: _kind, title, ...hexagonFields } = diagram
   return {
     version: VERSION,
