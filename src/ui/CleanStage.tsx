@@ -1,11 +1,12 @@
 import { useState, type Ref } from 'react'
 import type { CleanLayoutModel } from '../layout/clean'
 import { cleanInsertionItem, cleanInsertionPoints, type CleanInsertionPoint } from '../layout/cleanInsertion'
+import { legendForClean } from '../layout/legend'
 import { elementName } from '../model/ringedDocument'
 import { useCleanStore } from '../model/cleanStore'
 import type { CleanFile } from '../model/schema'
 import { CleanDiagram } from '../render/CleanDiagram'
-import { DependChip, InlineNameField, PlusGlyph, useDependGesture } from './RingedCanvas'
+import { DependChip, InlineNameField, PlusGlyph, RingedStage, useDependGesture } from './RingedCanvas'
 
 const { addSector, addElement, updateElement, removeElement, addDependency, addEndpoint } = useCleanStore.getState()
 
@@ -24,6 +25,10 @@ interface CleanStageProps {
    * element's naming is cancelled, mirroring OnionStage's own `onCancelMutate` (and App.tsx's `onNamingCancel`
    * for a grown hexagon). */
   onCancelMutate?: () => void
+  /** Whether the CleanEditor/Legend islands are open — reserves their own screen space so a fit never tucks the
+   * diagram under them (`RingedStage`/`viewport.ts`'s `islandInset`). */
+  panelOpen?: boolean
+  legendOpen?: boolean
 }
 
 const REJECT_MESSAGE = 'A dependency can only point to the same ring or a more inward one.'
@@ -33,8 +38,9 @@ const REJECT_MESSAGE = 'A dependency can only point to the same ring or a more i
  * sector has no canvas node of its own to attach an inline rename to (sectors only ever appear as wedge
  * dividers, REQ-08) — renaming one happens in `CleanEditor`; only a new ELEMENT opens inline here, same as
  * Onion's own "+" does. */
-export function CleanStage({ model, doc, svgRef, onReject, onMutate = () => {}, onCancelMutate = () => {} }: CleanStageProps) {
+export function CleanStage({ model, doc, svgRef, onReject, onMutate = () => {}, onCancelMutate = () => {}, panelOpen = false, legendOpen = false }: CleanStageProps) {
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
+  const legend = legendForClean(doc)
   const { selected, linking, setLinking, selectedElement, validTargets, linkTargetRefs, clickTarget } = useDependGesture({
     elements: model.elements,
     rings: doc.rings,
@@ -69,38 +75,39 @@ export function CleanStage({ model, doc, svgRef, onReject, onMutate = () => {}, 
   }
 
   return (
-    <main className="stage">
-      <svg
-        ref={svgRef}
-        className="canvas"
-        role="figure"
-        aria-label={doc.title || 'Clean diagram'}
-        data-link-mode={linking ? '' : undefined}
-        viewBox={`${model.bounds.x} ${model.bounds.y} ${model.bounds.width} ${model.bounds.height}`}
-        onClick={(e) => clickTarget((e.target as Element).closest('.node')?.getAttribute('data-ref') ?? null)}
-      >
-        <CleanDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} />
-        {cleanInsertionPoints(model, doc).map((point) => (
-          <PlusGlyph key={point.key} point={point} onPick={() => pick(point)} />
-        ))}
-        {selectedElement && !linking && validTargets.length > 0 && (
-          <DependChip x={selectedElement.x} y={selectedElement.y} name={selectedElement.name} onLink={() => setLinking(true)} />
-        )}
-      </svg>
-      {editing && editingElement && (
-        <InlineNameField
-          defaultValue={editing.name}
-          onCommit={(name) => {
-            updateElement(editing.id, { name })
-            setEditing(null)
-          }}
-          onCancel={() => {
-            removeElement(editing.id)
-            setEditing(null)
-            onCancelMutate()
-          }}
-        />
+    <RingedStage
+      bounds={model.bounds}
+      ariaLabel={doc.title || 'Clean diagram'}
+      svgRef={svgRef}
+      linking={linking}
+      panelOpen={panelOpen}
+      legendOpen={legendOpen}
+      onClick={(e) => clickTarget((e.target as Element).closest('.node')?.getAttribute('data-ref') ?? null)}
+      overlay={
+        editing &&
+        editingElement && (
+          <InlineNameField
+            defaultValue={editing.name}
+            onCommit={(name) => {
+              updateElement(editing.id, { name })
+              setEditing(null)
+            }}
+            onCancel={() => {
+              removeElement(editing.id)
+              setEditing(null)
+              onCancelMutate()
+            }}
+          />
+        )
+      }
+    >
+      <CleanDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} legend={legend} />
+      {cleanInsertionPoints(model, doc).map((point) => (
+        <PlusGlyph key={point.key} point={point} onPick={() => pick(point)} />
+      ))}
+      {selectedElement && !linking && validTargets.length > 0 && (
+        <DependChip x={selectedElement.x} y={selectedElement.y} name={selectedElement.name} onLink={() => setLinking(true)} />
       )}
-    </main>
+    </RingedStage>
   )
 }

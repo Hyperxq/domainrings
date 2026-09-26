@@ -1,11 +1,12 @@
 import { useState, type Ref } from 'react'
 import type { OnionLayoutModel } from '../layout/onion'
 import { onionInsertionItem, onionInsertionPoints, type OnionInsertionPoint } from '../layout/onionInsertion'
+import { legendForOnion } from '../layout/legend'
 import { elementName } from '../model/ringedDocument'
 import { useOnionStore } from '../model/onionStore'
 import type { OnionFile } from '../model/schema'
 import { OnionDiagram } from '../render/OnionDiagram'
-import { DependChip, InlineNameField, PlusGlyph, useDependGesture } from './RingedCanvas'
+import { DependChip, InlineNameField, PlusGlyph, RingedStage, useDependGesture } from './RingedCanvas'
 
 const { addElement, updateElement, removeElement, addDependency, addEndpoint } = useOnionStore.getState()
 
@@ -25,6 +26,10 @@ interface OnionStageProps {
    * unwound (via `removeElement` below), so the toast that announced it must go too, not linger on a state that
    * no longer exists. */
   onCancelMutate?: () => void
+  /** Whether the OnionEditor/Legend islands are open — reserves their own screen space so a fit never tucks the
+   * diagram under them (`RingedStage`/`viewport.ts`'s `islandInset`). */
+  panelOpen?: boolean
+  legendOpen?: boolean
 }
 
 const REJECT_MESSAGE = 'A dependency can only point to the same ring or a more inward one.'
@@ -34,8 +39,9 @@ const REJECT_MESSAGE = 'A dependency can only point to the same ring or a more i
  * another in the same or a more inward ring; a valid target is marked with `data-link-target` while linking
  * (same convention Hexagonal's own link mode uses), and choosing one that is not valid cancels the gesture and
  * reports why via `onReject`, leaving the document unchanged either way. */
-export function OnionStage({ model, doc, svgRef, onReject, onMutate = () => {}, onCancelMutate = () => {} }: OnionStageProps) {
+export function OnionStage({ model, doc, svgRef, onReject, onMutate = () => {}, onCancelMutate = () => {}, panelOpen = false, legendOpen = false }: OnionStageProps) {
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
+  const legend = legendForOnion(doc)
   const { selected, linking, setLinking, selectedElement, validTargets, linkTargetRefs, clickTarget } = useDependGesture({
     elements: model.elements,
     rings: doc.rings,
@@ -66,38 +72,39 @@ export function OnionStage({ model, doc, svgRef, onReject, onMutate = () => {}, 
   }
 
   return (
-    <main className="stage">
-      <svg
-        ref={svgRef}
-        className="canvas"
-        role="figure"
-        aria-label={doc.title || 'Onion diagram'}
-        data-link-mode={linking ? '' : undefined}
-        viewBox={`${model.bounds.x} ${model.bounds.y} ${model.bounds.width} ${model.bounds.height}`}
-        onClick={(e) => clickTarget((e.target as Element).closest('.node')?.getAttribute('data-ref') ?? null)}
-      >
-        <OnionDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} />
-        {onionInsertionPoints(model, doc).map((point) => (
-          <PlusGlyph key={point.key} point={point} onPick={() => pick(point)} />
-        ))}
-        {selectedElement && !linking && validTargets.length > 0 && (
-          <DependChip x={selectedElement.x} y={selectedElement.y} name={selectedElement.name} onLink={() => setLinking(true)} />
-        )}
-      </svg>
-      {editing && editingElement && (
-        <InlineNameField
-          defaultValue={editing.name}
-          onCommit={(name) => {
-            updateElement(editing.id, { name })
-            setEditing(null)
-          }}
-          onCancel={() => {
-            removeElement(editing.id)
-            setEditing(null)
-            onCancelMutate()
-          }}
-        />
+    <RingedStage
+      bounds={model.bounds}
+      ariaLabel={doc.title || 'Onion diagram'}
+      svgRef={svgRef}
+      linking={linking}
+      panelOpen={panelOpen}
+      legendOpen={legendOpen}
+      onClick={(e) => clickTarget((e.target as Element).closest('.node')?.getAttribute('data-ref') ?? null)}
+      overlay={
+        editing &&
+        editingElement && (
+          <InlineNameField
+            defaultValue={editing.name}
+            onCommit={(name) => {
+              updateElement(editing.id, { name })
+              setEditing(null)
+            }}
+            onCancel={() => {
+              removeElement(editing.id)
+              setEditing(null)
+              onCancelMutate()
+            }}
+          />
+        )
+      }
+    >
+      <OnionDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} legend={legend} />
+      {onionInsertionPoints(model, doc).map((point) => (
+        <PlusGlyph key={point.key} point={point} onPick={() => pick(point)} />
+      ))}
+      {selectedElement && !linking && validTargets.length > 0 && (
+        <DependChip x={selectedElement.x} y={selectedElement.y} name={selectedElement.name} onLink={() => setLinking(true)} />
       )}
-    </main>
+    </RingedStage>
   )
 }

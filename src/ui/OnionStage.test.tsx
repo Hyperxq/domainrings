@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createRef } from 'react'
 import { layoutOnion } from '../layout/onion'
@@ -8,6 +8,14 @@ import { OnionStage } from './OnionStage'
 
 const state = () => useOnionStore.getState()
 
+// RingedStage (the shared Onion/Clean viewport chrome) observes its own size, same as Hexagonal's own Stage.
+beforeAll(() => {
+  globalThis.ResizeObserver ??= class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver
+})
 beforeEach(() => {
   state().replace(newOnionMap('Fresh architecture'))
 })
