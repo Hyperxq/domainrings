@@ -1,0 +1,74 @@
+{
+  "app": "domainrings",
+  "version": 4,
+  "kind": "clean",
+  "title": "Clean sample",
+  "rings": [
+    {
+      "role": "domain",
+      "name": "Entities"
+    },
+    {
+      "role": "application",
+      "name": "Use Cases"
+    },
+    {
+      "role": "adapters",
+      "name": "Interface Adapters"
+    },
+    {
+      "role": "outer",
+      "name": "Frameworks & Drivers"
+    }
+  ],
+  "sectors": [
+    {
+      "id": "sec-billing",
+      "name": "Billing",
+      "ringRole": "domain"
+    },
+    {
+      "id": "sec-reporting",
+      "name": "Reporting",
+      "ringRole": "application"
+    },
+    {
+      "id": "sec-api",
+      "name": "API",
+      "ringRole": "outer"
+    }
+  ],
+  "elements": [
+    {
+      "id": "el-order",
+      "name": "Order",
+      "sectorId": "sec-billing"
+    },
+    {
+      "id": "el-controller",
+      "name": "OrderController",
+      "sectorId": "sec-api"
+    }
+  ],
+  "dependencies": [
+    {
+      "id": "dep-1",
+      "fromId": "el-controller",
+      "toId": "el-order"
+    }
+  ],
+  "actors": [
+    {
+      "id": "act-web",
+      "name": "Web shop",
+      "targetId": "el-controller"
+    }
+  ],
+  "externals": [
+    {
+      "id": "ext-payment",
+      "name": "Payment gateway",
+      "targetId": "el-controller"
+    }
+  ]
+}

@@ -21,6 +21,7 @@ import v1Maximal from './model/fixtures/v1-maximal.hexa?raw'
 import v2EmptyContext from './model/fixtures/v2-empty-context.hexa?raw'
 import v2Honeycomb from './model/fixtures/v2-honeycomb.hexa?raw'
 import v3OnionExample from './model/fixtures/v3-onion-example.hexa?raw'
+import v4CleanExample from './model/fixtures/v4-clean-example.hexa?raw'
 
 const scrollIntoView = vi.fn()
 
@@ -1492,6 +1493,19 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(screen.getByRole('alert').textContent).toBe('sample.hexa is an Onion file. Add hexagon from file… only accepts a Hexagonal map.')
   })
+
+  it('refuses a Clean file the same way, naming it by its own kind (REQ-05)', async () => {
+    render(<App />)
+    openEditor()
+    const before = useMapStore.getState().map
+    openImportMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
+    await pickFile(v4CleanExample, 'sample.hexa')
+
+    expect(useMapStore.getState().map).toBe(before)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole('alert').textContent).toBe('sample.hexa is a Clean file. Add hexagon from file… only accepts a Hexagonal map.')
+  })
 })
 
 // --- The two end-to-end author journeys, starting from New, UI only --------------------------------------------
@@ -2223,6 +2237,93 @@ describe('Onion export (REQ-08)', () => {
     const markup = await captured!.text()
     expect(markup).toContain(EXAMPLE_DIAGRAM.title)
 
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+    vi.unstubAllGlobals()
+  })
+})
+
+describe('Clean export (REQ-05)', () => {
+  const openCleanSample = async () => {
+    render(<App />)
+    const file = new File([v4CleanExample], 'sample.hexa', { type: 'application/json' })
+    fireEvent.change(screen.getByLabelText('Open a .hexa file, replacing the map'), { target: { files: [file] } })
+    await act(async () => {
+      await Promise.resolve()
+    })
+  }
+
+  it('exports the Clean diagram as SVG showing its rings, sector dividers, elements, dependency arrow, actor and external, named after its own title, with no leftover "+"/"Depend on…" affordances or legend', async () => {
+    await openCleanSample()
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(clickSpy.mock.instances.at(-1)).toMatchObject({ download: `${fileSlug('Clean sample')}.svg` })
+    const markup = await captured!.text()
+    expect(markup).toContain('Entities') // innermost ring, drawn as-is
+    expect(markup).toContain('FRAMEWORKS &amp; DRIVERS') // outer ring, upper-cased like every non-innermost ring
+    expect(markup).toContain('data-sector-divider') // sector wedge dividers (REQ-08)
+    expect(markup).toContain('>Order<') // element
+    expect(markup).toContain('>OrderController<') // element
+    expect(markup).toContain('>Web shop<') // actor
+    expect(markup).toContain('>Payment gateway<') // external
+    expect(markup).toContain('url(#clean-arrow)') // dependency/endpoint arrow
+    expect(markup).not.toMatch(/<circle[^>]*r="10"/) // no leftover ring/sector/element "+" glyph
+    expect(markup).not.toContain('Depend on…') // no leftover gesture chip
+    expect(markup).not.toMatch(/data-legend/) // Clean has no legend concept — never drawn
+
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  it('exports the Clean diagram as PNG through pngBlob, same as Hexagonal/Onion', async () => {
+    await openCleanSample()
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+
+    // jsdom implements neither image decoding nor a 2D canvas context — stub only those browser gaps so the
+    // real pngBlob (src/ui/exporters.ts) still runs its own sizing/draw/encode logic end to end.
+    ;(HTMLImageElement.prototype as unknown as { decode: () => Promise<void> }).decode = vi.fn().mockResolvedValue(undefined)
+    const drawImage = vi.fn()
+    const contextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage } as unknown as CanvasRenderingContext2D)
+    const toBlobSpy = vi
+      .spyOn(HTMLCanvasElement.prototype, 'toBlob')
+      .mockImplementation(function (this: HTMLCanvasElement, cb: BlobCallback) {
+        cb(new Blob(['fake-png'], { type: 'image/png' }))
+      })
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export as PNG' }))
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(clickSpy.mock.instances.at(-1)).toMatchObject({ download: `${fileSlug('Clean sample')}.png` })
+    expect(drawImage).toHaveBeenCalledTimes(1)
+    expect(captured?.type).toBe('image/png')
+
+    delete (HTMLImageElement.prototype as unknown as { decode?: () => Promise<void> }).decode
+    contextSpy.mockRestore()
+    toBlobSpy.mockRestore()
     createSpy.mockRestore()
     clickSpy.mockRestore()
     vi.unstubAllGlobals()

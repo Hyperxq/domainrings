@@ -13,6 +13,7 @@ import v2Honeycomb from './fixtures/v2-honeycomb.hexa?raw'
 import v2EmptyContext from './fixtures/v2-empty-context.hexa?raw'
 import v2SchemaSnapshot from './fixtures/v2.schema.json?raw'
 import v3OnionExample from './fixtures/v3-onion-example.hexa?raw'
+import v4CleanExample from './fixtures/v4-clean-example.hexa?raw'
 
 const errorsOf = (text: string) => {
   const result = parseHexa(text)
@@ -366,6 +367,31 @@ describe('committed (frozen) v3 onion fixture (REQ-02, REQ-04, REQ-05 shape)', (
 
   it('re-saving the upgraded map round-trips (no longer byte-identical to the frozen v3 source — its version moved)', () => {
     const result = parseHexa(v3OnionExample)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const reparsed = parseHexa(toHexa(result.map))
+    expect(reparsed).toEqual(result)
+  })
+})
+
+describe('current (v4) clean fixture (REQ-02, REQ-03, REQ-04, REQ-06, REQ-07, REQ-08 shape)', () => {
+  it('parses as kind clean with its 4 rings, 3 sectors (one empty), 2 elements, 1 dependency, an actor and an external', () => {
+    const result = parseHexa(v4CleanExample)
+    expect(result.ok).toBe(true)
+    if (!result.ok || result.map.kind !== 'clean') throw new Error('fixture failed to parse as clean')
+    expect(result.map.version).toBe(VERSION)
+    expect(result.map.rings.map((r) => r.role)).toEqual(['domain', 'application', 'adapters', 'outer'])
+    expect(result.map.sectors).toHaveLength(3)
+    const elementSectorIds = new Set(result.map.elements.map((e) => e.sectorId))
+    expect(result.map.sectors.filter((s) => !elementSectorIds.has(s.id))).toHaveLength(1)
+    expect(result.map.elements).toHaveLength(2)
+    expect(result.map.dependencies).toHaveLength(1)
+    expect(result.map.actors).toHaveLength(1)
+    expect(result.map.externals).toHaveLength(1)
+  })
+
+  it('round-trips: re-saving the parsed map and re-parsing it yields the same result', () => {
+    const result = parseHexa(v4CleanExample)
     expect(result.ok).toBe(true)
     if (!result.ok) return
     const reparsed = parseHexa(toHexa(result.map))

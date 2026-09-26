@@ -7,7 +7,7 @@ interface ArchitectureChoiceDialogProps {
   onCancel: () => void
 }
 
-const CHOICES: { kind: ArchitectureChoice; label: string }[] = [
+export const CHOICES: { kind: ArchitectureChoice; label: string }[] = [
   { kind: 'hexagonal', label: 'Hexagonal' },
   { kind: 'onion', label: 'Onion' },
   { kind: 'clean', label: 'Clean' },

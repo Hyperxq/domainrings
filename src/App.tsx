@@ -15,7 +15,7 @@ import type { Recovery } from './model/persistence'
 import type { HexaMap, Link, LinkEnd, StoredFile, Wall } from './model/schema'
 import { useMapStore } from './model/store'
 import type { ArchitectureChoice } from './ui/ArchitectureChoiceDialog'
-import { ArchitectureChoiceDialog } from './ui/ArchitectureChoiceDialog'
+import { ArchitectureChoiceDialog, CHOICES } from './ui/ArchitectureChoiceDialog'
 import { Editor, revealInEditor } from './ui/Editor'
 import { download, exportBounds, fileSlug, legendDrawn, pngBlob, svgMarkup } from './ui/exporters'
 import { Icon } from './ui/Icon'
@@ -51,6 +51,10 @@ const RECOVERY_MESSAGE: Record<'kept' | 'not-kept', string> = {
   kept: "Your last session couldn't be restored, so the example is open. Your saved work is kept in this browser; nothing was deleted.",
   'not-kept': "Your last session couldn't be restored and a copy couldn't be kept, so autosave is off.",
 }
+
+/** Only Onion/Clean ever reach this (Hexagonal is excluded before the caller needs it) — genuinely closed to those
+ * two labels, not a general-purpose English article rule. */
+const article = (label: string) => (/^[aeiou]/i.test(label) ? 'an' : 'a')
 
 const LEGEND_EXPORT_KEY = 'domainrings:legend-export'
 const OVERVIEW_KEY = 'domainrings:overview'
@@ -363,7 +367,8 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     const parsed = await parseFile(file)
     if (!parsed) return
     if (parsed.kind !== 'hexagonal') {
-      show({ tone: 'error', message: `${file.name} is an Onion file. Add hexagon from file… only accepts a Hexagonal map.` })
+      const kindLabel = CHOICES.find((c) => c.kind === parsed.kind)!.label
+      show({ tone: 'error', message: `${file.name} is ${article(kindLabel)} ${kindLabel} file. Add hexagon from file… only accepts a Hexagonal map.` })
       return
     }
     if (parsed.hexagons.length > 1) {
