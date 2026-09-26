@@ -221,13 +221,13 @@ function enterBox(box: { x: number; y: number; width: number; height: number }, 
 }
 
 
-interface Outline {
+export interface Outline {
   halfWidth: number
   straight: number
   apex: number
 }
 
-interface Need {
+export interface Need {
   x: number
   y: number
 }
@@ -251,16 +251,16 @@ function depthAt(shape: Shape, o: Outline, half: number): number {
   return Math.min(half / SQRT3, o.apex - o.straight)
 }
 
-const circle = (r: number): Outline => ({ halfWidth: r, straight: 0, apex: r })
-const hexagon = (r: number): Outline => ({ halfWidth: r * COS30, straight: r / 2, apex: r })
-const outlineOf = (shape: Shape, r: number) => (shape === 'circle' ? circle(r) : hexagon(r))
+export const circle = (r: number): Outline => ({ halfWidth: r, straight: 0, apex: r })
+export const hexagon = (r: number): Outline => ({ halfWidth: r * COS30, straight: r / 2, apex: r })
+export const outlineOf = (shape: Shape, r: number) => (shape === 'circle' ? circle(r) : hexagon(r))
 
 /**
  * Smallest ring around `inner` holding every need. A regular hexagon's half-width at dy is
  * min(r·cos30, (r − |dy|)·√3), so a point (x, y) needs r >= x/cos30 and r >= y + x/√3. `side` needs
  * must also land on the straight vertical side (|dy| <= r/2), where ports and adapters line up.
  */
-function fitRing(shape: Shape, inner: Outline, side: Need[], vertical: Need[], minApothem = 0): Outline {
+export function fitRing(shape: Shape, inner: Outline, side: Need[], vertical: Need[], minApothem = 0): Outline {
   const needs = [...side, ...vertical]
   if (shape === 'circle') {
     return circle(Math.max(inner.halfWidth + MIN_BAND, ...needs.map((n) => Math.hypot(n.x, n.y))))

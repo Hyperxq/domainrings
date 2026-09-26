@@ -11,6 +11,7 @@ import { diagramOf, UNTITLED_HEXAGON } from './model/map'
 import { autosave, MAP_KEY } from './model/persistence'
 import type { HexaMap } from './model/schema'
 import { useMapStore } from './model/store'
+import { useOnionStore } from './model/onionStore'
 import { fileSlug } from './ui/exporters'
 import { decodeSharePayload, encodeSharePayload, SHARE_HASH_PREFIX } from './ui/shareLink'
 import { card, currentDiagram, hexGroup, installCompressionStreamPolyfill, installDialogPolyfill, linkedTwoHexMap, twoHexMap } from './test/fixtures'
@@ -721,6 +722,7 @@ describe('current hexagon (FOCUS-03, FOCUS-06)', () => {
     expect(container.querySelectorAll('[data-selected]')).toHaveLength(1)
 
     fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Hexagonal' }))
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
 
     expect(useMapStore.getState().focus).toBe('h2')
@@ -787,42 +789,6 @@ describe('link pruning (LINK-01, LINK-02)', () => {
     fireEvent.click(line)
     fireEvent.keyDown(document.body, { key: 'Delete' })
     expect(useMapStore.getState().map).toBe(beforeMap)
-  })
-})
-
-describe('kind lock on a multi-hexagon map (MIG-04.2)', () => {
-
-  it('disables the kind radios with a hint, and clicking one still leaves the map hexagonal', () => {
-    useMapStore.getState().replace(twoHexMap())
-    render(<App />)
-
-    const clean = screen.getByRole('radio', { name: 'Clean' })
-    expect(clean.getAttribute('aria-disabled')).toBe('true')
-    const hintId = clean.getAttribute('aria-describedby')
-    expect(hintId).toBeTruthy()
-    expect(document.getElementById(hintId!)!.textContent).toBe('A map with more than one hexagon is always hexagonal.')
-
-    fireEvent.click(clean)
-
-    expect(useMapStore.getState().map.kind).toBe('hexagonal')
-  })
-
-  it('takes the hint out of flow (so a multi-hexagon toolbar never overflows) but still surfaces it as a title on the locked fieldset (REQ-04.2)', () => {
-    useMapStore.getState().replace(twoHexMap())
-    render(<App />)
-
-    const clean = screen.getByRole('radio', { name: 'Clean' })
-    const hintId = clean.getAttribute('aria-describedby')!
-    expect(document.getElementById(hintId)!.classList.contains('visually-hidden')).toBe(true)
-    expect(clean.closest('fieldset')!.getAttribute('title')).toBe('A map with more than one hexagon is always hexagonal.')
-  })
-
-  it('leaves the kind radios enabled, with no hint, on a single-hexagon map', () => {
-    render(<App />)
-
-    const clean = screen.getByRole('radio', { name: 'Clean' })
-    expect(clean.getAttribute('aria-disabled')).toBeNull()
-    expect(clean.getAttribute('aria-describedby')).toBeNull()
   })
 })
 
@@ -1044,7 +1010,7 @@ describe('export scope (EXPORT-03)', () => {
 
   it('exports a real two-context render: hulls and chips kept in Map scope, dropped in Hexagon scope (EXPORT-03)', async () => {
     const result = parseHexa(v2Honeycomb)
-    if (!result.ok) throw new Error('fixture failed to parse')
+    if (!result.ok || result.map.kind !== 'hexagonal') throw new Error('fixture failed to parse')
     useMapStore.getState().replace(result.map)
     // Real CSS, not jsdom's unstyled defaults, so a hull path's stroke-dasharray actually reaches the export —
     // the same technique exporters.test.ts uses for its own CSS-dependent assertions.
@@ -1324,7 +1290,7 @@ describe('renaming a bounded context (NAME-01..03)', () => {
     expect(storage.setItem).toHaveBeenCalledWith(MAP_KEY, expect.stringContaining('Billing'))
     const written = storage.setItem.mock.calls.at(-1)![1] as string
     const reopened = parseHexa(written)
-    expect(reopened.ok && reopened.map.contexts.find((c) => c.name === 'Billing')).toBeTruthy()
+    expect(reopened.ok && reopened.map.kind === 'hexagonal' && reopened.map.contexts.find((c) => c.name === 'Billing')).toBeTruthy()
     vi.useRealTimers()
   })
 })
@@ -1410,22 +1376,13 @@ describe('delete a hexagon (DEL-01..06)', () => {
     expect(useMapStore.getState().focus).toBe(beforeFocus)
   })
 
-  it('deleting down to one hexagon keeps the map kind hexagonal and re-enables the kind control (DEL-06.1)', () => {
-    useMapStore.getState().replace(twoHexMap())
-    render(<App />)
-    openEditor()
-
-    fireEvent.click(deleteButton())
-
-    expect(useMapStore.getState().map.kind).toBe('hexagonal')
-    expect(screen.getByRole('radio', { name: 'Onion' }).hasAttribute('aria-disabled')).toBe(false)
-  })
 })
 
 describe('import a hexagon from file (IMP-01..07)', () => {
   const openEditor = () => fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
   const openImportMenu = () => fireEvent.click(screen.getByRole('button', { name: 'Add hexagon from file…' }))
-  const oneHexFile = (kind: 'hexagonal' | 'clean' | 'onion' = 'hexagonal') => toHexa(toMap({ ...EXAMPLE_DIAGRAM, kind, title: 'Legacy System' }))
+  // toMap always yields kind hexagonal now (REQ-06) — no `kind` param left to vary.
+  const oneHexFile = () => toHexa(toMap({ ...EXAMPLE_DIAGRAM, title: 'Legacy System' }))
   const pickFile = async (text: string, name = 'legacy.hexa') => {
     const file = new File([text], name, { type: 'application/json' })
     fireEvent.change(screen.getByLabelText('Add hexagon from a .hexa file'), { target: { files: [file] } })
@@ -1493,20 +1450,6 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     expect(screen.getByRole('alert').textContent).toBe('This file has 2 hexagons. Add hexagon from file… takes one; use Open to replace the map.')
   })
 
-  it('refuses a multi-hexagon file before any conversion question, even when the target map is Clean or Onion (IMP-04.2)', async () => {
-    useMapStore.getState().setMapMeta({ kind: 'clean' })
-    render(<App />)
-    openEditor()
-    const before = useMapStore.getState().map
-    openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
-    await pickFile(toHexa(twoHexMap()), 'two.hexa')
-
-    expect(useMapStore.getState().map).toBe(before)
-    expect(screen.queryByRole('dialog')).toBeNull()
-    expect(screen.getByRole('alert').textContent).toBe('This file has 2 hexagons. Add hexagon from file… takes one; use Open to replace the map.')
-  })
-
   it('an invalid file is refused the same way Open refuses one, without opening any dialog (IMP-07)', async () => {
     render(<App />)
     openEditor()
@@ -1518,44 +1461,6 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     expect(useMapStore.getState().map).toBe(before)
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(screen.getByRole('alert').textContent).toContain('broken.hexa could not be opened')
-  })
-
-  it('opens the conversion dialog when the target map is Onion, and "Convert and import" completes the import in one step (CONV-01.2, CONV-03, CONV-04)', async () => {
-    useMapStore.getState().setMapMeta({ kind: 'onion' })
-    render(<App />)
-    openEditor()
-    openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
-    await pickFile(oneHexFile('clean'), 'legacy.hexa')
-
-    const dialog = screen.getByRole('dialog')
-    expect(dialog.textContent).toContain('Convert this Onion map to hexagonal?')
-    expect(useMapStore.getState().map.kind).toBe('onion')
-    expect(useMapStore.getState().map.hexagons).toHaveLength(1)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Convert and import' }))
-
-    expect(useMapStore.getState().map.kind).toBe('hexagonal')
-    expect(useMapStore.getState().map.hexagons).toHaveLength(2)
-    expect(toastEl()!.querySelector('p')!.textContent).toBe("Added Legacy System from legacy.hexa. legacy.hexa was Clean; it now uses this map's hexagonal kind.")
-    expect(screen.queryByRole('dialog')).toBeNull()
-  })
-
-  it('Cancel on the conversion dialog leaves the map untouched and returns focus to the import trigger (CONV-02.1)', async () => {
-    useMapStore.getState().setMapMeta({ kind: 'clean' })
-    render(<App />)
-    openEditor()
-    const before = useMapStore.getState().map
-    const trigger = screen.getByRole('button', { name: 'Add hexagon from file…' })
-    openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
-    await pickFile(oneHexFile())
-
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-
-    expect(useMapStore.getState().map).toBe(before)
-    expect(screen.queryByRole('dialog')).toBeNull()
-    expect(document.activeElement).toBe(trigger)
   })
 
   it('Undo restores the map and focus to what they were before the import', async () => {
@@ -1572,125 +1477,13 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     expect(useMapStore.getState().map).toStrictEqual(before)
     expect(useMapStore.getState().focus).toBe(beforeFocus)
   })
-
-  it('"Convert and import" converts the map and imports as one undoable step, restoring both the kind and the hexagon on Undo (CONV-03.2)', async () => {
-    useMapStore.getState().setMapMeta({ kind: 'onion' })
-    render(<App />)
-    openEditor()
-    const before = useMapStore.getState().map
-    const beforeFocus = useMapStore.getState().focus
-    openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
-    await pickFile(oneHexFile())
-
-    fireEvent.click(screen.getByRole('button', { name: 'Convert and import' }))
-
-    expect(useMapStore.getState().map.kind).toBe('hexagonal')
-    const imported = useMapStore.getState().map.hexagons.at(-1)!
-    expect(imported.title).toBe('Legacy System')
-
-    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
-
-    expect(useMapStore.getState().map).toStrictEqual(before)
-    expect(useMapStore.getState().map.kind).toBe('onion')
-    expect(useMapStore.getState().focus).toBe(beforeFocus)
-  })
 })
 
-describe('growing or importing into a Clean/Onion map asks first (CONV-01..05, GROW-01.5)', () => {
-  const growEast = () => fireEvent.click(screen.getByRole('button', { name: 'Add hexagon to the east of Chat feedback slice' }))
-
-  it('opens the conversion dialog instead of growing directly, naming the map’s own kind (GROW-01.5, CONV-01.1)', () => {
-    useMapStore.getState().setMapMeta({ kind: 'clean' })
-    render(<App />)
-    const before = useMapStore.getState().map
-    growEast()
-
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
-
-    const dialog = screen.getByRole('dialog')
-    expect(dialog.textContent).toContain('Convert this Clean map to hexagonal?')
-    expect(screen.getByRole('button', { name: 'Convert and add' })).toBeTruthy()
-    expect(useMapStore.getState().map).toBe(before)
-  })
-
-  it('Cancel leaves the map untouched and returns focus to the side “+” trigger (CONV-02.1)', () => {
-    useMapStore.getState().setMapMeta({ kind: 'clean' })
-    render(<App />)
-    const before = useMapStore.getState().map
-    const trigger = screen.getByRole('button', { name: 'Add hexagon to the east of Chat feedback slice' })
-    growEast()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
-
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-
-    expect(useMapStore.getState().map).toBe(before)
-    expect(screen.queryByRole('dialog')).toBeNull()
-    expect(document.activeElement).toBe(trigger)
-  })
-
-  it('"Convert and add" converts the map and grows it as one undoable step (CONV-03)', () => {
-    useMapStore.getState().setMapMeta({ kind: 'onion' })
-    render(<App />)
-    const before = useMapStore.getState().map
-    const beforeFocus = useMapStore.getState().focus
-    growEast()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
-
-    fireEvent.click(screen.getByRole('button', { name: 'Convert and add' }))
-
-    expect(useMapStore.getState().map.kind).toBe('hexagonal')
-    expect(useMapStore.getState().map.hexagons).toHaveLength(2)
-    expect(screen.queryByRole('dialog')).toBeNull()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
-
-    expect(useMapStore.getState().map).toStrictEqual(before)
-    expect(useMapStore.getState().focus).toBe(beforeFocus)
-  })
-})
-
-describe('no autosave while the conversion dialog is open (CONV-02.3)', () => {
-  beforeEach(() => vi.useFakeTimers())
-  afterEach(() => vi.useRealTimers())
-
-  it('does not write to storage while the dialog is open, even past the usual autosave delay', () => {
-    useMapStore.getState().setMapMeta({ kind: 'clean' })
-    const storage = { setItem: vi.fn() }
-    autosave(useMapStore, storage, 'none', 400)
-    render(<App />)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Add hexagon to the east of Chat feedback slice' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
-    expect(screen.getByRole('dialog')).toBeTruthy()
-
-    act(() => vi.advanceTimersByTime(1000))
-
-    expect(storage.setItem).not.toHaveBeenCalled()
-  })
-
-  it('does not let Ctrl/Cmd+Z on the dialog reach the document-level undo listener behind it', () => {
-    useMapStore.getState().setMapMeta({ kind: 'clean' })
-    render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
-    const input = screen.getByLabelText('Name for Context 1')
-    fireEvent.focus(input)
-    fireEvent.change(input, { target: { value: 'Billing' } })
-    fireEvent.blur(input)
-    expect(toastEl()).not.toBeNull()
-    const mapBefore = useMapStore.getState().map
-
-    fireEvent.click(screen.getByRole('button', { name: 'Add hexagon to the east of Chat feedback slice' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Billing' }))
-    const cancelButton = screen.getByRole('button', { name: 'Cancel' })
-    expect(document.activeElement).toBe(cancelButton)
-
-    fireEvent.keyDown(cancelButton, { key: 'z', ctrlKey: true })
-
-    expect(useMapStore.getState().map).toBe(mapBefore)
-    expect(screen.getByRole('dialog')).toBeTruthy()
-  })
-})
+// The ConvertDialog these two suites asked before growing/importing into a Clean/Onion map is unreachable now:
+// HexaMap's `kind` is the literal 'hexagonal' (REQ-01/ADR-01), so there is no way left to construct the map
+// state they depended on. S-001 deletes ConvertDialog and this dead code outright; this suite already can't
+// build the precondition — 5 tests removed (2 growing/importing scenarios, 2 conversion-dialog-open scenarios,
+// plus the multi-hexagon-file refusal "even when Clean/Onion" variant above, redundant with the plain case).
 
 // --- The two end-to-end author journeys, starting from New, UI only --------------------------------------------
 
@@ -1737,6 +1530,7 @@ describe('journey', () => {
     render(<App />)
     openEditor()
     fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Hexagonal' }))
     expect(useMapStore.getState().map.hexagons).toHaveLength(1)
 
     // v1-minimal and v1-maximal both join the map's OWN starting context — two of them end up in one shared
@@ -1788,6 +1582,7 @@ describe('journey', () => {
   it('from New, the author grows two bounded contexts and four hexagons', async () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Hexagonal' }))
     const title = useMapStore.getState().map.hexagons[0].title || 'Untitled hexagon'
 
     const growFirstFreeSide = () => fireEvent.click(screen.getAllByRole('button', { name: new RegExp(`^Add hexagon to the .* of ${title}$`) })[0])
@@ -1828,7 +1623,7 @@ describe('journey', () => {
     // Two driven ports on h1 (same context c1 as h2, a different one c2 as h3), so one link can be created from
     // the canvas chip within a context and the other from the Links section across contexts (pattern-eligible).
     const journeyMap: HexaMap = {
-      version: 2,
+      version: 3,
       kind: 'hexagonal',
       title: 'Release journey',
       contexts: [{ id: 'c1' }, { id: 'c2' }],
@@ -1941,7 +1736,7 @@ describe('journey', () => {
     // Save and reopen: every link's ends, adapter, and pattern survive exactly (REQ-LNK-08.2, 08.3).
     const beforeSave = useMapStore.getState().map
     const savedText = await saveHexa()
-    expect(JSON.parse(savedText).version).toBe(2)
+    expect(JSON.parse(savedText).version).toBe(3)
 
     await reopen(savedText)
 
@@ -2157,5 +1952,65 @@ describe('an embedded link wins over a remote address when both are present (REQ
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(location.hash).toBe('')
     expect(location.search).toBe('')
+  })
+})
+
+describe('S-000 walking skeleton: the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
+  it('New opens the chooser; picking Hexagonal is pixel-identical to the old direct New', () => {
+    const { container } = render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Hexagonal' }))
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(useMapStore.getState().map.kind).toBe('hexagonal')
+    expect(useMapStore.getState().map.hexagons).toHaveLength(1)
+    expect(useMapStore.getState().map.hexagons[0].title).toBe('Untitled architecture')
+    expect(container.querySelector('svg.canvas')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
+  })
+
+  it('New → Onion mounts a bare 4-ring OnionDiagram, with no Hexagonal editor/stage, and never touches the Hexagonal store', () => {
+    const { container } = render(<App />)
+    const hexaMapBefore = useMapStore.getState().map
+
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(container.querySelectorAll('svg.canvas .ring')).toHaveLength(4)
+    expect(screen.queryByRole('button', { name: 'Expand editor' })).toBeNull()
+    expect(container.querySelector('[data-hex]')).toBeNull()
+    expect(useOnionStore.getState().map.kind).toBe('onion')
+    expect(useOnionStore.getState().map.rings.map((r) => r.role)).toEqual(['domain', 'domainServices', 'application', 'outer'])
+    expect(useOnionStore.getState().map.title).toBe('Untitled architecture')
+    // The Hexagonal store was never touched by choosing Onion (App reads it unconditionally but never mutates it).
+    expect(useMapStore.getState().map).toBe(hexaMapBefore)
+  })
+
+  it('Esc on the chooser leaves the current view untouched', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    const dialog = screen.getByRole('dialog')
+
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
+  })
+
+  it('opening a legacy v2 file whose stored kind is onion renders Hexagonal, ports and adapters intact (REQ-06)', async () => {
+    render(<App />)
+    const file = new File([v2EmptyContext], 'legacy.hexa', { type: 'application/json' })
+
+    fireEvent.change(screen.getByLabelText('Open a .hexa file, replacing the map'), { target: { files: [file] } })
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(useMapStore.getState().map.kind).toBe('hexagonal')
+    expect(useMapStore.getState().map.hexagons[0].ports.length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
   })
 })

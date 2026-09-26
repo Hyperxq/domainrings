@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { DiagramSchema, linkEndProblem, MapSchema } from './schema'
+import { DiagramSchema, linkEndProblem, MapSchema, OnionFileSchema } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
-import { toMap } from './hexa'
+import { newOnionMap, toMap } from './hexa'
 
 const issuePaths = (input: unknown) => {
   const result = DiagramSchema.safeParse(input)
@@ -101,7 +101,7 @@ describe('DiagramSchema', () => {
 })
 
 const TWO_HEXAGON_MAP = {
-  version: 2 as const,
+  version: 3 as const,
   kind: 'hexagonal' as const,
   title: 'Two hexagons',
   contexts: [{ id: 'c1' }],
@@ -142,6 +142,19 @@ describe('linkEndProblem', () => {
   it('reports the wrong side for the role', () => {
     expect(linkEndProblem(map, { hexagonId: 'h2', portId: 'p-in' }, 'from')).toMatch(/driven port/)
     expect(linkEndProblem(map, { hexagonId: 'h1', portId: 'p-out' }, 'to')).toMatch(/driving port/)
+  })
+})
+
+describe('newOnionMap', () => {
+  it('starts with exactly 4 rings, innermost-first, in the fixed role order (REQ-02)', () => {
+    const onion = newOnionMap('Fresh architecture')
+    expect(OnionFileSchema.safeParse(onion).success).toBe(true)
+    expect(onion.rings).toHaveLength(4)
+    expect(onion.rings.map((r) => r.role)).toEqual(['domain', 'domainServices', 'application', 'outer'])
+    expect(onion.elements).toEqual([])
+    expect(onion.dependencies).toEqual([])
+    expect(onion.actors).toEqual([])
+    expect(onion.externals).toEqual([])
   })
 })
 

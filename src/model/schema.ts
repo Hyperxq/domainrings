@@ -101,15 +101,16 @@ function checkIntegrity(d: Pick<z.infer<typeof DiagramObject>, CollectionKey>, c
 // Zod 4 refuses to .extend() a refined object, so the refinement is applied to each variant.
 export const DiagramSchema = DiagramObject.superRefine(checkIntegrity)
 export const APP = 'domainrings'
-export const VERSION = 2
+/** The current, in-memory document version — the Hexagonal and Onion arms of `StoredFile` share it (ADR-01). */
+export const VERSION = 3
 // Files saved before the rename still open; parseHexa drops the marker, so they re-export under the current name.
 // Frozen: the file format a v1 build wrote and still reads. Never change this schema — a data-bearing addition
-// belongs on the v2 map instead.
+// belongs on the v3 map instead.
 export const HexaFileV1Schema = DiagramObject.extend({ app: z.enum([APP, 'archviz']) }).superRefine(checkIntegrity)
 
 export type Diagram = z.infer<typeof DiagramSchema>
 
-// --- v2: a map holds one or more hexagons, each keeping the v1 shape (minus version/kind, which move to the map). ---
+// --- v2/v3: a map holds one or more hexagons, each keeping the v1 shape (minus version/kind, which move to the map). ---
 
 const CellSchema = z.object({ q: z.int(), r: z.int() })
 const ContextSchema = z.object({ id, name: z.string().optional() })
@@ -118,21 +119,29 @@ export const LinkPatternSchema = z.enum(['acl', 'ohs-pl', 'customer-supplier', '
 const LinkEndSchema = z.object({ hexagonId: id, portId: id, adapterId: id.optional() })
 const LinkSchema = z.object({ id, from: LinkEndSchema, to: LinkEndSchema, pattern: LinkPatternSchema.optional() })
 
-const MapObject = z.object({
-  version: z.literal(VERSION),
-  kind: KindSchema,
+export type Context = z.infer<typeof ContextSchema>
+export type Hexagon = z.infer<typeof HexagonObject>
+export type LinkEnd = z.infer<typeof LinkEndSchema>
+export type Link = z.infer<typeof LinkSchema>
+
+const MapFields = {
   title: z.string(),
   contexts: z.array(ContextSchema).min(1),
   hexagons: z.array(HexagonObject.superRefine(checkIntegrity)).min(1),
   links: z.array(LinkSchema),
-})
+}
 
-export type LinkEnd = z.infer<typeof LinkEndSchema>
-export type Link = z.infer<typeof LinkSchema>
-type MapShape = z.infer<typeof MapObject>
+/** What `checkMap`/`linkEndProblem` need — shared structurally by the frozen v2 map (`kind`: 3-way) and the
+ * current v3 Hexagonal map (`kind`: literal `'hexagonal'`), so one rule set serves both without duplicating it. */
+interface MapLike {
+  kind: string
+  contexts: Context[]
+  hexagons: Hexagon[]
+  links: Link[]
+}
 
 /** Why an end cannot stand: unknown hexagon, unknown port, wrong side for its role, adapter missing or not on that port. */
-export function linkEndProblem(map: MapShape, end: LinkEnd, role: 'from' | 'to'): string | undefined {
+export function linkEndProblem(map: MapLike, end: LinkEnd, role: 'from' | 'to'): string | undefined {
   const hexagon = map.hexagons.find((h) => h.id === end.hexagonId)
   if (!hexagon) return `Unknown hexagon id "${end.hexagonId}"`
   const port = hexagon.ports.find((p) => p.id === end.portId)
@@ -147,7 +156,7 @@ export function linkEndProblem(map: MapShape, end: LinkEnd, role: 'from' | 'to')
   return undefined
 }
 
-function checkMap(m: MapShape, ctx: z.RefinementCtx) {
+function checkMap(m: MapLike, ctx: z.RefinementCtx) {
   const seenContexts = new Set<string>()
   m.contexts.forEach((c, i) => {
     if (seenContexts.has(c.id)) ctx.addIssue({ code: 'custom', message: `Duplicate context id "${c.id}"`, path: ['contexts', i, 'id'] })
@@ -196,11 +205,21 @@ function checkMap(m: MapShape, ctx: z.RefinementCtx) {
   })
 }
 
-export const MapSchema = MapObject.superRefine(checkMap)
-export const HexaFileV2Schema = MapObject.extend({ app: z.literal(APP) }).superRefine(checkMap)
-export type HexaMap = z.infer<typeof MapSchema>
-export type Hexagon = HexaMap['hexagons'][number]
-export type Context = HexaMap['contexts'][number]
+// Frozen: the map format a v2 build wrote and still reads (any of the 3 kinds). Never change this schema — REQ-06
+// coerces its `kind` back to hexagonal on open (hexa.ts), it does not touch what a v2 file is allowed to contain.
+const MapObjectV2 = z.object({ version: z.literal(2), kind: KindSchema, ...MapFields })
+export const HexaFileV2Schema = MapObjectV2.extend({ app: z.literal(APP) }).superRefine(checkMap)
+
+// Current (v3): the Hexagonal arm of `StoredFile`. Same shape as v2's map — only the version literal moves, and
+// `kind` narrows to `'hexagonal'` only: Onion is a wholly separate document shape below, never a `kind` of this
+// one (ADR-01). A document-root union is what keeps every existing Hexagonal-only consumer (`model/map.ts`,
+// `layout/map.ts`, `App.tsx`'s old render path) untouched — they read `HexaMap`, never `StoredFile`.
+const HexagonalObjectV3 = z.object({ version: z.literal(VERSION), kind: z.literal('hexagonal'), ...MapFields })
+export const HexagonalFileV3Schema = HexagonalObjectV3.superRefine(checkMap)
+/** Alias kept for the many call sites (`model/store.ts`'s validate-by-reparse, tests) that already know this
+ * name as "the current map's schema" — it always means the live `HexaMap` shape, whichever version that is. */
+export const MapSchema = HexagonalFileV3Schema
+export type HexaMap = z.infer<typeof HexagonalFileV3Schema>
 export type ArchitectureKind = z.infer<typeof KindSchema>
 export type DomainType = z.infer<typeof DomainTypeSchema>
 export type Side = z.infer<typeof SideSchema>
@@ -214,3 +233,60 @@ export type Port = z.infer<typeof PortSchema>
 export type Adapter = z.infer<typeof AdapterSchema>
 export type Endpoint = z.infer<typeof EndpointSchema>
 export type CollectionKey = (typeof COLLECTIONS)[number]
+
+// --- Onion: a wholly separate document shape (ADR-01) — flat, no hexagons/ports/adapters, always one diagram. ---
+
+export const OnionRingRoleSchema = z.enum(['domain', 'domainServices', 'application', 'outer'])
+const OnionRingSchema = z.object({ role: OnionRingRoleSchema, name: z.string() })
+const OnionElementSchema = z.object({ id, name: z.string(), ringRole: OnionRingRoleSchema, note })
+const OnionDependencySchema = z.object({ id, fromId: id, toId: id })
+const OnionEndpointSchema = z.object({ id, name: z.string(), targetId: id.optional(), note })
+
+export type OnionRingRole = z.infer<typeof OnionRingRoleSchema>
+export type OnionElement = z.infer<typeof OnionElementSchema>
+export type OnionDependency = z.infer<typeof OnionDependencySchema>
+export type OnionEndpoint = z.infer<typeof OnionEndpointSchema>
+
+const OnionFileObject = z.object({
+  version: z.literal(VERSION),
+  kind: z.literal('onion'),
+  title: z.string(),
+  // Innermost-first, fixed at creation (REQ-02) — never grown, reordered or re-typed after a file exists.
+  rings: z.tuple([OnionRingSchema, OnionRingSchema, OnionRingSchema, OnionRingSchema]),
+  elements: z.array(OnionElementSchema),
+  dependencies: z.array(OnionDependencySchema),
+  actors: z.array(OnionEndpointSchema),
+  externals: z.array(OnionEndpointSchema),
+})
+
+// The ring-direction (REQ-04) and outer-target (REQ-05) rules land with rings.ts's real logic once elements can
+// exist (S-002) — here only structural duplicate-id integrity is enforced, same convention as v1's checkIntegrity.
+function checkOnionIntegrity(d: Pick<z.infer<typeof OnionFileObject>, 'elements' | 'dependencies' | 'actors' | 'externals'>, ctx: z.RefinementCtx) {
+  const collections = [
+    ['elements', d.elements],
+    ['dependencies', d.dependencies],
+    ['actors', d.actors],
+    ['externals', d.externals],
+  ] as const
+  for (const [key, items] of collections) {
+    const seen = new Set<string>()
+    items.forEach((item, i) => {
+      if (seen.has(item.id)) ctx.addIssue({ code: 'custom', message: `Duplicate id "${item.id}"`, path: [key, i, 'id'] })
+      seen.add(item.id)
+    })
+  }
+}
+
+export const OnionFileSchema = OnionFileObject.superRefine(checkOnionIntegrity)
+export type OnionFile = z.infer<typeof OnionFileSchema>
+
+// --- StoredFile: the document-root union — the ONLY place Hexagonal and Onion meet (ADR-01). ---
+
+export type StoredFile = HexaMap | OnionFile
+// The on-disk/share-link shape (`app` wrapper), same convention as HexaFileV1Schema/HexaFileV2Schema — kept
+// separate from HexagonalFileV3Schema/OnionFileSchema (app-less, the in-memory `StoredFile` shape) because a
+// refined object can't be `.extend()`-ed (see the v1 comment above).
+export const HexaFileV3Schema = z.discriminatedUnion('kind', [
+  HexagonalObjectV3.extend({ app: z.literal(APP) }).superRefine(checkMap),
+  OnionFileObject.extend({ app: z.literal(APP) }).superRefine(checkOnionIntegrity),
+])

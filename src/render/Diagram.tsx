@@ -12,7 +12,7 @@ const BOX_PAD_X = 12
 // The domain block is plain text on the solid domain ring.
 const FRAMELESS = new Set<LayoutNode['kind']>(['domainItem', 'note', 'portDecl', 'portLabel'])
 
-function Ring({ ring, shape, inner, interactive }: { ring: LayoutRing; shape: Shape; inner?: LayoutRing; interactive: boolean }) {
+export function Ring({ ring, shape, inner, interactive }: { ring: LayoutRing; shape: Shape; inner?: LayoutRing; interactive: boolean }) {
   const innermost = !inner
   const className = `ring ring-${ring.role}`
   const ref = `layer:${ring.role}`

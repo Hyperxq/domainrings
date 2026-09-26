@@ -232,6 +232,7 @@ describe('RT-01: the shipped "Two slices, one link" example round-trips through 
     const reloaded = loadMap(storage)
     expect(reloaded).toEqual({ map: store.getState().map, recovery: 'none' })
     expect(reloaded.map).toStrictEqual(edited)
+    if (reloaded.map.kind !== 'hexagonal') throw new Error('expected a hexagonal reload')
     // A fresh boot off the reloaded map always focuses its first hexagon (FOCUS-02), regardless of what was
     // current when the edit was made — through the real replace() action, not just the map's own hexagon order.
     useMapStore.getState().replace(reloaded.map)

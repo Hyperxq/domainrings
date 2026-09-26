@@ -3,14 +3,17 @@ import { flushSync } from 'react-dom'
 import type { LayoutMode } from './layout/layout'
 import { currentHexagon, hexagonBounds, layoutMap } from './layout/map'
 import { legendFor, legendSize } from './layout/legend'
+import { layoutOnion } from './layout/onion'
 import { EXAMPLES } from './model/example'
-import { parseHexa, toHexa, toMap } from './model/hexa'
-import { KINDS } from './model/kinds'
+import { newOnionMap, parseHexa, toHexa, toMap } from './model/hexa'
 import { collectionOf, type LinkChoice } from './model/links'
 import { contextName, diagramOf, linkEndLabel, UNTITLED_HEXAGON, type Destination, type LinkPatch } from './model/map'
+import { useOnionStore } from './model/onionStore'
 import type { Recovery } from './model/persistence'
-import type { HexaMap, Link, LinkEnd, Wall } from './model/schema'
+import type { HexaMap, Link, LinkEnd, StoredFile, Wall } from './model/schema'
 import { useMapStore } from './model/store'
+import type { ArchitectureChoice } from './ui/ArchitectureChoiceDialog'
+import { ArchitectureChoiceDialog } from './ui/ArchitectureChoiceDialog'
 import { ConvertDialog } from './ui/ConvertDialog'
 import { Editor, revealInEditor } from './ui/Editor'
 import { download, exportBounds, fileSlug, legendDrawn, pngBlob, svgMarkup } from './ui/exporters'
@@ -22,6 +25,7 @@ import { decodeSharePayload, encodeSharePayload, isOversizedShareLink, shareLink
 import { Stage } from './ui/Stage'
 import { Toast } from './ui/Toast'
 import { Toolbar, type ExportScope, type ThemeChoice } from './ui/Toolbar'
+import { OnionDiagram } from './render/OnionDiagram'
 
 
 interface Notice {
@@ -49,13 +53,19 @@ const OVERVIEW_KEY = 'domainrings:overview'
 const GUIDES_KEY = 'domainrings:guides'
 const HIGHLIGHT_KEY = 'domainrings:highlight'
 const LEGEND_OPEN_KEY = 'domainrings:legend-open'
-const { replace, restore, setMapMeta, removeItem, updateItem, addHexagon, importHexagon, removeHexagon, setMeta, addLink, updateLink: updateLinkAction, removeLink: removeLinkAction } = useMapStore.getState()
+const { replace, restore, removeItem, updateItem, addHexagon, importHexagon, removeHexagon, setMeta, addLink, updateLink: updateLinkAction, removeLink: removeLinkAction } = useMapStore.getState()
+const { replace: replaceOnion } = useOnionStore.getState()
 
 interface AppProps {
-  boot?: { recovery: Recovery; unreadableText?: string }
+  boot?: { recovery: Recovery; unreadableText?: string; kind?: StoredFile['kind'] }
 }
 
 export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
+  // The sole branch point (ADR-02): both stores are read unconditionally — the inactive one never mutates,
+  // since its UI never mounts — and `activeKind` (flipped by the chooser and by swap()) decides which renders.
+  const [activeKind, setActiveKind] = useState<StoredFile['kind']>(() => boot.kind ?? 'hexagonal')
+  const onionMap = useOnionStore((s) => s.map)
+  const onionModel = layoutOnion(onionMap)
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   // The undo snapshot every action below restores on request; each site takes it as-is or spreads `swap: true`.
@@ -93,10 +103,32 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const legend = legendFor(diagram)
   const [exportScope, setExportScope] = useState<ExportScope>('map')
 
-  const swap = (nextMap: HexaMap, message: string) => {
-    show({ tone: 'status', message, undo: { ...before, swap: true } })
-    replace(nextMap)
+  // The one kind-dispatch outside the render fork (ADR-02): routes a newly created/opened/loaded document to
+  // whichever store matches its own kind and flips the active view. Undo is only offered when staying within
+  // the kind already on screen — switching kind mid-session is rare enough that a wrong-kind undo isn't worth it.
+  const swap = (file: StoredFile, message: string) => {
+    if (file.kind === 'onion') {
+      show({ tone: 'status', message })
+      replaceOnion(file)
+      setActiveKind('onion')
+      return
+    }
+    show({ tone: 'status', message, undo: activeKind === 'hexagonal' ? { ...before, swap: true } : undefined })
+    replace(file)
+    setActiveKind('hexagonal')
     setExportScope('map')
+  }
+
+  // REQ-01: the one-time, permanent architecture choice for a brand-new file — Toolbar's New button opens this
+  // instead of creating a Hexagonal map directly.
+  const [choosingArchitecture, setChoosingArchitecture] = useState(false)
+  const completeNew = (kind: ArchitectureChoice) => {
+    setChoosingArchitecture(false)
+    if (kind === 'onion') {
+      swap(newOnionMap('Untitled architecture'), 'Started a new Onion diagram.')
+      return
+    }
+    swap(toMap({ version: 1, kind: 'hexagonal', title: 'Untitled architecture', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }), 'Started a new diagram.')
   }
 
   const nameOf = (ref: string) => {
@@ -244,7 +276,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // Shared by Open…, "Add hexagon from file…" and a share link: text that fails to parse is refused the same
   // way everywhere (IMP-07) — a newer-version source isn't broken (REQ-03.1), so it gets its own headline, no
   // fix-it framing. `label` names the source in the notice ("broken.hexa" for a file, "This link" for a link).
-  const parseSource = async (text: string, label: string): Promise<HexaMap | undefined> => {
+  const parseSource = async (text: string, label: string): Promise<StoredFile | undefined> => {
     const result = parseHexa(text)
     if (result.ok) return result.map
     const message =
@@ -253,7 +285,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     return undefined
   }
 
-  const parseFile = async (file: File): Promise<HexaMap | undefined> => parseSource(await file.text(), file.name)
+  const parseFile = async (file: File): Promise<StoredFile | undefined> => parseSource(await file.text(), file.name)
 
   const importFile = async (file: File) => {
     const parsed = await parseFile(file)
@@ -319,15 +351,19 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     const newHexId = importHexagon(file, { context, convert })
     if (!newHexId) return
     const imported = useMapStore.getState().map.hexagons.find((h) => h.id === newHexId)!
-    const kindNotice = file.kind !== 'hexagonal' ? ` ${fileName} was ${KINDS[file.kind].label}; it now uses this map's hexagonal kind.` : ''
-    show({ tone: 'status', message: `Added ${imported.title || UNTITLED_HEXAGON} from ${fileName}.${kindNotice}`, undo: before })
+    show({ tone: 'status', message: `Added ${imported.title || UNTITLED_HEXAGON} from ${fileName}.`, undo: before })
   }
 
-  // "Add hexagon from file…" (IMP-01..07): refuses a multi-hexagon file before any conversion question (IMP-04.2),
-  // then either asks to convert (map.kind isn't hexagonal) or imports straight away.
+  // "Add hexagon from file…" (IMP-01..07): only a Hexagonal source has hexagons to add; refuses a multi-hexagon
+  // file before any conversion question (IMP-04.2), then either asks to convert (map.kind isn't hexagonal) or
+  // imports straight away.
   const handleAddFromFile = async (file: File, context: Destination, opener: HTMLElement | null) => {
     const parsed = await parseFile(file)
     if (!parsed) return
+    if (parsed.kind !== 'hexagonal') {
+      show({ tone: 'error', message: `${file.name} is an Onion file. Add hexagon from file… only accepts a Hexagonal map.` })
+      return
+    }
     if (parsed.hexagons.length > 1) {
       show({ tone: 'error', message: `This file has ${parsed.hexagons.length} hexagons. Add hexagon from file… takes one; use Open to replace the map.` })
       return
@@ -341,7 +377,14 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
 
   const exportAs = async (format: 'hexa' | 'svg' | 'png') => {
     try {
-      if (format === 'hexa') return download(toHexa(map), `${fileSlug(map.title)}.hexa`, 'application/json')
+      if (format === 'hexa') {
+        const file = activeKind === 'onion' ? onionMap : map
+        return download(toHexa(file), `${fileSlug(file.title)}.hexa`, 'application/json')
+      }
+      if (activeKind === 'onion') {
+        show({ tone: 'error', message: 'Exporting an Onion diagram as SVG or PNG is not available yet.' })
+        return
+      }
       if (!svgRef.current) return
       // Only a multi-hexagon map has a scope to honour — a single hexagon always exports map-shaped (EXPORT-03.1).
       const scoped = exportScope === 'hexagon' && multiHexagon
@@ -360,15 +403,12 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   return (
     <>
       <Toolbar
-        kind={map.kind}
-        kindLocked={multiHexagon}
         showScope={multiHexagon}
         exportScope={exportScope}
         onExportScope={setExportScope}
         themeChoice={themeChoice}
         palette={palette}
-        onKind={(kind) => setMapMeta({ kind })}
-        onNew={() => swap(toMap({ version: 1, kind: map.kind, title: 'Untitled architecture', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }), 'Started a new diagram.')}
+        onNew={() => setChoosingArchitecture(true)}
         onExample={(id) => {
           const example = EXAMPLES.find((x) => x.id === id)!
           swap(example.map, `Loaded the ${example.label} example.`)
@@ -400,80 +440,90 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           setHighlight(on)
         }}
       />
-      <Editor
-        open={editorOpen}
-        onToggle={() => setEditorOpen(!editorOpen)}
-        onPrune={pruneToast}
-        onAddHexagon={() => handleGrow(undefined, 'same')}
-        onDeleteHexagon={handleDelete}
-        onAddFromFile={handleAddFromFile}
-        contextLabel={contextLabel}
-        onRenameContext={handleRenameContext}
-        onCreateLink={createLink}
-        onUpdateLink={editLink}
-        onDeleteLink={deleteLink}
-      />
-      <Legend
-        legend={legend}
-        open={legendOpen}
-        onOpen={(open) => {
-          writePref(LEGEND_OPEN_KEY, open)
-          setLegendOpen(open)
-        }}
-        includeInExport={legendInExport}
-        onIncludeInExport={(include) => {
-          writePref(LEGEND_EXPORT_KEY, include)
-          setLegendInExport(include)
-        }}
-      />
-      <Stage
-        model={model}
-        map={map}
-        hexId={hexId}
-        diagram={diagram}
-        mode={mode}
-        highlight={highlight}
-        legend={legend}
-        revision={revision}
-        title={diagram.title}
-        svgRef={svgRef}
-        panelOpen={editorOpen}
-        legendOpen={legendOpen}
-        showGuides={guides}
-        onReveal={reveal}
-        onDelete={deleteItem}
-        linking={linking}
-        onLinking={startLinking}
-        onLink={link}
-        contextLabel={contextLabel}
-        onGrow={handleGrow}
-        naming={!!growing}
-        onNamed={(title) => {
-          setMeta(growing!.hexId, { title })
-          setGrowing(null)
-        }}
-        onNamingCancel={() => {
-          restore(growing!.before)
-          setGrowing(null)
-          setNotice(null)
-        }}
-      />
-      {converting && (
-        <ConvertDialog
-          kind={map.kind}
-          action={converting.action}
-          onConfirm={() => {
-            if (converting.action === 'add') completeGrow(converting.side, converting.context, true)
-            else completeImport(converting.file, converting.context, converting.fileName, true)
-            setConverting(null)
-            openerRef.current?.focus()
-          }}
-          onCancel={() => {
-            setConverting(null)
-            openerRef.current?.focus()
-          }}
-        />
+      {activeKind === 'hexagonal' && (
+        <>
+          <Editor
+            open={editorOpen}
+            onToggle={() => setEditorOpen(!editorOpen)}
+            onPrune={pruneToast}
+            onAddHexagon={() => handleGrow(undefined, 'same')}
+            onDeleteHexagon={handleDelete}
+            onAddFromFile={handleAddFromFile}
+            contextLabel={contextLabel}
+            onRenameContext={handleRenameContext}
+            onCreateLink={createLink}
+            onUpdateLink={editLink}
+            onDeleteLink={deleteLink}
+          />
+          <Legend
+            legend={legend}
+            open={legendOpen}
+            onOpen={(open) => {
+              writePref(LEGEND_OPEN_KEY, open)
+              setLegendOpen(open)
+            }}
+            includeInExport={legendInExport}
+            onIncludeInExport={(include) => {
+              writePref(LEGEND_EXPORT_KEY, include)
+              setLegendInExport(include)
+            }}
+          />
+          <Stage
+            model={model}
+            map={map}
+            hexId={hexId}
+            diagram={diagram}
+            mode={mode}
+            highlight={highlight}
+            legend={legend}
+            revision={revision}
+            title={diagram.title}
+            svgRef={svgRef}
+            panelOpen={editorOpen}
+            legendOpen={legendOpen}
+            showGuides={guides}
+            onReveal={reveal}
+            onDelete={deleteItem}
+            linking={linking}
+            onLinking={startLinking}
+            onLink={link}
+            contextLabel={contextLabel}
+            onGrow={handleGrow}
+            naming={!!growing}
+            onNamed={(title) => {
+              setMeta(growing!.hexId, { title })
+              setGrowing(null)
+            }}
+            onNamingCancel={() => {
+              restore(growing!.before)
+              setGrowing(null)
+              setNotice(null)
+            }}
+          />
+          {converting && (
+            <ConvertDialog
+              kind={map.kind}
+              action={converting.action}
+              onConfirm={() => {
+                if (converting.action === 'add') completeGrow(converting.side, converting.context, true)
+                else completeImport(converting.file, converting.context, converting.fileName, true)
+                setConverting(null)
+                openerRef.current?.focus()
+              }}
+              onCancel={() => {
+                setConverting(null)
+                openerRef.current?.focus()
+              }}
+            />
+          )}
+        </>
       )}
+      {activeKind === 'onion' && (
+        <svg className="canvas" viewBox={`${onionModel.bounds.x} ${onionModel.bounds.y} ${onionModel.bounds.width} ${onionModel.bounds.height}`}>
+          <OnionDiagram model={onionModel} />
+        </svg>
+      )}
+      {choosingArchitecture && <ArchitectureChoiceDialog onChoose={completeNew} onCancel={() => setChoosingArchitecture(false)} />}
       {linking && <Toast key={`link:${linking}`} sticky message={`Choose a target for ${nameOf(linking)} · Esc to cancel`} onClose={() => setLinking(null)} />}
       {!linking && notice?.tone === 'status' && (
         <Toast

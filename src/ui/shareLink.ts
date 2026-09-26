@@ -1,5 +1,5 @@
 import { toHexa } from '../model/hexa'
-import type { HexaMap } from '../model/schema'
+import type { StoredFile } from '../model/schema'
 
 // REQ-01/07: the codec for a share link's payload — deflate-raw + base64url over the unchanged `.hexa` JSON
 // text. No model knowledge here: parseHexa remains the single validation gateway for the decoded text.
@@ -38,8 +38,8 @@ const streamOf = (bytes: Uint8Array<ArrayBuffer>): ReadableStream<Uint8Array<Arr
     },
   })
 
-export async function encodeSharePayload(map: HexaMap): Promise<string> {
-  const compressed = streamOf(new TextEncoder().encode(toHexa(map))).pipeThrough(new CompressionStream('deflate-raw'))
+export async function encodeSharePayload(file: StoredFile): Promise<string> {
+  const compressed = streamOf(new TextEncoder().encode(toHexa(file))).pipeThrough(new CompressionStream('deflate-raw'))
   const bytes = new Uint8Array(await new Response(compressed).arrayBuffer())
   return toBase64Url(bytes)
 }

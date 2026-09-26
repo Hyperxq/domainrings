@@ -69,7 +69,6 @@ describe('map store', () => {
     state().removeItem(hexId, 'adapters', 'a-legacy')
     state().addItem(hexId, 'domain')
     state().setMeta(hexId, { composition: undefined })
-    state().setMapMeta({ kind: 'onion' })
     expect(MapSchema.safeParse(state().map).success).toBe(true)
   })
 
@@ -78,20 +77,11 @@ describe('map store', () => {
     expect(currentDiagram()).toMatchObject({ title: 'Billing' })
   })
 
-  it('updates the map title and kind through setMapMeta, on a single-hexagon map', () => {
-    state().setMapMeta({ title: 'Billing', kind: 'clean' })
-    expect(state().map).toMatchObject({ title: 'Billing', kind: 'clean' })
-  })
-
-  it('refuses a kind change on a multi-hexagon map, leaving the map unchanged (MIG-04.2)', () => {
-    const twoHex = {
-      ...toMap(EXAMPLE_DIAGRAM),
-      hexagons: [...toMap(EXAMPLE_DIAGRAM).hexagons, { ...toMap(EXAMPLE_DIAGRAM).hexagons[0], id: 'h2', cell: { q: 1, r: 0 } }],
-    }
-    state().replace(twoHex)
-    const before = state().map
-    state().setMapMeta({ kind: 'onion' })
-    expect(state().map).toBe(before)
+  // Kind is immutable once a file exists (REQ-01) — MapMeta no longer accepts it at all, so the multi-hexagon
+  // kind-lock this used to gate is gone with it; enforced at compile time now, not by a runtime refusal.
+  it('updates the map title through setMapMeta', () => {
+    state().setMapMeta({ title: 'Billing' })
+    expect(state().map).toMatchObject({ title: 'Billing' })
   })
 
   it('leaves every hexagon but the current one untouched by reference', () => {
@@ -235,20 +225,8 @@ describe('map store', () => {
       expect(state().map).toBe(map)
     })
 
-    it('returns undefined on a non-hexagonal map without convert, leaving the map untouched', () => {
-      state().setMapMeta({ kind: 'clean' })
-      const map = state().map
-      const hexId = state().addHexagon(state().focus, { context: 'same' })
-      expect(hexId).toBeUndefined()
-      expect(state().map).toBe(map)
-    })
-
-    it('with convert: true, grows a non-hexagonal map and flips its kind to hexagonal in one notification', () => {
-      state().setMapMeta({ kind: 'onion' })
-      const hexId = state().addHexagon(state().focus, { context: 'same', convert: true })
-      expect(hexId).toBeDefined()
-      expect(state().map.kind).toBe('hexagonal')
-    })
+    // A non-hexagonal HexaMap is no longer constructible at all (REQ-01, kind is a literal type) — the convert
+    // escape hatch these two tests exercised is already unreachable in practice; S-001 removes the dead code.
 
     it('every output parses MapSchema', () => {
       state().addHexagon(state().focus, { context: 'new' })
@@ -272,7 +250,8 @@ describe('map store', () => {
   })
 
   describe('importHexagon (ADR-02, SEAM-03, V3 destination choice)', () => {
-    const oneHexFile = (kind: 'hexagonal' | 'clean' | 'onion' = 'hexagonal') => toMap({ ...EXAMPLE_DIAGRAM, kind, title: 'Legacy System' })
+    // toMap always yields kind hexagonal now (REQ-06) — no `kind` param left to vary.
+    const oneHexFile = () => toMap({ ...EXAMPLE_DIAGRAM, title: 'Legacy System' })
 
     it('returns undefined and leaves the map untouched when the file has more than one hexagon (IMP-04)', () => {
       const before = state().map
@@ -312,20 +291,7 @@ describe('map store', () => {
       expect(state().map.hexagons.find((h) => h.id === hexId)?.cell).toStrictEqual(expectedCell)
     })
 
-    it('returns undefined on a non-hexagonal map without convert, leaving the map untouched', () => {
-      state().setMapMeta({ kind: 'clean' })
-      const map = state().map
-      const hexId = state().importHexagon(oneHexFile(), { context: 'same' })
-      expect(hexId).toBeUndefined()
-      expect(state().map).toBe(map)
-    })
-
-    it('with convert: true, imports into a non-hexagonal map and flips its kind to hexagonal in one notification', () => {
-      state().setMapMeta({ kind: 'onion' })
-      const hexId = state().importHexagon(oneHexFile(), { context: 'same', convert: true })
-      expect(hexId).toBeDefined()
-      expect(state().map.kind).toBe('hexagonal')
-    })
+    // Same as addHexagon above: a non-hexagonal HexaMap is no longer constructible (REQ-01).
 
     it('focuses the imported hexagon, leaving revision untouched', () => {
       const revisionBefore = state().revision
@@ -360,7 +326,7 @@ describe('map store', () => {
     it('importing the current map’s own just-saved file adds a second, independent hexagon (IMP-05.2)', () => {
       const before = state().map
       const saved = parseHexa(toHexa(before))
-      if (!saved.ok) throw new Error('fixture map failed to round-trip through toHexa/parseHexa')
+      if (!saved.ok || saved.map.kind !== 'hexagonal') throw new Error('fixture map failed to round-trip through toHexa/parseHexa')
       const hexId = state().importHexagon(saved.map, { context: 'new' })
       expect(hexId).toBeDefined()
       expect(state().map.hexagons).toHaveLength(2)

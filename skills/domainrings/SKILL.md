@@ -43,7 +43,7 @@ Hints:
 ```jsonc
 {
   "app": "domainrings",          // always this
-  "version": 2,                  // always 2
+  "version": 3,                  // 2 or 3 both work; write 3, the current version
   "kind": "hexagonal",           // the only kind this skill covers so far
   "title": "Shop",               // the map's title
   "contexts": [{ "id": "c1", "name": "Sales" }],   // at least one; name optional
@@ -114,7 +114,7 @@ Several hexagons on one map, grouped by bounded context. With two or more contex
 
 The app rejects the map if any of these fail:
 
-- [ ] `app` is `"domainrings"`, `version` is `2`, `kind` is `"hexagonal"`.
+- [ ] `app` is `"domainrings"`, `version` is `2` or `3`, `kind` is `"hexagonal"`.
 - [ ] Ids are unique: contexts, hexagons and links across the map; each collection within its own hexagon.
 - [ ] Every reference points at something that exists **in the same hexagon**: `parentId` → `domain`, `useCaseId` → `useCases`, `portId` → `ports`, `adapterId` → `adapters`. Every hexagon's `contextId` → `contexts`.
 - [ ] `parentId` points at an `aggregate` or an `entity`, never at a value object or domain service, and never forms a cycle.

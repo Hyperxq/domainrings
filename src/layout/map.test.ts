@@ -55,7 +55,7 @@ describe('layoutMap — multi-hexagon placement (CANVAS-01, CANVAS-02)', () => {
     // its content to the LEFT of its own centre — the exact combination a uniform pitch (based on width alone)
     // cannot space correctly, since it ignores which side each hexagon's extent actually falls on.
     const map: HexaMap = {
-      version: 2,
+      version: 3,
       kind: 'hexagonal',
       title: 'Lopsided pair',
       contexts: [{ id: 'c1' }],
@@ -310,7 +310,7 @@ describe('cellCentre — affine pointy-top lattice (ADR-01)', () => {
 
 describe('layoutMap — honeycomb lattice placement (ADR-01)', () => {
   const twoCellColumn = (): HexaMap => ({
-    version: 2,
+    version: 3,
     kind: 'hexagonal',
     title: 'Two on a column',
     contexts: [{ id: 'c1' }],
@@ -358,7 +358,7 @@ describe('layoutMap — honeycomb lattice placement (ADR-01)', () => {
   // pitch would be far too small and the boxes would overlap.
   it('derives pitch from the map-wide max extents, not the first hexagon’s own (CANVAS-01.4 hardening)', () => {
     const map: HexaMap = {
-      version: 2,
+      version: 3,
       kind: 'hexagonal',
       title: 'Small then stress',
       contexts: [{ id: 'c1' }],
@@ -389,7 +389,7 @@ describe('layoutMap — honeycomb lattice placement (ADR-01)', () => {
 
 describe('layoutMap — contexts (CB-01.1, ADR-04, SEAM-04)', () => {
   const oneContextMap = (): HexaMap => ({
-    version: 2,
+    version: 3,
     kind: 'hexagonal',
     title: 'One context',
     contexts: [{ id: 'c1' }],
@@ -495,7 +495,7 @@ function seededHoneycomb(seed: number, n: number): HexaMap {
       : { id: `h${i + 1}`, contextId: 'c1', cell, title: `H${i + 1}`, domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }
     hexagons.push(hexagon)
   }
-  return { version: 2, kind: 'hexagonal', title: `Seed ${seed}`, contexts: [{ id: 'c1' }], hexagons, links: [] }
+  return { version: 3, kind: 'hexagonal', title: `Seed ${seed}`, contexts: [{ id: 'c1' }], hexagons, links: [] }
 }
 
 /** The largest gap the two boxes are separated by on either axis — positive iff they are truly disjoint on that

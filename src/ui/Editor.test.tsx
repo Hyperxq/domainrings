@@ -354,16 +354,13 @@ describe('ports: side chosen at creation, cards grouped by side', () => {
     expect([input.selectionStart, input.selectionEnd]).toEqual([0, created.name.length])
   })
 
+  // Clean's own vocabulary ("input"/"output") is still exercised directly against layoutDiagram/legendFor in
+  // layout.test.ts — a Clean-kind HexaMap is no longer reachable through the store (REQ-01, kind: 'hexagonal'
+  // literal), so Editor can no longer be driven into it here.
   it('shows the side as visible text on the buttons, in the kind’s own words', () => {
     renderEditor()
     expect(screen.getByRole('button', { name: 'Add a driving port' }).textContent).toBe('+ driving')
     expect(screen.getByRole('button', { name: 'Add a driven port' }).textContent).toBe('+ driven')
-    cleanup()
-    useMapStore.getState().replace(toMap({ ...EXAMPLE_DIAGRAM, kind: 'clean' }))
-    const { container } = renderEditor()
-    expect(screen.getByRole('button', { name: 'Add an input port' }).textContent).toBe('+ input')
-    expect(screen.getByRole('button', { name: 'Add an output port' }).textContent).toBe('+ output')
-    expect(group(container, 'Input ports').querySelector('h3')!.textContent).toBe(`Input ports · ${portsOf('driving').length}`)
   })
 
   it('groups the port cards under their side', () => {
@@ -531,6 +528,8 @@ describe('use case placement', () => {
   const uc = EXAMPLE_DIAGRAM.useCases[0]
   const placementOf = () => currentDiagram().useCases.find((u) => u.id === uc.id)!.placement
 
+  // The circle-shape (Clean/Onion) "no wall select" half of this used a Clean-kind HexaMap, no longer reachable
+  // through the store (REQ-01) — the shape-gating itself still lives in layout.ts, untouched by this change.
   it('offers the stack under the title or any wall, in hexagons only', () => {
     const { container } = renderEditor()
     const select = container.querySelector<HTMLSelectElement>(`[data-item-id="${uc.id}"] select[aria-label="Placement"]`)!
@@ -539,8 +538,5 @@ describe('use case placement', () => {
     expect(placementOf()).toBe('nw')
     fireEvent.change(select, { target: { value: 'top' } })
     expect(placementOf()).toBeUndefined()
-    cleanup()
-    useMapStore.getState().replace(toMap({ ...EXAMPLE_DIAGRAM, kind: 'clean' }))
-    expect(renderEditor().container.querySelector(`[data-item-id="${uc.id}"] select[aria-label="Placement"]`)).toBeNull()
   })
 })

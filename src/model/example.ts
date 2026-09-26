@@ -124,7 +124,7 @@ export const STRESS_DIAGRAM: Diagram = {
  * context; h1's driven port links to h2's driving port (EX-01).
  */
 export const TWO_SLICES_MAP: HexaMap = {
-  version: 2,
+  version: 3,
   kind: 'hexagonal',
   title: 'Two slices, one link',
   contexts: [{ id: 'c1' }],

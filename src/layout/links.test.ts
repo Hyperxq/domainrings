@@ -155,7 +155,7 @@ function seededLinkedMap(seed: number, n: number): HexaMap {
   hexagons[a] = { ...hexagons[a], ports: [{ id: 'p-from', name: 'from', side: 'driven' }] }
   hexagons[b] = { ...hexagons[b], ports: [{ id: 'p-to', name: 'to', side: 'driving' }] }
   return {
-    version: 2,
+    version: 3,
     kind: 'hexagonal',
     title: `Seed ${seed}`,
     contexts: [{ id: 'c1' }],
@@ -168,7 +168,7 @@ function seededLinkedMap(seed: number, n: number): HexaMap {
  * the "wall faces away" cases be built deterministically instead of hoping a random seed hits them. */
 function facingPairMap(bCell: Hexagon['cell'], wallA: Wall, wallB: Wall): HexaMap {
   return {
-    version: 2,
+    version: 3,
     kind: 'hexagonal',
     title: 'Facing pair',
     contexts: [{ id: 'c1' }],

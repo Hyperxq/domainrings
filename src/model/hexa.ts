@@ -1,23 +1,37 @@
-import { APP, HexaFileV1Schema, HexaFileV2Schema, VERSION, type Diagram, type HexaMap } from './schema'
+import { APP, HexaFileV1Schema, HexaFileV2Schema, HexaFileV3Schema, VERSION, type Diagram, type HexaMap, type OnionFile, type StoredFile } from './schema'
 import type { z } from 'zod'
 
-export type HexaParseResult = { ok: true; map: HexaMap; v1?: Diagram } | { ok: false; reason: 'invalid' | 'newer'; errors: string[] }
+export type HexaParseResult = { ok: true; map: StoredFile; v1?: Diagram } | { ok: false; reason: 'invalid' | 'newer'; errors: string[] }
 
-export function toHexa(map: HexaMap): string {
-  return JSON.stringify({ app: APP, ...map }, null, 2)
+export function toHexa(file: StoredFile): string {
+  return JSON.stringify({ app: APP, ...file }, null, 2)
 }
 
-/** Deterministic: a migrated v1 file always becomes context "c1" holding hexagon "h1" at the origin cell. */
+/** Deterministic: a migrated v1 file always becomes context "c1" holding hexagon "h1" at the origin cell. Always
+ * hexagonal (REQ-06): a v1 file's own `kind` (Clean/Onion under the old switcher) is never carried forward. */
 export function toMap(diagram: Diagram): HexaMap {
-  const { version: _version, kind, title, ...hexagonFields } = diagram
+  const { version: _version, kind: _kind, title, ...hexagonFields } = diagram
   return {
     version: VERSION,
-    kind,
+    kind: 'hexagonal',
     title,
     contexts: [{ id: 'c1' }],
     hexagons: [{ id: 'h1', contextId: 'c1', cell: { q: 0, r: 0 }, title, ...hexagonFields }],
     links: [],
   }
+}
+
+// Innermost-first (REQ-02) — fixed at creation, never grown/reordered/re-typed once a file exists.
+const ONION_RINGS: OnionFile['rings'] = [
+  { role: 'domain', name: 'Domain Model' },
+  { role: 'domainServices', name: 'Domain Services' },
+  { role: 'application', name: 'Application Services' },
+  { role: 'outer', name: 'Infrastructure' },
+]
+
+/** A fresh Onion file: the 4 canonical rings, nothing in them yet (REQ-02). */
+export function newOnionMap(title: string): OnionFile {
+  return { version: VERSION, kind: 'onion', title, rings: ONION_RINGS, elements: [], dependencies: [], actors: [], externals: [] }
 }
 
 function issuesOf(error: z.ZodError, version: number): string[] {
@@ -52,11 +66,19 @@ export function parseHexa(text: string): HexaParseResult {
     const { app: _app, ...diagram } = result.data
     return { ok: true, map: toMap(diagram), v1: diagram }
   }
-  if (version === VERSION) {
+  if (version === 2) {
     const result = HexaFileV2Schema.safeParse(json)
+    if (!result.success) return { ok: false, reason: 'invalid', errors: issuesOf(result.error, 2) }
+    // REQ-06: a v2 file's stored kind (any of the 3) never survives the open — only hexagonal ever renders live.
+    // Upgraded to the current version on open, same as a v1 file migrating to v2 always did (toMap above).
+    const { app: _app, version: _version, kind: _kind, ...map } = result.data
+    return { ok: true, map: { ...map, version: VERSION, kind: 'hexagonal' } }
+  }
+  if (version === VERSION) {
+    const result = HexaFileV3Schema.safeParse(json)
     if (!result.success) return { ok: false, reason: 'invalid', errors: issuesOf(result.error, VERSION) }
-    const { app: _app, ...map } = result.data
-    return { ok: true, map }
+    const { app: _app, ...file } = result.data
+    return { ok: true, map: file }
   }
   return { ok: false, reason: 'invalid', errors: [`Unknown file version "${version}"`] }
 }

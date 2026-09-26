@@ -109,9 +109,20 @@ describe('dependency fences', () => {
     expect(violations).toEqual([])
   })
 
-  it('zustand is imported only from model/store.ts or model/persistence.ts', () => {
-    const allowed = new Set(['./model/store.ts', './model/persistence.ts'])
+  it('zustand is imported only from model/store.ts, model/onionStore.ts, or model/persistence.ts', () => {
+    const allowed = new Set(['./model/store.ts', './model/onionStore.ts', './model/persistence.ts'])
     const violations = productionPaths.filter((p) => !allowed.has(p) && importsOf(files[p]).some((s) => s === 'zustand' || s.startsWith('zustand/')))
+    expect(violations).toEqual([])
+  })
+})
+
+// Direct regression guard for the halt this change's S-000 fixed (obs #7433): a document-root union (`StoredFile`)
+// must never reach a Hexagonal-only module — those keep reading `HexaMap` only, exactly as before Onion existed.
+describe('Hexagonal-only modules never import StoredFile/OnionFile (ADR-01)', () => {
+  const HEXAGONAL_ONLY_MODULES = ['./model/map.ts', './model/store.ts', './layout/map.ts', './ui/Editor.tsx', './ui/Stage.tsx']
+
+  it('never mention StoredFile or OnionFile by name', () => {
+    const violations = HEXAGONAL_ONLY_MODULES.filter((p) => /\bStoredFile\b|\bOnionFile\b/.test(files[p]))
     expect(violations).toEqual([])
   })
 })
