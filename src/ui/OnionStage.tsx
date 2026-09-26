@@ -1,6 +1,7 @@
 import { useState, type Ref } from 'react'
 import type { OnionLayoutModel } from '../layout/onion'
 import { onionInsertionItem, onionInsertionPoints, type OnionInsertionPoint } from '../layout/onionInsertion'
+import { elementName } from '../model/ringedDocument'
 import { useOnionStore } from '../model/onionStore'
 import type { OnionFile } from '../model/schema'
 import { OnionDiagram } from '../render/OnionDiagram'
@@ -14,6 +15,16 @@ interface OnionStageProps {
   svgRef: Ref<SVGSVGElement>
   /** Reports why a click while linking was refused, for the app's own toast/notice mechanism (REQ-04). */
   onReject: (message: string) => void
+  /** Reports every document-changing action (add element/endpoint, dependency — REQ-09) with the document as it
+   * stood just before, so App.tsx can toast it with Undo through the one mechanism it already uses for
+   * Hexagonal — the same callback OnionEditor receives, so the "Depend on…" gesture toasts identically whether
+   * it started from the canvas or the editor's own create form (ADR-02). */
+  onMutate?: (message: string, before: OnionFile) => void
+  /** Clears whatever toast is up without offering it as an undo step — fires only when a freshly created
+   * element's naming is cancelled, mirroring App.tsx's own `onNamingCancel` for a grown hexagon: the add already
+   * unwound (via `removeElement` below), so the toast that announced it must go too, not linger on a state that
+   * no longer exists. */
+  onCancelMutate?: () => void
 }
 
 const REJECT_MESSAGE = 'A dependency can only point to the same ring or a more inward one.'
@@ -23,12 +34,16 @@ const REJECT_MESSAGE = 'A dependency can only point to the same ring or a more i
  * another in the same or a more inward ring; a valid target is marked with `data-link-target` while linking
  * (same convention Hexagonal's own link mode uses), and choosing one that is not valid cancels the gesture and
  * reports why via `onReject`, leaving the document unchanged either way. */
-export function OnionStage({ model, doc, svgRef, onReject }: OnionStageProps) {
+export function OnionStage({ model, doc, svgRef, onReject, onMutate = () => {}, onCancelMutate = () => {} }: OnionStageProps) {
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
   const { selected, linking, setLinking, selectedElement, validTargets, linkTargetRefs, clickTarget } = useDependGesture({
     elements: model.elements,
     rings: doc.rings,
-    onCreate: addDependency,
+    onCreate: (fromId, toId) => {
+      const before = doc
+      const id = addDependency(fromId, toId)
+      if (id) onMutate(`Linked ${elementName(doc.elements, fromId)} → ${elementName(doc.elements, toId)}.`, before)
+    },
     onReject,
     rejectMessage: REJECT_MESSAGE,
   })
@@ -38,11 +53,15 @@ export function OnionStage({ model, doc, svgRef, onReject }: OnionStageProps) {
 
   const pick = (point: OnionInsertionPoint) => {
     const item = onionInsertionItem(point.action)
+    const before = doc
     if (item.kind === 'element') {
       const id = addElement(item.patch)
+      const ringName = doc.rings.find((r) => r.role === item.patch.ringRole)!.name
+      onMutate(`Added ${item.patch.name} to ${ringName}.`, before)
       setEditing({ id, name: item.patch.name })
     } else {
-      addEndpoint(item.collection, item.patch)
+      const id = addEndpoint(item.collection, item.patch)
+      if (id) onMutate(`Added ${item.patch.name} for ${elementName(doc.elements, item.patch.targetId)}.`, before)
     }
   }
 
@@ -75,6 +94,7 @@ export function OnionStage({ model, doc, svgRef, onReject }: OnionStageProps) {
           onCancel={() => {
             removeElement(editing.id)
             setEditing(null)
+            onCancelMutate()
           }}
         />
       )}

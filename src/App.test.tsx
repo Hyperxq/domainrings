@@ -2369,3 +2369,164 @@ describe('Clean export (REQ-05)', () => {
     vi.unstubAllGlobals()
   })
 })
+
+// REQ-09: every action that changes an Onion or Clean document shows the same status toast with Undo that
+// Hexagonal actions show — through the one mechanism App.tsx now generalizes over all three kinds.
+describe('Onion undo (REQ-09)', () => {
+  // Onion's editor-panel "+" ("Add element to X") and its canvas "+" ("Add an element to X") differ by the
+  // article, so an unscoped query is never ambiguous between the two — unlike Clean's own (see below).
+  const openOnion = () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+  }
+
+  it('an editor-panel action (add an element) shows an undo toast, and Undo restores the prior document', () => {
+    openOnion()
+    fireEvent.click(screen.getByRole('button', { name: 'Add element to Domain Model' }))
+
+    expect(useOnionStore.getState().map.elements).toHaveLength(1)
+    expect(toastEl()!.textContent).toContain('Added NewElement to Domain Model.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useOnionStore.getState().map.elements).toEqual([])
+  })
+
+  it('renaming an element from the editor panel shows an undo toast naming both names, and Undo restores the prior name', () => {
+    openOnion()
+    fireEvent.click(screen.getByRole('button', { name: 'Add element to Domain Model' }))
+    const field = screen.getByLabelText('element name') as HTMLInputElement
+    fireEvent.focus(field)
+    fireEvent.change(field, { target: { value: 'Order' } })
+    fireEvent.blur(field)
+
+    expect(useOnionStore.getState().map.elements[0].name).toBe('Order')
+    expect(toastEl()!.textContent).toContain('Renamed NewElement to Order.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useOnionStore.getState().map.elements[0].name).toBe('NewElement')
+  })
+
+  it('removing an element from the editor panel shows an undo toast, and Undo restores it', () => {
+    openOnion()
+    fireEvent.click(screen.getByRole('button', { name: 'Add element to Domain Model' }))
+    const id = useOnionStore.getState().map.elements[0].id
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove element NewElement' }))
+
+    expect(useOnionStore.getState().map.elements).toEqual([])
+    expect(toastEl()!.textContent).toContain('Deleted NewElement.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useOnionStore.getState().map.elements.map((e) => e.id)).toEqual([id])
+  })
+
+  it('the canvas Depend-on gesture shows an undo toast, and Undo restores the prior document', () => {
+    openOnion()
+    fireEvent.click(screen.getByRole('button', { name: 'Add element to Domain Model' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add element to Infrastructure' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'NewElement (outer)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Depend on… from NewElement' }))
+    fireEvent.click(screen.getByRole('button', { name: 'NewElement (domain)' }))
+
+    expect(useOnionStore.getState().map.dependencies).toHaveLength(1)
+    expect(toastEl()!.textContent).toContain('Linked NewElement → NewElement.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useOnionStore.getState().map.dependencies).toEqual([])
+  })
+
+  it('choosing an invalid (outward) target on the canvas creates no undo toast', () => {
+    openOnion()
+    fireEvent.click(screen.getByRole('button', { name: 'Add element to Domain Model' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add element to Application Services' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add element to Infrastructure' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'NewElement (application)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Depend on… from NewElement' }))
+    fireEvent.click(screen.getByRole('button', { name: 'NewElement (outer)' })) // outward — invalid target
+
+    expect(useOnionStore.getState().map.dependencies).toEqual([])
+    expect(screen.getByRole('alert').textContent).toMatch(/same ring or a more inward one/)
+    expect(toastEl()).toBeNull()
+  })
+})
+
+describe('Clean undo (REQ-09)', () => {
+  // Unlike Onion's, Clean's editor-panel "+" and canvas "+" share the exact same aria-label ("Add sector to X",
+  // "Add element to X") — every editor-panel query below is scoped to the editor pane to pick the right one.
+  const openClean = () => {
+    const { container } = render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    return within(container.querySelector('aside.editor')!)
+  }
+
+  it('an editor-panel action (add a sector) shows an undo toast, and Undo restores the prior document', () => {
+    const editor = openClean()
+    fireEvent.click(editor.getByRole('button', { name: 'Add sector to Entities' }))
+
+    expect(useCleanStore.getState().map.sectors).toHaveLength(1)
+    expect(toastEl()!.textContent).toContain('Added NewSector to Entities.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useCleanStore.getState().map.sectors).toEqual([])
+  })
+
+  it('removing a sector cascades its elements, and Undo restores both the sector and its elements', () => {
+    const editor = openClean()
+    fireEvent.click(editor.getByRole('button', { name: 'Add sector to Entities' }))
+    fireEvent.click(editor.getByRole('button', { name: 'Add element to NewSector' }))
+    const sectorId = useCleanStore.getState().map.sectors[0].id
+    const elementId = useCleanStore.getState().map.elements[0].id
+
+    fireEvent.click(editor.getByRole('button', { name: 'Remove sector NewSector' }))
+
+    expect(useCleanStore.getState().map.sectors).toEqual([])
+    expect(useCleanStore.getState().map.elements).toEqual([])
+    expect(toastEl()!.textContent).toContain('Deleted NewSector and its 1 element.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useCleanStore.getState().map.sectors.map((s) => s.id)).toEqual([sectorId])
+    expect(useCleanStore.getState().map.elements.map((e) => e.id)).toEqual([elementId])
+  })
+
+  it('the canvas Depend-on gesture shows an undo toast, and Undo restores the prior document', () => {
+    const editor = openClean()
+    fireEvent.click(editor.getByRole('button', { name: 'Add sector to Entities' }))
+    fireEvent.click(editor.getByRole('button', { name: 'Add element to NewSector' })) // domain element — only one sector exists yet
+    fireEvent.click(editor.getByRole('button', { name: 'Add sector to Frameworks & Drivers' }))
+    fireEvent.click(editor.getAllByRole('button', { name: 'Add element to NewSector' })[1]) // outer sector's own "+"
+
+    fireEvent.click(screen.getByRole('button', { name: 'NewElement (outer)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Depend on… from NewElement' }))
+    fireEvent.click(screen.getByRole('button', { name: 'NewElement (domain)' }))
+
+    expect(useCleanStore.getState().map.dependencies).toHaveLength(1)
+    expect(toastEl()!.textContent).toContain('Linked NewElement → NewElement.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useCleanStore.getState().map.dependencies).toEqual([])
+  })
+
+  it('choosing an invalid (outward) target on the canvas creates no undo toast', () => {
+    const editor = openClean()
+    fireEvent.click(editor.getByRole('button', { name: 'Add sector to Entities' }))
+    fireEvent.click(editor.getByRole('button', { name: 'Add element to NewSector' })) // domain element — only one sector exists yet
+    fireEvent.click(editor.getByRole('button', { name: 'Add sector to Use Cases' }))
+    fireEvent.click(editor.getAllByRole('button', { name: 'Add element to NewSector' })[1]) // application sector's own "+"
+    fireEvent.click(editor.getByRole('button', { name: 'Add sector to Frameworks & Drivers' }))
+    fireEvent.click(editor.getAllByRole('button', { name: 'Add element to NewSector' })[2]) // outer sector's own "+"
+
+    fireEvent.click(screen.getByRole('button', { name: 'NewElement (application)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Depend on… from NewElement' }))
+    fireEvent.click(screen.getByRole('button', { name: 'NewElement (outer)' })) // outward — invalid target
+
+    expect(useCleanStore.getState().map.dependencies).toEqual([])
+    expect(screen.getByRole('alert').textContent).toMatch(/same ring or a more inward one/)
+    expect(toastEl()).toBeNull()
+  })
+})

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { isInwardOrSame } from '../model/rings'
 import { Fold } from './Editor'
 import { Icon } from './Icon'
@@ -18,16 +18,53 @@ interface RingedEndpoint {
   targetId?: string
 }
 
+/** A name field that updates live on every keystroke (`onChange`, so the display follows immediately — same as
+ * every other item field in the app) and reports a single commit once a whole edit session (focus → blur)
+ * actually changed the value (`onCommit`, with the value the field held at focus) — the same boundary Editor.tsx's
+ * bounded-context rename uses (NAME-03), shared here so Onion's element rename and Clean's sector/element rename
+ * need only the one implementation instead of tracking blur state three times over (ADR-01/REQ-09). */
+export function RenameField({
+  ariaLabel,
+  value,
+  onChange,
+  onCommit,
+}: {
+  ariaLabel: string
+  value: string
+  onChange: (name: string) => void
+  onCommit: (before: string) => void
+}) {
+  const before = useRef(value)
+  return (
+    <input
+      className="name"
+      aria-label={ariaLabel}
+      value={value}
+      onFocus={() => {
+        before.current = value
+      }}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={() => {
+        if (before.current !== value) onCommit(before.current)
+      }}
+    />
+  )
+}
+
 /** A flat element list's own card idiom — inline-renamable name plus a remove button, or an empty-state message.
  * Extracted from what was a character-for-character duplicate of Onion's `RingSection` (ring-level list) and
  * Clean's `SectorRow` (sector-level list) — both wrap it in their own container, only the elements shown differ. */
 export function ElementList({
   elements,
   onRename,
+  onRenameCommit,
   onRemove,
 }: {
   elements: readonly RingedElement[]
   onRename: (id: string, name: string) => void
+  /** Fires once per rename session, with the name the element held before it (REQ-09) — the caller composes the
+   * undo toast from it, the same "Renamed X to Y" idiom Editor.tsx's context rename uses. */
+  onRenameCommit: (id: string, before: string) => void
   onRemove: (id: string) => void
 }) {
   if (!elements.length) return <p className="empty">No elements yet.</p>
@@ -35,7 +72,12 @@ export function ElementList({
     <ul className="items">
       {elements.map((element) => (
         <li key={element.id} className="item" data-item-id={element.id}>
-          <input className="name" aria-label="element name" value={element.name} onChange={(e) => onRename(element.id, e.target.value)} />
+          <RenameField
+            ariaLabel="element name"
+            value={element.name}
+            onChange={(name) => onRename(element.id, name)}
+            onCommit={(before) => onRenameCommit(element.id, before)}
+          />
           <button type="button" className="icon-button small remove" aria-label={`Remove element ${element.name}`} title="Remove element" onClick={() => onRemove(element.id)}>
             <Icon name="close" />
           </button>

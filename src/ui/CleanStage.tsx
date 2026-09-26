@@ -1,6 +1,7 @@
 import { useState, type Ref } from 'react'
 import type { CleanLayoutModel } from '../layout/clean'
 import { cleanInsertionItem, cleanInsertionPoints, type CleanInsertionPoint } from '../layout/cleanInsertion'
+import { elementName } from '../model/ringedDocument'
 import { useCleanStore } from '../model/cleanStore'
 import type { CleanFile } from '../model/schema'
 import { CleanDiagram } from '../render/CleanDiagram'
@@ -14,6 +15,15 @@ interface CleanStageProps {
   svgRef: Ref<SVGSVGElement>
   /** Reports why a click while linking was refused, for the app's own toast/notice mechanism (REQ-06). */
   onReject: (message: string) => void
+  /** Reports every document-changing action (add sector/element/endpoint, dependency — REQ-09) with the document
+   * as it stood just before, so App.tsx can toast it with Undo through the one mechanism it already uses for
+   * Hexagonal — the same callback CleanEditor receives, so the "Depend on…" gesture toasts identically whether it
+   * started from the canvas or the editor's own create form (ADR-02). */
+  onMutate?: (message: string, before: CleanFile) => void
+  /** Clears whatever toast is up without offering it as an undo step — fires only when a freshly created
+   * element's naming is cancelled, mirroring OnionStage's own `onCancelMutate` (and App.tsx's `onNamingCancel`
+   * for a grown hexagon). */
+  onCancelMutate?: () => void
 }
 
 const REJECT_MESSAGE = 'A dependency can only point to the same ring or a more inward one.'
@@ -23,12 +33,16 @@ const REJECT_MESSAGE = 'A dependency can only point to the same ring or a more i
  * sector has no canvas node of its own to attach an inline rename to (sectors only ever appear as wedge
  * dividers, REQ-08) — renaming one happens in `CleanEditor`; only a new ELEMENT opens inline here, same as
  * Onion's own "+" does. */
-export function CleanStage({ model, doc, svgRef, onReject }: CleanStageProps) {
+export function CleanStage({ model, doc, svgRef, onReject, onMutate = () => {}, onCancelMutate = () => {} }: CleanStageProps) {
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
   const { selected, linking, setLinking, selectedElement, validTargets, linkTargetRefs, clickTarget } = useDependGesture({
     elements: model.elements,
     rings: doc.rings,
-    onCreate: addDependency,
+    onCreate: (fromId, toId) => {
+      const before = doc
+      const id = addDependency(fromId, toId)
+      if (id) onMutate(`Linked ${elementName(doc.elements, fromId)} → ${elementName(doc.elements, toId)}.`, before)
+    },
     onReject,
     rejectMessage: REJECT_MESSAGE,
   })
@@ -38,13 +52,19 @@ export function CleanStage({ model, doc, svgRef, onReject }: CleanStageProps) {
 
   const pick = (point: CleanInsertionPoint) => {
     const item = cleanInsertionItem(point.action)
+    const before = doc
     if (item.kind === 'sector') {
       addSector(item.patch)
+      const ringName = doc.rings.find((r) => r.role === item.patch.ringRole)!.name
+      onMutate(`Added ${item.patch.name} to ${ringName}.`, before)
     } else if (item.kind === 'element') {
       const id = addElement(item.patch)
+      const sectorName = doc.sectors.find((s) => s.id === item.patch.sectorId)!.name
+      onMutate(`Added ${item.patch.name} to ${sectorName}.`, before)
       setEditing({ id, name: item.patch.name })
     } else {
-      addEndpoint(item.collection, item.patch)
+      const id = addEndpoint(item.collection, item.patch)
+      if (id) onMutate(`Added ${item.patch.name} for ${elementName(doc.elements, item.patch.targetId)}.`, before)
     }
   }
 
@@ -77,6 +97,7 @@ export function CleanStage({ model, doc, svgRef, onReject }: CleanStageProps) {
           onCancel={() => {
             removeElement(editing.id)
             setEditing(null)
+            onCancelMutate()
           }}
         />
       )}

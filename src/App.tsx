@@ -12,7 +12,7 @@ import { contextName, diagramOf, linkEndLabel, UNTITLED_HEXAGON, type Destinatio
 import { useCleanStore } from './model/cleanStore'
 import { useOnionStore } from './model/onionStore'
 import type { Recovery } from './model/persistence'
-import type { HexaMap, Link, LinkEnd, StoredFile, Wall } from './model/schema'
+import type { CleanFile, HexaMap, Link, LinkEnd, OnionFile, StoredFile, Wall } from './model/schema'
 import { useMapStore } from './model/store'
 import type { ArchitectureChoice } from './ui/ArchitectureChoiceDialog'
 import { ArchitectureChoiceDialog, CHOICES } from './ui/ArchitectureChoiceDialog'
@@ -32,13 +32,19 @@ import { OnionEditor } from './ui/OnionEditor'
 import { OnionStage } from './ui/OnionStage'
 
 
+/** What a toast's Undo restores — one shape per kind (REQ-09): Hexagonal's own map+focus, or a bare Onion/Clean
+ * document. Each snapshot carries its own kind through `map.kind`, so `restoreUndo` below needs no separate
+ * discriminant field to route it — one undo mechanism for every kind, matching the single active-document
+ * resolution `activeKind` already drives. */
+type UndoSnapshot = { map: HexaMap; focus: string; swap?: boolean } | { map: OnionFile; swap?: boolean } | { map: CleanFile; swap?: boolean }
+
 interface Notice {
   /** A new notice restarts the toast's countdown even when its text repeats. */
   id: number
   tone: 'status' | 'error' | 'recovery'
   message: string
   details?: string[]
-  undo?: { map: HexaMap; focus: string; swap?: boolean }
+  undo?: UndoSnapshot
   /** The unreadable text a "recovery" notice offers to download, when a copy was kept. */
   download?: string
   /** Stays up past the usual 6 s countdown (DEL-02) — clears on the map's next edit, tracked via `staleWhenMapIsnt`. */
@@ -62,8 +68,17 @@ const GUIDES_KEY = 'domainrings:guides'
 const HIGHLIGHT_KEY = 'domainrings:highlight'
 const LEGEND_OPEN_KEY = 'domainrings:legend-open'
 const { replace, restore, removeItem, updateItem, addHexagon, importHexagon, removeHexagon, setMeta, addLink, updateLink: updateLinkAction, removeLink: removeLinkAction } = useMapStore.getState()
-const { replace: replaceOnion } = useOnionStore.getState()
-const { replace: replaceClean } = useCleanStore.getState()
+const { replace: replaceOnion, restore: restoreOnion } = useOnionStore.getState()
+const { replace: replaceClean, restore: restoreClean } = useCleanStore.getState()
+
+/** Undo, generalized over all three kinds (REQ-09): routes to whichever store the snapshot's own document
+ * belongs to — the one restore path every kind's toast shares. The runtime check IS the type guard; the cast
+ * only tells TS what it already knows once `map.kind` has been read. */
+const restoreUndo = (undo: UndoSnapshot) => {
+  if (undo.map.kind === 'hexagonal') restore(undo as Extract<UndoSnapshot, { map: HexaMap }>)
+  else if (undo.map.kind === 'onion') restoreOnion(undo as Extract<UndoSnapshot, { map: OnionFile }>)
+  else restoreClean(undo as Extract<UndoSnapshot, { map: CleanFile }>)
+}
 
 interface AppProps {
   boot?: { recovery: Recovery; unreadableText?: string; kind?: StoredFile['kind'] }
@@ -110,6 +125,14 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   )
   const noticeSeq = useRef(0)
   const show = (next: Omit<Notice, 'id'>) => setNotice({ ...next, id: ++noticeSeq.current })
+  // The one undo mechanism (REQ-09), instantiated once per kind: OnionEditor/OnionStage and CleanEditor/CleanStage
+  // each get the SAME callback for every action they offer, so a dependency created from the canvas gesture
+  // toasts identically to one created from the editor's own form (ADR-02).
+  const mutateOnion = (message: string, before: OnionFile) => show({ tone: 'status', message, undo: { map: before } })
+  const mutateClean = (message: string, before: CleanFile) => show({ tone: 'status', message, undo: { map: before } })
+  // Retracts the toast for an add that was immediately cancelled (naming Esc'd out) without offering it as an
+  // undo step — the add already unwound itself; mirrors onNamingCancel's own setNotice(null) below.
+  const clearNotice = () => setNotice(null)
   const [legendInExport, setLegendInExport] = useState(() => readPref(LEGEND_EXPORT_KEY, true))
   const [legendOpen, setLegendOpen] = useState(() => readPref(LEGEND_OPEN_KEY, false))
   const legend = legendFor(diagram)
@@ -508,14 +531,14 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       )}
       {activeKind === 'onion' && (
         <>
-          <OnionEditor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} />
-          <OnionStage model={onionModel!} doc={onionMap} svgRef={svgRef} onReject={(message) => show({ tone: 'error', message })} />
+          <OnionEditor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} onMutate={mutateOnion} />
+          <OnionStage model={onionModel!} doc={onionMap} svgRef={svgRef} onReject={(message) => show({ tone: 'error', message })} onMutate={mutateOnion} onCancelMutate={clearNotice} />
         </>
       )}
       {activeKind === 'clean' && (
         <>
-          <CleanEditor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} />
-          <CleanStage model={cleanModel!} doc={cleanMap} svgRef={svgRef} onReject={(message) => show({ tone: 'error', message })} />
+          <CleanEditor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} onMutate={mutateClean} />
+          <CleanStage model={cleanModel!} doc={cleanMap} svgRef={svgRef} onReject={(message) => show({ tone: 'error', message })} onMutate={mutateClean} onCancelMutate={clearNotice} />
         </>
       )}
       {choosingArchitecture && <ArchitectureChoiceDialog onChoose={completeNew} onCancel={() => setChoosingArchitecture(false)} />}
@@ -528,7 +551,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           onUndo={
             notice.undo &&
             (() => {
-              restore(notice.undo!)
+              restoreUndo(notice.undo!)
               setNotice(null)
               // Undoing a grow through the toast is the same restore as Esc-while-naming — close the field too.
               setGrowing(null)
