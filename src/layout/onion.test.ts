@@ -56,6 +56,29 @@ describe('layoutOnion (elements, REQ-07)', () => {
     const radius = ringElementRadius(outerRing, model.rings[outerIndex - 1])
     for (const e of [e3, e4]) expect(Math.hypot(e.x, e.y)).toBeCloseTo(radius, 6)
   })
+
+  // A ring with exactly one element always used to place it at the same dead-bottom angle (`arcAngles`' own
+  // single-count spacing) regardless of which ring — a document made of nothing but single-element rings (Onion's
+  // most common small shape, onion-basic.hexa) stacked every one of them into one straight vertical column, even
+  // though concentric rings were never meant to read as a stack.
+  it('a chain of single-element rings staggers their angles instead of stacking into one column', () => {
+    const doc: OnionFile = {
+      ...newOnionMap('Fresh'),
+      elements: [
+        { id: 'e1', name: 'Order', ringRole: 'domain' },
+        { id: 'e2', name: 'PricingService', ringRole: 'domainServices' },
+        { id: 'e3', name: 'PlaceOrderService', ringRole: 'application' },
+        { id: 'e4', name: 'OrderController', ringRole: 'outer' },
+      ],
+    }
+    const model = layoutOnion(doc)
+    const angleOf = (e: { x: number; y: number }) => Math.atan2(e.y, e.x)
+    const angles = model.elements.map(angleOf)
+    // Not every angle identical (the reported straight column) — each stays in the bottom half (never risking the
+    // rings' own top-centred titles).
+    expect(new Set(angles.map((a) => a.toFixed(3))).size).toBeGreaterThan(1)
+    for (const a of angles) expect(Math.sin(a)).toBeGreaterThan(0)
+  })
 })
 
 describe('layoutOnion (dependency edges, REQ-04)', () => {

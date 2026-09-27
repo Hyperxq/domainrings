@@ -17,13 +17,41 @@ export const TITLE_MAX_SPAN = Math.PI
  * wide a title reads. */
 export const titleHalfSpan = (arcLength: number, radius: number): number => (radius > 0 ? Math.min(TITLE_MAX_SPAN / 2, arcLength / 2 / radius) : 0)
 
-/** The title's own rendered footprint at `radius` (its final band mid-radius) — an axis-aligned box centred at
- * the top, wide enough for its curved arc's own chord — approximate but built from the SAME `titleHalfSpan` the
- * real `<textPath>` rides, so `ringOutlines` (Decision 5: give a ring's own title room, never covered by an
- * element sharing its band) and the actual render never disagree about where the title sits. */
+/** A curved label's own rendered footprint at `radius`, centred at ANY `centerAngle` — not just the ring's own
+ * top title (the special case `titleFootprintBox` below reduces to). Built in the label's own local frame (radial
+ * "outward", tangential "along the arc") — a simple `halfThick`×`halfChord` rectangle there — then its 4 corners
+ * are rotated into global coordinates and enclosed in an axis-aligned box, the correctly general version of the
+ * old top-only shortcut (which took the two chord ENDPOINT corners and assumed they were always the box's own
+ * farthest reach — true only at the top, where radial and tangential already line up with global y/x; at any
+ * other centre angle a wide-enough arc's own MIDPOINT reaches farther outward than either endpoint corner, e.g. a
+ * sector label centred at 3 o'clock, which the endpoint-only version measured as having almost no width at all).
+ * Shared by `ringOutlines` (Decision 5, and Clean's own per-sector labels) and the real render (`ringedArcPath`),
+ * so sizing and the curved `<textPath>` it rides never disagree about where a label actually sits. */
+export function arcLabelFootprintBox(radius: number, centerAngle: number, halfSpan: number): RingedBox {
+  const radial = { x: Math.cos(centerAngle), y: Math.sin(centerAngle) }
+  const tangential = { x: -Math.sin(centerAngle), y: Math.cos(centerAngle) }
+  const center = { x: radius * radial.x, y: radius * radial.y }
+  const halfChord = radius * Math.sin(halfSpan)
+  const halfThick = TITLE_LINE / 2
+  const corners = [-1, 1].flatMap((dr) =>
+    [-1, 1].map((dt) => ({
+      x: center.x + dr * halfThick * radial.x + dt * halfChord * tangential.x,
+      y: center.y + dr * halfThick * radial.y + dt * halfChord * tangential.y,
+    })),
+  )
+  const xs = corners.map((c) => c.x)
+  const ys = corners.map((c) => c.y)
+  const [xMin, xMax] = [Math.min(...xs), Math.max(...xs)]
+  const [yMin, yMax] = [Math.min(...ys), Math.max(...ys)]
+  return { x: (xMin + xMax) / 2, y: (yMin + yMax) / 2, width: xMax - xMin, height: yMax - yMin }
+}
+
+/** The ring's own title footprint (always centred at the top, `-π/2`) — the one `arcLabelFootprintBox` case every
+ * ring needed before Clean's own per-sector labels (Decision 5: give a ring's own title room, never covered by an
+ * element sharing its band); `ringOutlines` and the real render (`render/Diagram.tsx`'s curved `<textPath>`) both
+ * build it from the SAME `titleHalfSpan`, so sizing and rendering never disagree about how wide a title reads. */
 export function titleFootprintBox(radius: number, titleArc: number): RingedBox {
-  const halfSpan = titleHalfSpan(titleArc, radius)
-  return { x: 0, y: -radius, width: 2 * radius * Math.sin(halfSpan), height: TITLE_LINE }
+  return arcLabelFootprintBox(radius, -Math.PI / 2, titleHalfSpan(titleArc, radius))
 }
 
 /** The one place an element's or endpoint's rendered box size is defined — `render/RingedNodes.tsx` draws to
@@ -38,8 +66,15 @@ const BOX_GAP = 3
 /** A long element name wraps onto more than one line rather than forcing every ring around its own single
  * unbroken line (Decision 8, same idea as Decision 7's radial tracks: absorb the crowding in unread space, not
  * in a bigger ring) — a name at or under this many characters never wraps, keeping every existing short name's
- * box pixel-identical to before. */
-const ELEMENT_MAX_CHARS = 7
+ * box pixel-identical to before. Raised from an earlier, much stricter 7 (which shattered "OrderLine" into
+ * "Order"/"Line" and "CarrierApiClient" into "Carrier"/"Api"/"Client" one word per line) just enough to keep a
+ * short compound name on one line and a two-word one to two — going further to also guarantee a THIRD long token
+ * ("FraudDetectionService", "ArrangeShipmentService", …) never exceeds 2 lines widens every box on an already
+ * crowded ring at once, measured (`examples.test.ts`'s own fit-% suite) to cost far more circumference than the
+ * extra line it buys back: it drove onion-advanced's fit from 72.9% to 61.3%, well under its own 70% floor. A
+ * handful of three-token names stay at 3 lines of legible whole words — a smaller compromise than a ring wide
+ * enough that nothing fits the stage at all. */
+const ELEMENT_MAX_CHARS = 9
 const ELEMENT_LINE_STEP = 15
 
 /** A ringed element's own name, wrapped the same way Hexagonal's own node labels are (`wrapLabel`, layout/text.ts)
@@ -73,13 +108,40 @@ export interface RingedBox {
   height: number
 }
 
+/** True while two boxes keep at least `BOX_GAP` between them. */
+function boxesTooClose(a: RingedBox, b: RingedBox): boolean {
+  return Math.abs(a.x - b.x) < (a.width + b.width) / 2 + BOX_GAP && Math.abs(a.y - b.y) < (a.height + b.height) / 2 + BOX_GAP
+}
+
 /** True while no two boxes overlap by less than `BOX_GAP`. */
 function noOverlap(boxes: readonly RingedBox[]): boolean {
   for (let i = 0; i < boxes.length; i++) {
     for (let j = i + 1; j < boxes.length; j++) {
-      const [a, b] = [boxes[i], boxes[j]]
-      if (Math.abs(a.x - b.x) < (a.width + b.width) / 2 + BOX_GAP && Math.abs(a.y - b.y) < (a.height + b.height) / 2 + BOX_GAP) return false
+      if (boxesTooClose(boxes[i], boxes[j])) return false
     }
+  }
+  return true
+}
+
+/** True while an axis-aligned `box` and a label's own TILTED rectangle (centred at `radius`/`centerAngle`, tangential
+ * half-extent `halfChord`, radial half-extent `halfThick`) keep at least `BOX_GAP` apart — the full separating-axis
+ * test (SAT) between the two, rather than that tilted rectangle's own (generously larger) axis-aligned bounding box
+ * (`arcLabelFootprintBox`): that AABB is exact only when the label sits at the top (where radial/tangential already
+ * line up with global y/x, `titleFootprintBox`'s own case) — at any other centre angle a thin tilted rectangle's
+ * AABB reaches out toward its own diagonal, which overstated how much a Clean sector's own label (rarely centred at
+ * the top) actually crowds nearby elements, growing a ring far more than the real curved text ever needed (a
+ * measured 2x blow-up on clean-advanced.hexa, sinking its own fit-% floor). Complete for two rectangles at any
+ * relative rotation: the box's own edge normals are the world axes, the label's own are `radial`/`tangential`. */
+export function labelOverlapsBox(box: RingedBox, radius: number, centerAngle: number, halfChord: number, halfThick: number): boolean {
+  const radial = { x: Math.cos(centerAngle), y: Math.sin(centerAngle) }
+  const tangential = { x: -Math.sin(centerAngle), y: Math.cos(centerAngle) }
+  const center = { x: radius * radial.x, y: radius * radial.y }
+  const d = { x: box.x - center.x, y: box.y - center.y }
+  for (const axis of [{ x: 1, y: 0 }, { x: 0, y: 1 }, radial, tangential]) {
+    const dist = Math.abs(d.x * axis.x + d.y * axis.y)
+    const boxReach = (box.width / 2) * Math.abs(axis.x) + (box.height / 2) * Math.abs(axis.y)
+    const labelReach = halfChord * Math.abs(tangential.x * axis.x + tangential.y * axis.y) + halfThick * Math.abs(radial.x * axis.x + radial.y * axis.y)
+    if (dist > boxReach + labelReach + BOX_GAP) return false
   }
   return true
 }
@@ -103,11 +165,17 @@ function growUntilFits(minT: number, fits: (t: number) => boolean): number {
   return hi
 }
 
-/** An element about to be placed at `angle` on some ring, before that ring's radius is known. */
+/** An element about to be placed at `angle` on some ring, before that ring's radius is known. `labelIndex` ties it
+ * to one of that ring's own `extraLabelsOf` entries (Clean: the slot's own sector, by array position) — a label
+ * only ever needs clearance from the slots that are actually ITS OWN (Decision 5's ring-title check stays global,
+ * every slot on the ring; a sector's own name only ever crowds its own sector's elements, never a neighbour's on
+ * the far side of the same ring). `undefined` (Onion; a ring's own top title) opts a slot out of every extra
+ * label's own check entirely. */
 export interface RingedSlot {
   angle: number
   width: number
   height: number
+  labelIndex?: number
 }
 
 /** Radius at which a ring's OWN elements (and, via `titleHalfSpan` above, its own curved title) sit: the middle
@@ -118,17 +186,26 @@ export function ringElementRadius(ring: Pick<LayoutRing, 'apex'>, inner?: Pick<L
   return ((inner?.apex ?? 0) + ring.apex) / 2
 }
 
+/** Real visual clearance a box must keep from its own band's PAINTED boundary — more than the ring's own stroke
+ * half-width (`.ring { stroke-width: 1.6 }`, styles.css) plus a little breathing room. Zero margin (mathematical
+ * touching) used to count as "fits": a box sized that tight always reads as crossing the rendered ring line, since
+ * the stroke straddles the exact boundary the box's own corner sits on (the reported "Pricing Service"/"Place
+ * Order Service"/"Order Controller" straddling their own ring, onion-basic.hexa — the sizing search and this
+ * band-membership test always agreed on paper, they just both allowed a fit with no room for a stroke). */
+export const BAND_CLEARANCE = 1
+
 /** True when every corner of an axis-aligned box centred at `(x, y)` lies within `[inner, outer]` distance from
- * the origin (touching either edge allowed) — the EXACT test, not a same-direction radial projection: a box not
- * centred on an axis has corners that reach further from the origin than its centre-plus-projection alone would
- * suggest (Pythagoras combines the radial and tangential offsets), so only checking the actual farthest and
- * nearest corners is safe. */
-function boxWithinBand(box: RingedBox, inner: number, outer: number): boolean {
+ * the origin, each with `BAND_CLEARANCE` room to spare — the EXACT test, not a same-direction radial projection: a
+ * box not centred on an axis has corners that reach further from the origin than its centre-plus-projection alone
+ * would suggest (Pythagoras combines the radial and tangential offsets), so only checking the actual farthest and
+ * nearest corners is safe. `inner === 0` is the innermost ring's own centre, never a drawn line, so nothing to
+ * clear there. */
+export function boxWithinBand(box: RingedBox, inner: number, outer: number): boolean {
   const [ax, ay] = [Math.abs(box.x), Math.abs(box.y)]
   const [hw, hh] = [box.width / 2, box.height / 2]
   const farthest = Math.hypot(ax + hw, ay + hh)
   const nearest = Math.hypot(Math.max(0, ax - hw), Math.max(0, ay - hh))
-  return farthest <= outer + 1e-9 && nearest >= inner - 1e-9
+  return farthest <= outer - BAND_CLEARANCE + 1e-9 && nearest >= inner - 1e-9
 }
 
 /** A crowded band tries up to this many concentric radial lanes for the slots actually at risk of colliding with
@@ -159,17 +236,21 @@ function slotRadiusAt(outerApex: number, innerApex: number, tracks: number, k: n
  * at-risk slots next to each other in angle usually land on different lanes without disturbing every other slot's
  * own placement. Shared by `ringOutlines`' own sizing search and every "ringed" kind's real element placement
  * (`ringSlotRadius` below), so the two never disagree about where a slot actually lands. */
-function slotRadii(outerApex: number, innerApex: number, tracks: number, angles: readonly number[]): number[] {
+function slotRadii(outerApex: number, innerApex: number, tracks: number, angles: readonly number[], extraRisk: readonly boolean[] = []): number[] {
   const mid = (innerApex + outerApex) / 2
   let riskIndex = 0
-  return angles.map((angle) => (risksTitle(angle) ? slotRadiusAt(outerApex, innerApex, tracks, riskIndex++) : mid))
+  return angles.map((angle, k) => (risksTitle(angle) || extraRisk[k] ? slotRadiusAt(outerApex, innerApex, tracks, riskIndex++) : mid))
 }
 
 /** Radius each of `angles` (a ring's own slots, in the SAME order `ringOutlines` sized that ring against) sits at
  * — the placement half of Decision 7's own sizing; a `ringed` kind (Onion/Clean) calls this once per ring with
- * every one of its own slots' angles, then zips the result back onto its elements. */
-export function ringSlotRadii(ring: Pick<LayoutRing, 'apex' | 'tracks'>, inner: Pick<LayoutRing, 'apex'> | undefined, angles: readonly number[]): number[] {
-  return slotRadii(ring.apex, inner?.apex ?? 0, ring.tracks ?? 1, angles)
+ * every one of its own slots' angles, then zips the result back onto its elements. `extraRisk[k]` (parallel to
+ * `angles`) marks a slot at risk of something OTHER than the ring's own top title — Clean's own lone-sector
+ * elements, which always coincide with their own sector's curved name (`labelIndex`, `layout/clean.ts`) — treated
+ * by the SAME lane-split Decision 7 already gives a title-crowded slot, rather than growing the whole ring around
+ * a coincidence only one slot ever has. */
+export function ringSlotRadii(ring: Pick<LayoutRing, 'apex' | 'tracks'>, inner: Pick<LayoutRing, 'apex'> | undefined, angles: readonly number[], extraRisk: readonly boolean[] = []): number[] {
+  return slotRadii(ring.apex, inner?.apex ?? 0, ring.tracks ?? 1, angles, extraRisk)
 }
 
 /** Ring outline sizing shared by every "ringed" document kind (Onion, Clean — ADR-01): each ring grows from its
@@ -186,16 +267,33 @@ export function ringSlotRadii(ring: Pick<LayoutRing, 'apex' | 'tracks'>, inner: 
  * uppercase); `slotsOf` returns every element landing on a ring regardless of sub-grouping (Onion: the whole ring
  * is one group; Clean: every sector's own elements, flattened — this is what makes cross-sector wedge-boundary
  * crowding size the ring too, with no sector-specific code here at all). */
+/** A ring-specific curved label OTHER than its own top title — Clean's own per-sector name (`render/
+ * CleanDiagram.tsx`'s `SectorLabel`), centred at that sector's own wedge mid-angle rather than always the top.
+ * `arcLength` is the label's own desired reach (`measure(name, RING_SUBTITLE) + 2 * TITLE_ARC_PAD`, the same
+ * quantity `titleArc` is for a ring's own title), turned into a footprint the same way (`titleHalfSpan`) once this
+ * ring's own mid-band radius is known. */
+export interface RingedExtraLabel {
+  angle: number
+  arcLength: number
+}
+
 export function ringOutlines<Role extends RingRole>(
   rings: readonly { role: Role; name: string }[],
   slotsOf: (role: Role) => readonly RingedSlot[] = () => [],
+  extraLabelsOf: (role: Role) => readonly RingedExtraLabel[] = () => [],
 ): LayoutRing[] {
   const last = rings.length - 1
   const allSlots = rings.map((spec) => slotsOf(spec.role))
   const outlines: Outline[] = []
   const tracksUsed: number[] = []
   const boxesAtTracks = (outerApex: number, innerApex: number, tracks: number, slots: readonly RingedSlot[]): RingedBox[] => {
-    const radii = slotRadii(outerApex, innerApex, tracks, slots.map((s) => s.angle))
+    const radii = slotRadii(
+      outerApex,
+      innerApex,
+      tracks,
+      slots.map((s) => s.angle),
+      slots.map((s) => s.labelIndex !== undefined),
+    )
     return slots.map((s, k) => ({ x: radii[k] * Math.cos(s.angle), y: radii[k] * Math.sin(s.angle), width: s.width, height: s.height }))
   }
   for (let i = 0; i <= last; i++) {
@@ -217,14 +315,25 @@ export function ringOutlines<Role extends RingRole>(
     const innerTracks = i > 0 ? tracksUsed[i - 1] : 1
     const innerInnerApex = i > 1 ? outlines[i - 2].apex : 0
     const innerBoxes = inner ? boxesAtTracks(inner.apex, innerInnerApex, innerTracks, allSlots[i - 1]) : []
-    // Decision 5: an element sharing this ring's own band must never sit under its own curved title — the ring
-    // grows (same `noOverlap` idiom as two crowded elements) until every one of its own boxes clears the title's
-    // own footprint, not just each other; MIN_BAND/titleFloor alone said nothing about that (the reported
-    // innermost-ring boxes covering the curved title).
+    const extraLabels = extraLabelsOf(spec.role)
+    // Decision 5: an element sharing this ring's own band must never sit under its own curved title, nor (Clean
+    // only) under its own SECTOR's curved name (the reported "Shipping" sector name under the "Shipment" box,
+    // clean-advanced.hexa) — Decision 7's own track dodge (below, `labelIndex` joins `risksTitle` as an at-risk
+    // test) gives a label-adjacent slot another radial lane rather than growing the WHOLE ring around a coincidence
+    // only that one slot ever has (an earlier version did exactly that: grow `r` until every slot cleared every
+    // label, correct but paying for it on EVERY ring regardless — measured a 2x-plus blow-up on clean-advanced.hexa,
+    // sinking its own fit-% floor). `labelsClear` still gates `fits` itself (a lane split that still doesn't clear
+    // is rejected, same as `boxWithinBand` below), just never the ONLY way out.
     const fitsWithTracks = (tracks: number) => (r: number) => {
       const own = boxesAtTracks(r, innerApex, tracks, slots)
-      const title = titleFootprintBox(mid(r), titleArc)
-      return noOverlap([title, ...own, ...innerBoxes]) && own.every((b) => boxWithinBand(b, innerApex, r))
+      const midR = mid(r)
+      const title = titleFootprintBox(midR, titleArc)
+      const labelsClear = extraLabels.every((l, idx) => {
+        const halfSpan = titleHalfSpan(l.arcLength, midR)
+        const halfChord = midR * Math.sin(halfSpan)
+        return own.every((b, k) => slots[k].labelIndex !== idx || !labelOverlapsBox(b, midR, l.angle, halfChord, TITLE_LINE / 2))
+      })
+      return labelsClear && noOverlap([title, ...own, ...innerBoxes]) && own.every((b) => boxWithinBand(b, innerApex, r))
     }
     if (!slots.length && !innerBoxes.length) {
       outlines[i] = circle(floor)
@@ -235,7 +344,7 @@ export function ringOutlines<Role extends RingRole>(
     // the smallest ring — more lanes give a crowded upper half more room to dodge the title without growing the
     // circumference, but only pays for that when it actually shrinks the result (a ring with room to spare, or
     // none of its slots anywhere near the top, keeps a single lane, matching every existing single-lane case).
-    const atRisk = slots.filter((s) => risksTitle(s.angle)).length
+    const atRisk = slots.filter((s) => risksTitle(s.angle) || s.labelIndex !== undefined).length
     const maxTracks = Math.min(MAX_TRACKS, Math.max(1, atRisk))
     let best = { tracks: 1, radius: growUntilFits(floor, fitsWithTracks(1)) }
     for (let tracks = 2; tracks <= maxTracks; tracks++) {

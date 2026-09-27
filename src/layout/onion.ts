@@ -1,4 +1,4 @@
-import { arcAngles } from '../model/rings'
+import { ringedArcAngles } from '../model/rings'
 import type { OnionDependency, OnionElement, OnionFile, OnionRingRole } from '../model/schema'
 import { countCrossings } from './crossings'
 import { minimizeCrossings, neighborLookup, type CrossingGroup } from './crossingMinimization'
@@ -55,7 +55,8 @@ function buildOnionModel(doc: OnionFile, orderedElementsOn: (role: string) => re
   // (`ringOutlines`) before its own radius — and thus their final positions — is known.
   const slotsOf = (role: OnionRingRole) => {
     const onRing = orderedElementsOn(role)
-    const angles = arcAngles(onRing.length, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI)
+    const ringIndex = doc.rings.findIndex((r) => r.role === role)
+    const angles = ringedArcAngles(onRing.length, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI, ringIndex)
     return onRing.map((e, k) => ({ angle: angles[k], width: ringedElementWidth(e.name), height: ringedElementHeight(e.name) }))
   }
   const rings = ringOutlines(doc.rings, slotsOf)
@@ -65,7 +66,7 @@ function buildOnionModel(doc: OnionFile, orderedElementsOn: (role: string) => re
   // handed in.
   const elements: OnionElementLayout[] = rings.flatMap((ring, i) => {
     const onRing = orderedElementsOn(ring.role)
-    const angles = arcAngles(onRing.length, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI)
+    const angles = ringedArcAngles(onRing.length, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI, i)
     const radii = ringSlotRadii(ring, rings[i - 1], angles)
     return onRing.map((e, k) => ({ key: `element:${e.id}`, ref: e.id, ringRole: e.ringRole, name: e.name, x: radii[k] * Math.cos(angles[k]), y: radii[k] * Math.sin(angles[k]) }))
   })

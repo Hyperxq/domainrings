@@ -1,21 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import { newCleanMap, newOnionMap } from '../model/hexa'
-import { arcAngles } from '../model/rings'
+import { arcAngles, ringedArcAngles } from '../model/rings'
 import {
   endpointLabelHeight,
   endpointLabelWidth,
   endpointLayout,
-  RINGED_ELEMENT_HEIGHT,
+  labelOverlapsBox,
+  ringedElementHeight,
+  ringedElementWidth,
   RINGED_ENDPOINT_DIAMETER,
   ringedBounds,
   ringElementRadius,
   ringOutlines,
   ringSlotRadii,
   titleFootprintBox,
+  titleHalfSpan,
   TITLE_ARC_PAD,
   TITLE_MAX_SPAN,
 } from './ringed'
-import { measure, RING_LABEL } from './text'
+import { measure, RING_LABEL, RING_SUBTITLE } from './text'
 
 // Direct unit coverage for the shared ring-outline/bounds sizing (ADR-01) — previously exercised only
 // indirectly through layout/onion.test.ts and the Clean creation test (verify-in-loop-1, WARNING b).
@@ -89,11 +92,16 @@ describe("a ring's own title never overlaps its own elements (Decision 5)", () =
   const boxesOverlap = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>
     Math.abs(a.x - b.x) < (a.width + b.width) / 2 && Math.abs(a.y - b.y) < (a.height + b.height) / 2
 
+  // Real rendered box sizes (`ringedElementWidth`/`ringedElementHeight`, the SAME functions `RingedNodes.tsx`
+  // draws to), not a flat placeholder — a wrapped name's box is taller than `RINGED_ELEMENT_HEIGHT` alone, and a
+  // sizing check built against the wrong height is exactly how a box can pass this test on paper while still
+  // covering the title once wrapping actually grows it (the reported "Pricing Service"-style boxes).
+  const NAMES = ['Order', 'PricingService', 'PlaceOrderService', 'CarrierApiClient', 'OrderLine', 'FraudDetectionService', 'ProcessPaymentService', 'Customer']
+
   it('8 elements densely packed around the innermost ring all clear a long title', () => {
     const name = 'Entities Of The Domain Model'
-    const count = 8
-    const angles = arcAngles(count, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI)
-    const slotsOf = () => angles.map((angle) => ({ angle, width: 90, height: RINGED_ELEMENT_HEIGHT }))
+    const angles = arcAngles(NAMES.length, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI)
+    const slotsOf = () => angles.map((angle, k) => ({ angle, width: ringedElementWidth(NAMES[k]), height: ringedElementHeight(NAMES[k]) }))
     const [ring] = ringOutlines([{ role: 'domain', name }], slotsOf)
     // Decision 7: a crowded band may stagger its own elements onto more than one radial track rather than growing
     // the whole ring around the title — so a slot's own radius is no longer always the ring's one true mid.
@@ -103,10 +111,35 @@ describe("a ring's own title never overlaps its own elements (Decision 5)", () =
     const elementBoxes = angles.map((angle, k) => ({
       x: radii[k] * Math.cos(angle),
       y: radii[k] * Math.sin(angle),
-      width: 90,
-      height: RINGED_ELEMENT_HEIGHT,
+      width: ringedElementWidth(NAMES[k]),
+      height: ringedElementHeight(NAMES[k]),
     }))
     for (const box of elementBoxes) expect(boxesOverlap(box, titleBox)).toBe(false)
+  })
+
+  // Clean's own per-sector name (`render/CleanDiagram.tsx`'s `SectorLabel`) is a SEPARATE curved label, centred at
+  // its own wedge's mid-angle rather than always the top — `ringOutlines`' own `extraLabelsOf` input (Decision 5
+  // generalized) keeps a lone sector's own element clear of it too (the reported "Shipping" sector name under the
+  // "Shipment" box, clean-advanced.hexa), the same invariant as the ring's own title, just off-axis.
+  it("a ring's own EXTRA (Clean sector) label never overlaps its own lone element, off-axis included", () => {
+    // A narrow, deliberately off-axis wedge (never top, never a cardinal direction) — same shape as a Clean sector
+    // with exactly one element, `ringedArcAngles` nudging that element off the wedge's own dead-centre (`model/
+    // rings.ts`), which is where the sector's own curved name (`labelAngle`) always sits.
+    const [wedgeStart, wedgeEnd] = [Math.PI * 0.7, Math.PI]
+    const labelAngle = (wedgeStart + wedgeEnd) / 2
+    const elementAngle = ringedArcAngles(1, wedgeStart, wedgeEnd, 0)[0]
+    const elementName = 'ArrangeShipmentUseCase'
+    const labelName = 'A Rather Long Sector Name'
+    const labelArc = measure(labelName, RING_SUBTITLE) + 2 * TITLE_ARC_PAD
+    const slotsOf = () => [{ angle: elementAngle, width: ringedElementWidth(elementName), height: ringedElementHeight(elementName), labelIndex: 0 }]
+    const extraLabelsOf = () => [{ angle: labelAngle, arcLength: labelArc }]
+    const [ring] = ringOutlines([{ role: 'domain', name: 'Entities' }], slotsOf, extraLabelsOf)
+    const radii = ringSlotRadii(ring, undefined, [elementAngle], [true])
+    const elementBox = { x: radii[0] * Math.cos(elementAngle), y: radii[0] * Math.sin(elementAngle), width: ringedElementWidth(elementName), height: ringedElementHeight(elementName) }
+    const labelRadius = ringElementRadius(ring)
+    const halfSpan = titleHalfSpan(labelArc, labelRadius)
+    const halfChord = labelRadius * Math.sin(halfSpan)
+    expect(labelOverlapsBox(elementBox, labelRadius, labelAngle, halfChord, (RING_LABEL.size + 4) / 2)).toBe(false)
   })
 })
 

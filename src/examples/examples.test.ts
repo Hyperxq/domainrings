@@ -6,7 +6,7 @@ import { layoutMap } from '../layout/map'
 import { layoutOnion } from '../layout/onion'
 import { layoutClean } from '../layout/clean'
 import { countCrossings } from '../layout/crossings'
-import { ringedElementHeight, ringedElementWidth } from '../layout/ringed'
+import { boxWithinBand, ringedElementHeight, ringedElementWidth } from '../layout/ringed'
 import { fitTo, islandInset } from '../ui/viewport'
 import type { CleanFile, HexaMap, OnionFile, StoredFile } from '../model/schema'
 
@@ -210,22 +210,12 @@ describe('example .hexa files', () => {
 // Onion/Clean ring placement spaced elements evenly by angle and count only, ignoring each element's rendered box
 // width — the stress/advanced examples above exposed real overlaps this way. Hexagonal is excluded: its own
 // reported "overlaps" are an aggregate's outline around its own members, which is intentional, not a bug.
-/** True when an axis-aligned, centre-anchored box lies fully between `innerApex` and `outerApex` — every corner's
- * own distance from the origin stays within the band, touching its edges allowed (a small epsilon guards float
- * tangency, matching `boxesOverlap`'s own convention). Catches the reported "NewElement" box straddling the ring
- * line between Domain Model and Domain Services: its own box would reach past whichever edge it was closest to. */
-function boxInsideBand(box: Box, innerApex: number, outerApex: number, eps = 1e-6): boolean {
-  const corners = [
-    { x: box.x - box.width / 2, y: box.y - box.height / 2 },
-    { x: box.x + box.width / 2, y: box.y - box.height / 2 },
-    { x: box.x - box.width / 2, y: box.y + box.height / 2 },
-    { x: box.x + box.width / 2, y: box.y + box.height / 2 },
-  ]
-  return corners.every((c) => {
-    const r = Math.hypot(c.x, c.y)
-    return r >= innerApex - eps && r <= outerApex + eps
-  })
-}
+// Reuses `layout/ringed.ts`'s own `boxWithinBand` (never a local reimplementation) so this test and the sizing
+// search it gates can never quietly drift apart on what "fully inside its own band" means (the reported "Pricing
+// Service"/"Place Order Service"/"Order Controller" straddling their own ring, onion-basic.hexa: the old duplicate
+// check here and the layout's own zero-margin search always agreed on paper, since both allowed bare touching —
+// the render didn't, because the ring itself paints as a stroke ON that exact boundary).
+const boxInsideBand = (box: Box, innerApex: number, outerApex: number): boolean => boxWithinBand(box, innerApex, outerApex)
 
 describe('every Onion/Clean element box lies fully inside its own ring band', () => {
   function elementsOutsideTheirBand(rings: { role: string; apex: number }[], elements: { key: string; ringRole: string; x: number; y: number; name: string }[]): string[] {
@@ -320,7 +310,7 @@ describe('Onion/Clean crossing counts (Decision 3) — after must never exceed b
     'onion-stress.hexa': 21,
     'clean-basic.hexa': 0,
     'clean-advanced.hexa': 9,
-    'clean-stress.hexa': 24,
+    'clean-stress.hexa': 22,
   }
 
   for (const file of files.filter((f) => f.startsWith('onion-') || f.startsWith('clean-'))) {

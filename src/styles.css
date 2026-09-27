@@ -38,6 +38,22 @@
 /* A <path> (like `.edge`, below) is filled by default — `fill: none` is load-bearing here too. */
 .sector-divider { fill: none; stroke: var(--line); stroke-opacity: 0.6; stroke-width: 1; }
 
+/* A ring's own title/subtitle and a Clean sector's own name all read over whatever paints beneath them — another
+   ring's fill, an edge bowing past on its way elsewhere (Decision 1's curved chords, `RingedNodes.tsx`) — so each
+   carries a background-coloured halo (paint-order stroke, same idiom as `.link-pattern-label`) rather than relying
+   on layout alone to keep every edge clear of them (only "avoided when possible", never guaranteed). */
+.canvas .ring-label,
+.canvas .ring-subtitle,
+.canvas .domain-title,
+.canvas .sector-label {
+  paint-order: stroke;
+  stroke: var(--card);
+  /* Thinner than `.link-pattern-label`'s own 4px: that label is a straight, larger run of text with room between
+     letters, while a curved ring/sector label packs small (12-13px) glyphs tightly along an arc — 4px puffed
+     adjacent letters into each other, turning the whole word into an illegible blob. */
+  stroke-width: 2px;
+  stroke-linejoin: round;
+}
 .canvas .ring-label {
   fill: var(--muted);
   font-weight: 600;

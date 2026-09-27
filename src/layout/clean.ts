@@ -1,9 +1,10 @@
-import { arcAngles } from '../model/rings'
+import { ringedArcAngles } from '../model/rings'
 import type { CleanElement, CleanFile, CleanRingRole } from '../model/schema'
 import { countCrossings } from './crossings'
 import { minimizeCrossings, neighborLookup, type CrossingGroup } from './crossingMinimization'
 import type { Box, LayoutRing } from './layout'
-import { endpointLayout, ringedBounds, ringedElementHeight, ringedElementWidth, ringOutlines, ringSlotRadii } from './ringed'
+import { endpointLayout, ringedBounds, ringedElementHeight, ringedElementWidth, ringOutlines, ringSlotRadii, TITLE_ARC_PAD, type RingedExtraLabel } from './ringed'
+import { measure, RING_SUBTITLE } from './text'
 
 /** A sector's own wedge of its ring (REQ-08) — the angular sub-range its elements are spread inside, and the
  * range `render/band.ts`'s divider primitive and `cleanInsertion.ts`'s element "+" both place themselves against. */
@@ -84,30 +85,55 @@ function sectorWedges(doc: CleanFile): CleanSectorWedge[] {
 function buildCleanModel(doc: CleanFile, sectors: CleanSectorWedge[], orderedElementsIn: (sectorRef: string) => readonly CleanElement[]): CleanLayoutModel {
   // Every sector's own elements, flattened onto their shared ring (REQ-08's per-wedge spacing rule, but grouped
   // by ring rather than by sector) — so a ring grows to fit ALL of them, including crowding right at a wedge
-  // boundary between two sectors, with no sector-specific code in `ringOutlines` at all (ADR-01).
-  const slotsOf = (role: CleanRingRole) =>
-    sectors
+  // boundary between two sectors; the only Clean-specific input `ringOutlines` takes is each sector's own label
+  // footprint below (`extraLabelsOf`), everything else about HOW a ring sizes against slots/labels stays generic.
+  // Only a LONE sector (exactly one element) ever coincides with its own label in the first place — `arcAngles`
+  // spreads two or more evenly across the whole wedge, which already keeps them well clear of dead-centre in
+  // practice; growing the ring against every sector's own label regardless measured 2x-plus larger rings on
+  // clean-advanced.hexa, most of it paying for a coincidence that was never actually happening.
+  const loneSectorIndex = (role: CleanRingRole) => new Map(sectors.filter((s) => s.ringRole === role && orderedElementsIn(s.ref).length === 1).map((s, idx) => [s.ref, idx]))
+  const slotsOf = (role: CleanRingRole) => {
+    const loneIndex = loneSectorIndex(role)
+    return sectors
       .filter((s) => s.ringRole === role)
       .flatMap((sector) => {
         const onSector = orderedElementsIn(sector.ref)
-        const angles = arcAngles(onSector.length, sector.startAngle, sector.endAngle)
-        return onSector.map((e, k) => ({ angle: angles[k], width: ringedElementWidth(e.name), height: ringedElementHeight(e.name) }))
+        const ringIndex = doc.rings.findIndex((r) => r.role === sector.ringRole)
+        const angles = ringedArcAngles(onSector.length, sector.startAngle, sector.endAngle, ringIndex)
+        const labelIndex = loneIndex.get(sector.ref)
+        return onSector.map((e, k) => ({ angle: angles[k], width: ringedElementWidth(e.name), height: ringedElementHeight(e.name), labelIndex }))
       })
-  const rings = ringOutlines(doc.rings, slotsOf)
+  }
+  // Decision 5's ring-title clearance, generalized to Clean's own per-sector name (`render/CleanDiagram.tsx`'s
+  // `SectorLabel`, centred at its own wedge's mid-angle, never just the top) — the reported "Shipping" sector name
+  // sitting under the "Shipment" box, clean-advanced.hexa. Same `loneSectorIndex` order as `slotsOf` above, so a
+  // label's own index always lines up with the one sector's slot it actually belongs to.
+  const extraLabelsOf = (role: CleanRingRole): RingedExtraLabel[] => {
+    const loneSectors = sectors.filter((s) => s.ringRole === role && orderedElementsIn(s.ref).length === 1)
+    return loneSectors.map((s) => ({ angle: (s.startAngle + s.endAngle) / 2, arcLength: measure(s.name, RING_SUBTITLE) + 2 * TITLE_ARC_PAD }))
+  }
+  const rings = ringOutlines(doc.rings, slotsOf, extraLabelsOf)
   const ringByRole = new Map(rings.map((r, i) => [r.role, { ring: r, inner: rings[i - 1] }]))
 
   // Every ring's own slot radii, resolved ONCE across its whole flattened sector order (`ringSlotRadii` needs the
   // full list — Decision 7's lane assignment is relative to a slot's own position among ALL of its ring's slots,
-  // the same order `slotsOf` above sized that ring against), then sliced back out per sector below.
+  // the same order `slotsOf` above sized that ring against), then sliced back out per sector below. `risksLabel`
+  // (parallel to `angles`) flags a LONE sector's own single element — the one Decision 7 gives another radial lane
+  // to instead of sitting exactly where its own sector's curved name always centres (`ringOutlines`'s own
+  // `extraLabelsOf`, same lone-sector test).
   const anglesByRole = new Map<CleanRingRole, number[]>()
+  const risksLabelByRole = new Map<CleanRingRole, boolean[]>()
   for (const sector of sectors) {
-    const angles = arcAngles(orderedElementsIn(sector.ref).length, sector.startAngle, sector.endAngle)
+    const ringIndex = doc.rings.findIndex((r) => r.role === sector.ringRole)
+    const onSector = orderedElementsIn(sector.ref)
+    const angles = ringedArcAngles(onSector.length, sector.startAngle, sector.endAngle, ringIndex)
     anglesByRole.set(sector.ringRole, [...(anglesByRole.get(sector.ringRole) ?? []), ...angles])
+    risksLabelByRole.set(sector.ringRole, [...(risksLabelByRole.get(sector.ringRole) ?? []), ...angles.map(() => onSector.length === 1)])
   }
   const radiiByRole = new Map(
     [...anglesByRole].map(([role, angles]) => {
       const { ring, inner } = ringByRole.get(role)!
-      return [role, ringSlotRadii(ring, inner, angles)] as const
+      return [role, ringSlotRadii(ring, inner, angles, risksLabelByRole.get(role)!)] as const
     }),
   )
   const slotOffset = new Map<string, number>()
@@ -123,7 +149,8 @@ function buildCleanModel(doc: CleanFile, sectors: CleanSectorWedge[], orderedEle
   // placement, ADR-01) — in whichever order the caller handed in.
   const elements: CleanElementLayout[] = sectors.flatMap((sector) => {
     const onSector = orderedElementsIn(sector.ref)
-    const angles = arcAngles(onSector.length, sector.startAngle, sector.endAngle)
+    const ringIndex = doc.rings.findIndex((r) => r.role === sector.ringRole)
+    const angles = ringedArcAngles(onSector.length, sector.startAngle, sector.endAngle, ringIndex)
     const offset = slotOffset.get(sector.ref)!
     const radii = radiiByRole.get(sector.ringRole)!
     return onSector.map((e, k) => {
