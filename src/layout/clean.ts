@@ -3,7 +3,7 @@ import type { CleanElement, CleanFile, CleanRingRole } from '../model/schema'
 import { countCrossings } from './crossings'
 import { minimizeCrossings, neighborLookup, type CrossingGroup } from './crossingMinimization'
 import type { Box, LayoutRing } from './layout'
-import { endpointLayout, ringedBounds, ringedElementHeight, ringedElementWidth, ringOutlines, ringSlotRadii, TITLE_ARC_PAD, type RingedExtraLabel } from './ringed'
+import { endpointLayout, ringedBounds, ringedElementHeight, ringedElementWidth, ringOutlines, ringSlotRadii, risksLabelAt, TITLE_ARC_PAD, type RingedExtraLabel } from './ringed'
 import { measure, RING_SUBTITLE } from './text'
 
 /** A sector's own wedge of its ring (REQ-08) — the angular sub-range its elements are spread inside, and the
@@ -87,48 +87,57 @@ function buildCleanModel(doc: CleanFile, sectors: CleanSectorWedge[], orderedEle
   // by ring rather than by sector) — so a ring grows to fit ALL of them, including crowding right at a wedge
   // boundary between two sectors; the only Clean-specific input `ringOutlines` takes is each sector's own label
   // footprint below (`extraLabelsOf`), everything else about HOW a ring sizes against slots/labels stays generic.
-  // Only a LONE sector (exactly one element) ever coincides with its own label in the first place — `arcAngles`
-  // spreads two or more evenly across the whole wedge, which already keeps them well clear of dead-centre in
-  // practice; growing the ring against every sector's own label regardless measured 2x-plus larger rings on
-  // clean-advanced.hexa, most of it paying for a coincidence that was never actually happening.
-  const loneSectorIndex = (role: CleanRingRole) => new Map(sectors.filter((s) => s.ringRole === role && orderedElementsIn(s.ref).length === 1).map((s, idx) => [s.ref, idx]))
+  // EVERY sector's own label gets a clearance entry here, not only a lone one's — `arcAngles` keeps two or more
+  // elements clear of their own sector's DEAD-CENTRE, but a sector spanning most or all of its own ring (few
+  // sectors, e.g. Onion-shaped Clean documents with just one) still gives its own label a wide angular reach
+  // (`titleHalfSpan`, same growing-toward-`TITLE_MAX_SPAN`/2 cap a ring's own top title has at a small radius) —
+  // wide enough to still cross elements that were never at dead-centre (the reported "Ordering" sector name
+  // sitting under "OrderLine"/"Payment" on a small, few-element ring). An earlier version registered only a lone
+  // sector's own label, reasoning multiple elements were "already clear in practice" — true of dead-centre
+  // coincidence alone, never of how wide the label's own reach could get.
+  const sectorLabelIndex = (role: CleanRingRole) => new Map(sectors.filter((s) => s.ringRole === role).map((s, idx) => [s.ref, idx]))
   const slotsOf = (role: CleanRingRole) => {
-    const loneIndex = loneSectorIndex(role)
+    const labelIndex = sectorLabelIndex(role)
     return sectors
       .filter((s) => s.ringRole === role)
       .flatMap((sector) => {
         const onSector = orderedElementsIn(sector.ref)
         const ringIndex = doc.rings.findIndex((r) => r.role === sector.ringRole)
         const angles = ringedArcAngles(onSector.length, sector.startAngle, sector.endAngle, ringIndex)
-        const labelIndex = loneIndex.get(sector.ref)
-        return onSector.map((e, k) => ({ angle: angles[k], width: ringedElementWidth(e.name), height: ringedElementHeight(e.name), labelIndex }))
+        return onSector.map((e, k) => ({ angle: angles[k], width: ringedElementWidth(e.name), height: ringedElementHeight(e.name), labelIndex: labelIndex.get(sector.ref) }))
       })
   }
   // Decision 5's ring-title clearance, generalized to Clean's own per-sector name (`render/CleanDiagram.tsx`'s
-  // `SectorLabel`, centred at its own wedge's mid-angle, never just the top) — the reported "Shipping" sector name
-  // sitting under the "Shipment" box, clean-advanced.hexa. Same `loneSectorIndex` order as `slotsOf` above, so a
-  // label's own index always lines up with the one sector's slot it actually belongs to.
-  const extraLabelsOf = (role: CleanRingRole): RingedExtraLabel[] => {
-    const loneSectors = sectors.filter((s) => s.ringRole === role && orderedElementsIn(s.ref).length === 1)
-    return loneSectors.map((s) => ({ angle: (s.startAngle + s.endAngle) / 2, arcLength: measure(s.name, RING_SUBTITLE) + 2 * TITLE_ARC_PAD }))
-  }
+  // `SectorLabel`, centred at its own wedge's mid-angle, never just the top) — the reported "Shipping"/"Ordering"
+  // sector name sitting under its own sector's boxes. Same `sectorLabelIndex` order as `slotsOf` above, so a
+  // label's own index always lines up with the sector's own slots it actually belongs to.
+  // `maxHalfSpan`: a sector's own name never reads past its own wedge (`render/CleanDiagram.tsx`'s own
+  // `wedgeHalfSpan`) — without this cap, a ring split into several narrow sectors judged every one of their own
+  // labels by the same generous, effectively-unbounded reach a ring's own top title gets, forcing needless extra
+  // radial tracks (and so growth) no sector that narrow was ever going to need.
+  const extraLabelsOf = (role: CleanRingRole): RingedExtraLabel[] =>
+    sectors
+      .filter((s) => s.ringRole === role)
+      .map((s) => ({ angle: (s.startAngle + s.endAngle) / 2, arcLength: measure(s.name, RING_SUBTITLE) + 2 * TITLE_ARC_PAD, maxHalfSpan: (s.endAngle - s.startAngle) / 2 }))
   const rings = ringOutlines(doc.rings, slotsOf, extraLabelsOf)
   const ringByRole = new Map(rings.map((r, i) => [r.role, { ring: r, inner: rings[i - 1] }]))
 
   // Every ring's own slot radii, resolved ONCE across its whole flattened sector order (`ringSlotRadii` needs the
   // full list — Decision 7's lane assignment is relative to a slot's own position among ALL of its ring's slots,
   // the same order `slotsOf` above sized that ring against), then sliced back out per sector below. `risksLabel`
-  // (parallel to `angles`) flags a LONE sector's own single element — the one Decision 7 gives another radial lane
-  // to instead of sitting exactly where its own sector's curved name always centres (`ringOutlines`'s own
-  // `extraLabelsOf`, same lone-sector test).
+  // (parallel to `angles`) flags an element within 90° of ITS OWN sector's own label centre — the same "which half
+  // can the label actually reach" heuristic a ring's own top title uses (`risksTitle`, `ringed.ts`), generalised
+  // from always-the-top to whichever mid-angle that element's own sector's name centres on — the one Decision 7
+  // gives another radial lane to instead of sitting where that curved name could read (REQ-08).
   const anglesByRole = new Map<CleanRingRole, number[]>()
   const risksLabelByRole = new Map<CleanRingRole, boolean[]>()
   for (const sector of sectors) {
     const ringIndex = doc.rings.findIndex((r) => r.role === sector.ringRole)
     const onSector = orderedElementsIn(sector.ref)
     const angles = ringedArcAngles(onSector.length, sector.startAngle, sector.endAngle, ringIndex)
+    const centerAngle = (sector.startAngle + sector.endAngle) / 2
     anglesByRole.set(sector.ringRole, [...(anglesByRole.get(sector.ringRole) ?? []), ...angles])
-    risksLabelByRole.set(sector.ringRole, [...(risksLabelByRole.get(sector.ringRole) ?? []), ...angles.map(() => onSector.length === 1)])
+    risksLabelByRole.set(sector.ringRole, [...(risksLabelByRole.get(sector.ringRole) ?? []), ...angles.map((a) => risksLabelAt(a, centerAngle))])
   }
   const radiiByRole = new Map(
     [...anglesByRole].map(([role, angles]) => {

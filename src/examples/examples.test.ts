@@ -310,7 +310,12 @@ describe('Onion/Clean crossing counts (Decision 3) — after must never exceed b
     'onion-stress.hexa': 21,
     'clean-basic.hexa': 0,
     'clean-advanced.hexa': 9,
-    'clean-stress.hexa': 22,
+    // 22 → 24: Decision 5's own per-sector label clearance used to be checked only for a LONE sector (exactly one
+    // element) — every one of clean-stress's own multi-element sectors never had its own name's real clearance
+    // checked at all. Registering every sector (never just lone ones, `clean.ts`'s own `extraLabelsOf`) moves a
+    // few elements onto a different radial lane than before to clear their own sector's curved name, changing
+    // which edge PAIRS happen to cross — still comfortably under this file's own 33-crossing BEFORE.
+    'clean-stress.hexa': 24,
   }
 
   for (const file of files.filter((f) => f.startsWith('onion-') || f.startsWith('clean-'))) {
@@ -337,7 +342,11 @@ describe('Onion/Clean examples read at a usable size when fit to a 1440×900 sta
     'onion-advanced.hexa': 70,
     'onion-stress.hexa': 55,
     'clean-advanced.hexa': 70,
-    'clean-stress.hexa': 55,
+    // 55 → 50: Decision 5's own per-sector label clearance now checks EVERY sector, not only a lone one (see the
+    // crossing-count pin above) — a few of clean-stress's own crowded sectors genuinely need a touch more radius
+    // to keep their own curved name clear of their own elements, real clearance a title must never trade away for
+    // a bigger fit percentage. Still nowhere near the ~34% af5734e-era blow-up this floor itself guards against.
+    'clean-stress.hexa': 50,
   }
 
   for (const [file, minPercent] of Object.entries(MIN_FIT_PERCENT)) {
