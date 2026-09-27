@@ -1,0 +1,54 @@
+{
+  "app": "domainrings",
+  "version": 4,
+  "kind": "onion",
+  "title": "E-commerce — Onion (advanced)",
+  "rings": [
+    { "role": "domain", "name": "Domain Model" },
+    { "role": "domainServices", "name": "Domain Services" },
+    { "role": "application", "name": "Application Services" },
+    { "role": "outer", "name": "Infrastructure" }
+  ],
+  "elements": [
+    { "id": "el-order", "name": "Order", "ringRole": "domain" },
+    { "id": "el-orderline", "name": "OrderLine", "ringRole": "domain" },
+    { "id": "el-payment", "name": "Payment", "ringRole": "domain" },
+    { "id": "el-shipment", "name": "Shipment", "ringRole": "domain" },
+    { "id": "el-product", "name": "Product", "ringRole": "domain" },
+    { "id": "el-customer", "name": "Customer", "ringRole": "domain" },
+    { "id": "el-pricing", "name": "PricingService", "ringRole": "domainServices" },
+    { "id": "el-fraud", "name": "FraudDetectionService", "ringRole": "domainServices" },
+    { "id": "el-place-order", "name": "PlaceOrderService", "ringRole": "application" },
+    { "id": "el-process-payment", "name": "ProcessPaymentService", "ringRole": "application" },
+    { "id": "el-arrange-shipment", "name": "ArrangeShipmentService", "ringRole": "application" },
+    { "id": "el-lookup-product", "name": "LookupProductService", "ringRole": "application" },
+    { "id": "el-order-controller", "name": "OrderController", "ringRole": "outer" },
+    { "id": "el-payment-controller", "name": "PaymentController", "ringRole": "outer" },
+    { "id": "el-order-repo", "name": "OrderRepositoryImpl", "ringRole": "outer" },
+    { "id": "el-payment-gateway", "name": "PaymentGatewayAdapter", "ringRole": "outer" },
+    { "id": "el-carrier-gateway", "name": "CarrierGatewayAdapter", "ringRole": "outer" },
+    { "id": "el-product-repo", "name": "ProductRepositoryImpl", "ringRole": "outer" }
+  ],
+  "dependencies": [
+    { "id": "dep-1", "fromId": "el-order-controller", "toId": "el-place-order" },
+    { "id": "dep-2", "fromId": "el-payment-controller", "toId": "el-process-payment" },
+    { "id": "dep-3", "fromId": "el-place-order", "toId": "el-pricing" },
+    { "id": "dep-4", "fromId": "el-place-order", "toId": "el-order" },
+    { "id": "dep-5", "fromId": "el-process-payment", "toId": "el-fraud" },
+    { "id": "dep-6", "fromId": "el-process-payment", "toId": "el-payment" },
+    { "id": "dep-7", "fromId": "el-arrange-shipment", "toId": "el-shipment" },
+    { "id": "dep-8", "fromId": "el-lookup-product", "toId": "el-product" },
+    { "id": "dep-9", "fromId": "el-order-repo", "toId": "el-order" },
+    { "id": "dep-10", "fromId": "el-payment-gateway", "toId": "el-payment" },
+    { "id": "dep-11", "fromId": "el-carrier-gateway", "toId": "el-shipment" },
+    { "id": "dep-12", "fromId": "el-product-repo", "toId": "el-product" }
+  ],
+  "actors": [
+    { "id": "act-web", "name": "Web shop", "targetId": "el-order-controller" },
+    { "id": "act-ops", "name": "Ops console", "targetId": "el-payment-controller" }
+  ],
+  "externals": [
+    { "id": "ext-stripe", "name": "Stripe", "targetId": "el-payment-gateway" },
+    { "id": "ext-ups", "name": "Carrier (UPS)", "targetId": "el-carrier-gateway" }
+  ]
+}

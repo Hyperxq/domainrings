@@ -1,15 +1,18 @@
 import { HEXAGONAL_KIND } from '../model/kinds'
-import type { Diagram, LayerRole } from '../model/schema'
+import type { CleanFile, Diagram, LayerRole, OnionFile } from '../model/schema'
 import { adapterTag, DOMAIN_TAGS, portTag, USE_CASE_TAG } from './tags'
 import { LINE_METRICS, measure } from './text'
 
-export type Swatch = LayerRole | 'driving' | 'driven' | 'external'
+export type Swatch = LayerRole | 'driving' | 'driven' | 'external' | 'element'
 
 export interface LegendModel {
   colours: { label: string; swatch: Swatch }[]
   strokes: { stroke: 'dashed' | 'solid' | 'dotted'; label: string }[]
   /** Only the element types this diagram actually uses. */
   tags: string[]
+  /** Overrides `legendSections`' default per-section heading — set only where the default wording ("Glyph ·
+   * type") wouldn't fit what a section actually lists (Clean's sector wedges are not a glyph/type). */
+  sectionTitles?: { colours?: string; strokes?: string; tags?: string }
 }
 
 export function legendFor(d: Diagram): LegendModel {
@@ -37,6 +40,26 @@ export function legendFor(d: Diagram): LegendModel {
   }
 }
 
+/** Onion and Clean have no ports or adapters (ADR-01): their legend only ever describes their own rings, their
+ * elements, actors, external systems, and the dependency arrow — plus, for Clean alone, its sector wedges. Shared
+ * by both kinds rather than forked, since the two only ever differ in whether sectors exist at all. */
+function legendForRinged(rings: readonly { role: LayerRole; name: string }[], hasSectors: boolean): LegendModel {
+  return {
+    colours: [
+      ...rings.map((r) => ({ label: r.name, swatch: r.role as Swatch })),
+      { label: 'Element', swatch: 'element' },
+      { label: 'Actor', swatch: 'driving' },
+      { label: 'External system', swatch: 'driven' },
+    ],
+    strokes: [{ stroke: 'solid', label: 'Depends on / connects to' }],
+    tags: hasSectors ? ['Sector'] : [],
+    sectionTitles: hasSectors ? { tags: 'Wedge · division' } : undefined,
+  }
+}
+
+export const legendForOnion = (doc: OnionFile): LegendModel => legendForRinged(doc.rings, false)
+export const legendForClean = (doc: CleanFile): LegendModel => legendForRinged(doc.rings, true)
+
 /** Space between the diagram's bounds and the legend block drawn under them in exports. */
 export const LEGEND_GAP = 16
 export const LEGEND_ROW = 18
@@ -47,9 +70,9 @@ export const LEGEND_SWATCH = 24
 /** The legend's channels in order. One with no rows is left out wherever the legend is drawn. */
 export function legendSections(legend: LegendModel) {
   const all = [
-    { key: 'colours', title: 'Colour · layer', rows: legend.colours.length },
-    { key: 'strokes', title: 'Stroke · role', rows: legend.strokes.length },
-    { key: 'tags', title: 'Glyph · type', rows: legend.tags.length },
+    { key: 'colours', title: legend.sectionTitles?.colours ?? 'Colour · layer', rows: legend.colours.length },
+    { key: 'strokes', title: legend.sectionTitles?.strokes ?? 'Stroke · role', rows: legend.strokes.length },
+    { key: 'tags', title: legend.sectionTitles?.tags ?? 'Glyph · type', rows: legend.tags.length },
   ] as const
   return all.filter((s) => s.rows > 0)
 }

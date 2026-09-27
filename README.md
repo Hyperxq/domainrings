@@ -1,27 +1,28 @@
 # domainrings
 
-Draw your hexagonal architecture as a model, and let the rings lay themselves out.
+Draw your Hexagonal, Onion or Clean architecture as a model, and let the rings lay themselves out.
 
 Welcome, dear software craftsman. If you are here, you are probably learning Domain-Driven Design or putting it to work in a real codebase, and you know how hard it is to keep the picture in your head and the picture on the whiteboard in agreement. I hope this tool helps you with that.
 
-domainrings turns a structured model (domain items, use cases, ports, adapters, actors and external systems) into a clean diagram of hexagonal, clean or onion architecture. You describe what exists and how it connects; the layout, the arrows and the rings are drawn for you. There is no free drag and drop, so the diagram always says exactly what the model says.
+domainrings turns a structured model into a clean diagram of Hexagonal, Onion or Clean architecture — domain items, use cases, ports and adapters for Hexagonal; elements and dependencies placed in rings for Onion and Clean. You describe what exists and how it connects; the layout, the arrows and the rings are drawn for you. There is no free drag and drop, so the diagram always says exactly what the model says.
 
 Open it at **https://diagrams.pbuilder.dev/**. It runs in your browser and saves as you go.
 
 ## Start here
 
 1. Open the app. The first time, you see the **Chat feedback slice** example: one feature, drawn end to end.
-2. Use **Example** in the toolbar to load another one:
-   - **Chat feedback slice**: a single use case with its driving port, three driven ports, and the adapters, actors and external systems around them.
-   - **Stress test**: two aggregates, three use cases and ports on every wall, to show how the layout grows.
-   - **Two slices, one link**: two hexagons joined by one link, a small honeycomb, ready to grow.
+2. Use **Example** in the toolbar to load another one. Examples are grouped by architecture — Hexagonal, Onion, Clean — and each group offers the same learning path: a small basic example, a stress test, and a larger advanced example. The three advanced examples all model the same e-commerce domain, so you can compare how Hexagonal, Onion and Clean draw the same system.
 3. Try three things:
    - Switch between **Overview** and **Detailed**. Overview is the version for a slide; Detailed is the version for a design review.
    - Hover a ring. Its layer lights up and everything else steps back, which is a quick way to ask "what lives in the application layer?"
    - While a ring is highlighted, click one of the **+** buttons that appear on it. That is how you add things.
-4. Keep your work: **Export → .hexa** saves the model as a file you can open again later with **Open…**. **Export → SVG** or **PNG** gives you an image for documents and slides. **Copy link** puts a link to the whole map on your clipboard — opening it loads the map straight away, no file needed.
+4. Keep your work: **Export → .hexa** saves the model as a file you can open again later with **Open…**. **Export → SVG** or **PNG** gives you an image for documents and slides. **Copy link** puts a link to the whole map on your clipboard — opening it loads the map straight away, no file needed. All of this works the same whichever architecture is open.
 
 ## Read the diagram
+
+The architecture — Hexagonal, Onion or Clean — is chosen once, in the **New** dialog, and is fixed for that file from then on: there is no switching afterwards. Each one lays out as its own kind of diagram, and a file always holds exactly one.
+
+### Hexagonal
 
 Everything in the diagram maps to a concept you use in code. From the centre outwards:
 
@@ -31,13 +32,19 @@ Everything in the diagram maps to a concept you use in code. From the centre out
 
 **Ports.** A port is a contract, so it is drawn dashed on the edge of the application ring. A **driving** port (left half) is how the world asks your application to do something: an HTTP command, a queue event. A **driven** port (right half) is something your application needs from the world: a repository, a notifier, a clock.
 
-**Driven ports inside the domain.** In the hexagonal skin the domain lists its driven ports under `driven-ports/`, and a dotted line joins each one to its socket on the wall. That is dependency inversion made visible: the domain declares the interface it needs, and the outside implements it.
+**Driven ports inside the domain.** The domain lists its driven ports under `driven-ports/`, and a dotted line joins each one to its socket on the wall. That is dependency inversion made visible: the domain declares the interface it needs, and the outside implements it.
 
 **Adapters.** An adapter is the concrete code that plugs into a port, drawn solid in the outer ring. On the driving side it translates a request into a command (`orders.routes`); on the driven side it implements the contract with real technology (`KnexFeedbackRepository`).
 
 **Actors and external systems.** Outside everything sit the things you do not own. An **actor** drives an adapter (a frontend, an admin); an **external system** is what a driven adapter talks to (Postgres, Mailgun, a legacy module).
 
-**Three skins, one model.** The toolbar switches between **Hexagonal**, **Clean** and **Onion**. They draw the same model with each style's own words: Hexagonal has Infrastructure, Application and Domain rings; Clean has Frameworks & Drivers, Interface Adapters, Use Cases and Entities, and calls ports input and output ports; Onion has Infrastructure, Application Services, Domain Services and Domain Model. Switching skins never changes your model.
+### Onion
+
+Onion has four rings, innermost to outermost: **Domain Model**, **Domain Services**, **Application Services**, and an outer ring that holds UI, Infrastructure and Tests together. Add an element to whichever ring it belongs in, and it takes its place spread evenly around that ring's circumference. A dependency arrow may only point inward or stay within its own ring; while you draw one, the valid targets light up, and choosing a target further out is refused with a message instead of drawn. Actors and external systems can only connect to an element in the outer ring. An Onion file is always one diagram.
+
+### Clean
+
+Clean also has four rings — **Entities**, **Use Cases**, **Interface Adapters**, **Frameworks & Drivers** — but nothing sits directly in a ring: you create and name your own sectors inside it (drawn as wedges), and every element belongs to one. The same inward-or-same-ring rule governs dependencies; which sector an element sits in makes no difference to it. Actors and external systems can only connect to an element in Frameworks & Drivers. A Clean file, too, is always one diagram.
 
 ## Draw your own system
 
@@ -46,19 +53,19 @@ Start with **New** in the toolbar, or edit an example.
 - **Add.** Hover a ring and click a **+**: a domain root or an item inside one (a small menu asks aggregate or entity for a root, entity or value object for an item inside), a use case, a port on any wall, an adapter for a port, or an actor or external system for an adapter. A name field opens on the new element: Enter keeps it, Esc removes it. The editor panel on the side has an add button in every section too.
 - **Rename.** Double-click any element. The editor opens at its card with the name selected, ready to type over. Double-clicking a ring's title takes you to that layer under **Layers**, where you can change its title and subtitle. With the keyboard, Tab to an element and press Enter.
 - **Link.** Click an element to select it. If it can be linked, a **Link to…** chip appears at its corner (or press **L**). The valid targets light up; click one. A port links to a use case, an adapter to a port, an actor or external system to an adapter, and an entity or value object to the aggregate or entity it belongs to. Esc leaves link mode.
-- **Move ports between walls.** In the hexagonal skin a port can sit on any wall of its half: north-west, west or south-west for driving ports, north-east, east or south-east for driven ones. Pick the **Wall** in the port's card, or add it straight onto a wall with that wall's **+**. Clean and Onion keep ports in their left and right columns.
+- **Move ports between walls.** A port can sit on any wall of its half: north-west, west or south-west for driving ports, north-east, east or south-east for driven ones. Pick the **Wall** in the port's card, or add it straight onto a wall with that wall's **+**.
 - **Seat a use case on a wall.** A use case normally stacks under the Application title. Its **Placement** can name a wall instead, and it moves into that wall's sector, next to the ports it serves.
 - **Delete.** Select an element and press Delete or Backspace, or use the remove button on its card.
-- **Undo.** Deleting, linking, starting a new diagram, loading an example and importing a file all show a short message with an **Undo** button; Ctrl+Z (Cmd+Z on a Mac) does the same while it is visible.
+- **Undo.** This holds for every architecture, and for every kind of edit — adding, renaming, deleting, linking (or, in Onion and Clean, depending), plus starting a new diagram, loading an example, opening or importing a file. Each one shows a short message with an **Undo** button; Ctrl+Z (Cmd+Z on a Mac) does the same while it is visible.
 
 Your work autosaves in this browser's `localStorage` a moment after each change, so a reload brings it back. Export a `.hexa` file for anything you want to keep or share, and open it again with **Open…**.
 
 ## Build a honeycomb
 
-A real system is rarely one slice. domainrings draws several hexagons side by side, each one its own diagram, none of them overlapping: a honeycomb you build by growing the map or bringing in slices you already have as files.
+A real system is rarely one slice. domainrings draws several hexagons side by side, each one its own diagram, none of them overlapping: a honeycomb you build by growing the map or bringing in slices you already have as files. Maps and the links between hexagons are Hexagonal only — an Onion or Clean file is always exactly one diagram, with no honeycomb to grow.
 
 - **Grow.** The current hexagon's free sides show a **+**. Click one and choose **Hexagon in {context}** to add a neighbour in the same bounded context, or **Hexagon in a new bounded context** to start a fresh one. The new hexagon appears empty and current, with its title field open: type a name and press Enter, or Esc to undo the whole thing. The Hexagon section of the editor has its own **Add hexagon** button for the same move without touching the canvas.
-- **Bring in a file.** The editor's Map section has **Add hexagon from file…**. It asks where the hexagon should land (**Import into {context}** or **Import into a new bounded context**) before you pick the file, so choose the destination first. The file must hold exactly one hexagon; a file with more is refused, with a message pointing you at **Open…** instead, which replaces the whole map. If the map you're adding to is still Clean or Onion, you're asked to confirm converting it to hexagonal, and the conversion and the add happen together as one undoable step.
+- **Bring in a file.** The editor's Map section has **Add hexagon from file…**. It asks where the hexagon should land (**Import into {context}** or **Import into a new bounded context**) before you pick the file, so choose the destination first. The file must itself be Hexagonal and hold exactly one hexagon: an Onion or Clean file is refused, with a message naming its kind, and a file with more than one hexagon is refused too, pointing you at **Open…** instead, which replaces the whole map.
 - **Bounded contexts.** Once a map holds two or more contexts, each one is drawn as a dashed outline with a name chip, even when a context's hexagons aren't all next to each other, or when another context's hexagon sits in the middle of it. Name or rename a context in the editor's **Bounded contexts** section; an unnamed one shows a stable "Context {n}" placeholder that never changes while the context exists. A single-context map draws with no outlines at all, exactly as a lone hexagon always has.
 - **Link hexagons.** A link joins a driven port on one hexagon to a driving port on another: the first depends on the second. Select the driven port and use **Link to…**, or the editor's **Links** section; valid ports on other hexagons light up. A link that crosses bounded contexts can carry the DDD relationship it represents (`acl`, `ohs-pl`, `customer-supplier`, `conformist`, `shared-kernel`), drawn as a label on the link.
 - **Delete.** The Hexagon section's **Delete hexagon** removes the current hexagon, short of the very last one on the map; its links go with it, and its bounded context too if that hexagon was the only one in it. Undo brings all of it back in one step.
@@ -67,7 +74,7 @@ A real system is rarely one slice. domainrings draws several hexagons side by si
 
 ## Let your AI assistant draw it
 
-The repo ships an agent skill, `domainrings`, that teaches an AI coding assistant to read your code, write the `.hexa` map for its hexagonal architecture (one hexagon or a whole honeycomb), and hand you a link that opens it here. Install it with the [skills](https://github.com/vercel-labs/skills) CLI, which works with Claude Code, Cursor, Codex and other agents:
+The repo ships an agent skill, `domainrings`, that teaches an AI coding assistant to read your code, write the `.hexa` map for its hexagonal architecture (one hexagon or a whole honeycomb), and hand you a link that opens it here. It covers Hexagonal only for now — Onion and Clean aren't supported by the skill yet. Install it with the [skills](https://github.com/vercel-labs/skills) CLI, which works with Claude Code, Cursor, Codex and other agents:
 
 ```sh
 npx skills add Hyperxq/domainrings --skill domainrings
@@ -83,7 +90,7 @@ Each meaning has one channel, and a collapsible legend in the bottom-right corne
 
 - **Colour = layer or side:** indigo for the driving side, rust for the driven side, teal for the application ring and a solid teal domain, slate for the outer ring and external systems.
 - **Stroke = role:** dashed for contracts (ports), solid for implementations (adapters, use cases), dotted for wiring and ownership.
-- **Glyph + word = type:** `◆ aggregate`, `● entity`, `○ value object`, `⚙ domain service`, `▶ use case`, `⇥` for the driving side and `⇤` for the driven side, with each skin's own port and adapter words.
+- **Glyph + word = type:** `◆ aggregate`, `● entity`, `○ value object`, `⚙ domain service`, `▶ use case`, `⇥` for the driving side and `⇤` for the driven side.
 
 The legend shows only the types your diagram uses, and it is drawn into SVG and PNG exports unless you untick **Include legend in export**.
 
@@ -99,12 +106,12 @@ Hovering a ring or an element, or tabbing to it, brightens that layer and dims t
 
 ### File format
 
-A `.hexa` file is plain JSON, version 2. It holds a map with one or more bounded contexts and hexagons; a single diagram is a map with one of each. The JSON Schema lives in `src/model/fixtures/v2.schema.json`. A minimal file:
+A `.hexa` file is plain JSON, now on version 4 — versions 1 through 3 still open and are upgraded automatically. A Hexagonal file holds a map with one or more bounded contexts and hexagons; a single diagram is a map with one of each. The JSON Schema for this shape lives in `src/model/fixtures/v2.schema.json` (the map shape hasn't changed since v2, only the version number has). A minimal file:
 
 ```json
 {
   "app": "domainrings",
-  "version": 2,
+  "version": 4,
   "kind": "hexagonal",
   "title": "Orders",
   "contexts": [{ "id": "c1" }],
@@ -132,7 +139,7 @@ A `.hexa` file is plain JSON, version 2. It holds a map with one or more bounded
 }
 ```
 
-Ids must be unique, and every reference (`parentId`, `useCaseId`, `portId`, `adapterId`) must point at something that exists; import tells you exactly what is wrong when they do not. Version 1 files still open, including those marked `"app": "archviz"` from before the project was renamed.
+Ids must be unique, and every reference (`parentId`, `useCaseId`, `portId`, `adapterId`) must point at something that exists; import tells you exactly what is wrong when they do not. Version 1 and 2 files still open, including those marked `"app": "archviz"` from before the project was renamed — and if one carries a Clean or Onion `kind` from the old skin-switcher era, it opens as Hexagonal, since that switcher no longer exists. Version 3 files, saved after native Onion first shipped, keep their own kind (Hexagonal or Onion) as they were.
 
 ### Fonts
 
@@ -149,11 +156,11 @@ npm test           # vitest run
 npm run typecheck  # tsc --noEmit
 ```
 
-The model and its validation live in `src/model/schema.ts`, the three skins in `src/model/kinds.ts`, and the layout engine in `src/layout/`.
+The model and its validation live in `src/model/schema.ts`, Hexagonal's own ring/label config in `src/model/kinds.ts`, and the layout engine for all three architectures in `src/layout/`.
 
 ## What is coming
 
-The honeycomb and its links are here. What's coming next is Onion modelled as its own architecture rather than a skin over the hexagonal model, with Clean to follow, and the AI skill growing to cover each of them as they land.
+Onion and Clean, each modelled as its own architecture rather than a skin over the hexagonal model, are here. What's coming next: the AI skill growing to read and write Onion and Clean, not just Hexagonal; and, for Onion, letting you edit its rings after creation while keeping the inward-dependency rule intact (issue #13).
 
 ## License
 

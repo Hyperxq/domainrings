@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createRef } from 'react'
 import { layoutClean } from '../layout/clean'
@@ -8,6 +8,14 @@ import { CleanStage } from './CleanStage'
 
 const state = () => useCleanStore.getState()
 
+// RingedStage (the shared Onion/Clean viewport chrome) observes its own size, same as Hexagonal's own Stage.
+beforeAll(() => {
+  globalThis.ResizeObserver ??= class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver
+})
 beforeEach(() => {
   state().replace(newCleanMap('Fresh architecture'))
 })
@@ -18,21 +26,55 @@ afterEach(cleanup)
 function Harness({ onReject = () => {} }: { onReject?: (message: string) => void } = {}) {
   const doc = useCleanStore((s) => s.map)
   const svgRef = createRef<SVGSVGElement>()
-  return <CleanStage model={layoutClean(doc)} doc={doc} svgRef={svgRef} onReject={onReject} />
+  return <CleanStage model={layoutClean(doc)} doc={doc} mode="detailed" svgRef={svgRef} onReject={onReject} />
 }
 
 const renderStage = (props?: { onReject?: (message: string) => void }) => render(<Harness {...props} />)
 
-describe('CleanStage — sector/element "+" affordances (REQ-03/REQ-04)', () => {
-  it('offers a "+" for every ring on a fresh map, to add a sector', () => {
-    renderStage()
-    for (const label of ['Add sector to Entities', 'Add sector to Use Cases', 'Add sector to Interface Adapters', 'Add sector to Frameworks & Drivers']) {
-      expect(screen.getByRole('button', { name: label })).toBeTruthy()
-    }
+/** Reveals a ring's own "+" affordances (mirrors Hexagonal's own Stage.test.tsx `hover` helper, and OnionStage's
+ * own) — hovering its band, same as a real pointer resting on the ring. */
+const hoverRing = (container: HTMLElement, role: string) => fireEvent.pointerOver(container.querySelector(`[data-band="${role}"]`)!)
+
+describe('CleanStage "+" affordances only show for the hovered/focused ring or element (no clutter, REQ-03/REQ-04)', () => {
+  it('offers no "+" at all until a ring is hovered or focused', () => {
+    const { container } = renderStage()
+    expect(container.querySelectorAll('[data-plus]')).toHaveLength(0)
   })
 
+  it('hovering a ring reveals only its own "+", not another ring\'s', () => {
+    const { container } = renderStage()
+    hoverRing(container, 'domain')
+    expect(screen.getByRole('button', { name: 'Add sector to Entities' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Add sector to Frameworks & Drivers' })).toBeNull()
+  })
+
+  it('a pointer-driven focus does not reveal "+" buttons, only a real keyboard focus does', () => {
+    const { container } = renderStage()
+    const band = container.querySelector('[data-band="domain"]')!
+    fireEvent.pointerDown(band, { button: 0 })
+    fireEvent.focus(band)
+    expect(screen.queryByRole('button', { name: 'Add sector to Entities' })).toBeNull()
+    fireEvent.pointerUp(band)
+    fireEvent.focus(band)
+    expect(screen.getByRole('button', { name: 'Add sector to Entities' })).toBeTruthy()
+  })
+
+  it('hovering the "+" itself does not hide it, but leaving the canvas entirely does', () => {
+    const { container } = renderStage()
+    const svg = container.querySelector('svg.canvas')!
+    hoverRing(container, 'domain')
+    const plus = screen.getByRole('button', { name: 'Add sector to Entities' })
+    fireEvent.pointerOver(plus)
+    expect(screen.getByRole('button', { name: 'Add sector to Entities' })).toBeTruthy()
+    fireEvent.pointerLeave(svg, { relatedTarget: null })
+    expect(screen.queryByRole('button', { name: 'Add sector to Entities' })).toBeNull()
+  })
+})
+
+describe('CleanStage — sector/element "+" affordances (REQ-03/REQ-04)', () => {
   it('a ring\'s "+" adds a sector there (REQ-03)', () => {
-    renderStage()
+    const { container } = renderStage()
+    hoverRing(container, 'domain')
     fireEvent.click(screen.getByRole('button', { name: 'Add sector to Entities' }))
     expect(state().map.sectors).toHaveLength(1)
     expect(state().map.sectors[0].ringRole).toBe('domain')
@@ -40,7 +82,8 @@ describe('CleanStage — sector/element "+" affordances (REQ-03/REQ-04)', () => 
 
   it('a sector\'s "+" adds a named element there, immediately open for renaming (REQ-04)', () => {
     state().addSector({ name: 'Billing', ringRole: 'domain' })
-    renderStage()
+    const { container } = renderStage()
+    hoverRing(container, 'domain')
     fireEvent.click(screen.getByRole('button', { name: 'Add element to Billing' }))
     expect(state().map.elements).toHaveLength(1)
     expect(state().map.elements[0].sectorId).toBe(state().map.sectors[0].id)
@@ -52,19 +95,21 @@ describe('CleanStage — sector/element "+" affordances (REQ-03/REQ-04)', () => 
 
   it('cancelling a new element\'s name (Esc) removes it', () => {
     state().addSector({ name: 'Billing', ringRole: 'domain' })
-    renderStage()
+    const { container } = renderStage()
+    hoverRing(container, 'domain')
     fireEvent.click(screen.getByRole('button', { name: 'Add element to Billing' }))
     expect(state().map.elements).toHaveLength(1)
     fireEvent.keyDown(screen.getByLabelText('element name'), { key: 'Escape' })
     expect(state().map.elements).toHaveLength(0)
   })
 
-  it('an outer-ring element offers an actor and an external "+"; an inner one offers neither (REQ-07)', () => {
+  it('an outer-ring element offers an actor and an external "+" while it is hovered; an inner one offers neither (REQ-07)', () => {
     const innerSector = state().addSector({ name: 'Core', ringRole: 'domain' })
     const outerSector = state().addSector({ name: 'API', ringRole: 'outer' })
     state().addElement({ name: 'Order', sectorId: innerSector })
     state().addElement({ name: 'Controller', sectorId: outerSector })
     renderStage()
+    fireEvent.pointerOver(screen.getByRole('button', { name: 'Controller (outer)' }))
     expect(screen.getByRole('button', { name: 'Add an actor for Controller' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Add an external system for Controller' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Add an actor for Order' })).toBeNull()
@@ -74,6 +119,7 @@ describe('CleanStage — sector/element "+" affordances (REQ-03/REQ-04)', () => 
     const outerSector = state().addSector({ name: 'API', ringRole: 'outer' })
     state().addElement({ name: 'Controller', sectorId: outerSector })
     renderStage()
+    fireEvent.pointerOver(screen.getByRole('button', { name: 'Controller (outer)' }))
     fireEvent.click(screen.getByRole('button', { name: 'Add an actor for Controller' }))
     expect(state().map.actors).toHaveLength(1)
     expect(state().map.actors[0].targetId).toBe(state().map.elements[0].id)

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { newCleanMap } from '../model/hexa'
 import type { CleanFile } from '../model/schema'
 import { layoutClean } from './clean'
+import { arcLabelFootprintBox, ringedElementHeight, ringedElementWidth, ringElementRadius, titleHalfSpan, TITLE_ARC_PAD } from './ringed'
+import { measure, RING_SUBTITLE } from './text'
 
 describe('layoutClean — sector wedges (REQ-08)', () => {
   it('a ring with no sectors has no wedges', () => {
@@ -46,7 +48,7 @@ describe('layoutClean — sector wedges (REQ-08)', () => {
 })
 
 describe('layoutClean — elements placed inside their own sector\'s wedge (REQ-08)', () => {
-  it('an element sits at the ring radius, at an angle strictly inside its sector\'s own span', () => {
+  it('an element sits inside its own ring\'s band (its mid radius, never its outer edge), at an angle strictly inside its sector\'s own span', () => {
     const doc: CleanFile = {
       ...newCleanMap('Fresh'),
       sectors: [
@@ -58,8 +60,9 @@ describe('layoutClean — elements placed inside their own sector\'s wedge (REQ-
     const model = layoutClean(doc)
     const [element] = model.elements
     const sector = model.sectors.find((s) => s.ref === 's1')!
-    const ring = model.rings.find((r) => r.role === 'domain')!
-    expect(Math.hypot(element.x, element.y)).toBeCloseTo(ring.apex, 6)
+    const ringIndex = model.rings.findIndex((r) => r.role === 'domain')
+    const ring = model.rings[ringIndex]
+    expect(Math.hypot(element.x, element.y)).toBeCloseTo(ringElementRadius(ring, model.rings[ringIndex - 1]), 6)
     const angle = Math.atan2(element.y, element.x)
     expect(angle).toBeGreaterThan(sector.startAngle)
     expect(angle).toBeLessThan(sector.endAngle)
@@ -87,6 +90,39 @@ describe('layoutClean — elements placed inside their own sector\'s wedge (REQ-
   })
 })
 
+// A ring's own curved TITLE already keeps every element clear of it (Decision 5, `ringOutlines`) — but a Clean
+// sector's own name (`render/CleanDiagram.tsx`'s `SectorLabel`) is a SEPARATE curved label, centred at its own
+// wedge's mid-angle rather than always the top, that `ringOutlines`' sizing never knew to keep clear of. A sector
+// with exactly one element places it at that same wedge mid-angle (`arcAngles`' own one-slot placement) — right
+// on top of its own sector's label (the reported "Shipping" sector name sitting under the "Shipment" box,
+// clean-advanced.hexa).
+describe("a ring's own sector label never overlaps its own elements", () => {
+  const boxesOverlap = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>
+    Math.abs(a.x - b.x) < (a.width + b.width) / 2 && Math.abs(a.y - b.y) < (a.height + b.height) / 2
+
+  it('a lone element in a sector never sits under that sector\'s own curved name', () => {
+    const doc: CleanFile = {
+      ...newCleanMap('Fresh'),
+      sectors: [
+        { id: 's1', name: 'A Very Long Sector Name Indeed', ringRole: 'domain' },
+        { id: 's2', name: 'Other', ringRole: 'domain' },
+      ],
+      elements: [{ id: 'e1', name: 'A Very Long Element Name Too', sectorId: 's1' }],
+    }
+    const model = layoutClean(doc)
+    const ringIndex = model.rings.findIndex((r) => r.role === 'domain')
+    const ring = model.rings[ringIndex]
+    const sector = model.sectors.find((s) => s.ref === 's1')!
+    const radius = ringElementRadius(ring, model.rings[ringIndex - 1])
+    const centerAngle = (sector.startAngle + sector.endAngle) / 2
+    const labelArc = measure(sector.name, RING_SUBTITLE) + 2 * TITLE_ARC_PAD
+    const labelBox = arcLabelFootprintBox(radius, centerAngle, titleHalfSpan(labelArc, radius))
+    const [element] = model.elements
+    const elementBox = { x: element.x, y: element.y, width: ringedElementWidth(element.name), height: ringedElementHeight(element.name) }
+    expect(boxesOverlap(labelBox, elementBox)).toBe(false)
+  })
+})
+
 describe('layoutClean — endpoints and edges (REQ-06/REQ-07, same placement contract as Onion)', () => {
   it('an actor/external sits outside the outer ring, with an edge to its target', () => {
     const doc: CleanFile = {
@@ -99,7 +135,9 @@ describe('layoutClean — endpoints and edges (REQ-06/REQ-07, same placement con
     expect(model.endpoints).toHaveLength(1)
     const outerRing = model.rings[model.rings.length - 1]
     expect(Math.hypot(model.endpoints[0].x, model.endpoints[0].y)).toBeGreaterThan(outerRing.apex)
-    expect(model.edges).toEqual([{ key: 'endpoint-edge:a1', kind: 'endpoint', from: { x: model.endpoints[0].x, y: model.endpoints[0].y }, to: { x: model.elements[0].x, y: model.elements[0].y } }])
+    expect(model.edges).toEqual([
+      { key: 'endpoint-edge:a1', kind: 'endpoint', fromRef: 'a1', toRef: 'e1', from: { x: model.endpoints[0].x, y: model.endpoints[0].y }, to: { x: model.elements[0].x, y: model.elements[0].y } },
+    ])
   })
 
   it('a dependency between two elements produces an edge between their laid-out positions', () => {
@@ -117,7 +155,9 @@ describe('layoutClean — endpoints and edges (REQ-06/REQ-07, same placement con
     }
     const model = layoutClean(doc)
     const at = (ref: string) => model.elements.find((e) => e.ref === ref)!
-    expect(model.edges).toEqual([{ key: 'dependency:d1', kind: 'dependency', from: { x: at('e1').x, y: at('e1').y }, to: { x: at('e2').x, y: at('e2').y } }])
+    expect(model.edges).toEqual([
+      { key: 'dependency:d1', kind: 'dependency', fromRef: 'e1', toRef: 'e2', from: { x: at('e1').x, y: at('e1').y }, to: { x: at('e2').x, y: at('e2').y } },
+    ])
   })
 
   it('bounds grow to include the endpoint ring when actors/externals exist', () => {

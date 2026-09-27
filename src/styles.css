@@ -38,6 +38,42 @@
 /* A <path> (like `.edge`, below) is filled by default — `fill: none` is load-bearing here too. */
 .sector-divider { fill: none; stroke: var(--line); stroke-opacity: 0.6; stroke-width: 1; }
 
+/* A ring's own title/subtitle and a Clean sector's own name all read over whatever paints beneath them — another
+   ring's fill, an edge bowing past on its way elsewhere (Decision 1's curved chords, `RingedNodes.tsx`) — so each
+   carries a halo (paint-order stroke, same idiom as `.link-pattern-label`) rather than relying on layout alone to
+   keep every edge clear of them (only "avoided when possible", never guaranteed). The halo must match the colour
+   of the BAND the text actually sits on, never a fixed canvas colour: the innermost title/`.on-domain` text is
+   near-white ink (--domain-ink) on the dark --teal-deep domain fill — a --card (light) halo rendered white text
+   with a white outline, blobbing the glyphs together (the reported illegible "Domain Model"/"Entities" title). */
+.canvas .ring-label,
+.canvas .ring-subtitle,
+.canvas .domain-title,
+.canvas .sector-label {
+  paint-order: stroke;
+  /* Thinner than `.link-pattern-label`'s own 4px: that label is a straight, larger run of text with room between
+     letters, while a curved ring/sector label packs small (12-13px) glyphs tightly along an arc — 4px puffed
+     adjacent letters into each other, turning the whole word into an illegible blob. */
+  stroke-width: 2px;
+  stroke-linejoin: round;
+}
+.canvas .ring-label[data-layer='outer'],
+.canvas .ring-subtitle[data-layer='outer'],
+.canvas .sector-label[data-layer='outer'] { stroke: var(--card); }
+.canvas .ring-label[data-layer='adapters'],
+.canvas .ring-subtitle[data-layer='adapters'],
+.canvas .sector-label[data-layer='adapters'] { stroke: var(--slate-soft); }
+.canvas .ring-label[data-layer='application'],
+.canvas .ring-subtitle[data-layer='application'],
+.canvas .sector-label[data-layer='application'] { stroke: var(--teal-soft); }
+.canvas .ring-label[data-layer='domainServices'],
+.canvas .ring-subtitle[data-layer='domainServices'],
+.canvas .sector-label[data-layer='domainServices'] { stroke: color-mix(in srgb, var(--teal) 22%, var(--teal-soft)); }
+.canvas .domain-title,
+.canvas .ring-label.on-domain,
+.canvas .sector-label.on-domain,
+.canvas .ring-subtitle.on-domain {
+  stroke: var(--teal-deep);
+}
 .canvas .ring-label {
   fill: var(--muted);
   font-weight: 600;
@@ -47,6 +83,13 @@
 .canvas .ring-label.on-domain { fill: var(--domain-ink); }
 .canvas .domain-title { fill: var(--domain-ink); font-weight: 600; text-anchor: middle; }
 .canvas .ring-subtitle { fill: var(--muted); text-anchor: middle; }
+/* A sector's own name (Decision 4) — smaller, lighter-weight and less letter-spaced than a ring's own title, so
+   the hierarchy (ring > sector) still reads from size/weight alone; unlike an earlier version, it is never ALSO
+   dimmed by opacity — --muted and --domain-ink already sit at their own validated 4.5:1 (palette.test.ts's own
+   TEXT_PAIRS), and fading either past that on top of a font already smaller than the ring title left it too
+   faint to read at fit (the reported near-invisible sector names). */
+.canvas .sector-label { fill: var(--muted); font-weight: 500; letter-spacing: 0.6px; text-anchor: middle; }
+.canvas .sector-label.on-domain { fill: var(--domain-ink); }
 .guide { stroke: var(--muted); stroke-opacity: var(--guide-opacity); stroke-width: 1; stroke-dasharray: 6 5; }
 .canvas .line-name { font-family: var(--font-mono); font-weight: 500; }
 .text-button[aria-pressed='true'] { background: var(--teal-soft); color: var(--teal); }
@@ -142,6 +185,19 @@
   pointer-events: auto;
 }
 .plus-menu .text-button { justify-content: start; font-family: var(--font-mono); font-weight: 500; }
+
+/* Onion/Clean's own ring/sector/endpoint "+" (RingedCanvas.tsx's `PlusGlyph`) and "Depend on…" chip
+   (`DependChip`) are plain SVG glyphs, not HTML buttons like `.plus` above — same look (a teal circle with a
+   card-coloured centre), drawn with fill/stroke rather than background/border. Without these rules the circle's
+   default SVG fill (black) and unstyled lines were the reported solid black dots. */
+.ringed-plus,
+.ringed-depend-chip { cursor: pointer; }
+.ringed-plus circle { fill: var(--card); stroke: var(--teal); stroke-width: 1.5px; }
+.ringed-plus line { stroke: var(--teal); stroke-width: 1.5px; }
+.ringed-plus:hover circle { fill: var(--teal-soft); }
+.ringed-depend-chip rect { fill: var(--card); stroke: var(--teal); stroke-width: 1px; }
+.ringed-depend-chip text { fill: var(--teal); font-size: 12px; font-weight: 600; text-anchor: middle; }
+.ringed-depend-chip:hover rect { fill: var(--teal-soft); }
 
 /* Grow-the-map side "+": a ChoiceMenu (GROW-01) positioned at the shared cell-edge midpoint, styled to match .plus.
    No `transform` here — ChoiceMenu's own menu relies on `position: fixed` resolving against the viewport, which a
@@ -239,6 +295,10 @@
 .tone-driven .box { fill: var(--driven-fill); stroke: var(--driven-line); stroke-width: 1; }
 .canvas .tone-driving text, .canvas .tone-driving tspan { fill: var(--driving-ink); }
 .canvas .tone-driven text, .canvas .tone-driven tspan { fill: var(--driven-ink); }
+/* An Onion/Clean actor/external's own name sits directly on the canvas background, beside its dot — not on a
+   filled tone pill like Hexagonal's own driving/driven boxes, where --driving-ink/--driven-ink (near-white in
+   every theme) actually read; on the plain canvas that same near-white text vanishes in light theme. */
+.canvas .node-ringedEndpoint text, .canvas .node-ringedEndpoint tspan { fill: var(--ink); }
 .tone-slate .box { fill: var(--slate-soft); stroke: var(--slate); }
 .tone-teal .box { fill: var(--card); stroke: var(--teal); }
 .node-useCase .box { fill: none; stroke: var(--teal); stroke-width: 1.5; }
@@ -691,6 +751,8 @@ span.swatch-domain { background: var(--teal-deep); border-color: var(--teal-deep
 span.swatch-driving { background: var(--driving-fill); border-color: var(--driving-line); }
 span.swatch-driven { background: var(--driven-fill); border-color: var(--driven-line); }
 span.swatch-external { background: var(--slate-soft); border-color: var(--slate); }
+/* Matches a ringed (Onion/Clean) element box's own fill/stroke (`.tone-teal .box`, styles.css above). */
+span.swatch-element { background: var(--card); border-color: var(--teal); }
 .legend-line { flex: none; }
 .legend-tags { font-family: var(--font-mono); }
 .legend-footer { padding: 8px 0; border-top: 1px solid var(--line); }

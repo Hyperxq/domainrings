@@ -8,6 +8,19 @@ import { OnionFileSchema, type OnionElement, type OnionEndpoint, type OnionFile 
 // zustand store wrapper.
 const makeId = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 6)}`
 
+describe('ringedDocument.elementName', () => {
+  it('returns the matching element\'s name', () => {
+    const doc = newOnionMap('Fresh')
+    const { doc: next, id } = ringedDocument.addElement<OnionFile, OnionElement>(doc, { name: 'Order', ringRole: 'domain' }, () => makeId('element'))
+    expect(ringedDocument.elementName(next.elements, id)).toBe('Order')
+  })
+
+  it('returns an empty string when no element matches', () => {
+    const doc = newOnionMap('Fresh')
+    expect(ringedDocument.elementName(doc.elements, 'missing')).toBe('')
+  })
+})
+
 describe('ringedDocument.addElement', () => {
   it('adds a named element to the given ring', () => {
     const doc = newOnionMap('Fresh')

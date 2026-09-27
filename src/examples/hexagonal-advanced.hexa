@@ -1,0 +1,153 @@
+{
+  "app": "domainrings",
+  "version": 4,
+  "kind": "hexagonal",
+  "title": "E-commerce — Hexagonal (advanced)",
+  "contexts": [
+    { "id": "c1", "name": "Ordering" },
+    { "id": "c2", "name": "Payments" },
+    { "id": "c3", "name": "Shipping" },
+    { "id": "c4", "name": "Catalog" }
+  ],
+  "hexagons": [
+    {
+      "id": "h1",
+      "contextId": "c1",
+      "cell": { "q": 0, "r": 0 },
+      "title": "Ordering",
+      "subtitle": "Places an order, then hands off payment, shipping and pricing",
+      "domain": [
+        { "id": "d-order", "name": "Order", "type": "aggregate" },
+        { "id": "d-orderline", "name": "OrderLine", "type": "entity", "parentId": "d-order" },
+        { "id": "d-money", "name": "Money", "type": "valueObject", "parentId": "d-orderline" },
+        { "id": "d-address", "name": "ShippingAddress", "type": "valueObject", "parentId": "d-order" }
+      ],
+      "useCases": [
+        { "id": "uc-place", "name": "PlaceOrder", "note": "execute(cmd): Promise<OrderId>\nprice, charge, arrange shipment" }
+      ],
+      "ports": [
+        { "id": "p-orders-api", "name": "ordersApi", "side": "driving", "wall": "w", "useCaseId": "uc-place", "note": "(command)" },
+        { "id": "p-payment-out", "name": "PaymentGateway", "side": "driven", "wall": "e", "useCaseId": "uc-place" },
+        { "id": "p-shipment-out", "name": "ShipmentRequester", "side": "driven", "wall": "e", "useCaseId": "uc-place" },
+        { "id": "p-catalog-out", "name": "ProductLookup", "side": "driven", "wall": "e", "useCaseId": "uc-place" },
+        { "id": "p-order-repo", "name": "OrderRepository", "side": "driven", "wall": "e", "useCaseId": "uc-place" }
+      ],
+      "adapters": [
+        { "id": "a-rest", "name": "orders.routes", "portId": "p-orders-api", "note": "HTTP → command" },
+        { "id": "a-payment-client", "name": "PaymentServiceClient", "portId": "p-payment-out" },
+        { "id": "a-shipment-client", "name": "ShippingServiceClient", "portId": "p-shipment-out" },
+        { "id": "a-catalog-client", "name": "CatalogServiceClient", "portId": "p-catalog-out" },
+        { "id": "a-order-repo", "name": "KnexOrderRepository", "portId": "p-order-repo" }
+      ],
+      "actors": [
+        { "id": "act-web", "name": "Web shop", "adapterId": "a-rest", "note": "checkout" }
+      ],
+      "externals": [
+        { "id": "ext-orders-db", "name": "Postgres", "adapterId": "a-order-repo", "note": "orders" }
+      ],
+      "composition": { "name": "composition.ts", "note": "wires adapters into the use case" }
+    },
+    {
+      "id": "h2",
+      "contextId": "c2",
+      "cell": { "q": 1, "r": 0 },
+      "title": "Payments",
+      "subtitle": "Charges the customer for an order",
+      "domain": [
+        { "id": "d-payment", "name": "Payment", "type": "aggregate" },
+        { "id": "d-charge", "name": "Charge", "type": "entity", "parentId": "d-payment" },
+        { "id": "d-payment-money", "name": "Money", "type": "valueObject", "parentId": "d-charge" }
+      ],
+      "useCases": [
+        { "id": "uc-charge", "name": "ChargePayment", "note": "execute(cmd): Promise<ChargeId>\nauthorize, capture" }
+      ],
+      "ports": [
+        { "id": "p-charge-in", "name": "chargePayment", "side": "driving", "wall": "w", "useCaseId": "uc-charge", "note": "(command)" },
+        { "id": "p-gateway-out", "name": "PaymentGatewayClient", "side": "driven", "wall": "e", "useCaseId": "uc-charge" }
+      ],
+      "adapters": [
+        { "id": "a-charge-api", "name": "payments.internal-api", "portId": "p-charge-in", "note": "RPC ← Ordering context" },
+        { "id": "a-stripe", "name": "StripePaymentGateway", "portId": "p-gateway-out" }
+      ],
+      "actors": [],
+      "externals": [
+        { "id": "ext-stripe", "name": "Stripe", "adapterId": "a-stripe", "note": "charges API" }
+      ],
+      "composition": { "name": "composition.ts", "note": "wires adapters into the use case" }
+    },
+    {
+      "id": "h3",
+      "contextId": "c3",
+      "cell": { "q": 0, "r": 1 },
+      "title": "Shipping",
+      "subtitle": "Arranges carrier pickup and tracking for an order",
+      "domain": [
+        { "id": "d-shipment", "name": "Shipment", "type": "aggregate" },
+        { "id": "d-carrier-info", "name": "CarrierInfo", "type": "valueObject", "parentId": "d-shipment" }
+      ],
+      "useCases": [
+        { "id": "uc-create-shipment", "name": "CreateShipment", "note": "execute(cmd): Promise<ShipmentId>\nbook carrier, print label" }
+      ],
+      "ports": [
+        { "id": "p-shipment-in", "name": "createShipment", "side": "driving", "wall": "w", "useCaseId": "uc-create-shipment", "note": "(command)" },
+        { "id": "p-carrier-out", "name": "CarrierGatewayClient", "side": "driven", "wall": "e", "useCaseId": "uc-create-shipment" }
+      ],
+      "adapters": [
+        { "id": "a-shipment-api", "name": "shipping.internal-api", "portId": "p-shipment-in", "note": "RPC ← Ordering context" },
+        { "id": "a-carrier", "name": "CarrierGatewayAdapter", "portId": "p-carrier-out" }
+      ],
+      "actors": [],
+      "externals": [
+        { "id": "ext-carrier", "name": "Carrier API (UPS)", "adapterId": "a-carrier", "note": "label + tracking" }
+      ],
+      "composition": { "name": "composition.ts", "note": "wires adapters into the use case" }
+    },
+    {
+      "id": "h4",
+      "contextId": "c4",
+      "cell": { "q": -1, "r": 0 },
+      "title": "Catalog",
+      "subtitle": "Owns product pricing and availability",
+      "domain": [
+        { "id": "d-product", "name": "Product", "type": "aggregate" },
+        { "id": "d-price", "name": "Price", "type": "valueObject", "parentId": "d-product" }
+      ],
+      "useCases": [
+        { "id": "uc-lookup", "name": "LookupProduct", "note": "execute(query): Promise<ProductView>" }
+      ],
+      "ports": [
+        { "id": "p-lookup-in", "name": "lookupProduct", "side": "driving", "wall": "w", "useCaseId": "uc-lookup", "note": "(query)" },
+        { "id": "p-catalog-repo", "name": "ProductRepository", "side": "driven", "wall": "e", "useCaseId": "uc-lookup" }
+      ],
+      "adapters": [
+        { "id": "a-catalog-api", "name": "catalog.internal-api", "portId": "p-lookup-in", "note": "RPC ← Ordering context" },
+        { "id": "a-catalog-repo", "name": "KnexProductRepository", "portId": "p-catalog-repo" }
+      ],
+      "actors": [],
+      "externals": [
+        { "id": "ext-catalog-db", "name": "Postgres", "adapterId": "a-catalog-repo", "note": "catalog" }
+      ],
+      "composition": { "name": "composition.ts", "note": "wires adapters into the use case" }
+    }
+  ],
+  "links": [
+    {
+      "id": "link-payment",
+      "from": { "hexagonId": "h1", "portId": "p-payment-out", "adapterId": "a-payment-client" },
+      "to": { "hexagonId": "h2", "portId": "p-charge-in", "adapterId": "a-charge-api" },
+      "pattern": "customer-supplier"
+    },
+    {
+      "id": "link-shipment",
+      "from": { "hexagonId": "h1", "portId": "p-shipment-out", "adapterId": "a-shipment-client" },
+      "to": { "hexagonId": "h3", "portId": "p-shipment-in", "adapterId": "a-shipment-api" },
+      "pattern": "customer-supplier"
+    },
+    {
+      "id": "link-catalog",
+      "from": { "hexagonId": "h1", "portId": "p-catalog-out", "adapterId": "a-catalog-client" },
+      "to": { "hexagonId": "h4", "portId": "p-lookup-in", "adapterId": "a-catalog-api" },
+      "pattern": "acl"
+    }
+  ]
+}

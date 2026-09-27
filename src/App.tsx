@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import type { LayoutMode } from './layout/layout'
 import { currentHexagon, hexagonBounds, layoutMap } from './layout/map'
-import { legendFor, legendSize } from './layout/legend'
+import { legendFor, legendForClean, legendForOnion, legendSize } from './layout/legend'
 import { layoutClean } from './layout/clean'
 import { layoutOnion } from './layout/onion'
 import { EXAMPLES } from './model/example'
@@ -12,7 +12,7 @@ import { contextName, diagramOf, linkEndLabel, UNTITLED_HEXAGON, type Destinatio
 import { useCleanStore } from './model/cleanStore'
 import { useOnionStore } from './model/onionStore'
 import type { Recovery } from './model/persistence'
-import type { HexaMap, Link, LinkEnd, StoredFile, Wall } from './model/schema'
+import type { CleanFile, HexaMap, Link, LinkEnd, OnionFile, StoredFile, Wall } from './model/schema'
 import { useMapStore } from './model/store'
 import type { ArchitectureChoice } from './ui/ArchitectureChoiceDialog'
 import { ArchitectureChoiceDialog, CHOICES } from './ui/ArchitectureChoiceDialog'
@@ -32,13 +32,19 @@ import { OnionEditor } from './ui/OnionEditor'
 import { OnionStage } from './ui/OnionStage'
 
 
+/** What a toast's Undo restores — one shape per kind (REQ-09): Hexagonal's own map+focus, or a bare Onion/Clean
+ * document. Each snapshot carries its own kind through `map.kind`, so `restoreUndo` below needs no separate
+ * discriminant field to route it — one undo mechanism for every kind, matching the single active-document
+ * resolution `activeKind` already drives. */
+type UndoSnapshot = { map: HexaMap; focus: string; swap?: boolean } | { map: OnionFile; swap?: boolean } | { map: CleanFile; swap?: boolean }
+
 interface Notice {
   /** A new notice restarts the toast's countdown even when its text repeats. */
   id: number
   tone: 'status' | 'error' | 'recovery'
   message: string
   details?: string[]
-  undo?: { map: HexaMap; focus: string; swap?: boolean }
+  undo?: UndoSnapshot
   /** The unreadable text a "recovery" notice offers to download, when a copy was kept. */
   download?: string
   /** Stays up past the usual 6 s countdown (DEL-02) — clears on the map's next edit, tracked via `staleWhenMapIsnt`. */
@@ -62,8 +68,17 @@ const GUIDES_KEY = 'domainrings:guides'
 const HIGHLIGHT_KEY = 'domainrings:highlight'
 const LEGEND_OPEN_KEY = 'domainrings:legend-open'
 const { replace, restore, removeItem, updateItem, addHexagon, importHexagon, removeHexagon, setMeta, addLink, updateLink: updateLinkAction, removeLink: removeLinkAction } = useMapStore.getState()
-const { replace: replaceOnion } = useOnionStore.getState()
-const { replace: replaceClean } = useCleanStore.getState()
+const { replace: replaceOnion, restore: restoreOnion } = useOnionStore.getState()
+const { replace: replaceClean, restore: restoreClean } = useCleanStore.getState()
+
+/** Undo, generalized over all three kinds (REQ-09): routes to whichever store the snapshot's own document
+ * belongs to — the one restore path every kind's toast shares. The runtime check IS the type guard; the cast
+ * only tells TS what it already knows once `map.kind` has been read. */
+const restoreUndo = (undo: UndoSnapshot) => {
+  if (undo.map.kind === 'hexagonal') restore(undo as Extract<UndoSnapshot, { map: HexaMap }>)
+  else if (undo.map.kind === 'onion') restoreOnion(undo as Extract<UndoSnapshot, { map: OnionFile }>)
+  else restoreClean(undo as Extract<UndoSnapshot, { map: CleanFile }>)
+}
 
 interface AppProps {
   boot?: { recovery: Recovery; unreadableText?: string; kind?: StoredFile['kind'] }
@@ -74,10 +89,13 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // since its UI never mounts — and `activeKind` (flipped by the chooser and by swap()) decides which renders.
   const [activeKind, setActiveKind] = useState<StoredFile['kind']>(() => boot.kind ?? 'hexagonal')
   const onionMap = useOnionStore((s) => s.map)
-  // Onion's own layout is only ever read while its view is active (export, OnionStage) — skip it on a Hexagonal render.
-  const onionModel = activeKind === 'onion' ? layoutOnion(onionMap) : undefined
+  // Onion's own layout is only ever read while its view is active (export, OnionStage) — skip it on a Hexagonal
+  // render. Memoised on the map reference: the sizing search it runs (binary-search band growth × 1-3 radial
+  // tracks × O(n²) overlap checks, twice — raw order vs the crossing-optimised order) is too expensive to redo on
+  // every render a theme/legend/mode toggle causes without the document itself changing.
+  const onionModel = useMemo(() => (activeKind === 'onion' ? layoutOnion(onionMap) : undefined), [activeKind, onionMap])
   const cleanMap = useCleanStore((s) => s.map)
-  const cleanModel = activeKind === 'clean' ? layoutClean(cleanMap) : undefined
+  const cleanModel = useMemo(() => (activeKind === 'clean' ? layoutClean(cleanMap) : undefined), [activeKind, cleanMap])
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   // The undo snapshot every action below restores on request; each site takes it as-is or spreads `swap: true`.
@@ -110,28 +128,40 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   )
   const noticeSeq = useRef(0)
   const show = (next: Omit<Notice, 'id'>) => setNotice({ ...next, id: ++noticeSeq.current })
+  // The one undo mechanism (REQ-09), instantiated once per kind: OnionEditor/OnionStage and CleanEditor/CleanStage
+  // each get the SAME callback for every action they offer, so a dependency created from the canvas gesture
+  // toasts identically to one created from the editor's own form (ADR-02).
+  const mutateOnion = (message: string, before: OnionFile) => show({ tone: 'status', message, undo: { map: before } })
+  const mutateClean = (message: string, before: CleanFile) => show({ tone: 'status', message, undo: { map: before } })
+  // Retracts the toast for an add that was immediately cancelled (naming Esc'd out) without offering it as an
+  // undo step — the add already unwound itself; mirrors onNamingCancel's own setNotice(null) below.
+  const clearNotice = () => setNotice(null)
   const [legendInExport, setLegendInExport] = useState(() => readPref(LEGEND_EXPORT_KEY, true))
   const [legendOpen, setLegendOpen] = useState(() => readPref(LEGEND_OPEN_KEY, false))
-  const legend = legendFor(diagram)
+  // Onion and Clean have no ports or adapters — each kind builds the legend it actually draws (ADR-01), all
+  // three sharing the one open/close and "include in export" state above.
+  const legend = activeKind === 'onion' ? legendForOnion(onionMap) : activeKind === 'clean' ? legendForClean(cleanMap) : legendFor(diagram)
   const [exportScope, setExportScope] = useState<ExportScope>('map')
 
+  // The document being replaced (REQ-09), captured before any store mutation whatever kind is currently active —
+  // Undo restores it into its own store (`restoreUndo`) and the toast's onUndo below flips `activeKind` back from
+  // `undo.map.kind`, so the view returns with it. One snapshot, one restore path, for every swap direction.
+  const beforeSwap: UndoSnapshot = activeKind === 'onion' ? { map: onionMap, swap: true } : activeKind === 'clean' ? { map: cleanMap, swap: true } : { ...before, swap: true }
+
   // The one kind-dispatch outside the render fork (ADR-02): routes a newly created/opened/loaded document to
-  // whichever store matches its own kind and flips the active view. Undo is only offered when staying within
-  // the kind already on screen — switching kind mid-session is rare enough that a wrong-kind undo isn't worth it.
+  // whichever store matches its own kind and flips the active view.
   const swap = (file: StoredFile, message: string) => {
+    show({ tone: 'status', message, undo: beforeSwap })
     if (file.kind === 'onion') {
-      show({ tone: 'status', message })
       replaceOnion(file)
       setActiveKind('onion')
       return
     }
     if (file.kind === 'clean') {
-      show({ tone: 'status', message })
       replaceClean(file)
       setActiveKind('clean')
       return
     }
-    show({ tone: 'status', message, undo: activeKind === 'hexagonal' ? { ...before, swap: true } : undefined })
     replace(file)
     setActiveKind('hexagonal')
     setExportScope('map')
@@ -385,9 +415,9 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const scoped = canScopeExport && exportScope === 'hexagon'
   const active =
     activeKind === 'onion'
-      ? { file: onionMap, bounds: onionModel!.bounds, title: onionMap.title, scoped: false, legend: false }
+      ? { file: onionMap, bounds: onionModel!.bounds, title: onionMap.title, scoped: false, legend: legendInExport }
       : activeKind === 'clean'
-        ? { file: cleanMap, bounds: cleanModel!.bounds, title: cleanMap.title, scoped: false, legend: false }
+        ? { file: cleanMap, bounds: cleanModel!.bounds, title: cleanMap.title, scoped: false, legend: legendInExport }
         : { file: map, bounds: scoped ? hexagonBounds(currentHexagon(model, hexId)) : model.bounds, title: scoped ? diagram.title || UNTITLED_HEXAGON : map.title, scoped, legend: legendInExport }
 
   const exportAs = async (format: 'hexa' | 'svg' | 'png') => {
@@ -508,14 +538,60 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       )}
       {activeKind === 'onion' && (
         <>
-          <OnionEditor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} />
-          <OnionStage model={onionModel!} doc={onionMap} svgRef={svgRef} onReject={(message) => show({ tone: 'error', message })} />
+          <OnionEditor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} onMutate={mutateOnion} />
+          <Legend
+            legend={legend}
+            open={legendOpen}
+            onOpen={(open) => {
+              writePref(LEGEND_OPEN_KEY, open)
+              setLegendOpen(open)
+            }}
+            includeInExport={legendInExport}
+            onIncludeInExport={(include) => {
+              writePref(LEGEND_EXPORT_KEY, include)
+              setLegendInExport(include)
+            }}
+          />
+          <OnionStage
+            model={onionModel!}
+            doc={onionMap}
+            mode={mode}
+            svgRef={svgRef}
+            onReject={(message) => show({ tone: 'error', message })}
+            onMutate={mutateOnion}
+            onCancelMutate={clearNotice}
+            panelOpen={editorOpen}
+            legendOpen={legendOpen}
+          />
         </>
       )}
       {activeKind === 'clean' && (
         <>
-          <CleanEditor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} />
-          <CleanStage model={cleanModel!} doc={cleanMap} svgRef={svgRef} onReject={(message) => show({ tone: 'error', message })} />
+          <CleanEditor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} onMutate={mutateClean} />
+          <Legend
+            legend={legend}
+            open={legendOpen}
+            onOpen={(open) => {
+              writePref(LEGEND_OPEN_KEY, open)
+              setLegendOpen(open)
+            }}
+            includeInExport={legendInExport}
+            onIncludeInExport={(include) => {
+              writePref(LEGEND_EXPORT_KEY, include)
+              setLegendInExport(include)
+            }}
+          />
+          <CleanStage
+            model={cleanModel!}
+            doc={cleanMap}
+            mode={mode}
+            svgRef={svgRef}
+            onReject={(message) => show({ tone: 'error', message })}
+            onMutate={mutateClean}
+            onCancelMutate={clearNotice}
+            panelOpen={editorOpen}
+            legendOpen={legendOpen}
+          />
         </>
       )}
       {choosingArchitecture && <ArchitectureChoiceDialog onChoose={completeNew} onCancel={() => setChoosingArchitecture(false)} />}
@@ -528,7 +604,10 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           onUndo={
             notice.undo &&
             (() => {
-              restore(notice.undo!)
+              restoreUndo(notice.undo!)
+              // The restored document's own kind IS the view to bring back (REQ-09) — a same-kind edit's undo
+              // just re-sets the kind already on screen, a no-op render.
+              setActiveKind(notice.undo!.map.kind)
               setNotice(null)
               // Undoing a grow through the toast is the same restore as Esc-while-naming — close the field too.
               setGrowing(null)

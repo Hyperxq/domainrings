@@ -4,8 +4,21 @@ import { resolve } from 'node:path'
 import { StrictMode } from 'react'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { App } from './App'
-import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM, TWO_SLICES_MAP } from './model/example'
+import { EXAMPLE_DIAGRAM, EXAMPLES, STRESS_DIAGRAM } from './model/example'
 import { layoutDiagram } from './layout/layout'
+import { layoutOnion } from './layout/onion'
+import { layoutClean } from './layout/clean'
+
+// Spies on the real implementation (never a stub) so every other test in this file still gets real layouts —
+// only the two describes below ever inspect these mocks' own call counts.
+vi.mock('./layout/onion', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./layout/onion')>()
+  return { ...actual, layoutOnion: vi.fn(actual.layoutOnion) }
+})
+vi.mock('./layout/clean', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./layout/clean')>()
+  return { ...actual, layoutClean: vi.fn(actual.layoutClean) }
+})
 import { newCleanMap, newOnionMap, parseHexa, toHexa, toMap } from './model/hexa'
 import { diagramOf, UNTITLED_HEXAGON } from './model/map'
 import { autosave, MAP_KEY } from './model/persistence'
@@ -293,43 +306,61 @@ describe('toolbar', () => {
   })
 })
 
-describe('the "Two slices, one link" example (EX-01, CANVAS-01/02/04, FOCUS-02)', () => {
-  const pickExample = (label: string) => fireEvent.change(screen.getByLabelText('Load an example'), { target: { value: label } })
+// The learning path (project/pending-changes/ringed-examples-readme): 3 architectures x 3 levels each, grouped
+// by architecture in the menu and loaded through the same parseHexa path a user's Open… takes.
+describe('the Example menu — learning path (CANVAS-01/02/04, FOCUS-02)', () => {
+  const pickExample = (value: string) => fireEvent.change(screen.getByLabelText('Load an example'), { target: { value } })
 
-  it('is no longer labelled as a preview (EX-01.2)', () => {
+  it('groups the menu into 3 architectures of 3 levels each, in basic/stress/advanced order', () => {
     render(<App />)
-    // Built by concatenation, not as one literal, so this file itself never trips the EX-01.2 gate:
-    // `rg -c "\(preview\)" README.md src` must read 0 once the label is dropped everywhere.
-    const oldLabel = `Two slices, one link (${'preview'})`
-    expect(screen.queryByRole('option', { name: oldLabel })).toBeNull()
-    expect(screen.getByRole('option', { name: 'Two slices, one link' })).toBeDefined()
+    const select = screen.getByLabelText('Load an example') as HTMLSelectElement
+    const groups = Array.from(select.querySelectorAll('optgroup'))
+    expect(groups.map((g) => g.label)).toEqual(['Hexagonal', 'Onion', 'Clean'])
+    for (const group of groups) expect(group.querySelectorAll('option')).toHaveLength(3)
   })
 
-  it('loads TWO_SLICES_MAP with the first hexagon current, and fits the view (no pan/zoom override)', () => {
-    render(<App />)
-    const option = screen.getByRole('option', { name: 'Two slices, one link' }) as HTMLOptionElement
+  for (const example of EXAMPLES) {
+    it(`loading "${example.label}" shows the ${example.architecture} view and its own title`, () => {
+      const { container } = render(<App />)
+      const option = screen.getByRole('option', { name: example.label }) as HTMLOptionElement
 
-    pickExample(option.value)
+      pickExample(option.value)
 
-    expect(useMapStore.getState().map).toStrictEqual(TWO_SLICES_MAP)
-    expect(useMapStore.getState().focus).toBe('h1')
-    expect(toastEl()!.textContent).toContain('Loaded the Two slices, one link example.')
-  })
+      expect(toastEl()!.textContent).toContain(`Loaded the ${example.label} example.`)
+      if (example.architecture === 'Hexagonal') {
+        expect(useMapStore.getState().map.kind).toBe('hexagonal')
+        expect(container.querySelectorAll('svg.canvas [data-hex]').length).toBeGreaterThan(0)
+      } else {
+        expect(container.querySelector('svg.canvas')!.getAttribute('aria-label')).toBe(example.label)
+      }
+    })
+  }
 
-  it('renders both hexagons of the example, non-overlapping, connected by exactly one link line', () => {
+  it('renders the Hexagonal advanced example as several bounded contexts, non-overlapping, connected by links', () => {
     const { container } = render(<App />)
-    const option = screen.getByRole('option', { name: 'Two slices, one link' }) as HTMLOptionElement
+    const option = screen.getByRole('option', { name: 'E-commerce — Hexagonal (advanced)' }) as HTMLOptionElement
     pickExample(option.value)
 
     const groups = container.querySelectorAll('svg.canvas [data-hex]')
-    expect(groups).toHaveLength(2)
-    expect(container.querySelectorAll('svg.canvas [data-map-link]')).toHaveLength(1)
-    const boxOf = (hexId: string) => container.querySelector(`[data-hex="${hexId}"]`)!.getBoundingClientRect()
+    expect(groups).toHaveLength(4)
+    expect(container.querySelectorAll('svg.canvas [data-map-link]').length).toBeGreaterThan(0)
     // jsdom's getBoundingClientRect is a zero-box stub; the real non-overlap guarantee is proven at the layout
-    // level (layout/map.test.ts CANVAS-01.1). Here we only pin that both hexagons render as distinct groups
-    // with different transforms, which is what the DOM identity contract (SEAM-05) actually promises.
-    expect(boxOf('h1')).toBeDefined()
-    expect(container.querySelector('[data-hex="h1"]')!.getAttribute('transform')).not.toBe(container.querySelector('[data-hex="h2"]')!.getAttribute('transform'))
+    // level (layout/map.test.ts CANVAS-01.1). Here we only pin that every hexagon renders as its own distinct
+    // group with its own transform, which is what the DOM identity contract (SEAM-05) actually promises.
+    const transforms = new Set(Array.from(groups).map((g) => g.getAttribute('transform')))
+    expect(transforms.size).toBe(groups.length)
+  })
+
+  it('Undo after loading an example restores the previous document', () => {
+    render(<App />)
+    const before = useMapStore.getState().map
+    const option = screen.getByRole('option', { name: 'Stress test' }) as HTMLOptionElement
+
+    pickExample(option.value)
+    expect(useMapStore.getState().map).not.toBe(before)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useMapStore.getState().map).toBe(before)
   })
 })
 
@@ -2181,7 +2212,7 @@ describe('Onion export (REQ-08)', () => {
     expect(screen.queryByRole('group', { name: 'Export scope' })).toBeNull()
   })
 
-  it('exports the Onion diagram as SVG showing its rings, elements, dependency arrow and actor, named after its own title, with no leftover "+"/"Depend on…" affordances or legend', async () => {
+  it('exports the Onion diagram as SVG showing its rings, elements, dependency arrow, actor and its own legend, named after its own title, with no leftover "+"/"Depend on…" affordances', async () => {
     await openOnionSample()
     vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
 
@@ -2203,12 +2234,15 @@ describe('Onion export (REQ-08)', () => {
     expect(markup).toContain('Domain Model') // innermost ring, drawn as-is
     expect(markup).toContain('INFRASTRUCTURE') // outer ring, upper-cased like every non-innermost ring
     expect(markup).toContain('>Order<') // element
-    expect(markup).toContain('>OrderController<') // element
+    expect(markup).toContain('>Order</tspan><tspan')
+    expect(markup).toContain('>Controller</tspan>') // element ("OrderController" wraps onto two lines, Decision 8)
     expect(markup).toContain('>Web shop<') // actor
     expect(markup).toContain('url(#onion-arrow)') // dependency/endpoint arrow
     expect(markup).not.toMatch(/<circle[^>]*r="10"/) // no leftover ring/endpoint "+" glyph
     expect(markup).not.toContain('Depend on…') // no leftover gesture chip
-    expect(markup).not.toMatch(/data-legend/) // Onion has no legend concept — never drawn
+    expect(markup).toMatch(/data-legend/) // "Include legend in export" defaults on, same as Hexagonal
+    expect(markup).toContain('Domain Model') // legend: ring colour row (also the ring's own title, above)
+    expect(markup).toContain('Depends on / connects to') // legend: the dependency arrow's own stroke row
 
     createSpy.mockRestore()
     clickSpy.mockRestore()
@@ -2293,7 +2327,7 @@ describe('Clean export (REQ-05)', () => {
     })
   }
 
-  it('exports the Clean diagram as SVG showing its rings, sector dividers, elements, dependency arrow, actor and external, named after its own title, with no leftover "+"/"Depend on…" affordances or legend', async () => {
+  it('exports the Clean diagram as SVG showing its rings, sector dividers, elements, dependency arrow, actor, external and its own legend, named after its own title, with no leftover "+"/"Depend on…" affordances', async () => {
     await openCleanSample()
     vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
 
@@ -2316,13 +2350,16 @@ describe('Clean export (REQ-05)', () => {
     expect(markup).toContain('FRAMEWORKS &amp; DRIVERS') // outer ring, upper-cased like every non-innermost ring
     expect(markup).toContain('data-sector-divider') // sector wedge dividers (REQ-08)
     expect(markup).toContain('>Order<') // element
-    expect(markup).toContain('>OrderController<') // element
+    expect(markup).toContain('>Order</tspan><tspan')
+    expect(markup).toContain('>Controller</tspan>') // element ("OrderController" wraps onto two lines, Decision 8)
     expect(markup).toContain('>Web shop<') // actor
-    expect(markup).toContain('>Payment gateway<') // external
+    expect(markup).toContain('>Payment</tspan><tspan')
+    expect(markup).toContain('>gateway</tspan>') // external ("Payment gateway" wraps onto two lines, Decision 8)
     expect(markup).toContain('url(#clean-arrow)') // dependency/endpoint arrow
     expect(markup).not.toMatch(/<circle[^>]*r="10"/) // no leftover ring/sector/element "+" glyph
     expect(markup).not.toContain('Depend on…') // no leftover gesture chip
-    expect(markup).not.toMatch(/data-legend/) // Clean has no legend concept — never drawn
+    expect(markup).toMatch(/data-legend/) // "Include legend in export" defaults on, same as Hexagonal
+    expect(markup).toContain('Wedge') // legend: Clean's own sector-wedge row, absent from Onion's legend
 
     createSpy.mockRestore()
     clickSpy.mockRestore()
@@ -2367,5 +2404,249 @@ describe('Clean export (REQ-05)', () => {
     createSpy.mockRestore()
     clickSpy.mockRestore()
     vi.unstubAllGlobals()
+  })
+})
+
+// REQ-09: every action that changes an Onion or Clean document shows the same status toast with Undo that
+// Hexagonal actions show — through the one mechanism App.tsx now generalizes over all three kinds.
+describe('Onion undo (REQ-09)', () => {
+  // Onion's editor-panel "+" ("Add element to X") and its canvas "+" ("Add an element to X") differ by the
+  // article, so an unscoped query is never ambiguous between the two — unlike Clean's own (see below).
+  const openOnion = () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+  }
+
+  it('an editor-panel action (add an element) shows an undo toast, and Undo restores the prior document', () => {
+    openOnion()
+    fireEvent.click(screen.getByRole('button', { name: 'Add element to Domain Model' }))
+
+    expect(useOnionStore.getState().map.elements).toHaveLength(1)
+    expect(toastEl()!.textContent).toContain('Added NewElement to Domain Model.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useOnionStore.getState().map.elements).toEqual([])
+  })
+
+  it('renaming an element from the editor panel shows an undo toast naming both names, and Undo restores the prior name', () => {
+    openOnion()
+    fireEvent.click(screen.getByRole('button', { name: 'Add element to Domain Model' }))
+    const field = screen.getByLabelText('element name') as HTMLInputElement
+    fireEvent.focus(field)
+    fireEvent.change(field, { target: { value: 'Order' } })
+    fireEvent.blur(field)
+
+    expect(useOnionStore.getState().map.elements[0].name).toBe('Order')
+    expect(toastEl()!.textContent).toContain('Renamed NewElement to Order.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useOnionStore.getState().map.elements[0].name).toBe('NewElement')
+  })
+
+  it('removing an element from the editor panel shows an undo toast, and Undo restores it', () => {
+    openOnion()
+    fireEvent.click(screen.getByRole('button', { name: 'Add element to Domain Model' }))
+    const id = useOnionStore.getState().map.elements[0].id
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove element NewElement' }))
+
+    expect(useOnionStore.getState().map.elements).toEqual([])
+    expect(toastEl()!.textContent).toContain('Deleted NewElement.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useOnionStore.getState().map.elements.map((e) => e.id)).toEqual([id])
+  })
+
+  it('the canvas Depend-on gesture shows an undo toast, and Undo restores the prior document', () => {
+    openOnion()
+    fireEvent.click(screen.getByRole('button', { name: 'Add element to Domain Model' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add element to Infrastructure' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'NewElement (outer)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Depend on… from NewElement' }))
+    fireEvent.click(screen.getByRole('button', { name: 'NewElement (domain)' }))
+
+    expect(useOnionStore.getState().map.dependencies).toHaveLength(1)
+    expect(toastEl()!.textContent).toContain('Linked NewElement → NewElement.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useOnionStore.getState().map.dependencies).toEqual([])
+  })
+
+  it('choosing an invalid (outward) target on the canvas creates no undo toast', () => {
+    openOnion()
+    fireEvent.click(screen.getByRole('button', { name: 'Add element to Domain Model' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add element to Application Services' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add element to Infrastructure' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'NewElement (application)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Depend on… from NewElement' }))
+    fireEvent.click(screen.getByRole('button', { name: 'NewElement (outer)' })) // outward — invalid target
+
+    expect(useOnionStore.getState().map.dependencies).toEqual([])
+    expect(screen.getByRole('alert').textContent).toMatch(/same ring or a more inward one/)
+    expect(toastEl()).toBeNull()
+  })
+})
+
+describe('Clean undo (REQ-09)', () => {
+  // Unlike Onion's, Clean's editor-panel "+" and canvas "+" share the exact same aria-label ("Add sector to X",
+  // "Add element to X") — every editor-panel query below is scoped to the editor pane to pick the right one.
+  const openClean = () => {
+    const { container } = render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    return within(container.querySelector('aside.editor')!)
+  }
+
+  it('an editor-panel action (add a sector) shows an undo toast, and Undo restores the prior document', () => {
+    const editor = openClean()
+    fireEvent.click(editor.getByRole('button', { name: 'Add sector to Entities' }))
+
+    expect(useCleanStore.getState().map.sectors).toHaveLength(1)
+    expect(toastEl()!.textContent).toContain('Added NewSector to Entities.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useCleanStore.getState().map.sectors).toEqual([])
+  })
+
+  it('removing a sector cascades its elements, and Undo restores both the sector and its elements', () => {
+    const editor = openClean()
+    fireEvent.click(editor.getByRole('button', { name: 'Add sector to Entities' }))
+    fireEvent.click(editor.getByRole('button', { name: 'Add element to NewSector' }))
+    const sectorId = useCleanStore.getState().map.sectors[0].id
+    const elementId = useCleanStore.getState().map.elements[0].id
+
+    fireEvent.click(editor.getByRole('button', { name: 'Remove sector NewSector' }))
+
+    expect(useCleanStore.getState().map.sectors).toEqual([])
+    expect(useCleanStore.getState().map.elements).toEqual([])
+    expect(toastEl()!.textContent).toContain('Deleted NewSector and its 1 element.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useCleanStore.getState().map.sectors.map((s) => s.id)).toEqual([sectorId])
+    expect(useCleanStore.getState().map.elements.map((e) => e.id)).toEqual([elementId])
+  })
+
+  it('the canvas Depend-on gesture shows an undo toast, and Undo restores the prior document', () => {
+    const editor = openClean()
+    fireEvent.click(editor.getByRole('button', { name: 'Add sector to Entities' }))
+    fireEvent.click(editor.getByRole('button', { name: 'Add element to NewSector' })) // domain element — only one sector exists yet
+    fireEvent.click(editor.getByRole('button', { name: 'Add sector to Frameworks & Drivers' }))
+    fireEvent.click(editor.getAllByRole('button', { name: 'Add element to NewSector' })[1]) // outer sector's own "+"
+
+    fireEvent.click(screen.getByRole('button', { name: 'NewElement (outer)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Depend on… from NewElement' }))
+    fireEvent.click(screen.getByRole('button', { name: 'NewElement (domain)' }))
+
+    expect(useCleanStore.getState().map.dependencies).toHaveLength(1)
+    expect(toastEl()!.textContent).toContain('Linked NewElement → NewElement.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useCleanStore.getState().map.dependencies).toEqual([])
+  })
+
+  it('choosing an invalid (outward) target on the canvas creates no undo toast', () => {
+    const editor = openClean()
+    fireEvent.click(editor.getByRole('button', { name: 'Add sector to Entities' }))
+    fireEvent.click(editor.getByRole('button', { name: 'Add element to NewSector' })) // domain element — only one sector exists yet
+    fireEvent.click(editor.getByRole('button', { name: 'Add sector to Use Cases' }))
+    fireEvent.click(editor.getAllByRole('button', { name: 'Add element to NewSector' })[1]) // application sector's own "+"
+    fireEvent.click(editor.getByRole('button', { name: 'Add sector to Frameworks & Drivers' }))
+    fireEvent.click(editor.getAllByRole('button', { name: 'Add element to NewSector' })[2]) // outer sector's own "+"
+
+    fireEvent.click(screen.getByRole('button', { name: 'NewElement (application)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Depend on… from NewElement' }))
+    fireEvent.click(screen.getByRole('button', { name: 'NewElement (outer)' })) // outward — invalid target
+
+    expect(useCleanStore.getState().map.dependencies).toEqual([])
+    expect(screen.getByRole('alert').textContent).toMatch(/same ring or a more inward one/)
+    expect(toastEl()).toBeNull()
+  })
+})
+
+// REQ-09: swap() (New, Open, an Example, a share link) offers Undo whatever kind is active before and after —
+// Undo restores the replaced document into its own store and brings back its view (activeKind), not just when
+// staying within the kind already on screen.
+describe('swap undo across kinds (REQ-09)', () => {
+  it('Onion → Hexagonal via New, then Undo restores the Onion document and its view', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
+    const onionBefore = useOnionStore.getState().map
+
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Hexagonal' }))
+    expect(useMapStore.getState().map.kind).toBe('hexagonal')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useOnionStore.getState().map).toBe(onionBefore)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    expect(screen.getByRole('button', { name: 'Add element to Domain Model' })).toBeTruthy()
+  })
+
+  it('from a Clean document, loading an Example then Undo restores the Clean document', () => {
+    const { container } = render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
+    const cleanBefore = useCleanStore.getState().map
+
+    const option = screen.getByRole('option', { name: 'Chat feedback slice' }) as HTMLOptionElement
+    fireEvent.change(screen.getByLabelText('Load an example'), { target: { value: option.value } })
+    expect(useMapStore.getState().map).toStrictEqual(EXAMPLES.find((x) => x.id === 'hexagonal-basic')!.map)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useCleanStore.getState().map).toBe(cleanBefore)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    expect(within(container.querySelector('aside.editor')!).getByRole('button', { name: 'Add sector to Entities' })).toBeTruthy()
+  })
+
+  it('Hexagonal → Onion via New, then Undo restores the Hexagonal map and its view', () => {
+    const { container } = render(<App />)
+    const hexBefore = useMapStore.getState().map
+
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
+    expect(useOnionStore.getState().map.kind).toBe('onion')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useMapStore.getState().map).toBe(hexBefore)
+    expect(container.querySelector('[data-hex]')).not.toBeNull()
+  })
+})
+
+// `layoutOnion`/`layoutClean` now run growth binary searches (1-3 radial tracks × O(n²) overlap checks, twice —
+// raw order vs the crossing-optimised order) — cheap for a fresh empty file, expensive once a document has real
+// content. A render that changes neither store's own map must not pay for that again.
+describe('Onion/Clean layout is memoised across renders that do not change the document', () => {
+  beforeEach(() => localStorage.removeItem('domainrings:legend-open'))
+
+  it('toggling the theme does not recompute the Onion layout', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
+    vi.mocked(layoutOnion).mockClear()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Appearance' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Dark' }))
+
+    expect(layoutOnion).not.toHaveBeenCalled()
+  })
+
+  it('toggling the legend does not recompute the Clean layout', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
+    vi.mocked(layoutClean).mockClear()
+
+    fireEvent.click(screen.getByTitle('Show legend'))
+
+    expect(layoutClean).not.toHaveBeenCalled()
   })
 })

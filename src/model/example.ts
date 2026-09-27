@@ -1,4 +1,13 @@
-import { toMap } from './hexa'
+import hexagonalBasicRaw from '../examples/hexagonal-basic.hexa?raw'
+import hexagonalStressRaw from '../examples/hexagonal-stress.hexa?raw'
+import hexagonalAdvancedRaw from '../examples/hexagonal-advanced.hexa?raw'
+import onionBasicRaw from '../examples/onion-basic.hexa?raw'
+import onionStressRaw from '../examples/onion-stress.hexa?raw'
+import onionAdvancedRaw from '../examples/onion-advanced.hexa?raw'
+import cleanBasicRaw from '../examples/clean-basic.hexa?raw'
+import cleanStressRaw from '../examples/clean-stress.hexa?raw'
+import cleanAdvancedRaw from '../examples/clean-advanced.hexa?raw'
+import { parseHexa } from './hexa'
 import { VERSION, type Diagram, type HexaMap } from './schema'
 
 export const EXAMPLE_DIAGRAM: Diagram = {
@@ -120,8 +129,9 @@ export const STRESS_DIAGRAM: Diagram = {
 }
 
 /**
- * A ready-made multi-hexagon map, for anyone who wants to see a linked pair before building their own. One
- * context; h1's driven port links to h2's driving port (EX-01).
+ * A ready-made multi-hexagon map, one context; h1's driven port links to h2's driving port (EX-01). Superseded as
+ * an Example-menu entry by `hexagonal-advanced.hexa` (several linked bounded contexts); kept exported only
+ * because other tests still use it as a fixture unrelated to the Example menu itself.
  */
 export const TWO_SLICES_MAP: HexaMap = {
   version: VERSION,
@@ -165,8 +175,28 @@ export const TWO_SLICES_MAP: HexaMap = {
   ],
 }
 
+const ARCHITECTURE_LABEL = { hexagonal: 'Hexagonal', onion: 'Onion', clean: 'Clean' } as const
+
+function loadExample(id: string, raw: string) {
+  const result = parseHexa(raw)
+  if (!result.ok) throw new Error(`Example "${id}" failed to parse: ${result.errors.join('; ')}`)
+  return { id, label: result.map.title, architecture: ARCHITECTURE_LABEL[result.map.kind], map: result.map }
+}
+
+/**
+ * The learning path (project/pending-changes/ringed-examples-readme): basic → stress → advanced, grouped by
+ * architecture in that order — Hexagonal, then Onion, then Clean. Every file is imported as text and parsed the
+ * exact same way a user's Open… does (`parseHexa`), never a hand-written object literal, so an example and the
+ * format it exercises can never quietly drift apart.
+ */
 export const EXAMPLES = [
-  { id: 'feedback', label: 'Chat feedback slice', map: toMap(EXAMPLE_DIAGRAM) },
-  { id: 'stress', label: 'Stress test', map: toMap(STRESS_DIAGRAM) },
-  { id: 'two-slices', label: 'Two slices, one link', map: TWO_SLICES_MAP },
+  loadExample('hexagonal-basic', hexagonalBasicRaw),
+  loadExample('hexagonal-stress', hexagonalStressRaw),
+  loadExample('hexagonal-advanced', hexagonalAdvancedRaw),
+  loadExample('onion-basic', onionBasicRaw),
+  loadExample('onion-stress', onionStressRaw),
+  loadExample('onion-advanced', onionAdvancedRaw),
+  loadExample('clean-basic', cleanBasicRaw),
+  loadExample('clean-stress', cleanStressRaw),
+  loadExample('clean-advanced', cleanAdvancedRaw),
 ] as const

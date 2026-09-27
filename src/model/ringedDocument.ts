@@ -19,6 +19,12 @@ interface SafeParseable<T> {
   safeParse: (candidate: T) => { success: boolean }
 }
 
+/** Looks up an element's own name by id — the one lookup every undo-toast message needs (element, dependency
+ * end, endpoint target), shared so Onion's and Clean's editor/stage each write it once instead of four times. */
+export function elementName<E extends WithId & { name: string }>(elements: readonly E[], id: string): string {
+  return elements.find((e) => e.id === id)?.name ?? ''
+}
+
 /** Adds a named element to the document (REQ-07/REQ-03: any ring/sector accepts any element, nothing referential
  * is created yet) — always succeeds, no validation needed. */
 export function addElement<D extends RingedDoc<E, WithId & { fromId: string; toId: string }, WithId & { targetId?: string }>, E extends WithId>(

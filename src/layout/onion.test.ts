@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { newOnionMap } from '../model/hexa'
 import type { OnionFile } from '../model/schema'
 import { layoutOnion } from './onion'
+import { ringElementRadius } from './ringed'
 
 const withElements = (): OnionFile => ({
   ...newOnionMap('Fresh'),
@@ -46,12 +47,37 @@ describe('layoutOnion (elements, REQ-07)', () => {
     expect(model.elements.find((e) => e.ref === 'e1')).toMatchObject({ ringRole: 'domain', name: 'Order' })
   })
 
-  it('spreads N elements on the same ring at distinct positions on that ring\'s circumference', () => {
+  it('spreads N elements on the same ring at distinct positions inside that ring\'s own band (its mid radius, never its outer edge)', () => {
     const model = layoutOnion(withElements())
-    const outerRing = model.rings.find((r) => r.role === 'outer')!
+    const outerIndex = model.rings.findIndex((r) => r.role === 'outer')
+    const outerRing = model.rings[outerIndex]
     const [e3, e4] = ['e3', 'e4'].map((ref) => model.elements.find((e) => e.ref === ref)!)
     expect(e3.x !== e4.x || e3.y !== e4.y).toBe(true)
-    for (const e of [e3, e4]) expect(Math.hypot(e.x, e.y)).toBeCloseTo(outerRing.apex, 6)
+    const radius = ringElementRadius(outerRing, model.rings[outerIndex - 1])
+    for (const e of [e3, e4]) expect(Math.hypot(e.x, e.y)).toBeCloseTo(radius, 6)
+  })
+
+  // A ring with exactly one element always used to place it at the same dead-bottom angle (`arcAngles`' own
+  // single-count spacing) regardless of which ring — a document made of nothing but single-element rings (Onion's
+  // most common small shape, onion-basic.hexa) stacked every one of them into one straight vertical column, even
+  // though concentric rings were never meant to read as a stack.
+  it('a chain of single-element rings staggers their angles instead of stacking into one column', () => {
+    const doc: OnionFile = {
+      ...newOnionMap('Fresh'),
+      elements: [
+        { id: 'e1', name: 'Order', ringRole: 'domain' },
+        { id: 'e2', name: 'PricingService', ringRole: 'domainServices' },
+        { id: 'e3', name: 'PlaceOrderService', ringRole: 'application' },
+        { id: 'e4', name: 'OrderController', ringRole: 'outer' },
+      ],
+    }
+    const model = layoutOnion(doc)
+    const angleOf = (e: { x: number; y: number }) => Math.atan2(e.y, e.x)
+    const angles = model.elements.map(angleOf)
+    // Not every angle identical (the reported straight column) — each stays in the bottom half (never risking the
+    // rings' own top-centred titles).
+    expect(new Set(angles.map((a) => a.toFixed(3))).size).toBeGreaterThan(1)
+    for (const a of angles) expect(Math.sin(a)).toBeGreaterThan(0)
   })
 })
 
@@ -63,6 +89,14 @@ describe('layoutOnion (dependency edges, REQ-04)', () => {
     const e3 = model.elements.find((e) => e.ref === 'e3')!
     const e2 = model.elements.find((e) => e.ref === 'e2')!
     expect(model.edges[0]).toMatchObject({ kind: 'dependency', from: { x: e3.x, y: e3.y }, to: { x: e2.x, y: e2.y } })
+  })
+
+  // Decision 1 (Overview mode): the canvas filters edges down to the ones touching a hovered/selected element,
+  // which needs the two element refs an edge connects, not just its endpoints' screen coordinates.
+  it('carries the fromId/toId refs of the elements it connects', () => {
+    const doc: OnionFile = { ...withElements(), dependencies: [{ id: 'd1', fromId: 'e3', toId: 'e2' }] }
+    const model = layoutOnion(doc)
+    expect(model.edges[0]).toMatchObject({ fromRef: 'e3', toRef: 'e2' })
   })
 })
 
@@ -78,6 +112,7 @@ describe('layoutOnion (endpoints, REQ-05)', () => {
     const e3 = model.elements.find((e) => e.ref === 'e3')!
     expect(edge.to).toEqual({ x: e3.x, y: e3.y })
     expect(edge.from).toEqual({ x: model.endpoints[0].x, y: model.endpoints[0].y })
+    expect(edge).toMatchObject({ fromRef: 'a1', toRef: 'e3' })
   })
 
   it('an endpoint with no target draws no edge', () => {
