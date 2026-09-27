@@ -14,8 +14,10 @@ interface OnionState {
   /** Undo: restores the map. `swap: true` bumps the revision like `replace` did (a whole-map swap); a plain item
    * edit leaves it alone — mirrors useMapStore's `restore`. */
   restore: (snapshot: { map: OnionFile; swap?: boolean }) => void
-  /** Adds a named element to the given ring (REQ-07) — any ring accepts any element, no type bound to it. */
-  addElement: (patch: Omit<OnionElement, 'id'>) => string
+  /** Adds a named element to the given ring (REQ-07) — any ring accepts any element, no type bound to it.
+   * `beforeId`, when given, inserts it right before that existing element instead of appending (a gap "+"'s own
+   * insert-at-position, `onionInsertionPoints`). */
+  addElement: (patch: Omit<OnionElement, 'id'>, beforeId?: string) => string
   /** Patches an existing element (validate-by-reparse: a `ringRole` change that would break an existing
    * dependency or endpoint target is rejected, i.e. no-op). */
   updateElement: (id: string, patch: Partial<Omit<OnionElement, 'id'>>) => void
@@ -41,8 +43,8 @@ export const useOnionStore = create<OnionState>()((set, get) => ({
   revision: 0,
   replace: (map) => set({ map, revision: get().revision + 1 }),
   restore: ({ map, swap }) => set((s) => ({ map, revision: swap ? s.revision + 1 : s.revision })),
-  addElement: (patch) => {
-    const { doc, id } = ringedDocument.addElement<OnionFile, OnionElement>(get().map, patch, () => `element-${crypto.randomUUID().slice(0, 8)}`)
+  addElement: (patch, beforeId) => {
+    const { doc, id } = ringedDocument.addElement<OnionFile, OnionElement>(get().map, patch, () => `element-${crypto.randomUUID().slice(0, 8)}`, beforeId)
     set({ map: doc })
     return id
   },

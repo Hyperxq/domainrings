@@ -1,7 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { countCrossings } from '../layout/crossings'
+import { layoutOnion } from '../layout/onion'
 import { newOnionMap } from '../model/hexa'
 import { useOnionStore } from '../model/onionStore'
+import type { OnionFile } from '../model/schema'
 import { OnionEditor } from './OnionEditor'
 
 const state = () => useOnionStore.getState()
@@ -11,7 +14,7 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-const renderEditor = () => render(<OnionEditor open onToggle={() => {}} />)
+const renderEditor = (props?: { onMutate?: (message: string, before: OnionFile) => void }) => render(<OnionEditor open onToggle={() => {}} {...props} />)
 const section = (container: HTMLElement, title: string) => within(container).getByText(title).closest('details')!
 
 describe('OnionEditor', () => {
@@ -75,5 +78,29 @@ describe('OnionEditor', () => {
 
     expect(state().map.actors).toHaveLength(1)
     expect(state().map.actors[0].targetId).toBe(state().map.elements[1].id)
+  })
+})
+
+describe('OnionEditor — "Tidy ring order" (Decision 3, now an explicit action)', () => {
+  it('reduces dependency-edge crossings and reports it for Undo', () => {
+    const xId = state().addElement({ name: 'X', ringRole: 'domain' })
+    const yId = state().addElement({ name: 'Y', ringRole: 'domain' })
+    const zId = state().addElement({ name: 'Z', ringRole: 'domain' })
+    const cId = state().addElement({ name: 'C', ringRole: 'outer' })
+    const bId = state().addElement({ name: 'B', ringRole: 'outer' })
+    const aId = state().addElement({ name: 'A', ringRole: 'outer' })
+    state().addDependency(aId, xId)
+    state().addDependency(bId, yId)
+    state().addDependency(cId, zId)
+    const before = state().map
+    const crossingsBefore = countCrossings(layoutOnion(before).edges)
+    expect(crossingsBefore).toBeGreaterThan(0)
+
+    const onMutate = vi.fn()
+    renderEditor({ onMutate })
+    fireEvent.click(screen.getByRole('button', { name: 'Tidy ring order' }))
+
+    expect(countCrossings(layoutOnion(state().map).edges)).toBeLessThan(crossingsBefore)
+    expect(onMutate).toHaveBeenCalledWith('Tidied ring order.', before)
   })
 })

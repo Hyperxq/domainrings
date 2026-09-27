@@ -100,16 +100,22 @@ function buildOnionModel(doc: OnionFile, orderedElementsOn: (role: string) => re
 }
 
 /** Innermost-first (REQ-02) — `doc.rings[0]` is the domain, the one big sentence-case title; every outer ring
- * (built from it outward) grows from its own inner neighbour (`ringOutlines`, ADR-01: shared with Clean). */
+ * (built from it outward) grows from its own inner neighbour (`ringOutlines`, ADR-01: shared with Clean). The
+ * document's own author order is always respected here (ADR-XX) — Decision 3's crossing minimisation moved to
+ * `tidyOnionOrder` below, an explicit "Tidy ring order" action rather than a silent layout-time reshuffle. */
 export function layoutOnion(doc: OnionFile): OnionLayoutModel {
-  const originalOrderOn = (role: string) => doc.elements.filter((e) => e.ringRole === role)
-  const original = buildOnionModel(doc, originalOrderOn)
+  return buildOnionModel(doc, (role) => doc.elements.filter((e) => e.ringRole === role))
+}
 
-  // Decision 3: reorder each ring's own elements to reduce dependency-edge crossings — a full circle is one
-  // group per ring (a Clean sector's own wedge is the finer-grained equivalent, `layoutClean`). The barycenter
-  // heuristic isn't guaranteed to improve every graph on every pass count, so its result is only ever KEPT if it
-  // actually has no more crossings than the untouched order — measured with the same `countCrossings` the test
-  // suite pins its numbers with, never assumed.
+/** Decision 3, now the explicit "Tidy ring order" action: reorders each ring's own elements to reduce
+ * dependency-edge crossings — a full circle is one group per ring (a Clean sector's own wedge is the
+ * finer-grained equivalent, `tidyCleanOrder`). The barycenter heuristic isn't guaranteed to improve every graph
+ * on every pass count, so its result is only ever KEPT if it actually reduces crossings versus the document's
+ * CURRENT order — measured with the same `countCrossings` the example suite pins its numbers with, never
+ * assumed; returns `undefined` (a no-op) otherwise, so a caller can tell nothing changed. */
+export function tidyOnionOrder(doc: OnionFile): OnionFile | undefined {
+  const original = buildOnionModel(doc, (role) => doc.elements.filter((e) => e.ringRole === role))
+
   const elementById = new Map(doc.elements.map((e) => [e.id, e]))
   const ringGroups: CrossingGroup[] = doc.rings.map((r) => ({
     key: r.role,
@@ -121,5 +127,6 @@ export function layoutOnion(doc: OnionFile): OnionLayoutModel {
   const optimizedOrderOn = (role: string) => (optimizedOrder.get(role) ?? []).map((id) => elementById.get(id)!)
   const optimized = buildOnionModel(doc, optimizedOrderOn)
 
-  return countCrossings(optimized.edges) <= countCrossings(original.edges) ? optimized : original
+  if (countCrossings(optimized.edges) >= countCrossings(original.edges)) return undefined
+  return { ...doc, elements: doc.rings.flatMap((r) => optimizedOrderOn(r.role)) }
 }

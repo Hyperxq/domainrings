@@ -45,6 +45,14 @@ describe('onion store — elements (REQ-07)', () => {
     expect(state().map.elements[0]).toMatchObject({ id, name: 'Order', ringRole: 'domain' })
   })
 
+  it('addElement inserts before an existing element when a beforeId is given (REQ: gap "+" insert-at-position)', () => {
+    state().replace(newOnionMap('Fresh'))
+    const e1 = state().addElement({ name: 'Order', ringRole: 'domain' })
+    const e3 = state().addElement({ name: 'Payment', ringRole: 'domain' })
+    const e2 = state().addElement({ name: 'OrderLine', ringRole: 'domain' }, e3)
+    expect(state().map.elements.map((e) => e.id)).toEqual([e1, e2, e3])
+  })
+
   it('updateElement renames an element in place', () => {
     state().replace(newOnionMap('Fresh'))
     const id = state().addElement({ name: 'Order', ringRole: 'domain' })

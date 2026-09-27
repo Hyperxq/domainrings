@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { newCleanMap } from '../model/hexa'
 import type { CleanFile } from '../model/schema'
-import { layoutClean } from './clean'
+import { layoutClean, tidyCleanOrder } from './clean'
+import { countCrossings } from './crossings'
 import { arcLabelFootprintBox, ringedElementHeight, ringedElementWidth, ringElementRadius, titleHalfSpan, TITLE_ARC_PAD } from './ringed'
 import { measure, RING_SUBTITLE } from './text'
 
@@ -170,5 +171,57 @@ describe('layoutClean — endpoints and edges (REQ-06/REQ-07, same placement con
     }
     const withActorModel = layoutClean(withActor)
     expect(withActorModel.bounds.width).toBeGreaterThan(plain.bounds.width)
+  })
+})
+
+// The document's own author order (Decision 3 is now an explicit "Tidy ring order" action, never automatic —
+// ADR-XX, mirrors onion.test.ts) — the outer sector starts REVERSED against the domain sector's own dependency
+// targets.
+const crossedDoc: CleanFile = {
+  ...newCleanMap('Fresh'),
+  sectors: [
+    { id: 's-domain', name: 'Core', ringRole: 'domain' },
+    { id: 's-outer', name: 'API', ringRole: 'outer' },
+  ],
+  elements: [
+    { id: 'x', name: 'X', sectorId: 's-domain' },
+    { id: 'y', name: 'Y', sectorId: 's-domain' },
+    { id: 'z', name: 'Z', sectorId: 's-domain' },
+    { id: 'c', name: 'C', sectorId: 's-outer' },
+    { id: 'b', name: 'B', sectorId: 's-outer' },
+    { id: 'a', name: 'A', sectorId: 's-outer' },
+  ],
+  dependencies: [
+    { id: 'd1', fromId: 'a', toId: 'x' },
+    { id: 'd2', fromId: 'b', toId: 'y' },
+    { id: 'd3', fromId: 'c', toId: 'z' },
+  ],
+}
+
+describe('layoutClean always respects the document\'s own element order (Decision 3 moved to tidyCleanOrder)', () => {
+  it('never silently reorders a sector, even when doing so would reduce crossings', () => {
+    const model = layoutClean(crossedDoc)
+    expect(model.elements.filter((e) => e.ringRole === 'outer').map((e) => e.ref)).toEqual(['c', 'b', 'a'])
+  })
+})
+
+describe('tidyCleanOrder — the explicit "Tidy ring order" action (Decision 3)', () => {
+  it('rewrites the document into a crossing-minimised order, kept because it actually reduces crossings', () => {
+    const before = countCrossings(layoutClean(crossedDoc).edges)
+    expect(before).toBeGreaterThan(0)
+    const tidied = tidyCleanOrder(crossedDoc)
+    expect(tidied).toBeDefined()
+    expect(countCrossings(layoutClean(tidied!).edges)).toBeLessThan(before)
+  })
+
+  it('touches nothing else in the document', () => {
+    const tidied = tidyCleanOrder(crossedDoc)!
+    expect(tidied.dependencies).toBe(crossedDoc.dependencies)
+    expect(tidied.sectors).toBe(crossedDoc.sectors)
+    expect(new Set(tidied.elements.map((e) => e.id))).toEqual(new Set(crossedDoc.elements.map((e) => e.id)))
+  })
+
+  it('returns undefined when the current order has no crossings left to reduce', () => {
+    expect(tidyCleanOrder(newCleanMap('Fresh'))).toBeUndefined()
   })
 })

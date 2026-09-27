@@ -25,12 +25,12 @@
   "elements": [
     { "id": "el-order", "name": "Order", "sectorId": "sec-orders-domain" },
     { "id": "el-orderline", "name": "OrderLine", "sectorId": "sec-orders-domain" },
-    { "id": "el-payment", "name": "Payment", "sectorId": "sec-payments-domain" },
     { "id": "el-charge", "name": "Charge", "sectorId": "sec-payments-domain" },
+    { "id": "el-payment", "name": "Payment", "sectorId": "sec-payments-domain" },
     { "id": "el-shipment", "name": "Shipment", "sectorId": "sec-shipping-domain" },
     { "id": "el-parcel", "name": "Parcel", "sectorId": "sec-shipping-domain" },
-    { "id": "el-place-order", "name": "PlaceOrderUseCase", "sectorId": "sec-orders-app" },
     { "id": "el-cancel-order", "name": "CancelOrderUseCase", "sectorId": "sec-orders-app" },
+    { "id": "el-place-order", "name": "PlaceOrderUseCase", "sectorId": "sec-orders-app" },
     { "id": "el-process-payment", "name": "ProcessPaymentUseCase", "sectorId": "sec-payments-app" },
     { "id": "el-refund-payment", "name": "RefundPaymentUseCase", "sectorId": "sec-payments-app" },
     { "id": "el-arrange-shipment", "name": "ArrangeShipmentUseCase", "sectorId": "sec-shipping-app" },
@@ -41,10 +41,10 @@
     { "id": "el-payment-presenter", "name": "PaymentPresenter", "sectorId": "sec-presenters" },
     { "id": "el-web-framework", "name": "ExpressApp", "sectorId": "sec-web" },
     { "id": "el-http-client", "name": "HttpClient", "sectorId": "sec-web" },
-    { "id": "el-order-repo", "name": "OrderRepositoryImpl", "sectorId": "sec-persistence" },
     { "id": "el-payment-repo", "name": "PaymentRepositoryImpl", "sectorId": "sec-persistence" },
-    { "id": "el-stripe-client", "name": "StripeClient", "sectorId": "sec-external-clients" },
-    { "id": "el-carrier-client", "name": "CarrierClient", "sectorId": "sec-external-clients" }
+    { "id": "el-order-repo", "name": "OrderRepositoryImpl", "sectorId": "sec-persistence" },
+    { "id": "el-carrier-client", "name": "CarrierClient", "sectorId": "sec-external-clients" },
+    { "id": "el-stripe-client", "name": "StripeClient", "sectorId": "sec-external-clients" }
   ],
   "dependencies": [
     { "id": "dep-1", "fromId": "el-order-controller", "toId": "el-place-order" },

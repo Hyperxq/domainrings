@@ -78,7 +78,7 @@ export function OnionStage({ model, doc, mode, svgRef, onReject, onMutate = () =
     const item = onionInsertionItem(point.action)
     const before = doc
     if (item.kind === 'element') {
-      const id = addElement(item.patch)
+      const id = addElement(item.patch, item.beforeId)
       const ringName = doc.rings.find((r) => r.role === item.patch.ringRole)!.name
       onMutate(`Added ${item.patch.name} to ${ringName}.`, before)
       setEditing({ id, name: item.patch.name })

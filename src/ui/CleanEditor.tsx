@@ -1,4 +1,5 @@
 import { flushSync } from 'react-dom'
+import { tidyCleanOrder } from '../layout/clean'
 import { outerRoleOf } from '../model/rings'
 import { elementName } from '../model/ringedDocument'
 import type { CleanElement, CleanFile, CleanRingRole, CleanSector } from '../model/schema'
@@ -9,7 +10,7 @@ import { DependenciesSection, ElementList, EndpointsSection, RenameField } from 
 
 type EndpointCollection = 'actors' | 'externals'
 
-const { addSector, updateSector, removeSector, addElement, updateElement, removeElement, addDependency, removeDependency, addEndpoint, removeEndpoint } = useCleanStore.getState()
+const { addSector, updateSector, removeSector, addElement, updateElement, removeElement, addDependency, removeDependency, addEndpoint, removeEndpoint, restore } = useCleanStore.getState()
 
 // See OnionEditor's own `withElementName` for why replaying the pre-edit string back onto the CURRENT doc is a
 // sound reconstruction of the pre-edit snapshot (a rename session never overlaps any other edit).
@@ -166,10 +167,24 @@ export function CleanEditor({ open, onToggle, onMutate = () => {} }: CleanEditor
     onMutate(`Removed ${item.name}.`, before)
   }
 
+  // Decision 3, now explicit rather than automatic (ADR-XX): the author's own sector order is otherwise always
+  // respected (`layoutClean`) — this is the one place it can still be rewritten, and only on request. A no-op
+  // (`tidyCleanOrder` returns `undefined`) when the current order already has no crossings left to reduce, so
+  // nothing is reported to Undo for a click that changed nothing.
+  const handleTidy = () => {
+    const tidied = tidyCleanOrder(doc)
+    if (!tidied) return
+    restore({ map: tidied })
+    onMutate('Tidied ring order.', doc)
+  }
+
   return (
     <aside className={`island editor${open ? '' : ' is-collapsed'}`} aria-label="Diagram editor">
       <header className="editor-head">
         <h2>{doc.title || 'Untitled architecture'}</h2>
+        <button type="button" className="text-button small" title="Reduce dependency-edge crossings by reordering rings" onClick={handleTidy}>
+          Tidy ring order
+        </button>
         <button type="button" className="icon-button" aria-expanded={open} aria-controls="clean-editor-body" aria-label={open ? 'Collapse editor' : 'Expand editor'} title={open ? 'Collapse editor' : 'Expand editor'} onClick={onToggle}>
           <Icon name="panel" />
         </button>

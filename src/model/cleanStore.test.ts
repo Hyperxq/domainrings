@@ -97,6 +97,15 @@ describe('elements (REQ-04: every element belongs to a sector, never directly to
     expect(state().map.elements[0].name).toBe('Invoice v2')
   })
 
+  it('addElement inserts before an existing element when a beforeId is given (REQ: gap "+" insert-at-position)', () => {
+    state().replace(newCleanMap('Fresh'))
+    const sectorId = state().addSector({ name: 'Billing', ringRole: 'domain' })
+    const e1 = state().addElement({ name: 'Invoice', sectorId })
+    const e3 = state().addElement({ name: 'Refund', sectorId })
+    const e2 = state().addElement({ name: 'Payment', sectorId }, e3)
+    expect(state().map.elements.map((e) => e.id)).toEqual([e1, e2, e3])
+  })
+
   it('removeElement removes just that element, leaving its sector and siblings intact', () => {
     state().replace(newCleanMap('Fresh'))
     const sectorId = state().addSector({ name: 'Billing', ringRole: 'domain' })
