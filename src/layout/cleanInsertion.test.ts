@@ -53,6 +53,27 @@ describe('cleanInsertionPoints', () => {
     const elementPoints = points.filter((p) => p.action.kind === 'element')
     expect(elementPoints).toHaveLength(1)
     expect(elementPoints[0].label).toBe('Add element to Billing')
+    expect((elementPoints[0].action as { beforeId?: string }).beforeId).toBeUndefined()
+  })
+
+  it('a sector with elements offers one MORE gap "+" than it has elements (linear wedge: both its own boundaries count)', () => {
+    const doc: CleanFile = {
+      ...newCleanMap('Fresh'),
+      sectors: [{ id: 's1', name: 'Billing', ringRole: 'domain' }],
+      elements: [
+        { id: 'e1', name: 'Invoice', sectorId: 's1' },
+        { id: 'e2', name: 'Payment', sectorId: 's1' },
+      ],
+    }
+    const model = layoutClean(doc)
+    const points = cleanInsertionPoints(model, doc)
+    const elementPoints = points.filter((p) => p.action.kind === 'element')
+    expect(elementPoints).toHaveLength(3)
+    const beforeIds = elementPoints.map((p) => (p.action as { beforeId?: string }).beforeId)
+    // Before e1, between e1 and e2, and after e2 (undefined — appends at the end of the sector's own order).
+    expect(beforeIds.filter((id) => id === 'e1')).toHaveLength(1)
+    expect(beforeIds.filter((id) => id === 'e2')).toHaveLength(1)
+    expect(beforeIds.filter((id) => id === undefined)).toHaveLength(1)
   })
 
   it('offers an actor and an external "+" for every outer-ring element, and none for an inner-ring one (REQ-07)', () => {
@@ -76,6 +97,11 @@ describe('cleanInsertionPoints', () => {
 })
 
 describe('cleanInsertionItem', () => {
+  it('carries a gap\'s own beforeId through to the caller, for an insert-at-position add', () => {
+    const item = cleanInsertionItem({ kind: 'element', sectorId: 's1', beforeId: 'e2' })
+    expect(item).toEqual({ kind: 'element', patch: { name: 'NewElement', sectorId: 's1' }, beforeId: 'e2' })
+  })
+
   it('builds a sector patch carrying the ring it was added from', () => {
     const item = cleanInsertionItem({ kind: 'sector', ringRole: 'application' })
     expect(item).toEqual({ kind: 'sector', patch: { name: 'NewSector', ringRole: 'application' } })

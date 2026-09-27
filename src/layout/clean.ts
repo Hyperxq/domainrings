@@ -189,17 +189,24 @@ function buildCleanModel(doc: CleanFile, sectors: CleanSectorWedge[], orderedEle
 }
 
 /** Innermost-first (REQ-02) — rings and their outlines are shared with Onion (`ringOutlines`, ADR-01); what's
- * genuinely Clean-only is the sector sub-division of each ring into wedges and placing elements inside their
- * own wedge (`arcAngles`) rather than around the whole ring. */
+ * genuinely Clean-only is the sector sub-division of each ring into wedges and placing elements inside their own
+ * wedge (`arcAngles`) rather than around the whole ring. The document's own author order is always respected here
+ * (ADR-XX) — Decision 3's crossing minimisation moved to `tidyCleanOrder` below, an explicit "Tidy ring order"
+ * action rather than a silent layout-time reshuffle. */
 export function layoutClean(doc: CleanFile): CleanLayoutModel {
   const sectors = sectorWedges(doc)
+  return buildCleanModel(doc, sectors, (sectorRef) => doc.elements.filter((e) => e.sectorId === sectorRef))
+}
 
+/** Decision 3/4, now the explicit "Tidy ring order" action: reorders each SECTOR's own elements (never across
+ * sectors — a sector's own wedge is the group, finer-grained than Onion's whole-ring group) to reduce
+ * dependency-edge crossings. As with `tidyOnionOrder`, the barycenter result is only kept if it actually reduces
+ * crossings versus the document's CURRENT order; returns `undefined` (a no-op) otherwise. */
+export function tidyCleanOrder(doc: CleanFile): CleanFile | undefined {
+  const sectors = sectorWedges(doc)
   const originalOrderIn = (sectorRef: string) => doc.elements.filter((e) => e.sectorId === sectorRef)
   const original = buildCleanModel(doc, sectors, originalOrderIn)
 
-  // Decision 3/4: reorder each SECTOR's own elements (never across sectors — a sector's own wedge is the group,
-  // finer-grained than Onion's whole-ring group) to reduce dependency-edge crossings. As with Onion, the
-  // barycenter result is only kept if it actually has no more crossings than the untouched order.
   const elementById = new Map(doc.elements.map((e) => [e.id, e]))
   const sectorGroups: CrossingGroup[] = sectors.map((s) => ({
     key: s.ref,
@@ -211,5 +218,6 @@ export function layoutClean(doc: CleanFile): CleanLayoutModel {
   const optimizedOrderIn = (sectorRef: string) => (optimizedOrder.get(sectorRef) ?? []).map((id) => elementById.get(id)!)
   const optimized = buildCleanModel(doc, sectors, optimizedOrderIn)
 
-  return countCrossings(optimized.edges) <= countCrossings(original.edges) ? optimized : original
+  if (countCrossings(optimized.edges) >= countCrossings(original.edges)) return undefined
+  return { ...doc, elements: sectors.flatMap((s) => optimizedOrderIn(s.ref)) }
 }

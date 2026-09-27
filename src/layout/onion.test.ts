@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { newOnionMap } from '../model/hexa'
 import type { OnionFile } from '../model/schema'
-import { layoutOnion } from './onion'
+import { countCrossings } from './crossings'
+import { layoutOnion, tidyOnionOrder } from './onion'
 import { ringElementRadius } from './ringed'
 
 const withElements = (): OnionFile => ({
@@ -120,5 +121,53 @@ describe('layoutOnion (endpoints, REQ-05)', () => {
     const model = layoutOnion(doc)
     expect(model.endpoints).toHaveLength(1)
     expect(model.edges.filter((e) => e.kind === 'endpoint')).toHaveLength(0)
+  })
+})
+
+// The document's own author order (Decision 3 is now an explicit "Tidy ring order" action, never automatic —
+// ADR-XX) — outer starts REVERSED against domain's own dependency targets, the same crossed scenario
+// `crossingMinimization.test.ts` reorders on its own terms.
+const crossedDoc: OnionFile = {
+  ...newOnionMap('Fresh'),
+  elements: [
+    { id: 'x', name: 'X', ringRole: 'domain' },
+    { id: 'y', name: 'Y', ringRole: 'domain' },
+    { id: 'z', name: 'Z', ringRole: 'domain' },
+    { id: 'c', name: 'C', ringRole: 'outer' },
+    { id: 'b', name: 'B', ringRole: 'outer' },
+    { id: 'a', name: 'A', ringRole: 'outer' },
+  ],
+  dependencies: [
+    { id: 'd1', fromId: 'a', toId: 'x' },
+    { id: 'd2', fromId: 'b', toId: 'y' },
+    { id: 'd3', fromId: 'c', toId: 'z' },
+  ],
+}
+
+describe('layoutOnion always respects the document\'s own element order (Decision 3 moved to tidyOnionOrder)', () => {
+  it('never silently reorders a ring, even when doing so would reduce crossings', () => {
+    const model = layoutOnion(crossedDoc)
+    expect(model.elements.filter((e) => e.ringRole === 'outer').map((e) => e.ref)).toEqual(['c', 'b', 'a'])
+  })
+})
+
+describe('tidyOnionOrder — the explicit "Tidy ring order" action (Decision 3)', () => {
+  it('rewrites the document into a crossing-minimised order, kept because it actually reduces crossings', () => {
+    const before = countCrossings(layoutOnion(crossedDoc).edges)
+    expect(before).toBeGreaterThan(0)
+    const tidied = tidyOnionOrder(crossedDoc)
+    expect(tidied).toBeDefined()
+    expect(countCrossings(layoutOnion(tidied!).edges)).toBeLessThan(before)
+  })
+
+  it('touches nothing else in the document', () => {
+    const tidied = tidyOnionOrder(crossedDoc)!
+    expect(tidied.dependencies).toBe(crossedDoc.dependencies)
+    expect(tidied.rings).toBe(crossedDoc.rings)
+    expect(new Set(tidied.elements.map((e) => e.id))).toEqual(new Set(crossedDoc.elements.map((e) => e.id)))
+  })
+
+  it('returns undefined when the current order has no crossings left to reduce', () => {
+    expect(tidyOnionOrder(newOnionMap('Fresh'))).toBeUndefined()
   })
 })

@@ -82,7 +82,7 @@ export function CleanStage({ model, doc, mode, svgRef, onReject, onMutate = () =
       const ringName = doc.rings.find((r) => r.role === item.patch.ringRole)!.name
       onMutate(`Added ${item.patch.name} to ${ringName}.`, before)
     } else if (item.kind === 'element') {
-      const id = addElement(item.patch)
+      const id = addElement(item.patch, item.beforeId)
       const sectorName = doc.sectors.find((s) => s.id === item.patch.sectorId)!.name
       onMutate(`Added ${item.patch.name} to ${sectorName}.`, before)
       setEditing({ id, name: item.patch.name })

@@ -1,15 +1,18 @@
-import { arcAngles, outerRoleOf, polarPoint } from '../model/rings'
+import { arcAngles, outerRoleOf, polarPoint, ringedArcAngles } from '../model/rings'
 import type { CleanFile, CleanRingRole } from '../model/schema'
 import type { Point } from './layout'
 import type { CleanLayoutModel } from './clean'
-import { endpointInsertionPoints } from './ringedInsertion'
+import { elementGapPoints, endpointInsertionPoints } from './ringedInsertion'
 import { ringElementRadius, ringSlotRadii } from './ringed'
 
 /** What a "+" creates (REQ-03, REQ-04, REQ-07) — a ring's own "+" adds a sector to it; a sector's own "+" adds an
- * element to it (never directly to a ring, REQ-04); an outer-ring element's "+"s add an actor/external. */
+ * element to it (never directly to a ring, REQ-04); an outer-ring element's "+"s add an actor/external. A gap
+ * "+"'s own `beforeId` (only ever set between two real neighbours, or before the sector's own first element)
+ * names which existing element the new one should land before (REQ: insert-at-position, `ringedDocument.addElement`)
+ * — absent, it appends, exactly like the single "+" an empty sector still offers. */
 export type CleanInsertionAction =
   | { kind: 'sector'; ringRole: CleanRingRole }
-  | { kind: 'element'; sectorId: string }
+  | { kind: 'element'; sectorId: string; beforeId?: string }
   | { kind: 'endpoint'; collection: 'actors' | 'externals'; targetId: string }
 
 export interface CleanInsertionPoint {
@@ -37,22 +40,40 @@ export function cleanInsertionPoints(model: CleanLayoutModel, doc: CleanFile): C
     const at = polarPoint(radius, Math.PI / 2)
     points.push({ key: `sector:${ring.role}`, ringRole: ring.role, at, action: { kind: 'sector', ringRole: ring.role }, label: `Add sector to ${ring.name}` })
   })
-  const countIn = (sectorRef: string) => doc.elements.filter((e) => e.sectorId === sectorRef).length
+  // One "+" in every gap between two neighbouring elements already inside a sector's own wedge, linear (unlike
+  // Onion's whole ring, a sector has two real boundaries of its own — REQ-08 — so both count as gaps too, one
+  // more than the sector has elements); one "+" for an empty sector instead, at the one slot a first element
+  // would take. Every angle matches exactly where `layoutClean`'s real elements sit (`ringedArcAngles`), so a
+  // gap's "+" always lands between the actual boxes it names, never a hypothetical re-spaced slot.
   for (const sector of model.sectors) {
     const ringIndex = model.rings.findIndex((r) => r.role === sector.ringRole)
     const ring = model.rings[ringIndex]
-    const count = countIn(sector.ref)
-    // The new element's own slot index within its RING's flattened order (Decision 7's `ringSlotRadii`), not
-    // just its own sector's count — matches `layoutClean`'s own sector-then-element flattening so the "+" lands
-    // on the same lane the real element would, never the ring's outer edge or the wrong track. Every sibling
-    // sector contributes its own REAL angles; only this sector gets the hypothetical extra slot.
-    const siblingsInRing = model.sectors.filter((s) => s.ringRole === sector.ringRole)
-    const priorSiblingCount = siblingsInRing.slice(0, siblingsInRing.findIndex((s) => s.ref === sector.ref)).reduce((n, s) => n + countIn(s.ref), 0)
-    const ringAngles = siblingsInRing.flatMap((s) => arcAngles(s.ref === sector.ref ? count + 1 : countIn(s.ref), s.startAngle, s.endAngle))
-    const slotIndex = priorSiblingCount + count
-    const radius = ringSlotRadii(ring, model.rings[ringIndex - 1], ringAngles)[slotIndex]
-    const at = polarPoint(radius, ringAngles[slotIndex])
-    points.push({ key: `element:${sector.ref}`, ringRole: sector.ringRole, at, action: { kind: 'element', sectorId: sector.ref }, label: `Add element to ${sector.name}` })
+    const inner = model.rings[ringIndex - 1]
+    const onSector = doc.elements.filter((e) => e.sectorId === sector.ref)
+    if (!onSector.length) {
+      const angles = arcAngles(1, sector.startAngle, sector.endAngle)
+      const radius = ringSlotRadii(ring, inner, angles)[0]
+      points.push({
+        key: `element:${sector.ref}`,
+        ringRole: sector.ringRole,
+        at: polarPoint(radius, angles[0]),
+        action: { kind: 'element', sectorId: sector.ref },
+        label: `Add element to ${sector.name}`,
+      })
+      continue
+    }
+    const angles = ringedArcAngles(onSector.length, sector.startAngle, sector.endAngle, ringIndex)
+    for (const gap of elementGapPoints(angles, sector.startAngle, sector.endAngle, false)) {
+      const radius = ringSlotRadii(ring, inner, [gap.angle])[0]
+      const before = onSector[gap.beforeIndex] as (typeof onSector)[number] | undefined
+      points.push({
+        key: `element:${sector.ref}:${before ? before.id : 'end'}`,
+        ringRole: sector.ringRole,
+        at: polarPoint(radius, gap.angle),
+        action: { kind: 'element', sectorId: sector.ref, beforeId: before?.id },
+        label: `Add element to ${sector.name}`,
+      })
+    }
   }
   const outerRole = outerRoleOf(doc.rings)
   const outerElements = model.elements.filter((e) => e.ringRole === outerRole)
@@ -66,9 +87,9 @@ export function cleanInsertionItem(
   action: CleanInsertionAction,
 ):
   | { kind: 'sector'; patch: { name: string; ringRole: CleanRingRole } }
-  | { kind: 'element'; patch: { name: string; sectorId: string } }
+  | { kind: 'element'; patch: { name: string; sectorId: string }; beforeId?: string }
   | { kind: 'endpoint'; collection: 'actors' | 'externals'; patch: { name: string; targetId: string } } {
   if (action.kind === 'sector') return { kind: 'sector', patch: { name: 'NewSector', ringRole: action.ringRole } }
-  if (action.kind === 'element') return { kind: 'element', patch: { name: 'NewElement', sectorId: action.sectorId } }
+  if (action.kind === 'element') return { kind: 'element', patch: { name: 'NewElement', sectorId: action.sectorId }, beforeId: action.beforeId }
   return { kind: 'endpoint', collection: action.collection, patch: { name: action.collection === 'actors' ? 'New actor' : 'New system', targetId: action.targetId } }
 }

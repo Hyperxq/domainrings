@@ -23,8 +23,9 @@ interface CleanState {
    * referencing them — mirroring `removeElement`'s existing idiom. */
   removeSector: (id: string) => void
   /** Adds a named element into the given sector (REQ-04) — `sectorId` is required by the type, so there is no
-   * direct-to-ring path through this store. */
-  addElement: (patch: Omit<CleanElement, 'id'>) => string
+   * direct-to-ring path through this store. `beforeId`, when given, inserts it right before that existing element
+   * instead of appending (a gap "+"'s own insert-at-position, `cleanInsertionPoints`). */
+  addElement: (patch: Omit<CleanElement, 'id'>, beforeId?: string) => string
   /** Patches an existing element (validate-by-reparse: a `sectorId` change to an unknown sector is rejected). */
   updateElement: (id: string, patch: Partial<Omit<CleanElement, 'id'>>) => void
   /** Removes an element, pruning any dependency it took part in and clearing any endpoint target pointing to it. */
@@ -64,8 +65,8 @@ export const useCleanStore = create<CleanState>()((set, get) => ({
       return { map: { ...withoutElements, sectors: withoutElements.sectors.filter((sector) => sector.id !== id) } }
     })
   },
-  addElement: (patch) => {
-    const { doc, id } = ringedDocument.addElement<CleanFile, CleanElement>(get().map, patch, () => `element-${crypto.randomUUID().slice(0, 8)}`)
+  addElement: (patch, beforeId) => {
+    const { doc, id } = ringedDocument.addElement<CleanFile, CleanElement>(get().map, patch, () => `element-${crypto.randomUUID().slice(0, 8)}`, beforeId)
     set({ map: doc })
     return id
   },

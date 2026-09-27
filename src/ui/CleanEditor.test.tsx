@@ -1,7 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { layoutClean } from '../layout/clean'
+import { countCrossings } from '../layout/crossings'
 import { newCleanMap } from '../model/hexa'
 import { useCleanStore } from '../model/cleanStore'
+import type { CleanFile } from '../model/schema'
 import { CleanEditor } from './CleanEditor'
 
 const state = () => useCleanStore.getState()
@@ -11,7 +14,7 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-const renderEditor = () => render(<CleanEditor open onToggle={() => {}} />)
+const renderEditor = (props?: { onMutate?: (message: string, before: CleanFile) => void }) => render(<CleanEditor open onToggle={() => {}} {...props} />)
 const section = (container: HTMLElement, title: string) => within(container).getByText(title).closest('details')!
 
 describe('CleanEditor', () => {
@@ -110,5 +113,31 @@ describe('CleanEditor', () => {
 
     expect(state().map.actors).toHaveLength(1)
     expect(state().map.actors[0].targetId).toBe(state().map.elements[1].id)
+  })
+})
+
+describe('CleanEditor — "Tidy ring order" (Decision 3, now an explicit action)', () => {
+  it('reduces dependency-edge crossings and reports it for Undo', () => {
+    const domainSector = state().addSector({ name: 'Core', ringRole: 'domain' })
+    const outerSector = state().addSector({ name: 'API', ringRole: 'outer' })
+    const xId = state().addElement({ name: 'X', sectorId: domainSector })
+    const yId = state().addElement({ name: 'Y', sectorId: domainSector })
+    const zId = state().addElement({ name: 'Z', sectorId: domainSector })
+    const cId = state().addElement({ name: 'C', sectorId: outerSector })
+    const bId = state().addElement({ name: 'B', sectorId: outerSector })
+    const aId = state().addElement({ name: 'A', sectorId: outerSector })
+    state().addDependency(aId, xId)
+    state().addDependency(bId, yId)
+    state().addDependency(cId, zId)
+    const before = state().map
+    const crossingsBefore = countCrossings(layoutClean(before).edges)
+    expect(crossingsBefore).toBeGreaterThan(0)
+
+    const onMutate = vi.fn()
+    renderEditor({ onMutate })
+    fireEvent.click(screen.getByRole('button', { name: 'Tidy ring order' }))
+
+    expect(countCrossings(layoutClean(state().map).edges)).toBeLessThan(crossingsBefore)
+    expect(onMutate).toHaveBeenCalledWith('Tidied ring order.', before)
   })
 })

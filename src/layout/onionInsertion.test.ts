@@ -31,10 +31,60 @@ describe('onionInsertionPoints', () => {
   })
 })
 
+describe('onionInsertionPoints — one gap "+" per neighbour pair, circular (Onion\'s whole ring)', () => {
+  const doc: OnionFile = {
+    ...newOnionMap('Fresh'),
+    elements: [
+      { id: 'e1', name: 'Order', ringRole: 'domain' },
+      { id: 'e2', name: 'OrderLine', ringRole: 'domain' },
+      { id: 'e3', name: 'Payment', ringRole: 'domain' },
+    ],
+  }
+
+  it('offers exactly one gap per element on a 3-element ring (circular: N elements, N gaps)', () => {
+    const model = layoutOnion(doc)
+    const points = onionInsertionPoints(model, doc)
+    const domainPoints = points.filter((p) => p.action.kind === 'element' && p.ringRole === 'domain')
+    expect(domainPoints).toHaveLength(3)
+  })
+
+  it('each gap\'s action carries the id of the neighbour a click would insert the new element before', () => {
+    const model = layoutOnion(doc)
+    const points = onionInsertionPoints(model, doc)
+    const domainPoints = points.filter((p) => p.action.kind === 'element' && p.ringRole === 'domain')
+    const beforeIds = domainPoints.map((p) => (p.action as { beforeId?: string }).beforeId).sort()
+    // Every element is named as SOME gap's own neighbour (including the wraparound one) — e1 twice over would mean
+    // a gap was lost or duplicated.
+    expect(beforeIds).toEqual(['e1', 'e2', 'e3'])
+  })
+
+  it('a single-element ring still offers exactly one gap (the whole rest of the circle)', () => {
+    const single: OnionFile = { ...newOnionMap('Fresh'), elements: [{ id: 'e1', name: 'Order', ringRole: 'domain' }] }
+    const model = layoutOnion(single)
+    const points = onionInsertionPoints(model, single)
+    const domainPoints = points.filter((p) => p.action.kind === 'element' && p.ringRole === 'domain')
+    expect(domainPoints).toHaveLength(1)
+    expect((domainPoints[0].action as { beforeId?: string }).beforeId).toBe('e1')
+  })
+
+  it('an empty ring keeps its own single "add here" +, with no beforeId (appends)', () => {
+    const model = layoutOnion(newOnionMap('Fresh'))
+    const points = onionInsertionPoints(model, newOnionMap('Fresh'))
+    const domainPoints = points.filter((p) => p.action.kind === 'element' && p.ringRole === 'domain')
+    expect(domainPoints).toHaveLength(1)
+    expect((domainPoints[0].action as { beforeId?: string }).beforeId).toBeUndefined()
+  })
+})
+
 describe('onionInsertionItem', () => {
   it('builds an element patch carrying the ring it was added from', () => {
     const item = onionInsertionItem({ kind: 'element', ringRole: 'application' })
     expect(item).toEqual({ kind: 'element', patch: { name: 'NewElement', ringRole: 'application' } })
+  })
+
+  it('carries a gap\'s own beforeId through to the caller, for an insert-at-position add', () => {
+    const item = onionInsertionItem({ kind: 'element', ringRole: 'application', beforeId: 'e2' })
+    expect(item).toEqual({ kind: 'element', patch: { name: 'NewElement', ringRole: 'application' }, beforeId: 'e2' })
   })
 
   it('builds an actor patch already targeting the outer-ring element it was added from', () => {

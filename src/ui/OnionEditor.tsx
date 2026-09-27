@@ -1,4 +1,5 @@
 import { flushSync } from 'react-dom'
+import { tidyOnionOrder } from '../layout/onion'
 import { outerRoleOf } from '../model/rings'
 import { elementName } from '../model/ringedDocument'
 import type { OnionFile, OnionRingRole } from '../model/schema'
@@ -9,7 +10,7 @@ import { DependenciesSection, ElementList, EndpointsSection } from './RingedSect
 
 type EndpointCollection = 'actors' | 'externals'
 
-const { addElement, updateElement, removeElement, addDependency, removeDependency, addEndpoint, removeEndpoint } = useOnionStore.getState()
+const { addElement, updateElement, removeElement, addDependency, removeDependency, addEndpoint, removeEndpoint, restore } = useOnionStore.getState()
 
 // A rename only ever touches the one element's `name` — everything else in `doc` is exactly what it was before
 // the edit started, so replaying the pre-edit name back onto the CURRENT doc reconstructs the pre-edit snapshot
@@ -98,10 +99,24 @@ export function OnionEditor({ open, onToggle, onMutate = () => {} }: OnionEditor
     onMutate(`Removed ${item.name}.`, before)
   }
 
+  // Decision 3, now explicit rather than automatic (ADR-XX): the author's own ring order is otherwise always
+  // respected (`layoutOnion`) — this is the one place it can still be rewritten, and only on request. A no-op
+  // (`tidyOnionOrder` returns `undefined`) when the current order already has no crossings left to reduce, so
+  // nothing is reported to Undo for a click that changed nothing.
+  const handleTidy = () => {
+    const tidied = tidyOnionOrder(doc)
+    if (!tidied) return
+    restore({ map: tidied })
+    onMutate('Tidied ring order.', doc)
+  }
+
   return (
     <aside className={`island editor${open ? '' : ' is-collapsed'}`} aria-label="Diagram editor">
       <header className="editor-head">
         <h2>{doc.title || 'Untitled architecture'}</h2>
+        <button type="button" className="text-button small" title="Reduce dependency-edge crossings by reordering rings" onClick={handleTidy}>
+          Tidy ring order
+        </button>
         <button type="button" className="icon-button" aria-expanded={open} aria-controls="onion-editor-body" aria-label={open ? 'Collapse editor' : 'Expand editor'} title={open ? 'Collapse editor' : 'Expand editor'} onClick={onToggle}>
           <Icon name="panel" />
         </button>
