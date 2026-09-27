@@ -26,14 +26,22 @@ export function elementName<E extends WithId & { name: string }>(elements: reado
 }
 
 /** Adds a named element to the document (REQ-07/REQ-03: any ring/sector accepts any element, nothing referential
- * is created yet) — always succeeds, no validation needed. */
+ * is created yet) — always succeeds, no validation needed. `beforeId`, when given, inserts the new element right
+ * before it in the flat `elements` array rather than appending: a ring/sector's own order is exactly its elements'
+ * relative order in this one array, so landing it just before a specific neighbour is enough to place it at a
+ * specific gap on that ring/sector's own circumference (`onionInsertionPoints`/`cleanInsertionPoints`) — no
+ * separate per-ring index bookkeeping needed, and elements of OTHER rings interleaved in between never matter. */
 export function addElement<D extends RingedDoc<E, WithId & { fromId: string; toId: string }, WithId & { targetId?: string }>, E extends WithId>(
   doc: D,
   patch: Omit<E, 'id'>,
   makeId: () => string,
+  beforeId?: string,
 ): { doc: D; id: string } {
   const id = makeId()
-  return { doc: { ...doc, elements: [...doc.elements, { ...patch, id } as E] }, id }
+  const element = { ...patch, id } as E
+  const index = beforeId ? doc.elements.findIndex((e) => e.id === beforeId) : -1
+  const elements = index === -1 ? [...doc.elements, element] : [...doc.elements.slice(0, index), element, ...doc.elements.slice(index)]
+  return { doc: { ...doc, elements }, id }
 }
 
 /** Patches an existing element (validate-by-reparse) — undefined ⇒ no-op: the patch would break something the
@@ -106,4 +114,22 @@ export function removeEndpoint<D extends RingedDoc<WithId, WithId & { fromId: st
   id: string,
 ): D {
   return { ...doc, [collection]: doc[collection].filter((e) => e.id !== id) } as D
+}
+
+/** Which collection a canvas selection ref names, and its display name — the one lookup the canvas's own
+ * Delete/Backspace key needs before it can call the RIGHT one of the store's existing removals (`removeElement`/
+ * `removeEndpoint`): a selection can be an element, an actor or an external (never a dependency, which has no
+ * canvas box of its own to select). `undefined` when `ref` names none of the three (already removed by something
+ * else, e.g. a concurrent Undo). */
+export function classifyRef<E extends WithId & { name: string }, Ep extends WithId & { name: string; targetId?: string }>(
+  doc: { elements: readonly E[]; actors: readonly Ep[]; externals: readonly Ep[] },
+  ref: string,
+): { collection: 'elements' | 'actors' | 'externals'; name: string } | undefined {
+  const element = doc.elements.find((e) => e.id === ref)
+  if (element) return { collection: 'elements', name: element.name }
+  const actor = doc.actors.find((a) => a.id === ref)
+  if (actor) return { collection: 'actors', name: actor.name }
+  const external = doc.externals.find((x) => x.id === ref)
+  if (external) return { collection: 'externals', name: external.name }
+  return undefined
 }

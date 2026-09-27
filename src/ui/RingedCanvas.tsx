@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type Ref } from 'react'
 import type { Box } from '../layout/layout'
 import { isInwardOrSame } from '../model/rings'
+import { keyOnCanvas } from './keys'
 import { fitTo, islandInset } from './viewport'
 import { gridBackgroundStyle, useElementSize, useViewportInteractions, ZoomControls } from './viewportChrome'
 
@@ -185,6 +186,15 @@ export interface RingedStageProps {
   svgRef: Ref<SVGSVGElement>
   linking: boolean
   onClick: (e: ReactMouseEvent<SVGSVGElement>) => void
+  /** The current canvas selection (`useDependGesture`'s own `selected`) — `null` disarms Delete/Backspace below;
+   * `RingedStage` never tracks selection itself (that stays owned by `useDependGesture`, shared with the
+   * Depend-on gesture), it only needs to know THAT something is selected to gate the shortcut. */
+  selected?: string | null
+  /** Removes the current selection (mirrors Hexagonal's own Stage `onDelete`, ADR-01) — fired on Delete/Backspace
+   * when something is selected, nothing is being renamed, and link mode isn't active. The caller already has
+   * `selected` (it owns `useDependGesture`), so this takes no argument and is responsible for its own undo toast
+   * and for clearing the selection afterwards. */
+  onDelete?: () => void
   /** Reserves the editor's own column/chip so a fit never tucks the diagram under it (`viewport.ts`'s `islandInset`). */
   panelOpen?: boolean
   /** Reserves the legend's own column when open, for the same reason. */
@@ -204,7 +214,7 @@ export interface RingedStageProps {
  * `Stage` rather than a parallel implementation. A single-bounds, single-diagram version of Hexagonal's own
  * `Stage`: neither kind has more than one diagram to fit, so there is no multi-hexagon framing, growing, or
  * cross-diagram linking to carry over. */
-export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, panelOpen = false, legendOpen = false, children, overlay }: RingedStageProps) {
+export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, selected = null, onDelete, panelOpen = false, legendOpen = false, children, overlay }: RingedStageProps) {
   const mainRef = useRef<HTMLElement>(null)
   // Which ring/element/endpoint currently has the pointer or keyboard focus — drives which "+" affordances
   // `children` reveals (`RingedHover`, `affordanceVisible`). A mousedown moves focus to its target as a browser
@@ -230,6 +240,22 @@ export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, panel
     wholeFitScale: wholeFit.scale,
     fitKey,
   })
+
+  // Delete/Backspace act on the selection — mirrors Hexagonal's own Stage.tsx, sharing the same `keyOnCanvas`
+  // guard: ignored while a field (the inline rename) has the keyboard, and while linking (a stray Delete during
+  // the Depend-on gesture must not remove the very element being linked from).
+  useEffect(() => {
+    if (!onDelete) return
+    const onKey = (e: KeyboardEvent) => {
+      if (!selected || linking || !keyOnCanvas(e.target)) return
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault()
+        onDelete()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [selected, linking, onDelete])
 
   const width = size.width / viewport.scale
   const height = size.height / viewport.scale

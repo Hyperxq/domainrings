@@ -12,7 +12,7 @@ import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
-import { typing } from './keys'
+import { keyOnCanvas } from './keys'
 import { contains, fitMap, fitTo, islandInset, visibleRect } from './viewport'
 import { gridBackgroundStyle, useElementSize, useViewportInteractions, ZoomControls } from './viewportChrome'
 
@@ -65,10 +65,6 @@ const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
   actors: 'actor',
   externals: 'external',
 }
-/** Delete and Backspace act on the canvas selection only when no field has the keyboard. */
-const keyOnCanvas = (target: EventTarget | null) =>
-  target instanceof Element && !typing(target) && (target === document.body || !!target.closest('main.stage'))
-
 /** The layer an element belongs to: its band, or the ring it is drawn in. */
 const layerOf = (target: Element) =>
   target.closest('[data-band]')?.getAttribute('data-band') ?? target.closest('[data-layer]')?.getAttribute('data-layer') ?? null

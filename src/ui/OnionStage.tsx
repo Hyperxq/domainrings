@@ -3,13 +3,13 @@ import type { LayoutMode } from '../layout/layout'
 import type { OnionLayoutModel } from '../layout/onion'
 import { onionInsertionItem, onionInsertionPoints, type OnionInsertionPoint } from '../layout/onionInsertion'
 import { legendForOnion } from '../layout/legend'
-import { elementName } from '../model/ringedDocument'
+import { classifyRef, elementName } from '../model/ringedDocument'
 import { useOnionStore } from '../model/onionStore'
 import type { OnionFile } from '../model/schema'
 import { OnionDiagram } from '../render/OnionDiagram'
 import { affordanceVisible, DependChip, InlineNameField, PlusGlyph, RingedStage, useDependGesture } from './RingedCanvas'
 
-const { addElement, updateElement, removeElement, addDependency, addEndpoint } = useOnionStore.getState()
+const { addElement, updateElement, removeElement, removeEndpoint, addDependency, addEndpoint } = useOnionStore.getState()
 
 interface OnionStageProps {
   model: OnionLayoutModel
@@ -61,6 +61,19 @@ export function OnionStage({ model, doc, mode, svgRef, onReject, onMutate = () =
   // carries the real position, so the inline field re-reads it from the (now current) model every render.
   const editingElement = editing && model.elements.find((e) => e.ref === editing.id)
 
+  // Delete/Backspace (RingedStage) act on whatever `selected` names — an element or an actor/external — going
+  // through the same store removals (and the same toast/Undo mechanism) the editor panel's own remove buttons use.
+  const deleteSelected = () => {
+    if (!selected) return
+    const found = classifyRef(doc, selected)
+    if (!found) return
+    const before = doc
+    if (found.collection === 'elements') removeElement(selected)
+    else removeEndpoint(found.collection, selected)
+    onMutate(`Deleted ${found.name}.`, before)
+    clickTarget(null)
+  }
+
   const pick = (point: OnionInsertionPoint) => {
     const item = onionInsertionItem(point.action)
     const before = doc
@@ -81,6 +94,8 @@ export function OnionStage({ model, doc, mode, svgRef, onReject, onMutate = () =
       ariaLabel={doc.title || 'Onion diagram'}
       svgRef={svgRef}
       linking={linking}
+      selected={selected}
+      onDelete={deleteSelected}
       panelOpen={panelOpen}
       legendOpen={legendOpen}
       onClick={(e) => clickTarget((e.target as Element).closest('.node')?.getAttribute('data-ref') ?? null)}

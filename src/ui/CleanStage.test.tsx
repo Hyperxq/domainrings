@@ -4,6 +4,7 @@ import { createRef } from 'react'
 import { layoutClean } from '../layout/clean'
 import { newCleanMap } from '../model/hexa'
 import { useCleanStore } from '../model/cleanStore'
+import type { CleanFile } from '../model/schema'
 import { CleanStage } from './CleanStage'
 
 const state = () => useCleanStore.getState()
@@ -23,13 +24,13 @@ afterEach(cleanup)
 
 /** The stage as the app wires it: laid out fresh from the live store on every render — mirrors OnionStage's own
  * Harness (OnionStage.test.tsx). */
-function Harness({ onReject = () => {} }: { onReject?: (message: string) => void } = {}) {
+function Harness({ onReject = () => {}, onMutate = () => {} }: { onReject?: (message: string) => void; onMutate?: (message: string, before: CleanFile) => void } = {}) {
   const doc = useCleanStore((s) => s.map)
   const svgRef = createRef<SVGSVGElement>()
-  return <CleanStage model={layoutClean(doc)} doc={doc} mode="detailed" svgRef={svgRef} onReject={onReject} />
+  return <CleanStage model={layoutClean(doc)} doc={doc} mode="detailed" svgRef={svgRef} onReject={onReject} onMutate={onMutate} />
 }
 
-const renderStage = (props?: { onReject?: (message: string) => void }) => render(<Harness {...props} />)
+const renderStage = (props?: { onReject?: (message: string) => void; onMutate?: (message: string, before: CleanFile) => void }) => render(<Harness {...props} />)
 
 /** Reveals a ring's own "+" affordances (mirrors Hexagonal's own Stage.test.tsx `hover` helper, and OnionStage's
  * own) — hovering its band, same as a real pointer resting on the ring. */
@@ -176,5 +177,70 @@ describe('CleanStage — the Depend-on gesture, inherited from RingedCanvas.tsx 
     expect(state().map.dependencies).toEqual([])
     expect(onReject).toHaveBeenCalledTimes(1)
     expect(onReject.mock.calls[0][0]).toMatch(/same ring or a more inward one/)
+  })
+})
+
+describe('CleanStage — deleting the canvas selection with Delete/Backspace', () => {
+  it('Delete removes the selected element and reports it for Undo, same message/mechanism as the editor panel', () => {
+    const sectorId = state().addSector({ name: 'Billing', ringRole: 'domain' })
+    state().addElement({ name: 'Invoice', sectorId })
+    const onMutate = vi.fn()
+    renderStage({ onMutate })
+    const before = state().map
+    fireEvent.click(screen.getByRole('button', { name: 'Invoice (domain)' }))
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+    expect(state().map.elements).toHaveLength(0)
+    expect(onMutate).toHaveBeenCalledWith('Deleted Invoice.', before)
+  })
+
+  it('Backspace does the same', () => {
+    const sectorId = state().addSector({ name: 'Billing', ringRole: 'domain' })
+    state().addElement({ name: 'Invoice', sectorId })
+    renderStage()
+    fireEvent.click(screen.getByRole('button', { name: 'Invoice (domain)' }))
+    fireEvent.keyDown(document.body, { key: 'Backspace' })
+    expect(state().map.elements).toHaveLength(0)
+  })
+
+  it('deletes a selected actor/external endpoint too', () => {
+    const outerSector = state().addSector({ name: 'API', ringRole: 'outer' })
+    const targetId = state().addElement({ name: 'Controller', sectorId: outerSector })
+    state().addEndpoint('actors', { name: 'Customer', targetId })
+    renderStage()
+    fireEvent.click(screen.getByRole('button', { name: 'Actor Customer' }))
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+    expect(state().map.actors).toHaveLength(0)
+  })
+
+  it('is ignored while the inline name field has the keyboard', () => {
+    state().addSector({ name: 'Billing', ringRole: 'domain' })
+    const { container } = renderStage()
+    hoverRing(container, 'domain')
+    fireEvent.click(screen.getByRole('button', { name: 'Add element to Billing' }))
+    expect(state().map.elements).toHaveLength(1)
+    fireEvent.keyDown(screen.getByLabelText('element name'), { key: 'Delete' })
+    expect(state().map.elements).toHaveLength(1)
+  })
+
+  it('is ignored while linking (Depend on… gesture in progress)', () => {
+    const outerSector = state().addSector({ name: 'API', ringRole: 'outer' })
+    const domainSector = state().addSector({ name: 'Core', ringRole: 'domain' })
+    state().addElement({ name: 'Controller', sectorId: outerSector })
+    state().addElement({ name: 'Order', sectorId: domainSector })
+    renderStage()
+    fireEvent.click(screen.getByRole('button', { name: 'Controller (outer)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Depend on… from Controller' }))
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+    expect(state().map.elements).toHaveLength(2)
+  })
+
+  it('Escape clears the selection, so a following Delete does nothing', () => {
+    const sectorId = state().addSector({ name: 'Billing', ringRole: 'domain' })
+    state().addElement({ name: 'Invoice', sectorId })
+    renderStage()
+    fireEvent.click(screen.getByRole('button', { name: 'Invoice (domain)' }))
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+    expect(state().map.elements).toHaveLength(1)
   })
 })

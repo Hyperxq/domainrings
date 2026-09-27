@@ -4,6 +4,7 @@ import { createRef } from 'react'
 import { layoutOnion } from '../layout/onion'
 import { newOnionMap } from '../model/hexa'
 import { useOnionStore } from '../model/onionStore'
+import type { OnionFile } from '../model/schema'
 import { OnionStage } from './OnionStage'
 
 const state = () => useOnionStore.getState()
@@ -24,13 +25,13 @@ afterEach(cleanup)
 /** The stage as the app wires it: laid out fresh from the live store on every render, exactly like App.tsx's own
  * `layoutOnion(onionMap)` recompute — a plain fixed `model` prop would go stale the instant a test mutates the
  * store (Stage.test.tsx's own Harness solves the same problem for Hexagonal). */
-function Harness({ onReject = () => {} }: { onReject?: (message: string) => void } = {}) {
+function Harness({ onReject = () => {}, onMutate = () => {} }: { onReject?: (message: string) => void; onMutate?: (message: string, before: OnionFile) => void } = {}) {
   const doc = useOnionStore((s) => s.map)
   const svgRef = createRef<SVGSVGElement>()
-  return <OnionStage model={layoutOnion(doc)} doc={doc} mode="detailed" svgRef={svgRef} onReject={onReject} />
+  return <OnionStage model={layoutOnion(doc)} doc={doc} mode="detailed" svgRef={svgRef} onReject={onReject} onMutate={onMutate} />
 }
 
-const renderStage = (props?: { onReject?: (message: string) => void }) => render(<Harness {...props} />)
+const renderStage = (props?: { onReject?: (message: string) => void; onMutate?: (message: string, before: OnionFile) => void }) => render(<Harness {...props} />)
 
 /** Reveals a ring's own "+" affordances (mirrors Hexagonal's own Stage.test.tsx `hover` helper) — hovering its
  * band, same as a real pointer resting on the ring. */
@@ -163,5 +164,63 @@ describe('OnionStage', () => {
     expect(state().map.dependencies).toEqual([])
     expect(onReject).toHaveBeenCalledTimes(1)
     expect(onReject.mock.calls[0][0]).toMatch(/same ring or a more inward one/)
+  })
+})
+
+describe('OnionStage — deleting the canvas selection with Delete/Backspace', () => {
+  it('Delete removes the selected element and reports it for Undo, same message/mechanism as the editor panel', () => {
+    state().addElement({ name: 'Order', ringRole: 'domain' })
+    const onMutate = vi.fn()
+    renderStage({ onMutate })
+    const before = state().map
+    fireEvent.click(screen.getByRole('button', { name: 'Order (domain)' }))
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+    expect(state().map.elements).toHaveLength(0)
+    expect(onMutate).toHaveBeenCalledWith('Deleted Order.', before)
+  })
+
+  it('Backspace does the same', () => {
+    state().addElement({ name: 'Order', ringRole: 'domain' })
+    renderStage()
+    fireEvent.click(screen.getByRole('button', { name: 'Order (domain)' }))
+    fireEvent.keyDown(document.body, { key: 'Backspace' })
+    expect(state().map.elements).toHaveLength(0)
+  })
+
+  it('deletes a selected actor/external endpoint too', () => {
+    const targetId = state().addElement({ name: 'Controller', ringRole: 'outer' })
+    state().addEndpoint('actors', { name: 'Customer', targetId })
+    renderStage()
+    fireEvent.click(screen.getByRole('button', { name: 'Actor Customer' }))
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+    expect(state().map.actors).toHaveLength(0)
+  })
+
+  it('is ignored while the inline name field has the keyboard', () => {
+    const { container } = renderStage()
+    hoverRing(container, 'domain')
+    fireEvent.click(screen.getByRole('button', { name: 'Add an element to Domain Model' }))
+    expect(state().map.elements).toHaveLength(1)
+    fireEvent.keyDown(screen.getByLabelText('element name'), { key: 'Delete' })
+    expect(state().map.elements).toHaveLength(1)
+  })
+
+  it('is ignored while linking (Depend on… gesture in progress)', () => {
+    state().addElement({ name: 'Controller', ringRole: 'outer' })
+    state().addElement({ name: 'Order', ringRole: 'domain' })
+    renderStage()
+    fireEvent.click(screen.getByRole('button', { name: 'Controller (outer)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Depend on… from Controller' }))
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+    expect(state().map.elements).toHaveLength(2)
+  })
+
+  it('Escape clears the selection, so a following Delete does nothing', () => {
+    state().addElement({ name: 'Order', ringRole: 'domain' })
+    renderStage()
+    fireEvent.click(screen.getByRole('button', { name: 'Order (domain)' }))
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+    expect(state().map.elements).toHaveLength(1)
   })
 })

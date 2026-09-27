@@ -3,13 +3,13 @@ import type { CleanLayoutModel } from '../layout/clean'
 import type { LayoutMode } from '../layout/layout'
 import { cleanInsertionItem, cleanInsertionPoints, type CleanInsertionPoint } from '../layout/cleanInsertion'
 import { legendForClean } from '../layout/legend'
-import { elementName } from '../model/ringedDocument'
+import { classifyRef, elementName } from '../model/ringedDocument'
 import { useCleanStore } from '../model/cleanStore'
 import type { CleanFile } from '../model/schema'
 import { CleanDiagram } from '../render/CleanDiagram'
 import { affordanceVisible, DependChip, InlineNameField, PlusGlyph, RingedStage, useDependGesture } from './RingedCanvas'
 
-const { addSector, addElement, updateElement, removeElement, addDependency, addEndpoint } = useCleanStore.getState()
+const { addSector, addElement, updateElement, removeElement, removeEndpoint, addDependency, addEndpoint } = useCleanStore.getState()
 
 interface CleanStageProps {
   model: CleanLayoutModel
@@ -60,6 +60,20 @@ export function CleanStage({ model, doc, mode, svgRef, onReject, onMutate = () =
   // carries the real position, so the inline field re-reads it from the (now current) model every render.
   const editingElement = editing && model.elements.find((e) => e.ref === editing.id)
 
+  // Delete/Backspace (RingedStage) act on whatever `selected` names — an element or an actor/external — going
+  // through the same store removals (and the same toast/Undo mechanism) the editor panel's own remove buttons use.
+  // Never a sector: a sector has no canvas node of its own to select (REQ-08), so `selected` can never name one.
+  const deleteSelected = () => {
+    if (!selected) return
+    const found = classifyRef(doc, selected)
+    if (!found) return
+    const before = doc
+    if (found.collection === 'elements') removeElement(selected)
+    else removeEndpoint(found.collection, selected)
+    onMutate(`Deleted ${found.name}.`, before)
+    clickTarget(null)
+  }
+
   const pick = (point: CleanInsertionPoint) => {
     const item = cleanInsertionItem(point.action)
     const before = doc
@@ -84,6 +98,8 @@ export function CleanStage({ model, doc, mode, svgRef, onReject, onMutate = () =
       ariaLabel={doc.title || 'Clean diagram'}
       svgRef={svgRef}
       linking={linking}
+      selected={selected}
+      onDelete={deleteSelected}
       panelOpen={panelOpen}
       legendOpen={legendOpen}
       onClick={(e) => clickTarget((e.target as Element).closest('.node')?.getAttribute('data-ref') ?? null)}
