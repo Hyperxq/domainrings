@@ -10,8 +10,8 @@
     { "role": "outer", "name": "Infrastructure" }
   ],
   "elements": [
-    { "id": "el-order", "name": "Order", "ringRole": "domain" },
     { "id": "el-orderline", "name": "OrderLine", "ringRole": "domain" },
+    { "id": "el-order", "name": "Order", "ringRole": "domain" },
     { "id": "el-payment", "name": "Payment", "ringRole": "domain" },
     { "id": "el-shipment", "name": "Shipment", "ringRole": "domain" },
     { "id": "el-product", "name": "Product", "ringRole": "domain" },
@@ -23,8 +23,8 @@
     { "id": "el-arrange-shipment", "name": "ArrangeShipmentService", "ringRole": "application" },
     { "id": "el-lookup-product", "name": "LookupProductService", "ringRole": "application" },
     { "id": "el-order-controller", "name": "OrderController", "ringRole": "outer" },
-    { "id": "el-payment-controller", "name": "PaymentController", "ringRole": "outer" },
     { "id": "el-order-repo", "name": "OrderRepositoryImpl", "ringRole": "outer" },
+    { "id": "el-payment-controller", "name": "PaymentController", "ringRole": "outer" },
     { "id": "el-payment-gateway", "name": "PaymentGatewayAdapter", "ringRole": "outer" },
     { "id": "el-carrier-gateway", "name": "CarrierGatewayAdapter", "ringRole": "outer" },
     { "id": "el-product-repo", "name": "ProductRepositoryImpl", "ringRole": "outer" }
