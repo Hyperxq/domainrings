@@ -3,6 +3,7 @@ import { newOnionMap } from '../model/hexa'
 import type { OnionFile } from '../model/schema'
 import { layoutOnion } from './onion'
 import { onionInsertionItem, onionInsertionPoints } from './onionInsertion'
+import { ringedElementHeight, ringedElementWidth } from './ringed'
 
 describe('onionInsertionPoints', () => {
   it('offers exactly one "+" per ring, ring-scoped, on a fresh (empty) map', () => {
@@ -73,6 +74,30 @@ describe('onionInsertionPoints — one gap "+" per neighbour pair, circular (Oni
     const domainPoints = points.filter((p) => p.action.kind === 'element' && p.ringRole === 'domain')
     expect(domainPoints).toHaveLength(1)
     expect((domainPoints[0].action as { beforeId?: string }).beforeId).toBeUndefined()
+  })
+
+  // A wide neighbour's own box (a long name) can reach into a gap's own default mid-band radius even though the
+  // gap's own ANGLE is correctly the midpoint between its two neighbours — the angle alone doesn't guarantee
+  // radial clearance on a small ring.
+  it('no gap "+" ever sits on either of the two elements it names as neighbours', () => {
+    const doc: OnionFile = {
+      ...newOnionMap('Fresh'),
+      elements: [
+        { id: 'e1', name: 'Order', ringRole: 'domain' },
+        { id: 'e2', name: 'OrderLine', ringRole: 'domain' },
+        { id: 'e3', name: 'Payment', ringRole: 'domain' },
+      ],
+    }
+    const model = layoutOnion(doc)
+    const points = onionInsertionPoints(model, doc).filter((p) => p.ringRole === 'domain')
+    const boxesOverlap = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>
+      Math.abs(a.x - b.x) < (a.width + b.width) / 2 && Math.abs(a.y - b.y) < (a.height + b.height) / 2
+    const elementBoxes = model.elements.map((e) => ({ name: e.name, x: e.x, y: e.y, width: ringedElementWidth(e.name), height: ringedElementHeight(e.name) }))
+    const PLUS_DIAMETER = 20
+    for (const point of points) {
+      const plusBox = { x: point.at.x, y: point.at.y, width: PLUS_DIAMETER, height: PLUS_DIAMETER }
+      for (const box of elementBoxes) expect(boxesOverlap(plusBox, box), `"${point.label}" sits on "${box.name}"`).toBe(false)
+    }
   })
 })
 

@@ -3,9 +3,17 @@ import type { OnionFile, OnionRingRole } from '../model/schema'
 import type { Point } from './layout'
 import type { OnionLayoutModel } from './onion'
 import { elementGapPoints, endpointInsertionPoints } from './ringedInsertion'
-import { ringSlotRadii } from './ringed'
+import { ringedElementHeight, ringedElementWidth, ringSlotRadii } from './ringed'
 
 const FULL_CIRCLE = { start: -Math.PI / 2, end: -Math.PI / 2 + 2 * Math.PI }
+
+/** The `PlusGlyph`'s own rendered footprint (`RingedCanvas.tsx`: a `r={10}` circle) as an axis-aligned box, for a
+ * gap "+"'s own "would I actually sit on that?" check below — never exact for a circle, but a fair, cheap stand-in
+ * for "close enough to read as touching". */
+const PLUS_DIAMETER = 20
+
+const boxesOverlap = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>
+  Math.abs(a.x - b.x) < (a.width + b.width) / 2 && Math.abs(a.y - b.y) < (a.height + b.height) / 2
 
 /** What a "+" creates (REQ-07, REQ-05) — the position of the "+" decides which ring, or which outer element an
  * endpoint targets; `beforeId`, only ever set on a gap between two real neighbours, names which existing element
@@ -49,9 +57,28 @@ export function onionInsertionPoints(model: OnionLayoutModel, doc: OnionFile): O
       return
     }
     const angles = ringedArcAngles(onRing.length, FULL_CIRCLE.start, FULL_CIRCLE.end, i)
+    // A gap "+" must also clear the two real neighbours it sits between — the base radius already dodges the
+    // ring's own top title (`ringSlotRadii`'s own built-in `risksTitle`), but that says nothing about a wide
+    // neighbour's own box (a long name, `ringedElementWidth`) reaching into the gap's own default mid-band spot.
+    // Tries the base radius first, then each of a genuine two-lane split's own radii (queried directly by index
+    // rather than trusting whichever `riskIndex` a single call happens to assign) — whichever first actually
+    // clears both real neighbours, since blindly taking "lane 0" can just as easily move TOWARD one of them as
+    // away from it.
+    const laneRadius = (angle: number, k: 0 | 1): number => ringSlotRadii({ ...model.rings[i], tracks: 2 }, inner, [angle, angle], [true, true])[k]
+    const clearsNeighbors = (angle: number, radius: number, neighborIds: readonly (string | undefined)[]): boolean => {
+      const at = polarPoint(radius, angle)
+      const plusBox = { x: at.x, y: at.y, width: PLUS_DIAMETER, height: PLUS_DIAMETER }
+      return neighborIds.every((id) => {
+        const el = id && model.elements.find((e) => e.ref === id)
+        return !el || !boxesOverlap(plusBox, { x: el.x, y: el.y, width: ringedElementWidth(el.name), height: ringedElementHeight(el.name) })
+      })
+    }
     for (const gap of elementGapPoints(angles, FULL_CIRCLE.start, FULL_CIRCLE.end, true)) {
-      const radius = ringSlotRadii(model.rings[i], inner, [gap.angle])[0]
       const before = onRing[gap.beforeIndex]
+      const afterIndex = (gap.beforeIndex - 1 + onRing.length) % onRing.length
+      const neighborIds = [onRing[afterIndex]?.id, before.id]
+      const candidates = [ringSlotRadii(model.rings[i], inner, [gap.angle])[0], laneRadius(gap.angle, 0), laneRadius(gap.angle, 1)]
+      const radius = candidates.find((r) => clearsNeighbors(gap.angle, r, neighborIds)) ?? candidates[0]
       points.push({
         key: `element:${ring.role}:${before.id}`,
         ringRole: ring.role,
