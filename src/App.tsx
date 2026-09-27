@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import type { LayoutMode } from './layout/layout'
 import { currentHexagon, hexagonBounds, layoutMap } from './layout/map'
@@ -89,10 +89,13 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // since its UI never mounts — and `activeKind` (flipped by the chooser and by swap()) decides which renders.
   const [activeKind, setActiveKind] = useState<StoredFile['kind']>(() => boot.kind ?? 'hexagonal')
   const onionMap = useOnionStore((s) => s.map)
-  // Onion's own layout is only ever read while its view is active (export, OnionStage) — skip it on a Hexagonal render.
-  const onionModel = activeKind === 'onion' ? layoutOnion(onionMap) : undefined
+  // Onion's own layout is only ever read while its view is active (export, OnionStage) — skip it on a Hexagonal
+  // render. Memoised on the map reference: the sizing search it runs (binary-search band growth × 1-3 radial
+  // tracks × O(n²) overlap checks, twice — raw order vs the crossing-optimised order) is too expensive to redo on
+  // every render a theme/legend/mode toggle causes without the document itself changing.
+  const onionModel = useMemo(() => (activeKind === 'onion' ? layoutOnion(onionMap) : undefined), [activeKind, onionMap])
   const cleanMap = useCleanStore((s) => s.map)
-  const cleanModel = activeKind === 'clean' ? layoutClean(cleanMap) : undefined
+  const cleanModel = useMemo(() => (activeKind === 'clean' ? layoutClean(cleanMap) : undefined), [activeKind, cleanMap])
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   // The undo snapshot every action below restores on request; each site takes it as-is or spreads `swap: true`.

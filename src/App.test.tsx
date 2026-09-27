@@ -6,6 +6,19 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { App } from './App'
 import { EXAMPLE_DIAGRAM, EXAMPLES, STRESS_DIAGRAM } from './model/example'
 import { layoutDiagram } from './layout/layout'
+import { layoutOnion } from './layout/onion'
+import { layoutClean } from './layout/clean'
+
+// Spies on the real implementation (never a stub) so every other test in this file still gets real layouts —
+// only the two describes below ever inspect these mocks' own call counts.
+vi.mock('./layout/onion', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./layout/onion')>()
+  return { ...actual, layoutOnion: vi.fn(actual.layoutOnion) }
+})
+vi.mock('./layout/clean', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./layout/clean')>()
+  return { ...actual, layoutClean: vi.fn(actual.layoutClean) }
+})
 import { newCleanMap, newOnionMap, parseHexa, toHexa, toMap } from './model/hexa'
 import { diagramOf, UNTITLED_HEXAGON } from './model/map'
 import { autosave, MAP_KEY } from './model/persistence'
@@ -2605,5 +2618,35 @@ describe('swap undo across kinds (REQ-09)', () => {
 
     expect(useMapStore.getState().map).toBe(hexBefore)
     expect(container.querySelector('[data-hex]')).not.toBeNull()
+  })
+})
+
+// `layoutOnion`/`layoutClean` now run growth binary searches (1-3 radial tracks × O(n²) overlap checks, twice —
+// raw order vs the crossing-optimised order) — cheap for a fresh empty file, expensive once a document has real
+// content. A render that changes neither store's own map must not pay for that again.
+describe('Onion/Clean layout is memoised across renders that do not change the document', () => {
+  beforeEach(() => localStorage.removeItem('domainrings:legend-open'))
+
+  it('toggling the theme does not recompute the Onion layout', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
+    vi.mocked(layoutOnion).mockClear()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Appearance' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Dark' }))
+
+    expect(layoutOnion).not.toHaveBeenCalled()
+  })
+
+  it('toggling the legend does not recompute the Clean layout', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
+    vi.mocked(layoutClean).mockClear()
+
+    fireEvent.click(screen.getByTitle('Show legend'))
+
+    expect(layoutClean).not.toHaveBeenCalled()
   })
 })
