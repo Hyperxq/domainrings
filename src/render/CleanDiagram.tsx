@@ -48,7 +48,7 @@ function SectorLabel({ sector, ring, inner, innermost }: { sector: CleanSectorWe
   return (
     <>
       <path id={arcId} d={ringedArcPath(radius, centerAngle, halfSpan)} fill="none" stroke="none" aria-hidden="true" />
-      <text className={innermost ? 'sector-label on-domain' : 'sector-label'} data-sector-label={sector.ref} fontSize={RING_SUBTITLE.size}>
+      <text className={innermost ? 'sector-label on-domain' : 'sector-label'} data-sector-label={sector.ref} data-layer={ring.role} fontSize={RING_SUBTITLE.size}>
         <textPath href={`#${arcId}`} xlinkHref={`#${arcId}`} startOffset="50%" textAnchor="middle">
           {sector.name}
         </textPath>

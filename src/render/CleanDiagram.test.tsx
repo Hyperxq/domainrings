@@ -75,6 +75,15 @@ describe('CleanDiagram — sector names drawn on canvas (Decision 4)', () => {
     const { container } = renderDiagram(newCleanMap('Fresh'))
     expect(container.querySelectorAll('[data-sector-label]')).toHaveLength(0)
   })
+
+  // A sector's own name shares its ring's own `data-layer` (styles.css targets the halo per-band by this
+  // attribute, same convention `Ring`'s own title already carries) — without it, CSS has no way to match a
+  // sector label's halo to the ring it actually sits on.
+  it('carries its own ring\'s data-layer, for the halo-per-band CSS rule to match', () => {
+    const doc: CleanFile = { ...newCleanMap('Fresh'), sectors: [{ id: 's1', name: 'Billing', ringRole: 'application' }] }
+    const { container } = renderDiagram(doc)
+    expect(container.querySelector('[data-sector-label="s1"]')!.getAttribute('data-layer')).toBe('application')
+  })
 })
 
 describe('CleanDiagram — elements, endpoints and edges', () => {

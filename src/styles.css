@@ -40,19 +40,39 @@
 
 /* A ring's own title/subtitle and a Clean sector's own name all read over whatever paints beneath them — another
    ring's fill, an edge bowing past on its way elsewhere (Decision 1's curved chords, `RingedNodes.tsx`) — so each
-   carries a background-coloured halo (paint-order stroke, same idiom as `.link-pattern-label`) rather than relying
-   on layout alone to keep every edge clear of them (only "avoided when possible", never guaranteed). */
+   carries a halo (paint-order stroke, same idiom as `.link-pattern-label`) rather than relying on layout alone to
+   keep every edge clear of them (only "avoided when possible", never guaranteed). The halo must match the colour
+   of the BAND the text actually sits on, never a fixed canvas colour: the innermost title/`.on-domain` text is
+   near-white ink (--domain-ink) on the dark --teal-deep domain fill — a --card (light) halo rendered white text
+   with a white outline, blobbing the glyphs together (the reported illegible "Domain Model"/"Entities" title). */
 .canvas .ring-label,
 .canvas .ring-subtitle,
 .canvas .domain-title,
 .canvas .sector-label {
   paint-order: stroke;
-  stroke: var(--card);
   /* Thinner than `.link-pattern-label`'s own 4px: that label is a straight, larger run of text with room between
      letters, while a curved ring/sector label packs small (12-13px) glyphs tightly along an arc — 4px puffed
      adjacent letters into each other, turning the whole word into an illegible blob. */
   stroke-width: 2px;
   stroke-linejoin: round;
+}
+.canvas .ring-label[data-layer='outer'],
+.canvas .ring-subtitle[data-layer='outer'],
+.canvas .sector-label[data-layer='outer'] { stroke: var(--card); }
+.canvas .ring-label[data-layer='adapters'],
+.canvas .ring-subtitle[data-layer='adapters'],
+.canvas .sector-label[data-layer='adapters'] { stroke: var(--slate-soft); }
+.canvas .ring-label[data-layer='application'],
+.canvas .ring-subtitle[data-layer='application'],
+.canvas .sector-label[data-layer='application'] { stroke: var(--teal-soft); }
+.canvas .ring-label[data-layer='domainServices'],
+.canvas .ring-subtitle[data-layer='domainServices'],
+.canvas .sector-label[data-layer='domainServices'] { stroke: color-mix(in srgb, var(--teal) 22%, var(--teal-soft)); }
+.canvas .domain-title,
+.canvas .ring-label.on-domain,
+.canvas .sector-label.on-domain,
+.canvas .ring-subtitle.on-domain {
+  stroke: var(--teal-deep);
 }
 .canvas .ring-label {
   fill: var(--muted);
