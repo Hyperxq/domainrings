@@ -1,9 +1,9 @@
-import { arcAngles, outerRoleOf, ringCircumferencePositions } from '../model/rings'
+import { arcAngles, outerRoleOf, polarPoint } from '../model/rings'
 import type { CleanFile, CleanRingRole } from '../model/schema'
 import type { Point } from './layout'
 import type { CleanLayoutModel } from './clean'
 import { endpointInsertionPoints } from './ringedInsertion'
-import { ringSlotRadii } from './ringed'
+import { ringElementRadius, ringSlotRadii } from './ringed'
 
 /** What a "+" creates (REQ-03, REQ-04, REQ-07) — a ring's own "+" adds a sector to it; a sector's own "+" adds an
  * element to it (never directly to a ring, REQ-04); an outer-ring element's "+"s add an actor/external. */
@@ -28,7 +28,13 @@ export interface CleanInsertionPoint {
 export function cleanInsertionPoints(model: CleanLayoutModel, doc: CleanFile): CleanInsertionPoint[] {
   const points: CleanInsertionPoint[] = []
   doc.rings.forEach((ring, i) => {
-    const [at] = ringCircumferencePositions(1, model.rings[i])
+    // Same mid-band radius an element's own "+" sits at (`ringSlotRadii` below) — the ring's own OUTER edge
+    // (the old `ringCircumferencePositions(1, model.rings[i])`) is exactly the line the ring's stroke paints on.
+    // The angle (π/2, the BOTTOM) is `ringCircumferencePositions(1, …)`'s own lone-slot angle, kept as-is: the
+    // ring's own title always centres at the TOP (-π/2), so the bottom is where a "+" at this same mid-band
+    // radius stays clear of it.
+    const radius = ringElementRadius(model.rings[i], model.rings[i - 1])
+    const at = polarPoint(radius, Math.PI / 2)
     points.push({ key: `sector:${ring.role}`, ringRole: ring.role, at, action: { kind: 'sector', ringRole: ring.role }, label: `Add sector to ${ring.name}` })
   })
   const countIn = (sectorRef: string) => doc.elements.filter((e) => e.sectorId === sectorRef).length
@@ -45,7 +51,7 @@ export function cleanInsertionPoints(model: CleanLayoutModel, doc: CleanFile): C
     const ringAngles = siblingsInRing.flatMap((s) => arcAngles(s.ref === sector.ref ? count + 1 : countIn(s.ref), s.startAngle, s.endAngle))
     const slotIndex = priorSiblingCount + count
     const radius = ringSlotRadii(ring, model.rings[ringIndex - 1], ringAngles)[slotIndex]
-    const at = { x: radius * Math.cos(ringAngles[slotIndex]), y: radius * Math.sin(ringAngles[slotIndex]) }
+    const at = polarPoint(radius, ringAngles[slotIndex])
     points.push({ key: `element:${sector.ref}`, ringRole: sector.ringRole, at, action: { kind: 'element', sectorId: sector.ref }, label: `Add element to ${sector.name}` })
   }
   const outerRole = outerRoleOf(doc.rings)

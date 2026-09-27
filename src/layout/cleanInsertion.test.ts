@@ -3,6 +3,7 @@ import { newCleanMap } from '../model/hexa'
 import type { CleanFile } from '../model/schema'
 import { layoutClean } from './clean'
 import { cleanInsertionItem, cleanInsertionPoints } from './cleanInsertion'
+import { ringElementRadius } from './ringed'
 
 describe('cleanInsertionPoints', () => {
   it('offers exactly one "+" per ring for adding a sector, on a fresh (empty) map (REQ-03)', () => {
@@ -12,6 +13,37 @@ describe('cleanInsertionPoints', () => {
     const sectorPoints = points.filter((p) => p.action.kind === 'sector')
     expect(sectorPoints).toHaveLength(4)
     expect(sectorPoints.map((p) => p.ringRole).sort()).toEqual(['adapters', 'application', 'domain', 'outer'])
+  })
+
+  // Element "+"s already sit at their ring's own mid-band radius (`ringSlotRadii`) — a sector "+" must too, never
+  // at the ring's own OUTER edge (`ringCircumferencePositions`' radius), which is exactly the line the ring itself
+  // paints its stroke on.
+  it('places the "add sector" + at its own ring\'s mid-band radius, not on the ring\'s own outer edge', () => {
+    const doc = newCleanMap('Fresh')
+    const model = layoutClean(doc)
+    const points = cleanInsertionPoints(model, doc)
+    const sectorPoints = points.filter((p) => p.action.kind === 'sector')
+    for (const point of sectorPoints) {
+      const ringIndex = model.rings.findIndex((r) => r.role === point.ringRole)
+      const ring = model.rings[ringIndex]
+      const inner = model.rings[ringIndex - 1]
+      const expectedRadius = ringElementRadius(ring, inner)
+      const actualRadius = Math.hypot(point.at.x, point.at.y)
+      expect(actualRadius).toBeCloseTo(expectedRadius, 5)
+    }
+  })
+
+  // The ring's own title always centres at the TOP (-π/2, `ringOutlines`/`RingedTitle`) — a "+" at the SAME
+  // mid-band radius must sit somewhere else around the ring, or it renders directly on top of the title text.
+  it('places the "add sector" + away from the top, where its own ring\'s title always centres', () => {
+    const doc = newCleanMap('Fresh')
+    const model = layoutClean(doc)
+    const points = cleanInsertionPoints(model, doc)
+    const sectorPoints = points.filter((p) => p.action.kind === 'sector')
+    for (const point of sectorPoints) {
+      const angle = Math.atan2(point.at.y, point.at.x)
+      expect(angle).not.toBeCloseTo(-Math.PI / 2, 1)
+    }
   })
 
   it('offers one "+" per sector for adding an element (REQ-04), none for a ring with no sectors yet', () => {
