@@ -71,6 +71,22 @@ export function RingedEdge({ edge, markerId, curved = false }: { edge: RingedEdg
   return <path className="edge edge-import" markerEnd={`url(#${markerId})`} d={edgePath(edge.from, edge.to, curved)} />
 }
 
+/** A (possibly wrapped, Decision 8) name's own lines, stacked as `<tspan>`s evenly sharing `height` and vertically
+ * centred on `centerY` — shared by an element's own box (centred at `x`) and an endpoint's own label (`x` beside
+ * its dot), the one place either ever turns `lines` into rendered rows. */
+function WrappedLines({ lines, x, centerY, height }: { lines: string[]; x: number; centerY: number; height: number }) {
+  const rowHeight = height / lines.length
+  return (
+    <>
+      {lines.map((line, i) => (
+        <tspan key={i} x={x} y={centerY - height / 2 + (i + 0.5) * rowHeight} dominantBaseline="middle">
+          {line}
+        </tspan>
+      ))}
+    </>
+  )
+}
+
 export function RingedElementNode({ element, selected, target, interactive }: { element: RingedElementLayout; selected: boolean; target: boolean; interactive: boolean }) {
   const width = ringedElementWidth(element.name)
   const height = ringedElementHeight(element.name)
@@ -78,7 +94,6 @@ export function RingedElementNode({ element, selected, target, interactive }: { 
   // line — each row gets an even share of the box's own (possibly grown) height, so a single-line name renders
   // exactly as before (one row = the whole box, vertically centred, unchanged from before Decision 8).
   const lines = ringedElementLines(element.name)
-  const rowHeight = height / lines.length
   return (
     <g
       className="node node-ringedElement tone-teal"
@@ -92,11 +107,7 @@ export function RingedElementNode({ element, selected, target, interactive }: { 
     >
       <rect className="box" x={element.x - width / 2} y={element.y - height / 2} width={width} height={height} rx={8} />
       <text className="centered" x={element.x} fontSize={RINGED_ELEMENT_METRICS.size}>
-        {lines.map((line, i) => (
-          <tspan key={i} x={element.x} y={element.y - height / 2 + (i + 0.5) * rowHeight} dominantBaseline="middle">
-            {line}
-          </tspan>
-        ))}
+        <WrappedLines lines={lines} x={element.x} centerY={element.y} height={height} />
       </text>
     </g>
   )
@@ -108,7 +119,6 @@ export function RingedEndpointNode({ endpoint, selected, interactive }: { endpoi
   // ringed element's own box, just stacked beside the dot instead of centred inside a box.
   const lines = endpointLines(endpoint.name)
   const height = endpointLabelHeight(endpoint.name)
-  const rowHeight = height / lines.length
   const labelX = endpoint.x + labelSide * (ENDPOINT_RADIUS + 4)
   return (
     <g
@@ -121,11 +131,7 @@ export function RingedEndpointNode({ endpoint, selected, interactive }: { endpoi
     >
       <circle className="box" cx={endpoint.x} cy={endpoint.y} r={ENDPOINT_RADIUS} />
       <text className={labelSide > 0 ? undefined : 'end'} x={labelX} fontSize={RINGED_ELEMENT_METRICS.size}>
-        {lines.map((line, i) => (
-          <tspan key={i} x={labelX} y={endpoint.y - height / 2 + (i + 0.5) * rowHeight} dominantBaseline="middle">
-            {line}
-          </tspan>
-        ))}
+        <WrappedLines lines={lines} x={labelX} centerY={endpoint.y} height={height} />
       </text>
     </g>
   )

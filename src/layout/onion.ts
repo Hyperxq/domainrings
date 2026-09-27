@@ -1,4 +1,4 @@
-import { ringedArcAngles } from '../model/rings'
+import { polarPoint, ringedArcAngles } from '../model/rings'
 import type { OnionDependency, OnionElement, OnionFile, OnionRingRole } from '../model/schema'
 import { countCrossings } from './crossings'
 import { minimizeCrossings, neighborLookup, type CrossingGroup } from './crossingMinimization'
@@ -68,7 +68,7 @@ function buildOnionModel(doc: OnionFile, orderedElementsOn: (role: string) => re
     const onRing = orderedElementsOn(ring.role)
     const angles = ringedArcAngles(onRing.length, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI, i)
     const radii = ringSlotRadii(ring, rings[i - 1], angles)
-    return onRing.map((e, k) => ({ key: `element:${e.id}`, ref: e.id, ringRole: e.ringRole, name: e.name, x: radii[k] * Math.cos(angles[k]), y: radii[k] * Math.sin(angles[k]) }))
+    return onRing.map((e, k) => ({ key: `element:${e.id}`, ref: e.id, ringRole: e.ringRole, name: e.name, ...polarPoint(radii[k], angles[k]) }))
   })
   const elementAt = new Map(elements.map((e) => [e.ref, e]))
 

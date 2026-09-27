@@ -1,4 +1,4 @@
-import { ringedArcAngles } from '../model/rings'
+import { polarPoint, ringedArcAngles } from '../model/rings'
 import type { CleanElement, CleanFile, CleanRingRole } from '../model/schema'
 import { countCrossings } from './crossings'
 import { minimizeCrossings, neighborLookup, type CrossingGroup } from './crossingMinimization'
@@ -155,7 +155,7 @@ function buildCleanModel(doc: CleanFile, sectors: CleanSectorWedge[], orderedEle
     const radii = radiiByRole.get(sector.ringRole)!
     return onSector.map((e, k) => {
       const radius = radii[offset + k]
-      return { key: `element:${e.id}`, ref: e.id, ringRole: sector.ringRole, name: e.name, x: radius * Math.cos(angles[k]), y: radius * Math.sin(angles[k]) }
+      return { key: `element:${e.id}`, ref: e.id, ringRole: sector.ringRole, name: e.name, ...polarPoint(radius, angles[k]) }
     })
   })
   const elementAt = new Map(elements.map((e) => [e.ref, e]))

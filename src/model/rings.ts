@@ -56,11 +56,17 @@ export function ringedArcAngles(count: number, startAngle: number, endAngle: num
   return [center + loneSlotOffset(ringIndex, halfSpan)]
 }
 
+/** The one polar→cartesian conversion every "ringed" placement site shares (Onion/Clean elements, insertion "+"s,
+ * label footprints, endpoint layout) rather than each hand-rolling `{ x: r·cos(a), y: r·sin(a) }`. */
+export function polarPoint(radius: number, angle: number): { x: number; y: number } {
+  return { x: radius * Math.cos(angle), y: radius * Math.sin(angle) }
+}
+
 /** `count` positions spread evenly across the arc from `startAngle` to `endAngle` (radians) — generalizes
  * `ringCircumferencePositions`'s full-circle placement to a sector's own angular sub-range (REQ-08), so Clean's
  * wedge placement and Onion's whole-ring placement share the same spacing rule instead of each re-deriving it. */
 export function arcPositions(count: number, outline: { halfWidth: number }, startAngle: number, endAngle: number): { x: number; y: number }[] {
-  return arcAngles(count, startAngle, endAngle).map((angle) => ({ x: outline.halfWidth * Math.cos(angle), y: outline.halfWidth * Math.sin(angle) }))
+  return arcAngles(count, startAngle, endAngle).map((angle) => polarPoint(outline.halfWidth, angle))
 }
 
 /** `count` positions spread evenly around a ring's whole circumference (REQ-07), instead of stacked in a column —

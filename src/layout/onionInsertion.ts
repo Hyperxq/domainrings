@@ -1,4 +1,4 @@
-import { arcAngles, outerRoleOf } from '../model/rings'
+import { arcAngles, outerRoleOf, polarPoint } from '../model/rings'
 import type { OnionFile, OnionRingRole } from '../model/schema'
 import type { Point } from './layout'
 import type { OnionLayoutModel } from './onion'
@@ -29,7 +29,7 @@ export function onionInsertionPoints(model: OnionLayoutModel, doc: OnionFile): O
     // the ring's outer edge, or the wrong track, while the element it creates appears somewhere else in the band.
     const angles = arcAngles(count + 1, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI)
     const radius = ringSlotRadii(model.rings[i], model.rings[i - 1], angles)[count]
-    const at = { x: radius * Math.cos(angles[count]), y: radius * Math.sin(angles[count]) }
+    const at = polarPoint(radius, angles[count])
     points.push({ key: `element:${ring.role}`, ringRole: ring.role, at, action: { kind: 'element', ringRole: ring.role }, label: `Add an element to ${ring.name}` })
   })
   const outerRole = outerRoleOf(doc.rings)
