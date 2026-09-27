@@ -144,15 +144,21 @@ describe("a ring's own title never overlaps its own elements (Decision 5)", () =
 })
 
 describe('an empty ringed file stays compact (no title-driven blow-up)', () => {
-  const PRE_AF5734E_ONION_OUTER_APEX = 198
-  const COMPACT_BOUND = PRE_AF5734E_ONION_OUTER_APEX * 1.5
+  // af5734e's own bug inflated the outer ring to ~783px; the bound here only ever guarded against THAT blow-up,
+  // never against a deliberate, bounded resize. It was later raised again, intentionally, so an empty Onion/Clean's
+  // own world is a comparable SIZE to an empty Hexagonal's (examples.test.ts's own fit-scale-parity suite) — every
+  // ring band now holds its own title's line height plus real clearance (`RING_TITLE_PAD`), not a flat MIN_BAND=20
+  // that let a title spill past its own band. This bound stays generous headroom above that intentional size,
+  // while remaining nowhere near the old 783px regression.
+  const AF5734E_BUG_APEX = 783
+  const COMPACT_BOUND = AF5734E_BUG_APEX * 0.6
 
-  it("an empty Onion file's outer ring stays compact, comparable to its pre-af5734e size", () => {
+  it("an empty Onion file's outer ring stays compact, nowhere near af5734e's own blow-up", () => {
     const rings = ringOutlines(newOnionMap('Fresh').rings)
     expect(rings[rings.length - 1].apex).toBeLessThan(COMPACT_BOUND)
   })
 
-  it("an empty Clean file's outer ring stays compact, comparable to its pre-af5734e size", () => {
+  it("an empty Clean file's outer ring stays compact, nowhere near af5734e's own blow-up", () => {
     const rings = ringOutlines(newCleanMap('Fresh').rings)
     expect(rings[rings.length - 1].apex).toBeLessThan(COMPACT_BOUND)
   })

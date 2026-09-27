@@ -1,11 +1,24 @@
 import type { RingRole } from '../model/kinds'
-import { arcAngles } from '../model/rings'
+import { arcAngles, polarPoint } from '../model/rings'
 import { circle, type LayoutRing, type Outline } from './layout'
 import { measure, RING_LABEL, wrapLabel } from './text'
 
-/** Same floor as the Hexagonal rings' MIN_BAND — keeps ring bands visually consistent across kinds. */
-const MIN_BAND = 20
-const TITLE_LINE = RING_LABEL.size + 4
+/** A ring title's own rendered line height — the one thing every ring band must be thick enough to hold. */
+export const TITLE_LINE = RING_LABEL.size + 4
+/** Clearance kept between a title's own radial reach and its band's inner/outer edge, on each side. Covers the
+ * halo's own stroke-width (styles.css, 2px) and real font ascent/descent beyond the `TITLE_LINE` estimate, but is
+ * deliberately more generous than that alone needs: Hexagonal's own empty ring bands read at a comparable overall
+ * SIZE across all its own sizing terms (MIN_BAND, title depth, domain padding) — a Ringed band this thin only
+ * accounted for the title's own bare line height, leaving an empty Onion/Clean roughly half Hexagonal's own scale
+ * and so fit-to-screen zoomed to nearly 2× (the reported "the text only looks twice as big"). This pad is what
+ * closes that gap back to a comparable on-screen size (`examples.test.ts`'s own fit-scale-parity suite). */
+export const RING_TITLE_PAD = 31
+/** The least radial thickness any ring may have — enough to hold its own title's rendered line height with
+ * `RING_TITLE_PAD` clearance on both sides. An empty ring (no elements, `ringOutlines`' own early-exit branch
+ * below) is sized at EXACTLY this, so this floor is also what an empty Onion/Clean's own world size is built
+ * from — too thin here, and a title spills past its own band into the next one (the reported "INTERFACE
+ * ADAPTERS" spilling outward, "APPLICATION SERVICES" touching "DOMAIN SERVICES"). */
+const MIN_BAND = TITLE_LINE + 2 * RING_TITLE_PAD
 const SUBTITLE_GAP = 4
 /** Padding kept between a curved title's own ends and the rest of its ring's own arc. */
 export const TITLE_ARC_PAD = 4
@@ -294,7 +307,7 @@ export function ringOutlines<Role extends RingRole>(
       slots.map((s) => s.angle),
       slots.map((s) => s.labelIndex !== undefined),
     )
-    return slots.map((s, k) => ({ x: radii[k] * Math.cos(s.angle), y: radii[k] * Math.sin(s.angle), width: s.width, height: s.height }))
+    return slots.map((s, k) => ({ ...polarPoint(radii[k], s.angle), width: s.width, height: s.height }))
   }
   for (let i = 0; i <= last; i++) {
     const spec = rings[i]
@@ -308,7 +321,10 @@ export function ringOutlines<Role extends RingRole>(
     const titleArc = measure(title, RING_LABEL) + 2 * TITLE_ARC_PAD
     const titleFloor = 2 * (titleArc / TITLE_MAX_SPAN) - innerApex
     const slots = allSlots[i]
-    const floor = Math.max(inner ? inner.apex + MIN_BAND : 0, titleFloor)
+    // MIN_BAND applies uniformly, including the innermost ring (`innerApex` is already 0 there) — it used to be
+    // skipped for i===0, leaving a short innermost title (e.g. a one-word domain name) free to shrink the ring
+    // well below its own title's radial reach.
+    const floor = Math.max(innerApex + MIN_BAND, titleFloor)
     // The inner ring's own elements, already fixed at its own resolved band (whatever lane count it settled on)
     // — MIN_BAND alone only keeps two ADJACENT rings' circumferences apart, it says nothing about a wide box
     // aligned radially, e.g. two elements both near angle 0, whose combined half-widths can exceed the band.
@@ -416,7 +432,7 @@ export function endpointLayout(
   const angles = arcAngles(specs.length, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI)
   const radius = growUntilFits(outer.apex + ENDPOINT_GAP, (r) =>
     noOverlap([
-      ...angles.map((angle) => ({ x: r * Math.cos(angle), y: r * Math.sin(angle), width: RINGED_ENDPOINT_DIAMETER, height: RINGED_ENDPOINT_DIAMETER })),
+      ...angles.map((angle) => ({ ...polarPoint(r, angle), width: RINGED_ENDPOINT_DIAMETER, height: RINGED_ENDPOINT_DIAMETER })),
       ...outerElements,
     ]),
   )
@@ -426,8 +442,7 @@ export function endpointLayout(
     kind,
     name: item.name,
     targetId: item.targetId,
-    x: radius * Math.cos(angles[k]),
-    y: radius * Math.sin(angles[k]),
+    ...polarPoint(radius, angles[k]),
   }))
   // Decision 6: the reach a fresh document's bounds need to cover isn't the 8px dot's own radius — it's each
   // endpoint's rendered NAME label, which `render/RingedNodes.tsx`'s `RingedEndpointNode` draws starting just past

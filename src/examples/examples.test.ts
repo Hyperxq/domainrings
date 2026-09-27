@@ -1,12 +1,12 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { newCleanMap, newOnionMap, parseHexa, toHexa } from '../model/hexa'
+import { newCleanMap, newOnionMap, parseHexa, toHexa, toMap } from '../model/hexa'
 import { layoutMap } from '../layout/map'
 import { layoutOnion } from '../layout/onion'
 import { layoutClean } from '../layout/clean'
 import { countCrossings } from '../layout/crossings'
-import { boxWithinBand, ringedElementHeight, ringedElementWidth } from '../layout/ringed'
+import { boxWithinBand, RING_TITLE_PAD, ringedElementHeight, ringedElementWidth, TITLE_LINE } from '../layout/ringed'
 import { fitTo, islandInset } from '../ui/viewport'
 import type { CleanFile, HexaMap, OnionFile, StoredFile } from '../model/schema'
 
@@ -350,4 +350,49 @@ describe('Onion/Clean examples read at a usable size when fit to a 1440×900 sta
       expect(scale * 100).toBeGreaterThanOrEqual(minPercent)
     })
   }
+})
+
+// An empty file's bands used to sit at a flat MIN_BAND (20px) — thinner than a ring title's own rendered line
+// height (TITLE_LINE, 17px) plus any real clearance, so a wide uppercase title (e.g. "INTERFACE ADAPTERS") spilled
+// past its own band into the next one out, and two adjacent short titles (e.g. "APPLICATION SERVICES"/"DOMAIN
+// SERVICES") touched. Every ring's own band — the gap between its own outer apex and its inner neighbour's — must
+// hold at least the title's own line height plus `RING_TITLE_PAD` clearance on each side.
+describe('every Onion/Clean ring band is thick enough for its own title (empty file)', () => {
+  const MIN_THICKNESS = TITLE_LINE + 2 * RING_TITLE_PAD
+
+  function bandThicknesses(rings: { apex: number }[]): number[] {
+    return rings.map((r, i) => r.apex - (i > 0 ? rings[i - 1].apex : 0))
+  }
+
+  it('an empty Onion file: every ring band holds its own title', () => {
+    const model = layoutOnion(newOnionMap('Fresh'))
+    for (const thickness of bandThicknesses(model.rings)) expect(thickness).toBeGreaterThanOrEqual(MIN_THICKNESS - 1e-6)
+  })
+
+  it('an empty Clean file: every ring band holds its own title', () => {
+    const model = layoutClean(newCleanMap('Fresh'))
+    for (const thickness of bandThicknesses(model.rings)) expect(thickness).toBeGreaterThanOrEqual(MIN_THICKNESS - 1e-6)
+  })
+})
+
+// The font constants (RING_LABEL) are identical across kinds, so the same title text should read at roughly the
+// same on-screen size everywhere — but an empty Onion/Clean's own world used to be so much smaller than an empty
+// Hexagonal's that fitting it to a 1440×900 stage zoomed it to ~190%, nearly twice Hexagonal's own ~100%, making
+// the text look twice as big despite sharing the exact same font size in diagram space.
+describe('an empty Onion/Clean fits at a scale comparable to an empty Hexagonal (same font, same on-screen size)', () => {
+  const STAGE = { width: 1440, height: 900 }
+  const INSET = islandInset(STAGE, false, false)
+  const emptyHexagon = toMap({ version: 1, kind: 'hexagonal', title: 'Untitled architecture', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] })
+
+  const fitScalePercent = (bounds: { x: number; y: number; width: number; height: number }) => fitTo(bounds, STAGE.width, STAGE.height, INSET).scale * 100
+
+  it('empty Onion/Clean fit within ±25% of empty Hexagonal\'s own fit scale', () => {
+    const hexagonalScale = fitScalePercent(layoutMap(emptyHexagon).bounds)
+    const onionScale = fitScalePercent(layoutOnion(newOnionMap('Fresh')).bounds)
+    const cleanScale = fitScalePercent(layoutClean(newCleanMap('Fresh')).bounds)
+    for (const scale of [onionScale, cleanScale]) {
+      expect(scale).toBeGreaterThanOrEqual(hexagonalScale * 0.75)
+      expect(scale).toBeLessThanOrEqual(hexagonalScale * 1.25)
+    }
+  })
 })
