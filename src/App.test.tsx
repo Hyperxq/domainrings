@@ -333,6 +333,19 @@ describe('undo toast', () => {
     expect(hasUseCase()).toBe(true)
   })
 
+  it('refuses to undo once an unrecorded edit touched the document, and keeps that edit', () => {
+    const { container } = render(<App />)
+    deleteUseCase(container)
+    waitOutToast()
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    fireEvent.change(screen.getByLabelText('Map title'), { target: { value: 'Retitled' } })
+    undoKey()
+    expect(useMapStore.getState().map.title).toBe('Retitled')
+    expect(hasUseCase()).toBe(false)
+    undoKey()
+    expect(hasUseCase()).toBe(false)
+  })
+
   it('leaves Ctrl+Z to an open menu', () => {
     const { container } = render(<App />)
     deleteUseCase(container)
@@ -1326,6 +1339,20 @@ describe('grow the map (GROW-01..04, ADR-02)', () => {
     expect(useMapStore.getState().map).toStrictEqual(before)
     expect(useMapStore.getState().focus).toBe(beforeFocus)
     expect(screen.queryByRole('textbox', { name: 'Hexagon title' })).toBeNull()
+  })
+
+  it('Ctrl+Z still undoes the grow after the new hexagon was named', () => {
+    render(<App />)
+    growEast()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
+    const input = screen.getByRole('textbox', { name: 'Hexagon title' })
+    fireEvent.change(input, { target: { value: 'Billing' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(useMapStore.getState().map.hexagons.at(-1)!.title).toBe('Billing')
+
+    fireEvent.keyDown(document.body, { key: 'z', ctrlKey: true })
+
+    expect(useMapStore.getState().map.hexagons).toHaveLength(1)
   })
 
   it('Esc while naming removes the grown hexagon, exactly as Undo would (GROW-03.2)', () => {

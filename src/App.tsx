@@ -136,18 +136,33 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // One in-memory history for all three kinds, fed by every notice that offers an Undo: the toast's button and
   // Ctrl/Cmd+Z both pop it, so they can never undo the same step twice.
   const undoStack = useRef<UndoSnapshot[]>([])
+  // Snapshots are whole documents, so undoing over an edit that never went through show() would silently discard
+  // it. The document as the newest step left it is kept here (refreshed after the render that follows a recorded
+  // step); undo refuses, and drops the now-unsafe history, once the active document has moved off it.
+  const trustedDoc = useRef<StoredFile | undefined>(undefined)
+  const recordedStep = useRef(false)
   const show = (next: Omit<Notice, 'id'>) => {
-    if (next.undo) undoStack.current = [...undoStack.current, next.undo].slice(-UNDO_LIMIT)
+    if (next.undo) {
+      undoStack.current = [...undoStack.current, next.undo].slice(-UNDO_LIMIT)
+      recordedStep.current = true
+    }
     setNotice({ ...next, id: ++noticeSeq.current })
   }
   // For an edit that unwinds itself (naming cancelled): its step must not stay behind as an undo.
   const dropUndo = (entry?: UndoSnapshot) => {
+    recordedStep.current = true
     if (entry && undoStack.current.at(-1) === entry) undoStack.current.pop()
   }
   const undoLast = () => {
+    if (active.file !== trustedDoc.current) {
+      undoStack.current = []
+      show({ tone: 'status', message: "Undo isn't available: the document changed in ways Undo doesn't track." })
+      return
+    }
     const entry = undoStack.current.pop()
     if (!entry) return
     restoreUndo(entry)
+    recordedStep.current = true
     // The restored document's own kind IS the view to bring back (REQ-09) — a same-kind edit's undo
     // just re-sets the kind already on screen, a no-op render.
     setActiveKind(entry.map.kind)
@@ -462,6 +477,12 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         ? { file: cleanMap, bounds: cleanModel!.bounds, title: cleanMap.title, scoped: false, legend: legendInExport }
         : { file: map, bounds: scoped ? hexagonBounds(currentHexagon(model, hexId)) : model.bounds, title: scoped ? diagram.title || UNTITLED_HEXAGON : map.title, scoped, legend: legendInExport }
 
+  useEffect(() => {
+    if (!recordedStep.current) return
+    trustedDoc.current = active.file
+    recordedStep.current = false
+  })
+
   const exportAs = async (format: 'hexa' | 'svg' | 'png') => {
     try {
       if (format === 'hexa') return download(toHexa(active.file), `${fileSlug(active.file.title)}.hexa`, 'application/json')
@@ -567,6 +588,8 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
             onGrow={completeGrow}
             naming={!!growing}
             onNamed={(title) => {
+              // Naming completes the grow step, which Undo already covers.
+              recordedStep.current = true
               setMeta(growing!.hexId, { title })
               setGrowing(null)
             }}
