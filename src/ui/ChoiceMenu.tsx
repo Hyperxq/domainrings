@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 
 export interface Choice<Id extends string> {
   id: Id
@@ -6,6 +6,27 @@ export interface Choice<Id extends string> {
   description?: string
   /** Present only on a toggle: the item becomes a `menuitemcheckbox` showing this state. */
   checked?: boolean
+}
+
+type MenuAt = { top: number; left?: number; right?: number }
+
+const GAP = 4
+
+/** Below/above the trigger, aligned to its left or right edge — the first spot that is fully on screen and clear of
+ * every `[data-menu-avoid]` element (e.g. the legend), else the first that is merely on screen, else the preferred one. */
+function place(trigger: DOMRect, menu: { width: number; height: number }, align: 'start' | 'end'): MenuAt {
+  const spots = [false, true].flatMap((above) => (['start', 'end'] as const).map((edge) => ({ above, edge })))
+  if (align === 'end') spots.sort((a, b) => Number(b.edge === 'end') - Number(a.edge === 'end'))
+  const avoid = [...document.querySelectorAll('[data-menu-avoid]')].map((el) => el.getBoundingClientRect())
+  const candidates = spots.map(({ above, edge }) => {
+    const top = above ? trigger.top - menu.height - GAP : trigger.bottom + GAP
+    const left = edge === 'start' ? trigger.left : trigger.right - menu.width
+    const at: MenuAt = edge === 'start' ? { top, left } : { top, right: innerWidth - trigger.right }
+    const onScreen = top >= 0 && left >= 0 && top + menu.height <= innerHeight && left + menu.width <= innerWidth
+    const clear = avoid.every((a) => left >= a.right || left + menu.width <= a.left || top >= a.bottom || top + menu.height <= a.top)
+    return { at, onScreen, clear }
+  })
+  return (candidates.find((c) => c.onScreen && c.clear) ?? candidates.find((c) => c.onScreen) ?? candidates[0]).at
 }
 
 interface ChoiceMenuProps<Id extends string> {
@@ -24,7 +45,9 @@ interface ChoiceMenuProps<Id extends string> {
  * or clipping ancestor (the toolbar, the editor) never cuts it off — which holds only while no ancestor is transformed.
  */
 export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onChoose, className, align = 'start' }: ChoiceMenuProps<Id>) {
-  const [at, setAt] = useState<{ top: number; left?: number; right?: number } | null>(null)
+  const [at, setAt] = useState<MenuAt | null>(null)
+  const [anchor, setAnchor] = useState<DOMRect | null>(null)
+  const menu = useRef<HTMLDivElement>(null)
   const root = useRef<HTMLSpanElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const triggerId = useId()
@@ -39,9 +62,15 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
     return () => document.removeEventListener('pointerdown', away)
   }, [at])
 
+  // Placed in two steps: the preferred spot first, so the menu exists to be measured, then corrected before paint.
+  useLayoutEffect(() => {
+    if (anchor && menu.current) setAt(place(anchor, menu.current.getBoundingClientRect(), align))
+  }, [anchor, align])
+
   const open = () => {
     const rect = trigger.current!.getBoundingClientRect()
-    setAt(align === 'end' ? { top: rect.bottom + 4, right: innerWidth - rect.right } : { top: rect.bottom + 4, left: rect.left })
+    setAnchor(rect)
+    setAt(align === 'end' ? { top: rect.bottom + GAP, right: innerWidth - rect.right } : { top: rect.bottom + GAP, left: rect.left })
   }
   const close = () => {
     setAt(null)
@@ -70,6 +99,7 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
       </button>
       {at && (
         <div
+          ref={menu}
           id={menuId}
           role="menu"
           aria-labelledby={triggerId}

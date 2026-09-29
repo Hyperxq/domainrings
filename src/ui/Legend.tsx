@@ -14,6 +14,7 @@ export function Legend({ legend, open, onOpen, includeInExport, onIncludeInExpor
   return (
     <section
       className="island legend"
+      data-menu-avoid=""
       data-open={open ? '' : undefined}
       aria-label="Legend"
       onKeyDown={(e) => {
