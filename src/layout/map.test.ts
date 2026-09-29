@@ -669,3 +669,21 @@ describe('layoutMap — context chips stay readable when the whole map is fitted
     for (const c of contexts) expect(c.chip.y - c.size).toBeGreaterThanOrEqual(bounds.y)
   })
 })
+
+describe('layoutMap — the map title scales with the chips', () => {
+  it('keeps its 2x ratio over the chips, so it is never smaller than a chip', () => {
+    const { title, contexts } = layoutMap(HONEYCOMB)
+    expect(contexts[0].size).toBeGreaterThan(12)
+    expect(title!.size).toBe(contexts[0].size * 2)
+  })
+
+  it('reserves room above its baseline for the scaled size', () => {
+    const { title, bounds } = layoutMap(HONEYCOMB)
+    expect(title!.y - title!.size!).toBeGreaterThanOrEqual(bounds.y)
+  })
+
+  it('keeps the base size when there are no contexts', () => {
+    expect(layoutMap(contextMap([['c1', 0, 0], ['c1', 1, 0]], ['c1'])).title!.size).toBe(24)
+  })
+})
+

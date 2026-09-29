@@ -383,7 +383,7 @@ export function MapDiagram({ map, legend, showGuides, focus, selected, linkTarge
           ),
       )}
       <Chips contexts={map.contexts} />
-      {map.title && <text data-map-title="" className="diagram-title" x={map.title.x} y={map.title.y} fontSize={TITLE.size}>{map.title.text}</text>}
+      {map.title && <text data-map-title="" className="diagram-title" x={map.title.x} y={map.title.y} fontSize={map.title.size ?? TITLE.size}>{map.title.text}</text>}
       <SvgLegend legend={legend} bounds={hexagonBounds(current)} />
     </>
   )

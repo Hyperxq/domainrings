@@ -3,7 +3,7 @@ import type { HexaMap, Link, Wall } from '../model/schema'
 import { contextRegions, pointInRegion } from './hull'
 import { layoutDiagram, type Box, type LayoutModel, type LayoutNode, type LayoutOptions, type LayoutText, type NodeKind, type Point } from './layout'
 import { GAP_MARGIN, outwardEdgePoint, routeLink, type LinkLabel } from './links'
-import { CHIP_LABEL, measure } from './text'
+import { CHIP_LABEL, measure, TITLE } from './text'
 
 /** The node kinds REQ-LNK-05.1 names: a routed link must cross none of them, other than the node each end
  * anchors on. Excludes decorative/label nodes (`portLabel`, titles) — not "node boxes" in the requirement's
@@ -58,7 +58,6 @@ export interface MapLayout {
 
 /** Gap kept between two adjacent hexagons' outer edges, on top of their content width. */
 export const MAP_GAP = 60
-const MAP_TITLE_SIZE = 20
 const MAP_TITLE_GAP = 16
 /** Spacing between adjacent lanes when several links share the same hexagon-pair gap (REQ-LNK-05.5). */
 const LANE_PITCH = 10
@@ -282,11 +281,13 @@ export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout 
     bounds = boundsWith(size)
   }
 
-  // Placed last so it clears the hulls and chips the bounds just grew to include, not only the hexagons.
+  // Placed last so it clears the hulls and chips the bounds just grew to include, not only the hexagons. It scales
+  // with the chips, keeping its ratio over them.
   let title: LayoutText | undefined
   if (map.hexagons.length > 1) {
-    title = { key: 'map-title', text: map.title, x: bounds.x, y: bounds.y - MAP_TITLE_GAP, style: 'title' }
-    bounds = { x: bounds.x, y: bounds.y - MAP_TITLE_GAP - MAP_TITLE_SIZE, width: bounds.width, height: bounds.height + MAP_TITLE_GAP + MAP_TITLE_SIZE }
+    const size = (TITLE.size * (contexts[0]?.size ?? CHIP_LABEL.size)) / CHIP_LABEL.size
+    title = { key: 'map-title', text: map.title, x: bounds.x, y: bounds.y - MAP_TITLE_GAP, style: 'title', size }
+    bounds = { x: bounds.x, y: bounds.y - MAP_TITLE_GAP - size, width: bounds.width, height: bounds.height + MAP_TITLE_GAP + size }
   }
 
   return { hexagons, links, bounds, title, pitch, contexts }
