@@ -463,6 +463,91 @@ describe('Stage — auto-fit after a map-shape change (FIT-02, ADR-05)', () => {
     expect(after.scale).toBeCloseTo(expected.scale, 6)
   })
 
+  // Importing (or deleting) the single largest hexagon changes the shared lattice pitch, which moves every OTHER
+  // hexagon too — so the visibility rule must look at the survivors that shifted, not only at the added/removed one.
+  describe('when the change alters the lattice pitch', () => {
+    const SCREEN = { width: 1200, height: 1900 }
+    const withLarge = () => {
+      useMapStore.getState().replace(twoHexMap())
+      useMapStore.getState().importHexagon(toMap(STRESS_DIAGRAM), { context: 'same' })
+      return useMapStore.getState().map
+    }
+    const largeId = (map: HexaMap) => map.hexagons[map.hexagons.length - 1].id
+    /** Zooms out by `zoomDelta` wheel units, then pans so the visible area's top-left sits at `topLeft` in map space. */
+    const frame = (container: HTMLElement, topLeft: Point, zoomDelta: number) => {
+      fireEvent.wheel(container.querySelector('main')!, { deltaY: zoomDelta, clientX: inset.left, clientY: inset.top })
+      const vp = viewportOf(container)
+      const visible = visibleRect(vp, SCREEN, islandInset(SCREEN, false, false))
+      pan(container, (visible.x - topLeft.x) * vp.scale, (visible.y - topLeft.y) * vp.scale)
+    }
+    const expectRefit = (container: HTMLElement) => {
+      const model = layoutMap(useMapStore.getState().map)
+      expectViewport(container, fitTo(model.bounds, SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false), 0))
+    }
+    const visibleOf = (vp: { x: number; y: number; scale: number }) => visibleRect(vp, SCREEN, islandInset(SCREEN, false, false))
+
+    it('importing a larger hexagon re-fits when it pushes an existing hexagon out of a manual view', () => {
+      const restore = stubFixedSize(SCREEN.width, SCREEN.height)
+      try {
+        useMapStore.getState().replace(twoHexMap())
+        const { container } = render(<Harness />)
+        frame(container, { x: -100, y: -800 }, 150)
+        const before = viewportOf(container)
+
+        act(() => void useMapStore.getState().importHexagon(toMap(STRESS_DIAGRAM), { context: 'same' }))
+
+        const model = layoutMap(useMapStore.getState().map)
+        const visible = visibleOf(before)
+        const large = model.hexagons.find((h) => h.id === largeId(useMapStore.getState().map))!
+        const moved = model.hexagons.find((h) => h.id === 'h2')!
+        expect(contains(visible, hexagonBounds(large))).toBe(true) // the added hexagon alone would keep the view
+        expect(contains(visible, hexagonBounds(moved))).toBe(false) // but h2 was pushed off it
+        expectRefit(container)
+      } finally {
+        restore()
+      }
+    })
+
+    it('deleting the largest hexagon re-fits when it pulls an existing hexagon out of a manual view', () => {
+      const restore = stubFixedSize(SCREEN.width, SCREEN.height)
+      try {
+        const map = withLarge()
+        const { container } = render(<Harness />)
+        frame(container, { x: -100, y: 1600 }, 150)
+        const before = viewportOf(container)
+        const visible = visibleOf(before)
+        const model = layoutMap(map)
+        expect(contains(visible, hexagonBounds(model.hexagons.find((h) => h.id === largeId(map))!))).toBe(true)
+
+        act(() => void useMapStore.getState().removeHexagon(largeId(map)))
+
+        const moved = layoutMap(useMapStore.getState().map).hexagons.find((h) => h.id === 'h2')!
+        expect(contains(visible, hexagonBounds(moved))).toBe(false)
+        expectRefit(container)
+      } finally {
+        restore()
+      }
+    })
+
+    it('leaves a manual view alone when every shifted hexagon still fits in it', () => {
+      const restore = stubFixedSize(SCREEN.width, SCREEN.height)
+      try {
+        useMapStore.getState().replace(twoHexMap())
+        const { container } = render(<Harness />)
+        frame(container, { x: -900, y: -900 }, 300)
+        const before = viewportOf(container)
+
+        act(() => void useMapStore.getState().importHexagon(toMap(STRESS_DIAGRAM), { context: 'same' }))
+
+        const visible = visibleOf(before)
+        expect(layoutMap(useMapStore.getState().map).hexagons.every((h) => contains(visible, hexagonBounds(h)))).toBe(true)
+        expectViewport(container, before)
+      } finally {
+        restore()
+      }
+    })
+  })
+
   it('undo restores the pre-change hexagon set, which the same visibility rule then re-evaluates', () => {
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<Harness />)

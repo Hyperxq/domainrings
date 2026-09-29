@@ -121,7 +121,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
   const centre = { x: size.width / 2, y: size.height / 2 }
 
   // Grow/import/delete/undo never bump `revision` (ADR-02/ADR-05), so the fitKey reset above can't see them — this
-  // tracks the hexagon id set instead. A `Viewport` the author set stays iff every added/removed box is still fully
+  // tracks the hexagon id set instead. A `Viewport` the author set stays iff every added/removed/shifted box is still fully
   // on screen (FIT-02.2); otherwise it falls back to 'auto', which recomputes against the new bounds every render
   // and — on 2+ hexagons — always follows the whole map, never frozen (FIT-02.1).
   const hexKey = model.hexagons.map((h) => h.id).join(',')
@@ -129,7 +129,13 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
   if (hexKey !== seenHexagons.key) {
     const nextIds = new Set(model.hexagons.map((h) => h.id))
     const prevIds = new Set(seenHexagons.hexagons.map((h) => h.id))
-    const changed = [...model.hexagons.filter((h) => !prevIds.has(h.id)), ...seenHexagons.hexagons.filter((h) => !nextIds.has(h.id))]
+    const prevCentres = new Map(seenHexagons.hexagons.map((h) => [h.id, h.centre]))
+    // A pitch change (the largest hexagon came or went) also shifts every surviving hexagon's lattice slot.
+    const moved = model.hexagons.filter((h) => {
+      const before = prevCentres.get(h.id)
+      return before && (before.x !== h.centre.x || before.y !== h.centre.y)
+    })
+    const changed = [...model.hexagons.filter((h) => !prevIds.has(h.id)), ...seenHexagons.hexagons.filter((h) => !nextIds.has(h.id)), ...moved]
     setSeenHexagons({ key: hexKey, hexagons: model.hexagons })
     if (typeof view !== 'string' && !changed.every((h) => contains(visibleRect(view, effectiveSize, inset), hexagonBounds(h)))) setView('auto')
   }
