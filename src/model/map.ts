@@ -72,6 +72,11 @@ export function contextOrdinal(map: Pick<HexaMap, 'contexts'>, contextId: string
   return `Context ${ordinal}`
 }
 
+/** The contexts that own at least one hexagon — a declared, empty context (schema allows it) is not shown or drawn. */
+export function occupiedContexts(map: Pick<HexaMap, 'contexts' | 'hexagons'>): HexaMap['contexts'] {
+  return map.contexts.filter((c) => map.hexagons.some((h) => h.contextId === c.id))
+}
+
 /** A context's display name: its own name, else its ordinal placeholder (ADR-03). */
 export function contextName(map: Pick<HexaMap, 'contexts'>, contextId: string): string {
   const context = map.contexts.find((c) => c.id === contextId)

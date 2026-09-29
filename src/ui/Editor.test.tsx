@@ -185,6 +185,15 @@ describe('"Delete hexagon" button in the Hexagon section (DEL-01)', () => {
 })
 
 describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
+  it('lists and counts only contexts that own a hexagon', () => {
+    const map = useMapStore.getState().map
+    useMapStore.getState().replace({ ...map, contexts: [...map.contexts, { id: 'c9' }] })
+    const { container } = renderEditor()
+    const fold = section(container, 'Bounded contexts')
+    expect(fold.querySelector('summary')!.textContent).toBe('Bounded contexts· 1')
+    expect(within(fold).queryByLabelText('Name for Context 9')).toBeNull()
+  })
+
   it('shows one input per context, labelled by its stable ordinal, with the name (or none) as its value', () => {
     const { container } = renderEditor()
     const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1') as HTMLInputElement

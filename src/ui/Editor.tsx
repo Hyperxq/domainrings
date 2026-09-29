@@ -17,7 +17,7 @@ import {
   type Wall,
 } from '../model/schema'
 import { parentCandidates } from '../model/links'
-import { contextOrdinal, crossHexagonPorts, diagramOf, freeSides, linkEndLabel, UNTITLED_HEXAGON, type Destination, type LinkPatch, type PortRef } from '../model/map'
+import { contextOrdinal, crossHexagonPorts, diagramOf, freeSides, linkEndLabel, occupiedContexts, UNTITLED_HEXAGON, type Destination, type LinkPatch, type PortRef } from '../model/map'
 import { useMapStore, type Item } from '../model/store'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
@@ -437,9 +437,9 @@ export function Editor({
           />
         </Fold>
 
-        <Fold id="contexts" title="Bounded contexts" count={map.contexts.length}>
+        <Fold id="contexts" title="Bounded contexts" count={occupiedContexts(map).length}>
           <ul className="items">
-            {map.contexts.map((ctx) => {
+            {occupiedContexts(map).map((ctx) => {
               const ordinal = contextOrdinal(map, ctx.id)
               return (
                 <li key={ctx.id} className="item">
