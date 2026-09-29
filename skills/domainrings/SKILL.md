@@ -1,11 +1,11 @@
 ---
 name: domainrings
-description: Draw a codebase's hexagonal architecture (ports and adapters) as a domainrings map and hand back a link that opens it in the browser at diagrams.pbuilder.dev. Covers a single hexagon and a honeycomb of several hexagons across bounded contexts, with links between them. Use when the user asks to draw, diagram, visualize, map or represent their hexagon, hexagonal architecture, ports and adapters, bounded contexts or context map, or asks for a domainrings / .hexa file.
+description: Draw a codebase's hexagonal architecture (ports and adapters) as a domainrings map and hand back a link that opens it in the browser at diagrams.pbuilder.dev. Covers a single hexagon and a honeycomb of several hexagons across bounded contexts, with links between them. The link script also shares Onion and Clean files. Use when the user asks to draw, diagram, visualize, map or represent their hexagon, hexagonal architecture, ports and adapters, bounded contexts or context map, or asks for a domainrings / .hexa file.
 ---
 
 # domainrings
 
-domainrings (https://diagrams.pbuilder.dev/) draws a hexagonal architecture from a JSON model, a `.hexa` file. You never lay anything out: you describe what exists and how it connects, and the app draws the rings, walls and arrows. Your job is to read the user's code, write that JSON, and give back a link that opens it. This skill covers hexagonal architecture only; Onion and Clean are not supported yet.
+domainrings (https://diagrams.pbuilder.dev/) draws a hexagonal architecture from a JSON model, a `.hexa` file. You never lay anything out: you describe what exists and how it connects, and the app draws the rings, walls and arrows. Your job is to read the user's code, write that JSON, and give back a link that opens it. domainrings holds three kinds of architecture map, each a `.hexa` file with its own `kind`: `hexagonal`, `onion` and `clean`. This skill teaches you to write hexagonal maps. Onion and Clean files (for example the ones in the app's Examples menu, or exported from the app) are not authored here, but the share-link script turns any of the three into a link, and the link opens the right kind.
 
 ## Workflow
 
@@ -13,7 +13,7 @@ domainrings (https://diagrams.pbuilder.dev/) draws a hexagonal architecture from
 2. **Map the code** of each slice onto the concepts below. Use the real names from the code. Never invent parts the code does not have; if something is only implied, say so in a `note`.
 3. **Write the `.hexa` file** following the format and rules below. Start from `references/single-hexagon.hexa` or `references/honeycomb.hexa`.
 4. **Check it** against the rules checklist. The link does not validate: the app refuses an invalid map when it opens.
-5. **Make the link.** Run `node <this skill>/scripts/share-link.mjs <file.hexa>` (Node 16+, no dependencies). It prints `https://diagrams.pbuilder.dev/#m=…`; give that to the user. Opening it loads the map straight away.
+5. **Make the link.** Run `node <this skill>/scripts/share-link.mjs <file.hexa>` (Node 16+, no dependencies). It accepts hexagonal, onion and clean files and refuses anything else. It prints `https://diagrams.pbuilder.dev/#m=…`; give that to the user. Opening it loads the map straight away.
 6. **When there is no link.** If you cannot run Node, or the script warns that the link is over 8000 characters, give the user the `.hexa` file. They open it with **Open…** in the app's toolbar. Another option: the app also loads `https://diagrams.pbuilder.dev/?src=<https URL of a .hexa file>`, for example a raw GitHub gist.
 
 ## From code to concepts
@@ -44,7 +44,7 @@ Hints:
 {
   "app": "domainrings",          // always this
   "version": 4,                  // 2, 3, or 4 all work; write 4, the current version
-  "kind": "hexagonal",           // the only kind this skill covers so far
+  "kind": "hexagonal",           // "onion" and "clean" are valid kinds too, but with a different body; this format is hexagonal
   "title": "Shop",               // the map's title
   "contexts": [{ "id": "c1", "name": "Sales" }],   // at least one; name optional
   "hexagons": [ /* at least one, see below */ ],
@@ -114,7 +114,7 @@ Several hexagons on one map, grouped by bounded context. With two or more contex
 
 The app rejects the map if any of these fail:
 
-- [ ] `app` is `"domainrings"`, `version` is `2`, `3`, or `4`, `kind` is `"hexagonal"`.
+- [ ] `app` is `"domainrings"`, `version` is `2`, `3`, or `4`, `kind` is `"hexagonal"` (for a hexagonal file you write).
 - [ ] Ids are unique: contexts, hexagons and links across the map; each collection within its own hexagon.
 - [ ] Every reference points at something that exists **in the same hexagon**: `parentId` → `domain`, `useCaseId` → `useCases`, `portId` → `ports`, `adapterId` → `adapters`. Every hexagon's `contextId` → `contexts`.
 - [ ] `parentId` points at an `aggregate` or an `entity`, never at a value object or domain service, and never forms a cycle.
