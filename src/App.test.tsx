@@ -21,7 +21,7 @@ vi.mock('./layout/clean', async (importOriginal) => {
 })
 import { newCleanMap, newOnionMap, parseHexa, toHexa, toMap } from './model/hexa'
 import { diagramOf, UNTITLED_HEXAGON } from './model/map'
-import { autosave, MAP_KEY } from './model/persistence'
+import { autosave, MAP_KEY, useSaveFailed } from './model/persistence'
 import { VERSION, type CleanFile, type HexaMap, type OnionFile } from './model/schema'
 import { useMapStore } from './model/store'
 import { useOnionStore } from './model/onionStore'
@@ -823,6 +823,31 @@ describe('link pruning (LINK-01, LINK-02)', () => {
     fireEvent.click(line)
     fireEvent.keyDown(document.body, { key: 'Delete' })
     expect(useMapStore.getState().map).toBe(beforeMap)
+  })
+})
+
+describe('autosave failure notice', () => {
+  afterEach(() => useSaveFailed.setState({ failed: false }))
+
+  it('tells the author their latest changes may not be saved, and that the next successful save clears it', () => {
+    useSaveFailed.setState({ failed: true })
+    render(<App />)
+    const notice = recoveryEl()!
+    expect(notice.textContent).toContain("latest changes couldn't be saved")
+    expect(notice.textContent).toContain('next successful save')
+    expect(notice.closest('.notices')).not.toBeNull()
+  })
+
+  it('clears once a save succeeds', () => {
+    useSaveFailed.setState({ failed: true })
+    render(<App />)
+    act(() => useSaveFailed.setState({ failed: false }))
+    expect(recoveryEl()).toBeNull()
+  })
+
+  it('shows nothing while saves succeed', () => {
+    render(<App />)
+    expect(recoveryEl()).toBeNull()
   })
 })
 

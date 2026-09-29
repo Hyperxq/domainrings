@@ -11,7 +11,7 @@ import { collectionOf, type LinkChoice } from './model/links'
 import { contextName, diagramOf, linkEndLabel, UNTITLED_HEXAGON, type Destination, type LinkPatch } from './model/map'
 import { useCleanStore } from './model/cleanStore'
 import { useOnionStore } from './model/onionStore'
-import type { Recovery } from './model/persistence'
+import { useSaveFailed, type Recovery } from './model/persistence'
 import type { CleanFile, HexaMap, Link, LinkEnd, OnionFile, StoredFile, Wall } from './model/schema'
 import { useMapStore } from './model/store'
 import type { ArchitectureChoice } from './ui/ArchitectureChoiceDialog'
@@ -57,6 +57,8 @@ const RECOVERY_MESSAGE: Record<'kept' | 'not-kept', string> = {
   kept: "Your last session couldn't be restored, so the example is open. Your saved work is kept in this browser; nothing was deleted.",
   'not-kept': "Your last session couldn't be restored and a copy couldn't be kept, so autosave is off.",
 }
+
+const SAVE_FAILED_MESSAGE = "Your latest changes couldn't be saved in this browser and may be lost if you reload. This notice clears after the next successful save."
 
 /** Only Onion/Clean ever reach this (Hexagonal is excluded before the caller needs it) — genuinely closed to those
  * two labels, not a general-purpose English article rule. */
@@ -126,6 +128,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       ? null
       : { id: 0, tone: 'recovery', message: RECOVERY_MESSAGE[boot.recovery], download: boot.recovery === 'kept' ? boot.unreadableText : undefined },
   )
+  const saveFailed = useSaveFailed((s) => s.failed)
   const noticeSeq = useRef(0)
   const show = (next: Omit<Notice, 'id'>) => setNotice({ ...next, id: ++noticeSeq.current })
   // The one undo mechanism (REQ-09), instantiated once per kind: OnionEditor/OnionStage and CleanEditor/CleanStage
@@ -631,6 +634,11 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
                 <Icon name="close" />
               </button>
             </div>
+          </section>
+        )}
+        {saveFailed && (
+          <section className="island notice" role="status" aria-live="polite">
+            <p>{SAVE_FAILED_MESSAGE}</p>
           </section>
         )}
         {recoveryNotice && (

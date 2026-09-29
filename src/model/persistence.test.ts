@@ -182,6 +182,27 @@ describe('autosave', () => {
     expect(storage.setItem).not.toHaveBeenCalled()
   })
 
+  it('reports each write outcome, so a failure is surfaced and the next success clears it', () => {
+    vi.useFakeTimers()
+    const map = toMap(EXAMPLE_DIAGRAM)
+    const store = createStore(() => ({ map }))
+    const storage = memoryStorage()
+    const onSave = vi.fn()
+    autosave(store, storage, 'none', 300, onSave)
+
+    storage.setItem.mockImplementationOnce(() => {
+      throw new DOMException('full', 'QuotaExceededError')
+    })
+    store.setState({ map: { ...map, title: 'A' } })
+    vi.advanceTimersByTime(300)
+    expect(onSave).toHaveBeenLastCalledWith(false)
+
+    store.setState({ map: { ...map, title: 'B' } })
+    vi.advanceTimersByTime(300)
+    expect(onSave).toHaveBeenLastCalledWith(true)
+    expect(onSave).toHaveBeenCalledTimes(2)
+  })
+
   it('never writes its own slot on boot alone, without any edit (AUTO-01.4)', () => {
     vi.useFakeTimers()
     const storage = memoryStorage({ [V1_KEY]: v1Text(EXAMPLE_DIAGRAM) })
