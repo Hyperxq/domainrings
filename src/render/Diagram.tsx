@@ -5,7 +5,7 @@ import { bandPath, type Shape } from './band'
 import type { LayoutEdge, LayoutModel, LayoutNode, LayoutRing, LayoutText, Point } from '../layout/layout'
 import type { Box } from '../layout/layout'
 import { LEGEND_GAP, LEGEND_HEADING, LEGEND_PAD, LEGEND_ROW, legendSections, LEGEND_SWATCH, legendSize, type LegendModel } from '../layout/legend'
-import { CHIP_LABEL, DOMAIN_TITLE, EDGE_LABEL, LINE_METRICS, measure, RING_LABEL, RING_SUBTITLE, SUBTITLE, TAG_GAP, TITLE } from '../layout/text'
+import { DOMAIN_TITLE, EDGE_LABEL, LINE_METRICS, measure, RING_LABEL, RING_SUBTITLE, SUBTITLE, TAG_GAP, TITLE } from '../layout/text'
 
 const SUBTITLE_GAP = 4
 const BOX_PAD_X = 12
@@ -302,7 +302,7 @@ function Chips({ contexts }: { contexts: MapContextLayout[] }) {
   return (
     <>
       {contexts.map((c) => (
-        <text key={c.id} className="chip" data-chip={c.id} aria-hidden="true" x={c.chip.x} y={c.chip.y} fontSize={CHIP_LABEL.size}>
+        <text key={c.id} className="chip" data-chip={c.id} aria-hidden="true" x={c.chip.x} y={c.chip.y} fontSize={c.size}>
           {c.label}
         </text>
       ))}

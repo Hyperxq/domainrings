@@ -649,3 +649,23 @@ describe('layoutMap — a chip anchor is never inside a context region (pointInR
     }
   })
 })
+
+describe('layoutMap — context chips stay readable when the whole map is fitted', () => {
+  // The stage area a default-inset 1440x900 window leaves once the editor and toolbar islands are reserved.
+  const fitScale = (b: Box) => Math.min(1100 / b.width, 820 / b.height)
+
+  it('sizes each chip so it renders at about 10px on screen at the fit scale', () => {
+    const { contexts, bounds } = layoutMap(HONEYCOMB)
+    for (const c of contexts) expect(c.size * fitScale(bounds)).toBeGreaterThanOrEqual(9.5)
+  })
+
+  it('never renders a chip smaller than the base label size, however small the map', () => {
+    const tiny = layoutMap(contextMap([['c1', 0, 0], ['c2', 1, 0]], ['c1', 'c2']))
+    for (const c of tiny.contexts) expect(c.size).toBeGreaterThanOrEqual(12)
+  })
+
+  it('grows the bounds by the enlarged chips so none is clipped', () => {
+    const { contexts, bounds } = layoutMap(HONEYCOMB)
+    for (const c of contexts) expect(c.chip.y - c.size).toBeGreaterThanOrEqual(bounds.y)
+  })
+})

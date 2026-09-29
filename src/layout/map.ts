@@ -37,8 +37,10 @@ export interface MapContextLayout {
   /** The context's outlined region (ADR-04): one array entry per closed loop — several for a split context or one
    * ringing a foreign hexagon (a hole). */
   loops: Point[][]
-  /** Anchor for the context's name chip: above the region's topmost vertex. */
+  /** Anchor (text baseline, centred) for the context's name chip, in clear space beside its region. */
   chip: Point
+  /** The chip's font size: `CHIP_LABEL.size`, or larger so it still reads at the whole-map fit scale. */
+  size: number
 }
 
 export interface MapLayout {
@@ -69,7 +71,11 @@ const LANE_PITCH = 10
 const MAX_LANE_OFFSET = MAP_GAP / 2 - GAP_MARGIN
 /** Vertical clearance between a region's topmost vertex and its chip. */
 const CHIP_GAP = 12
-const CHIP_HEIGHT = 16
+/** The on-screen chip text size a fitted map must not fall below, in px. */
+const CHIP_FLOOR_PX = 10
+/** The stage area a 1440x900 window leaves for the map once the editor and toolbar islands are reserved — the
+ * scale the chip floor is judged at, since the layout cannot know the real viewport. */
+const REFERENCE_STAGE = { width: 1100, height: 820 }
 
 /** Above the region's highest vertex (min y, then min x) whose spot is clear of every context's region — the
  * plain topmost vertex can sit under a neighbouring context's tiles. When every such spot is taken, the highest
@@ -95,10 +101,10 @@ function chipAnchor(loops: Point[][], all: Point[][][]): Point {
   return beside ?? { x: vertices[0].x, y: vertices[0].y - CHIP_GAP }
 }
 
-/** A chip's approximate footprint, so a long context name still grows the map's bounds to include it. */
-function chipBox(chip: Point, label: string): Box {
-  const width = measure(label, CHIP_LABEL)
-  return { x: chip.x - width / 2, y: chip.y - CHIP_HEIGHT / 2, width, height: CHIP_HEIGHT }
+/** A chip's approximate footprint (the text rises `size` above its baseline), so a long context name still grows
+ * the map's bounds to include it. */
+function chipBox(chip: Point, label: string, size: number): Box {
+  return { x: chip.x - measure(label, { ...CHIP_LABEL, size }) / 2, y: chip.y - size, width: measure(label, { ...CHIP_LABEL, size }), height: size * 1.25 }
 }
 
 function unionBox(boxes: Box[]): Box {
@@ -261,10 +267,19 @@ export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout 
       const loops = regions.get(context.id) ?? []
       if (!loops.length) continue // a context declared with no hexagons (schema allows it, the store never creates one) draws nothing
       const chip = chipAnchor(loops, [...regions.values()])
-      contexts.push({ id: context.id, label: contextName(map, context.id), loops, chip })
+      contexts.push({ id: context.id, label: contextName(map, context.id), loops, chip, size: CHIP_LABEL.size })
     }
-    const contextBoxes = contexts.flatMap((c) => [...c.loops.flat().map((p): Box => ({ x: p.x, y: p.y, width: 0, height: 0 })), chipBox(c.chip, c.label)])
-    bounds = unionBox([bounds, ...contextBoxes])
+    const contentBounds = unionBox([bounds, ...contexts.flatMap((c) => c.loops.flat().map((p): Box => ({ x: p.x, y: p.y, width: 0, height: 0 })))])
+    const boundsWith = (size: number) => unionBox([contentBounds, ...contexts.map((c) => chipBox(c.chip, c.label, size))])
+    // Growing a chip grows the bounds and so lowers the fit scale it is sized against: a few passes settle it.
+    let size: number = CHIP_LABEL.size
+    for (let pass = 0; pass < 4; pass++) {
+      const b = boundsWith(size)
+      const scale = Math.min(REFERENCE_STAGE.width / b.width, REFERENCE_STAGE.height / b.height)
+      size = Math.max(CHIP_LABEL.size, CHIP_FLOOR_PX / scale)
+    }
+    for (const c of contexts) c.size = size
+    bounds = boundsWith(size)
   }
 
   // Placed last so it clears the hulls and chips the bounds just grew to include, not only the hexagons.
