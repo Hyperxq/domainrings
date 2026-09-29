@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { StrictMode } from 'react'
@@ -1051,16 +1051,20 @@ describe('export scope (EXPORT-03)', () => {
     const styleTag = document.createElement('style')
     styleTag.textContent = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf-8')
     document.head.appendChild(styleTag)
+    onTestFinished(() => styleTag.remove())
     render(<App />)
     expect(document.querySelectorAll('svg.canvas [data-hull]').length).toBe(2)
 
     vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+    onTestFinished(() => void vi.unstubAllGlobals())
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    onTestFinished(() => clickSpy.mockRestore())
     let captured: Blob | undefined
     const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
       captured = blob as Blob
       return 'blob:mock'
     })
+    onTestFinished(() => createSpy.mockRestore())
     // A hull path carries both fill-rule="evenodd" (also true of a hexagon's own ring paths) AND the hull's own
     // dashed stroke — only the combination is unique to a hull once class/data-hull are stripped on export.
     const hullPathCount = (markup: string) =>
@@ -1087,11 +1091,6 @@ describe('export scope (EXPORT-03)', () => {
     expect(hexMarkup).not.toContain('>Core<')
     expect(hexMarkup).not.toContain('>Context 2<')
     expect(hullPathCount(hexMarkup)).toBe(0)
-
-    createSpy.mockRestore()
-    clickSpy.mockRestore()
-    vi.unstubAllGlobals()
-    styleTag.remove()
   })
 
   it('names a blank-titled hexagon export after the untitled hexagon, not the whole map (EXPORT-02.2)', async () => {
@@ -1353,10 +1352,20 @@ describe('delete a hexagon (DEL-01..06)', () => {
     expect(useMapStore.getState().map.hexagons.map((h) => h.id)).toEqual(['h2'])
     expect(useMapStore.getState().map.links).toEqual([])
     expect(toastEl()!.textContent).toContain(`Deleted ${removedTitle} and its 1 link`)
+  })
 
-    // Sticky: still up well past the normal 6 s countdown (DEL-02).
+  it('keeps the sticky delete notice on screen well past the 6 s auto-dismiss window (DEL-02)', () => {
+    useMapStore.getState().replace(twoHexMap())
+    render(<App />)
+    openEditor()
+    fireEvent.click(deleteButton())
+
+    // Two acts: the first flushes the 6 s timer's state change, the second would run the 150 ms leave timer it schedules.
     act(() => vi.advanceTimersByTime(20000))
+    act(() => vi.advanceTimersByTime(1000))
+
     expect(toastEl()).not.toBeNull()
+    expect(toastEl()!.classList.contains('is-leaving')).toBe(false)
   })
 
   it('does not dismiss the sticky delete notice on Esc, unlike an ordinary status toast (DEL-02)', () => {
