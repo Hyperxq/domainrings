@@ -21,7 +21,7 @@ vi.mock('./layout/clean', async (importOriginal) => {
 })
 import { newCleanMap, newOnionMap, parseHexa, toHexa, toMap } from './model/hexa'
 import { diagramOf, UNTITLED_HEXAGON } from './model/map'
-import { autosave, MAP_KEY } from './model/persistence'
+import { autosave, MAP_KEY, useSaveFailed } from './model/persistence'
 import { VERSION, type CleanFile, type HexaMap, type OnionFile } from './model/schema'
 import { useMapStore } from './model/store'
 import { useOnionStore } from './model/onionStore'
@@ -259,6 +259,79 @@ describe('undo toast', () => {
     expect(toast()).toBeNull()
   })
 
+  const deleteRef = (container: HTMLElement, ref: string) => {
+    fireEvent.click(onCanvas(container, ref))
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+  }
+  const waitOutToast = () => {
+    act(() => vi.advanceTimersByTime(6000))
+    act(() => vi.advanceTimersByTime(150))
+  }
+  const undoKey = (target: Element = document.body) => fireEvent.keyDown(target, { key: 'z', ctrlKey: true })
+
+  it('steps back through several edits with Ctrl+Z after every toast is gone', () => {
+    const { container } = render(<App />)
+    const [first, second] = [EXAMPLE_DIAGRAM.adapters[0].id, EXAMPLE_DIAGRAM.adapters[1].id]
+    const present = (id: string) => currentDiagram().adapters.some((a) => a.id === id)
+    deleteRef(container, first)
+    deleteRef(container, second)
+    waitOutToast()
+    expect(toast()).toBeNull()
+
+    undoKey()
+    expect(present(second)).toBe(true)
+    expect(present(first)).toBe(false)
+    undoKey()
+    expect(present(first)).toBe(true)
+  })
+
+  it('shares one stack between the toast Undo button and the shortcut', () => {
+    const { container } = render(<App />)
+    const [first, second] = [EXAMPLE_DIAGRAM.adapters[0].id, EXAMPLE_DIAGRAM.adapters[1].id]
+    const present = (id: string) => currentDiagram().adapters.some((a) => a.id === id)
+    deleteRef(container, first)
+    deleteRef(container, second)
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(present(second)).toBe(true)
+    expect(present(first)).toBe(false)
+    undoKey()
+    expect(present(first)).toBe(true)
+  })
+
+  it('drops the toast when the shortcut undoes the edit it reports', () => {
+    const { container } = render(<App />)
+    deleteUseCase(container)
+    undoKey()
+    expect(toast()).toBeNull()
+  })
+
+  it('remembers only the last 20 edits', () => {
+    useMapStore.getState().replace(toMap(STRESS_DIAGRAM))
+    const { container } = render(<App />)
+    const { domain, useCases, ports, adapters, actors, externals } = STRESS_DIAGRAM
+    const refs = [domain, useCases, ports, adapters, actors, externals].flatMap((items) => items.map((i) => i.id))
+    expect(refs.length).toBeGreaterThan(21)
+    const deleted = refs.slice(0, 21)
+    for (const ref of deleted) deleteRef(container, ref)
+    for (let i = 0; i < 25; i++) undoKey()
+    const remaining = new Set(Array.from(container.querySelectorAll('svg.canvas [data-ref]'), (el) => el.getAttribute('data-ref')))
+    expect(remaining.has(deleted[0])).toBe(false)
+    expect(remaining.has(deleted[1])).toBe(true)
+  })
+
+  it('undoes across a document swap back into the previous kind', () => {
+    const { container } = render(<App />)
+    deleteUseCase(container)
+    waitOutToast()
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: /Onion/ }))
+    expect(useOnionStore.getState().map.title).toBe('Untitled architecture')
+    undoKey()
+    expect(hasUseCase()).toBe(false)
+    undoKey()
+    expect(hasUseCase()).toBe(true)
+  })
+
   it('leaves Cmd+Z to the field while typing in an input', () => {
     const { container } = render(<App />)
     deleteUseCase(container)
@@ -267,6 +340,16 @@ describe('undo toast', () => {
     fireEvent.keyDown(input, { key: 'z', metaKey: true })
     expect(hasUseCase()).toBe(false)
     expect(toast()).not.toBeNull()
+  })
+
+  it('leaves Cmd+Z to the field while typing in an input after the toast is gone', () => {
+    const { container } = render(<App />)
+    deleteUseCase(container)
+    waitOutToast()
+    const input = container.querySelector<HTMLInputElement>('.editor input')!
+    input.focus()
+    undoKey(input)
+    expect(hasUseCase()).toBe(false)
   })
 
   it('keeps an error notice in the fuller layout, without a countdown', async () => {
@@ -826,6 +909,31 @@ describe('link pruning (LINK-01, LINK-02)', () => {
   })
 })
 
+describe('autosave failure notice', () => {
+  afterEach(() => useSaveFailed.setState({ failed: false }))
+
+  it('tells the author their latest changes may not be saved, and that the next successful save clears it', () => {
+    useSaveFailed.setState({ failed: true })
+    render(<App />)
+    const notice = recoveryEl()!
+    expect(notice.textContent).toContain("latest changes couldn't be saved")
+    expect(notice.textContent).toContain('next successful save')
+    expect(notice.closest('.notices')).not.toBeNull()
+  })
+
+  it('clears once a save succeeds', () => {
+    useSaveFailed.setState({ failed: true })
+    render(<App />)
+    act(() => useSaveFailed.setState({ failed: false }))
+    expect(recoveryEl()).toBeNull()
+  })
+
+  it('shows nothing while saves succeed', () => {
+    render(<App />)
+    expect(recoveryEl()).toBeNull()
+  })
+})
+
 describe('boot recovery notice', () => {
   const KEPT_MESSAGE = "Your last session couldn't be restored, so the example is open. Your saved work is kept in this browser; nothing was deleted."
   const NOT_KEPT_MESSAGE = "Your last session couldn't be restored and a copy couldn't be kept, so autosave is off."
@@ -1201,6 +1309,20 @@ describe('grow the map (GROW-01..04, ADR-02)', () => {
     expect(useMapStore.getState().map).toStrictEqual(before)
     expect(useMapStore.getState().focus).toBe(beforeFocus)
     expect(screen.queryByRole('textbox', { name: 'Hexagon title' })).toBeNull()
+  })
+
+  it('leaves no undo step behind for a grow that Esc already unwound', () => {
+    const { container } = render(<App />)
+    const adapter = EXAMPLE_DIAGRAM.adapters[0].id
+    fireEvent.click(onCanvas(container, adapter))
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+    growEast()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Hexagon title' }), { key: 'Escape' })
+
+    fireEvent.keyDown(document.body, { key: 'z', ctrlKey: true })
+
+    expect(currentDiagram().adapters.some((a) => a.id === adapter)).toBe(true)
   })
 
   it('committing a typed title on Enter sets it and closes the field', () => {

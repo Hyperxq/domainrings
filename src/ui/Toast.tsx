@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from './Icon'
-import { typing } from './keys'
 
 const SHOW_MS = 6000
 const LEAVE_MS = 150
@@ -37,14 +36,10 @@ export function Toast({ message, sticky, onUndo, onClose }: ToastProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !sticky) setLeaving(true)
-      if (onUndo && (e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'z' && !typing(e.target)) {
-        e.preventDefault()
-        onUndo()
-      }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onUndo, sticky])
+  }, [sticky])
 
   return (
     <div

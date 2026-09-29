@@ -1,3 +1,4 @@
+import { create } from 'zustand'
 import type { StoreApi } from 'zustand/vanilla'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, SEED_VERSION } from './example'
 import { parseHexa, toHexa, toMap } from './hexa'
@@ -79,11 +80,15 @@ export function loadMap(storage: Pick<Storage, 'getItem' | 'setItem'> | undefine
   return { map: fallback ?? toMap(EXAMPLE_DIAGRAM), recovery: 'none' }
 }
 
+/** Whether the latest autosave write failed; cleared by the next one that succeeds. */
+export const useSaveFailed = create<{ failed: boolean }>(() => ({ failed: false }))
+
 export function autosave<M extends StoredFile>(
   store: StoreApi<{ map: M }>,
   storage: Pick<Storage, 'setItem'>,
   recovery: Recovery,
   delay = 400,
+  onSave?: (ok: boolean) => void,
 ): () => void {
   if (recovery === 'not-kept') return () => {}
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -93,8 +98,10 @@ export function autosave<M extends StoredFile>(
     timer = setTimeout(() => {
       try {
         storage.setItem(MAP_KEY, toHexa(store.getState().map))
+        onSave?.(true)
       } catch {
         // Quota or privacy-mode failures only cost the autosave, never the session.
+        onSave?.(false)
       }
     }, delay)
   })
