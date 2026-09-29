@@ -341,6 +341,8 @@ describe('Onion/Clean examples read at a usable size when fit to a 1440×900 sta
   const MIN_FIT_PERCENT: Record<string, number> = {
     'onion-advanced.hexa': 70,
     'onion-stress.hexa': 55,
+    // 70 → 68: measured ~71.7%; the floor keeps a margin of at least 2 points so a layout change unrelated to
+    // readability doesn't trip it, while still catching a real regression toward the ~34% blow-up.
     'clean-advanced.hexa': 68,
     // 55 → 50: Decision 5's own per-sector label clearance now checks EVERY sector, not only a lone one (see the
     // crossing-count pin above) — a few of clean-stress's own crowded sectors genuinely need a touch more radius
