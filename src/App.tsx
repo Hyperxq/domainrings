@@ -24,6 +24,7 @@ import type { PaletteId } from './ui/palette'
 import { readPref, setRootPref, writePref } from './ui/prefs'
 import { decodeSharePayload, encodeSharePayload, isOversizedShareLink, shareLinkURL, SHARE_HASH_PREFIX } from './ui/shareLink'
 import { Stage } from './ui/Stage'
+import { typing } from './ui/keys'
 import { Toast } from './ui/Toast'
 import { Toolbar, type ExportScope, type ThemeChoice } from './ui/Toolbar'
 import { CleanEditor } from './ui/CleanEditor'
@@ -63,6 +64,8 @@ const SAVE_FAILED_MESSAGE = "Your latest changes couldn't be saved in this brows
 /** Only Onion/Clean ever reach this (Hexagonal is excluded before the caller needs it) — genuinely closed to those
  * two labels, not a general-purpose English article rule. */
 const article = (label: string) => (/^[aeiou]/i.test(label) ? 'an' : 'a')
+
+const UNDO_LIMIT = 20
 
 const LEGEND_EXPORT_KEY = 'domainrings:legend-export'
 const OVERVIEW_KEY = 'domainrings:overview'
@@ -130,7 +133,37 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   )
   const saveFailed = useSaveFailed((s) => s.failed)
   const noticeSeq = useRef(0)
-  const show = (next: Omit<Notice, 'id'>) => setNotice({ ...next, id: ++noticeSeq.current })
+  // One in-memory history for all three kinds, fed by every notice that offers an Undo: the toast's button and
+  // Ctrl/Cmd+Z both pop it, so they can never undo the same step twice.
+  const undoStack = useRef<UndoSnapshot[]>([])
+  const show = (next: Omit<Notice, 'id'>) => {
+    if (next.undo) undoStack.current = [...undoStack.current, next.undo].slice(-UNDO_LIMIT)
+    setNotice({ ...next, id: ++noticeSeq.current })
+  }
+  // For an edit that unwinds itself (naming cancelled): its step must not stay behind as an undo.
+  const dropUndo = (entry?: UndoSnapshot) => {
+    if (entry && undoStack.current.at(-1) === entry) undoStack.current.pop()
+  }
+  const undoLast = () => {
+    const entry = undoStack.current.pop()
+    if (!entry) return
+    restoreUndo(entry)
+    // The restored document's own kind IS the view to bring back (REQ-09) — a same-kind edit's undo
+    // just re-sets the kind already on screen, a no-op render.
+    setActiveKind(entry.map.kind)
+    setNotice((n) => (n?.undo === entry ? null : n))
+    // Undoing a grow is the same restore as Esc-while-naming — close the field too.
+    setGrowing(null)
+  }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.key.toLowerCase() !== 'z' || typing(e.target) || choosingArchitecture || !undoStack.current.length) return
+      e.preventDefault()
+      undoLast()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  })
   // The one undo mechanism (REQ-09), instantiated once per kind: OnionEditor/OnionStage and CleanEditor/CleanStage
   // each get the SAME callback for every action they offer, so a dependency created from the canvas gesture
   // toasts identically to one created from the editor's own form (ADR-02).
@@ -138,7 +171,10 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const mutateClean = (message: string, before: CleanFile) => show({ tone: 'status', message, undo: { map: before } })
   // Retracts the toast for an add that was immediately cancelled (naming Esc'd out) without offering it as an
   // undo step — the add already unwound itself; mirrors onNamingCancel's own setNotice(null) below.
-  const clearNotice = () => setNotice(null)
+  const clearNotice = () => {
+    dropUndo(notice?.undo)
+    setNotice(null)
+  }
   const [legendInExport, setLegendInExport] = useState(() => readPref(LEGEND_EXPORT_KEY, true))
   const [legendOpen, setLegendOpen] = useState(() => readPref(LEGEND_OPEN_KEY, false))
   // Onion and Clean have no ports or adapters — each kind builds the legend it actually draws (ADR-01), all
@@ -532,6 +568,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
               setGrowing(null)
             }}
             onNamingCancel={() => {
+              dropUndo(growing!.before)
               restore(growing!.before)
               setGrowing(null)
               setNotice(null)
@@ -604,18 +641,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           key={notice.id}
           message={notice.message}
           sticky={notice.sticky}
-          onUndo={
-            notice.undo &&
-            (() => {
-              restoreUndo(notice.undo!)
-              // The restored document's own kind IS the view to bring back (REQ-09) — a same-kind edit's undo
-              // just re-sets the kind already on screen, a no-op render.
-              setActiveKind(notice.undo!.map.kind)
-              setNotice(null)
-              // Undoing a grow through the toast is the same restore as Esc-while-naming — close the field too.
-              setGrowing(null)
-            })
-          }
+          onUndo={notice.undo && undoLast}
           onClose={() => setNotice(null)}
         />
       )}
