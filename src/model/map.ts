@@ -69,7 +69,7 @@ export function contextOrdinal(map: Pick<HexaMap, 'contexts'>, contextId: string
     if (c.id === contextId) return `Context ${ordinal}`
     taken.add(ordinal)
   }
-  return 'Context 0'
+  return 'Context ?'
 }
 
 /** A new `c<n>` id whose placeholder no existing context already shows, so adding a context never renumbers a

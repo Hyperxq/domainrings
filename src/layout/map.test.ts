@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { cellCentre, growAnchor, hexagonBounds, layoutMap, MAP_GAP } from './map'
 import { pointInRegion } from './hull'
+import { measure, TITLE } from './text'
 import { outwardEdgePoint, routeLink } from './links'
 import { layoutDiagram, type Box, type LayoutMode, type LayoutOptions } from './layout'
 import { toMap } from '../model/hexa'
@@ -692,7 +693,7 @@ describe('layoutMap — the map title width is part of the bounds', () => {
   it('grows the bounds to hold a long title on a narrow multi-context map', () => {
     const narrow = { ...contextMap([['c1', 0, 0], ['c2', 1, 0]], ['c1', 'c2']), title: 'T'.repeat(300) }
     const { title, bounds } = layoutMap(narrow)
-    expect(bounds.x + bounds.width).toBeGreaterThanOrEqual(title!.x + 300 * title!.size! * 0.58)
+    expect(bounds.x + bounds.width).toBeGreaterThanOrEqual(title!.x + measure(narrow.title, { ...TITLE, size: title!.size! }))
   })
 })
 
