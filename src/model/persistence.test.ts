@@ -147,7 +147,7 @@ describe('autosave', () => {
     const map = toMap(EXAMPLE_DIAGRAM)
     const store = createStore(() => ({ map }))
     const storage = memoryStorage()
-    autosave(store, storage, 'none', 300)
+    autosave(store, storage, 'none', { delay: 300 })
 
     store.setState({ map: { ...map, title: 'A' } })
     vi.advanceTimersByTime(200)
@@ -165,7 +165,7 @@ describe('autosave', () => {
     vi.useFakeTimers()
     const store = createStore(() => ({ map: toMap(EXAMPLE_DIAGRAM), revision: 0 }))
     const storage = memoryStorage()
-    autosave(store, storage, 'none', 300)
+    autosave(store, storage, 'none', { delay: 300 })
     store.setState({ revision: 1 })
     vi.advanceTimersByTime(1000)
     expect(storage.setItem).not.toHaveBeenCalled()
@@ -176,7 +176,7 @@ describe('autosave', () => {
     const map = toMap(EXAMPLE_DIAGRAM)
     const store = createStore(() => ({ map }))
     const storage = memoryStorage()
-    autosave(store, storage, 'not-kept', 300)
+    autosave(store, storage, 'not-kept', { delay: 300 })
     store.setState({ map: { ...map, title: 'A' } })
     vi.advanceTimersByTime(1000)
     expect(storage.setItem).not.toHaveBeenCalled()
@@ -188,7 +188,7 @@ describe('autosave', () => {
     const store = createStore(() => ({ map }))
     const storage = memoryStorage()
     const onSave = vi.fn()
-    autosave(store, storage, 'none', 300, onSave)
+    autosave(store, storage, 'none', { delay: 300, onSave })
 
     storage.setItem.mockImplementationOnce(() => {
       throw new DOMException('full', 'QuotaExceededError')
@@ -208,7 +208,7 @@ describe('autosave', () => {
     const storage = memoryStorage({ [V1_KEY]: v1Text(EXAMPLE_DIAGRAM) })
     const boot = loadMap(storage)
     const store = createStore(() => ({ map: boot.map }))
-    autosave(store, storage, boot.recovery, 300)
+    autosave(store, storage, boot.recovery, { delay: 300 })
     vi.advanceTimersByTime(1000)
     expect(storage.getItem(MAP_KEY)).toBeNull()
   })
@@ -225,7 +225,7 @@ describe('a two-hexagon map round-trips through autosave and reload', () => {
 
     const store = createStore(() => ({ map: parsed.ok ? parsed.map : map }))
     const storage = memoryStorage()
-    autosave(store, storage, 'none', 300)
+    autosave(store, storage, 'none', { delay: 300 })
     store.setState({ map: { ...map, title: 'Renamed' } })
     vi.advanceTimersByTime(300)
 
@@ -246,7 +246,7 @@ describe('RT-01: the shipped "Two slices, one link" example round-trips through 
     const edited: HexaMap = { ...TWO_SLICES_MAP, hexagons: [{ ...TWO_SLICES_MAP.hexagons[0], title: 'Renamed while editing h1' }, TWO_SLICES_MAP.hexagons[1]] }
     const store = createStore(() => ({ map: TWO_SLICES_MAP }))
     const storage = memoryStorage()
-    autosave(store, storage, 'none', 400)
+    autosave(store, storage, 'none', { delay: 400 })
 
     store.setState({ map: edited })
     vi.advanceTimersByTime(400)
@@ -273,7 +273,7 @@ describe('an Onion document with elements, dependencies and actors round-trips t
 
     const store = createStore(() => ({ map }))
     const storage = memoryStorage()
-    autosave(store, storage, 'none', 300)
+    autosave(store, storage, 'none', { delay: 300 })
     store.setState({ map: { ...map, title: 'Renamed' } })
     vi.advanceTimersByTime(300)
 
@@ -308,7 +308,7 @@ describe('a Clean document with sectors, elements, a dependency and an actor rou
 
     const store = createStore(() => ({ map }))
     const storage = memoryStorage()
-    autosave(store, storage, 'none', 300)
+    autosave(store, storage, 'none', { delay: 300 })
     store.setState({ map: { ...map, title: 'Renamed' } })
     vi.advanceTimersByTime(300)
 

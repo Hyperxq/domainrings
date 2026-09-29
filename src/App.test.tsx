@@ -22,6 +22,7 @@ vi.mock('./layout/clean', async (importOriginal) => {
 import { newCleanMap, newOnionMap, parseHexa, toHexa, toMap } from './model/hexa'
 import { diagramOf, UNTITLED_HEXAGON } from './model/map'
 import { autosave, MAP_KEY, useSaveFailed } from './model/persistence'
+import { wireAutosave } from './model/autosaveWiring'
 import { VERSION, type CleanFile, type HexaMap, type OnionFile } from './model/schema'
 import { useMapStore } from './model/store'
 import { useOnionStore } from './model/onionStore'
@@ -932,6 +933,27 @@ describe('autosave failure notice', () => {
     render(<App />)
     expect(recoveryEl()).toBeNull()
   })
+
+  describe('through the real boot wiring', () => {
+    afterEach(() => vi.useRealTimers())
+
+    it('shows the notice when a storage write throws after an edit', () => {
+      vi.useFakeTimers()
+      const storage = { setItem: vi.fn(() => { throw new DOMException('full', 'QuotaExceededError') }) }
+      onTestFinished(wireAutosave(storage as unknown as Storage, 'none'))
+      render(<App />)
+      expect(recoveryEl()).toBeNull()
+      act(() => useMapStore.getState().setMapMeta({ title: 'Edited' }))
+      act(() => vi.advanceTimersByTime(1000))
+      expect(recoveryEl()!.textContent).toContain("latest changes couldn't be saved")
+    })
+
+    it('shows the notice from the start when the browser gives no storage at all', () => {
+      onTestFinished(wireAutosave(undefined, 'none'))
+      render(<App />)
+      expect(recoveryEl()!.textContent).toContain("latest changes couldn't be saved")
+    })
+  })
 })
 
 describe('boot recovery notice', () => {
@@ -1432,7 +1454,7 @@ describe('renaming a bounded context (NAME-01..03)', () => {
   it('survives a real autosave/reload cycle (NAME-02.2)', () => {
     vi.useFakeTimers()
     const storage = { setItem: vi.fn() }
-    autosave(useMapStore, storage, 'none', 400)
+    autosave(useMapStore, storage, 'none', { delay: 400 })
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
     const input = screen.getByLabelText('Name for Context 1')

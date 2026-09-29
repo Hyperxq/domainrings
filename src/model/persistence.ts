@@ -87,8 +87,7 @@ export function autosave<M extends StoredFile>(
   store: StoreApi<{ map: M }>,
   storage: Pick<Storage, 'setItem'>,
   recovery: Recovery,
-  delay = 400,
-  onSave?: (ok: boolean) => void,
+  { delay = 400, onSave }: { delay?: number; onSave?: (ok: boolean) => void } = {},
 ): () => void {
   if (recovery === 'not-kept') return () => {}
   let timer: ReturnType<typeof setTimeout> | undefined

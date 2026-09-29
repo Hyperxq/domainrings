@@ -58,7 +58,7 @@ Start with **New** in the toolbar, or edit an example.
 - **Delete.** Select an element and press Delete or Backspace, or use the remove button on its card.
 - **Undo.** This holds for every architecture, and for every kind of edit — adding, renaming, deleting, linking (or, in Onion and Clean, depending), plus starting a new diagram, loading an example, opening or importing a file. Each one shows a short message with an **Undo** button. Ctrl+Z (Cmd+Z on a Mac) undoes the latest edit at any time, and repeating it steps back through your last 20 edits, across new, opened and example documents too; the history lives in memory, so a reload clears it. While you are typing in a field, Ctrl+Z stays with the field.
 
-Your work autosaves in this browser's `localStorage` a moment after each change, so a reload brings it back. If a save fails (storage full or disabled), a notice says so and clears itself after the next successful save. Export a `.hexa` file for anything you want to keep or share, and open it again with **Open…**.
+Your work autosaves in this browser's `localStorage` a moment after each change, so a reload brings it back. If a save fails (storage full), a notice says so and clears itself after the next successful save. When the browser blocks storage entirely, the same notice shows from the start and stays, since nothing can be saved. Export a `.hexa` file for anything you want to keep or share, and open it again with **Open…**.
 
 ## Build a honeycomb
 
