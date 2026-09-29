@@ -558,27 +558,5 @@ describe('the 18-cell refusal matrix (MIG-02, MIG-03)', () => {
   })
 })
 
-// Discrimination proof: the matrix above exercises both the pre-Zod dispatch in `parseHexa` and `checkMap`'s
-// structural refinements. Four representative mutants were applied one at a time, observed red, then reverted,
-// to confirm each guarded line is actually covered by its own cell (not just incidentally green):
-//   Group 1 (pre-Zod dispatch, hexa.ts):        `if (version > VERSION)` → `if (false && version > VERSION)`
-//                                                 broke exactly one cell: "made by a newer version" (fell through
-//                                                 to "Unknown file version \"99\"", reason flipped newer→invalid).
-//   Group 2 (Zod-validated v1/v2 body, hexa.ts): swapping `HexaFileV1Schema` for `HexaFileV2Schema` in the
-//                                                 version===1 branch left all 18 matrix cells green (the
-//                                                 "version 1 with a v2-shaped body" cell fails under either
-//                                                 schema, so it doesn't discriminate this line) — but broke 2
-//                                                 tests elsewhere in the same file ("opens a v1 file..." /
-//                                                 "...under the legacy app name"), proving the dispatch matters;
-//                                                 the matrix's own coverage of this line is redundant with those.
-//   Group 3 (checkMap structural checks):        `if (m.hexagons.length > 1 && m.kind !== 'hexagonal')` →
-//                                                 `if (false && ...)` broke exactly one cell: "more than one
-//                                                 hexagon with a non-hexagonal kind" — every other cell stayed
-//                                                 green, confirming each checkMap block guards only its own cell.
-//   Group 4 (linkEndProblem):                    `wantSide = role === 'from' ? 'driven' : 'driving'` → hard-coded
-//                                                 `'driven'` broke the base fixture itself (its own valid 'to'
-//                                                 end now fails) plus 2 matrix cells ("driving end pointing at a
-//                                                 driven port" and "link joining a hexagon to itself", whose
-//                                                 mutation reuses the port `wantSide` now misjudges) — broader
-//                                                 than a single cell because the base fixture depends on the same
-//                                                 line, which is itself proof the line is load-bearing.
+// Invariant: each guard in `parseHexa`'s pre-Zod dispatch, `checkMap`'s structural refinements and `linkEndProblem`
+// is exercised by a dedicated matrix cell, so a weakened guard fails a named case rather than passing incidentally.

@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { StrictMode } from 'react'
@@ -70,12 +70,12 @@ describe('double-click to edit', () => {
 
   it('opens the collapsed editor at the use case card, flashes it and selects its name', () => {
     const { container } = render(<App />)
-    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeInstanceOf(HTMLButtonElement)
 
     const notPrevented = fireEvent.doubleClick(onCanvas(container, useCase.id))
 
     expect(notPrevented).toBe(false)
-    expect(screen.getByRole('button', { name: 'Collapse editor' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Collapse editor' })).toBeInstanceOf(HTMLButtonElement)
     expect(scrollIntoView).toHaveBeenCalledTimes(1)
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' })
     expect(scrollIntoView.mock.contexts[0]).toBe(card(container, useCase.id))
@@ -207,8 +207,8 @@ describe('undo toast', () => {
     const row = toast()!
     expect(row.getAttribute('aria-live')).toBe('polite')
     expect(row.classList.contains('toast')).toBe(true)
-    expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeInstanceOf(HTMLButtonElement)
+    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInstanceOf(HTMLButtonElement)
 
     act(() => vi.advanceTimersByTime(5900))
     expect(toast()).not.toBeNull()
@@ -538,7 +538,7 @@ describe('linking on the canvas', () => {
   it('offers a "Link to…" chip for a selection that can link, and none for a use case', () => {
     const { container } = render(<App />)
     fireEvent.click(onCanvas(container, adapter.id))
-    expect(screen.getByRole('button', { name: `Link ${adapter.name} to…` })).toBeTruthy()
+    expect(screen.getByRole('button', { name: `Link ${adapter.name} to…` })).toBeInstanceOf(HTMLButtonElement)
     fireEvent.click(onCanvas(container, EXAMPLE_DIAGRAM.useCases[0].id))
     expect(screen.queryByRole('button', { name: /^Link .* to…$/ })).toBeNull()
   })
@@ -672,7 +672,7 @@ describe('Links: edit and delete from the Links section (REQ-LNK-02, REQ-LNK-04)
     fireEvent.change(screen.getByLabelText('Driven port adapter'), { target: { value: 'a-knex' } })
 
     expect(useMapStore.getState().map.links[0].from.adapterId).toBe('a-knex')
-    expect(toastEl()).toBeTruthy()
+    expect(toastEl()!.textContent).toMatch(/^Updated the link /)
 
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
 
@@ -689,7 +689,7 @@ describe('Links: edit and delete from the Links section (REQ-LNK-02, REQ-LNK-04)
 
     expect(useMapStore.getState().map.links).toEqual([])
     expect(container.querySelectorAll('svg.canvas [data-map-link]')).toHaveLength(0)
-    expect(toastEl()).toBeTruthy()
+    expect(toastEl()!.textContent).toMatch(/^Deleted the link /)
 
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
 
@@ -869,7 +869,7 @@ describe('boot recovery notice', () => {
     vi.useFakeTimers()
     render(<App boot={{ recovery: 'kept', unreadableText: '{x' }} />)
     act(() => vi.advanceTimersByTime(20000))
-    expect(recoveryEl()).toBeTruthy()
+    expect(recoveryEl()!.textContent).toContain(KEPT_MESSAGE)
 
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
     expect(recoveryEl()).toBeNull()
@@ -878,19 +878,19 @@ describe('boot recovery notice', () => {
 
   it('keeps the recovery notice on screen through a later status toast and starting a link (REQ-03.2)', () => {
     const { container } = render(<App boot={{ recovery: 'kept', unreadableText: '{x' }} />)
-    expect(screen.getByRole('button', { name: 'Download saved copy' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Download saved copy' })).toBeInstanceOf(HTMLButtonElement)
 
     // An ordinary status toast (here: an edit) must not replace the recovery notice.
     fireEvent.click(onCanvas(container, EXAMPLE_DIAGRAM.useCases[0].id))
     fireEvent.keyDown(document.body, { key: 'Delete' })
-    expect(screen.getByRole('button', { name: 'Download saved copy' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Download saved copy' })).toBeInstanceOf(HTMLButtonElement)
 
     // Starting a link — the other path that used to clear any non-error notice — must not clear it either.
     const adapter = EXAMPLE_DIAGRAM.adapters.find((a) => EXAMPLE_DIAGRAM.ports.find((p) => p.id === a.portId)?.side === 'driven')!
     fireEvent.click(onCanvas(container, adapter.id))
     fireEvent.keyDown(document.body, { key: 'l' })
     const recoverySection = screen.getByRole('button', { name: 'Download saved copy' }).closest('section')!
-    expect(recoverySection).toBeTruthy()
+    expect(recoverySection).toBe(recoveryEl())
 
     fireEvent.click(recoverySection.querySelector<HTMLButtonElement>('[aria-label="Dismiss"]')!)
     expect(screen.queryByRole('button', { name: 'Download saved copy' })).toBeNull()
@@ -1051,16 +1051,20 @@ describe('export scope (EXPORT-03)', () => {
     const styleTag = document.createElement('style')
     styleTag.textContent = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf-8')
     document.head.appendChild(styleTag)
+    onTestFinished(() => styleTag.remove())
     render(<App />)
     expect(document.querySelectorAll('svg.canvas [data-hull]').length).toBe(2)
 
     vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+    onTestFinished(() => void vi.unstubAllGlobals())
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    onTestFinished(() => clickSpy.mockRestore())
     let captured: Blob | undefined
     const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
       captured = blob as Blob
       return 'blob:mock'
     })
+    onTestFinished(() => createSpy.mockRestore())
     // A hull path carries both fill-rule="evenodd" (also true of a hexagon's own ring paths) AND the hull's own
     // dashed stroke — only the combination is unique to a hull once class/data-hull are stripped on export.
     const hullPathCount = (markup: string) =>
@@ -1087,11 +1091,6 @@ describe('export scope (EXPORT-03)', () => {
     expect(hexMarkup).not.toContain('>Core<')
     expect(hexMarkup).not.toContain('>Context 2<')
     expect(hullPathCount(hexMarkup)).toBe(0)
-
-    createSpy.mockRestore()
-    clickSpy.mockRestore()
-    vi.unstubAllGlobals()
-    styleTag.remove()
   })
 
   it('names a blank-titled hexagon export after the untitled hexagon, not the whole map (EXPORT-02.2)', async () => {
@@ -1227,7 +1226,7 @@ describe('grow the map (GROW-01..04, ADR-02)', () => {
     expect(useMapStore.getState().map.hexagons[1].contextId).toBe(useMapStore.getState().map.hexagons[0].contextId)
     // Both the canvas's inline naming field and the Editor's own Hexagon-title field share the "Hexagon title"
     // accessible name (the same underlying value, shown in two places at once) — scope to the canvas-only one.
-    expect(container.querySelector('main.stage .inline-name')).toBeTruthy()
+    expect(container.querySelector('main.stage .inline-name')).toBeInstanceOf(HTMLInputElement)
   })
 })
 
@@ -1324,7 +1323,7 @@ describe('renaming a bounded context (NAME-01..03)', () => {
     expect(storage.setItem).toHaveBeenCalledWith(MAP_KEY, expect.stringContaining('Billing'))
     const written = storage.setItem.mock.calls.at(-1)![1] as string
     const reopened = parseHexa(written)
-    expect(reopened.ok && reopened.map.kind === 'hexagonal' && reopened.map.contexts.find((c) => c.name === 'Billing')).toBeTruthy()
+    expect(reopened.ok && reopened.map.kind === 'hexagonal' && reopened.map.contexts.map((c) => c.name)).toContain('Billing')
     vi.useRealTimers()
   })
 })
@@ -1353,10 +1352,20 @@ describe('delete a hexagon (DEL-01..06)', () => {
     expect(useMapStore.getState().map.hexagons.map((h) => h.id)).toEqual(['h2'])
     expect(useMapStore.getState().map.links).toEqual([])
     expect(toastEl()!.textContent).toContain(`Deleted ${removedTitle} and its 1 link`)
+  })
 
-    // Sticky: still up well past the normal 6 s countdown (DEL-02).
+  it('keeps the sticky delete notice on screen well past the 6 s auto-dismiss window (DEL-02)', () => {
+    useMapStore.getState().replace(twoHexMap())
+    render(<App />)
+    openEditor()
+    fireEvent.click(deleteButton())
+
+    // Two acts: the first flushes the 6 s timer's state change, the second would run the 150 ms leave timer it schedules.
     act(() => vi.advanceTimersByTime(20000))
+    act(() => vi.advanceTimersByTime(1000))
+
     expect(toastEl()).not.toBeNull()
+    expect(toastEl()!.classList.contains('is-leaving')).toBe(false)
   })
 
   it('does not dismiss the sticky delete notice on Esc, unlike an ordinary status toast (DEL-02)', () => {
@@ -2112,7 +2121,7 @@ describe('link failures leave the map untouched, with a matching notice and a cl
     history.replaceState(null, '', '/?src=http://example.test/shared.hexa')
 
     render(<App />)
-    await vi.waitFor(() => expect(screen.getByRole('alert')).toBeTruthy())
+    await vi.waitFor(() => expect(screen.getByRole('alert').textContent).toContain('not https'))
 
     expect(fetchSpy).not.toHaveBeenCalled()
   })
@@ -2146,15 +2155,15 @@ describe('the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
     const { container } = render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
-    expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(screen.getByRole('dialog').textContent).toContain('Choose an architecture')
     fireEvent.click(screen.getByRole('button', { name: 'Hexagonal' }))
 
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(useMapStore.getState().map.kind).toBe('hexagonal')
     expect(useMapStore.getState().map.hexagons).toHaveLength(1)
     expect(useMapStore.getState().map.hexagons[0].title).toBe('Untitled architecture')
-    expect(container.querySelector('svg.canvas')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
+    expect(container.querySelector('svg.canvas')).toBeInstanceOf(SVGSVGElement)
+    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeInstanceOf(HTMLButtonElement)
   })
 
   it('New → Onion mounts its own OnionEditor/OnionStage — a bare 4-ring diagram, no Hexagonal editor/stage — and never touches the Hexagonal store', () => {
@@ -2167,7 +2176,7 @@ describe('the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(container.querySelectorAll('svg.canvas .ring')).toHaveLength(4)
     // OnionEditor has its own "Expand editor" toggle — what must be absent is anything Hexagonal-only.
-    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeInstanceOf(HTMLButtonElement)
     expect(screen.queryByRole('button', { name: 'Add a driving port' })).toBeNull()
     expect(container.querySelector('[data-hex]')).toBeNull()
     expect(useOnionStore.getState().map.kind).toBe('onion')
@@ -2188,7 +2197,7 @@ describe('the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(container.querySelectorAll('svg.canvas .ring')).toHaveLength(4)
     // CleanEditor has its own "Expand editor" toggle — what must be absent is anything Hexagonal-only.
-    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeInstanceOf(HTMLButtonElement)
     expect(screen.queryByRole('button', { name: 'Add a driving port' })).toBeNull()
     expect(container.querySelector('[data-hex]')).toBeNull()
     expect(useCleanStore.getState().map.kind).toBe('clean')
@@ -2208,7 +2217,7 @@ describe('the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
     fireEvent.keyDown(dialog, { key: 'Escape' })
 
     expect(screen.queryByRole('dialog')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeInstanceOf(HTMLButtonElement)
   })
 
   it('opening a legacy v2 file whose stored kind is onion renders Hexagonal, ports and adapters intact (REQ-06)', async () => {
@@ -2222,7 +2231,7 @@ describe('the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
 
     expect(useMapStore.getState().map.kind).toBe('hexagonal')
     expect(useMapStore.getState().map.hexagons[0].ports.length).toBeGreaterThan(0)
-    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeInstanceOf(HTMLButtonElement)
   })
 })
 
@@ -2617,7 +2626,7 @@ describe('swap undo across kinds (REQ-09)', () => {
 
     expect(useOnionStore.getState().map).toBe(onionBefore)
     fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
-    expect(screen.getByRole('button', { name: 'Add element to Domain Model' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Add element to Domain Model' })).toBeInstanceOf(HTMLButtonElement)
   })
 
   it('from a Clean document, loading an Example then Undo restores the Clean document', () => {
@@ -2634,7 +2643,7 @@ describe('swap undo across kinds (REQ-09)', () => {
 
     expect(useCleanStore.getState().map).toBe(cleanBefore)
     fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
-    expect(within(container.querySelector('aside.editor')!).getByRole('button', { name: 'Add sector to Entities' })).toBeTruthy()
+    expect(within(container.querySelector('aside.editor')!).getByRole('button', { name: 'Add sector to Entities' })).toBeInstanceOf(HTMLButtonElement)
   })
 
   it('Hexagonal → Onion via New, then Undo restores the Hexagonal map and its view', () => {

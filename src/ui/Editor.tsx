@@ -130,25 +130,25 @@ export function Fold({ id, title, count, actions, children }: FoldProps) {
 interface HintedButtonProps {
   enabled: boolean
   hintId: string
-  hint: string
   onClick: () => void
   children: ReactNode
 }
 
-/** A text button that's disabled-but-focusable when `enabled` is false, styled dim and paired with a visible hint
- * explaining why — `aria-describedby` also announces it, so a screen reader user hears the same reason. */
-function HintedButton({ enabled, hintId, hint, onClick, children }: HintedButtonProps) {
+/** A text button that's disabled-but-focusable when `enabled` is false, styled dim; `aria-describedby` points at the
+ * visible hint the caller renders (see `Hint`) so a screen reader user hears the same reason. */
+function HintedButton({ enabled, hintId, onClick, children }: HintedButtonProps) {
   return (
-    <>
-      <button type="button" className="text-button" aria-disabled={enabled ? undefined : true} aria-describedby={enabled ? undefined : hintId} onClick={() => enabled && onClick()}>
-        {children}
-      </button>
-      {!enabled && (
-        <p id={hintId} className="hint">
-          {hint}
-        </p>
-      )}
-    </>
+    <button type="button" className="text-button" aria-disabled={enabled ? undefined : true} aria-describedby={enabled ? undefined : hintId} onClick={() => enabled && onClick()}>
+      {children}
+    </button>
+  )
+}
+
+function Hint({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <p id={id} className="hint">
+      {children}
+    </p>
   )
 }
 
@@ -491,12 +491,16 @@ export function Editor({
               onChange={(e) => setMeta(hexId, { composition: e.target.value ? { ...d.composition, name: e.target.value } : undefined })}
             />
           </label>
-          <HintedButton enabled={canGrow} hintId="no-free-side-hint" hint={NO_FREE_SIDE_HINT} onClick={onAddHexagon}>
-            Add hexagon
-          </HintedButton>
-          <HintedButton enabled={canDelete} hintId="last-hexagon-hint" hint={LAST_HEXAGON_HINT} onClick={onDeleteHexagon}>
-            Delete hexagon
-          </HintedButton>
+          <div className="button-pair">
+            <HintedButton enabled={canGrow} hintId="no-free-side-hint" onClick={onAddHexagon}>
+              Add hexagon
+            </HintedButton>
+            <HintedButton enabled={canDelete} hintId="last-hexagon-hint" onClick={onDeleteHexagon}>
+              Delete hexagon
+            </HintedButton>
+          </div>
+          {!canGrow && <Hint id="no-free-side-hint">{NO_FREE_SIDE_HINT}</Hint>}
+          {!canDelete && <Hint id="last-hexagon-hint">{LAST_HEXAGON_HINT}</Hint>}
         </Fold>
 
         <Fold id="layers" title="Layers" count={HEXAGONAL_KIND.rings.length}>

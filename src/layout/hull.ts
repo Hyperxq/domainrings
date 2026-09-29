@@ -32,7 +32,11 @@ const cellKey = (cell: Cell) => `${cell.q},${cell.r}`
 export function contextRegions(hexagons: readonly { cell: Cell; contextId: string }[], pitch: Point): Map<string, Point[][]> {
   const contextByCell = new Map(hexagons.map((h) => [cellKey(h.cell), h.contextId]))
   const byContext = new Map<string, Cell[]>()
-  for (const h of hexagons) byContext.set(h.contextId, [...(byContext.get(h.contextId) ?? []), h.cell])
+  for (const h of hexagons) {
+    const cells = byContext.get(h.contextId)
+    if (cells) cells.push(h.cell)
+    else byContext.set(h.contextId, [h.cell])
+  }
 
   const pointOf = (key: string): Point => {
     const [x, y] = key.split(',').map(Number)

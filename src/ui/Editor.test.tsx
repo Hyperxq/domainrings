@@ -153,6 +153,18 @@ describe('"Add hexagon" button in the Hexagon section (GROW-04)', () => {
     fireEvent.click(button)
     expect(onAddHexagon).not.toHaveBeenCalled()
   })
+
+  it('keeps Add and Delete hexagon adjacent while the Add hint is showing', () => {
+    const base = toMap(EXAMPLE_DIAGRAM)
+    const centre = base.hexagons[0]
+    const ring = SIDE_ORDER.map((s, i) => ({ ...centre, id: `ring${i}`, cell: neighbour(centre.cell, s) }))
+    useMapStore.getState().replace({ ...base, hexagons: [centre, ...ring] })
+    const { container } = renderEditor()
+    const hexagon = within(section(container, 'Hexagon'))
+
+    const add = hexagon.getByRole('button', { name: 'Add hexagon' })
+    expect(add.nextElementSibling).toBe(hexagon.getByRole('button', { name: 'Delete hexagon' }))
+  })
 })
 
 describe('"Delete hexagon" button in the Hexagon section (DEL-01)', () => {
