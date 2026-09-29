@@ -261,6 +261,27 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
     expect(useMapStore.getState().map.contexts.find((c) => c.id === contextId)?.name).toBe('Billing')
   })
 
+  it('reports a rename to the placeholder text of an unnamed context, and the pre-edit map has no stored name', () => {
+    const onRenameContext = vi.fn()
+    const contextId = useMapStore.getState().map.contexts[0].id
+    useMapStore.getState().replace({
+      ...useMapStore.getState().map,
+      contexts: useMapStore.getState().map.contexts.map((c) => (c.id === contextId ? { id: c.id } : c)),
+    })
+    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', onRenameContext)
+    const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1')
+
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Context 1' } })
+    fireEvent.blur(input)
+
+    expect(onRenameContext).toHaveBeenCalledOnce()
+    const [before, renamedId] = onRenameContext.mock.calls[0]
+    expect(renamedId).toBe(contextId)
+    expect(before.contexts.find((c: { id: string }) => c.id === contextId)).toEqual({ id: contextId })
+    expect(useMapStore.getState().map.contexts.find((c) => c.id === contextId)?.name).toBe('Context 1')
+  })
+
   it('does not report a blur that never changed the name', () => {
     const onRenameContext = vi.fn()
     const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', onRenameContext)
