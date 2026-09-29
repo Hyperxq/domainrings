@@ -421,6 +421,11 @@ describe('layoutMap — contexts (CB-01.1, ADR-04, SEAM-04)', () => {
     expect(result.contexts).toEqual([])
   })
 
+  it('draws no context for a lone occupied context beside a declared, hexagon-less one', () => {
+    const map: HexaMap = { ...oneContextMap(), contexts: [{ id: 'c1' }, { id: 'c2' }], hexagons: [oneContextMap().hexagons[0]] }
+    expect(layoutMap(map).contexts).toEqual([])
+  })
+
   it('exposes one entry per context, with its display label, from two contexts up', () => {
     const result = layoutMap(twoContextMap())
     expect(result.contexts.map((c) => c.id)).toEqual(['c1', 'c2'])

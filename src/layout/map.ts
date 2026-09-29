@@ -226,10 +226,10 @@ export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout 
     bounds = { x: bounds.x, y: bounds.y - MAP_TITLE_GAP - MAP_TITLE_SIZE, width: bounds.width, height: bounds.height + MAP_TITLE_GAP + MAP_TITLE_SIZE }
   }
 
-  // Outlined regions + chips only from two contexts up (CB-01.1) — a single-context map draws and exports exactly
-  // as a single hexagon always did (CB-01.4).
+  // Outlined regions + chips only from two occupied contexts up (CB-01.1) — a single-context map draws and exports
+  // exactly as a single hexagon always did (CB-01.4). A declared context owning no hexagon doesn't count.
   const contexts: MapContextLayout[] = []
-  if (map.contexts.length >= 2) {
+  if (new Set(map.hexagons.map((h) => h.contextId)).size >= 2) {
     const regions = contextRegions(hexagons, pitch)
     for (const context of map.contexts) {
       const loops = regions.get(context.id) ?? []
