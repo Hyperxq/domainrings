@@ -17,7 +17,7 @@ import {
   type Wall,
 } from '../model/schema'
 import { parentCandidates } from '../model/links'
-import { contextName, contextOrdinal, crossHexagonPorts, diagramOf, freeSides, linkEndLabel, UNTITLED_HEXAGON, type Destination, type LinkPatch, type PortRef } from '../model/map'
+import { contextOrdinal, crossHexagonPorts, diagramOf, freeSides, linkEndLabel, UNTITLED_HEXAGON, type Destination, type LinkPatch, type PortRef } from '../model/map'
 import { useMapStore, type Item } from '../model/store'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
@@ -457,7 +457,9 @@ export function Editor({
                       if (trimmed !== (ctx.name ?? '')) setContextName(ctx.id, trimmed)
                       const before = contextRenameBefore.current.get(ctx.id)
                       contextRenameBefore.current.delete(ctx.id)
-                      if (before && contextName(before, ctx.id) !== contextName(useMapStore.getState().map, ctx.id)) onRenameContext(before, ctx.id)
+                      // Stored names, not display labels: typing the placeholder's own text changes the data but not the label.
+                      const storedName = (m: HexaMap) => m.contexts.find((c) => c.id === ctx.id)?.name || ''
+                      if (before && storedName(before) !== storedName(useMapStore.getState().map)) onRenameContext(before, ctx.id)
                     }}
                   />
                 </li>
