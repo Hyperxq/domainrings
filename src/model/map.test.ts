@@ -280,6 +280,13 @@ describe('contextName (ADR-03)', () => {
     expect(contextName(map, 'imported-ctx')).toBe('Context 1')
   })
 
+  it('never gives two contexts the same placeholder when a foreign id shares a slot with a c<n> id', () => {
+    const map = { contexts: [{ id: 'c1' }, { id: 'core' }, { id: 'c2' }, { id: 'edge' }] }
+    const names = map.contexts.map((c) => contextName(map, c.id))
+    expect(new Set(names).size).toBe(names.length)
+    expect(names).toEqual(['Context 1', 'Context 3', 'Context 2', 'Context 4'])
+  })
+
   it('stays fixed once assigned, even after an earlier context is deleted (CB-03.2)', () => {
     const full = { contexts: [{ id: 'c1' }, { id: 'c2' }, { id: 'c3' }] }
     const afterDeletingC1 = { contexts: [{ id: 'c2' }, { id: 'c3' }] }
