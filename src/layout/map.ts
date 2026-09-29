@@ -287,7 +287,7 @@ export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout 
   if (map.hexagons.length > 1) {
     const size = (TITLE.size * (contexts[0]?.size ?? CHIP_LABEL.size)) / CHIP_LABEL.size
     title = { key: 'map-title', text: map.title, x: bounds.x, y: bounds.y - MAP_TITLE_GAP, style: 'title', size }
-    bounds = { x: bounds.x, y: bounds.y - MAP_TITLE_GAP - size, width: bounds.width, height: bounds.height + MAP_TITLE_GAP + size }
+    bounds = unionBox([bounds, { x: title.x, y: title.y - size, width: measure(title.text, { ...TITLE, size }), height: size }])
   }
 
   return { hexagons, links, bounds, title, pitch, contexts }

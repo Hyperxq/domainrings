@@ -687,3 +687,11 @@ describe('layoutMap — the map title scales with the chips', () => {
   })
 })
 
+
+describe('layoutMap — the map title width is part of the bounds', () => {
+  it('grows the bounds to hold a long title on a narrow multi-context map', () => {
+    const narrow = { ...contextMap([['c1', 0, 0], ['c2', 1, 0]], ['c1', 'c2']), title: 'T'.repeat(300) }
+    const { title, bounds } = layoutMap(narrow)
+    expect(bounds.x + bounds.width).toBeGreaterThanOrEqual(title!.x + 300 * title!.size! * 0.58)
+  })
+})
