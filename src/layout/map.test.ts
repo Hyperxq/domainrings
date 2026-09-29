@@ -1,5 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { cellCentre, growAnchor, hexagonBounds, layoutMap, MAP_GAP } from './map'
+import { pointInRegion } from './hull'
 import { outwardEdgePoint, routeLink } from './links'
 import { layoutDiagram, type Box, type LayoutMode, type LayoutOptions } from './layout'
 import { toMap } from '../model/hexa'
@@ -610,3 +611,100 @@ describe('growAnchor', () => {
     expect(east.x).toBeLessThanOrEqual(hex.centre.x + layout.pitch.x)
   })
 })
+
+const hex = (id: string, contextId: string, q: number, r: number): Hexagon => ({ id, contextId, cell: { q, r }, title: id, domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] })
+const contextMap = (cells: Array<[string, number, number]>, contexts = ['c1', 'c2', 'c3']): HexaMap => ({
+  version: VERSION,
+  kind: 'hexagonal',
+  title: 'Multi context',
+  contexts: contexts.map((id) => ({ id })),
+  hexagons: cells.map(([contextId, q, r], i) => hex(`h${i + 1}`, contextId, q, r)),
+  links: [],
+})
+/** Three contexts over five hexagons, packed so one context's tiles sit right above another's. */
+const HONEYCOMB = contextMap([['c1', 0, 0], ['c1', 1, 0], ['c2', 0, 1], ['c3', 1, 1], ['c3', -1, 2]])
+
+describe('layoutMap — the map title clears every context region and chip', () => {
+  it('sits above every hull vertex and every chip on a multi-context map', () => {
+    const { title, contexts } = layoutMap(HONEYCOMB)
+    const topOfContent = Math.min(...contexts.flatMap((c) => [c.chip.y, ...c.loops.flat().map((p) => p.y)]))
+    expect(title!.y).toBeLessThan(topOfContent)
+  })
+
+  it('keeps the title inside the map bounds', () => {
+    const { title, bounds } = layoutMap(HONEYCOMB)
+    expect(title!.y).toBeGreaterThan(bounds.y)
+  })
+})
+
+describe('layoutMap — a chip anchor is never inside a context region (pointInRegion)', () => {
+  it.each([
+    ['a packed honeycomb', HONEYCOMB],
+    ['a stacked column', contextMap([['c1', 0, 0], ['c2', 0, 1], ['c3', 0, 2]])],
+    ['a context ringing another', contextMap([['c1', 0, 0], ['c1', 1, 0], ['c1', -1, 1], ['c1', 0, 1], ['c1', 1, -1], ['c1', -1, 0], ['c2', 0, 2], ['c3', 2, 0]], ['c1', 'c2', 'c3'])],
+  ])('%s', (_name, map) => {
+    const { contexts } = layoutMap(map)
+    for (const c of contexts) {
+      for (const other of contexts) expect(pointInRegion(c.chip, other.loops), `${c.id} chip inside ${other.id}`).toBe(false)
+    }
+  })
+})
+
+describe('layoutMap — context chips stay readable when the whole map is fitted', () => {
+  // The stage area a default-inset 1440x900 window leaves once the editor and toolbar islands are reserved.
+  const fitScale = (b: Box) => Math.min(1100 / b.width, 820 / b.height)
+
+  it('sizes each chip so it renders at about 10px on screen at the fit scale', () => {
+    const { contexts, bounds } = layoutMap(HONEYCOMB)
+    for (const c of contexts) expect(c.size * fitScale(bounds)).toBeGreaterThanOrEqual(9.5)
+  })
+
+  it('never renders a chip smaller than the base label size, however small the map', () => {
+    const tiny = layoutMap(contextMap([['c1', 0, 0], ['c2', 1, 0]], ['c1', 'c2']))
+    for (const c of tiny.contexts) expect(c.size).toBeGreaterThanOrEqual(12)
+  })
+
+  it('grows the bounds by the enlarged chips so none is clipped', () => {
+    const { contexts, bounds } = layoutMap(HONEYCOMB)
+    for (const c of contexts) expect(c.chip.y - c.size).toBeGreaterThanOrEqual(bounds.y)
+  })
+})
+
+describe('layoutMap — the map title scales with the chips', () => {
+  it('keeps its 2x ratio over the chips, so it is never smaller than a chip', () => {
+    const { title, contexts } = layoutMap(HONEYCOMB)
+    expect(contexts[0].size).toBeGreaterThan(12)
+    expect(title!.size).toBe(contexts[0].size * 2)
+  })
+
+  it('reserves room above its baseline for the scaled size', () => {
+    const { title, bounds } = layoutMap(HONEYCOMB)
+    expect(title!.y - title!.size!).toBeGreaterThanOrEqual(bounds.y)
+  })
+
+  it('keeps the base size when there are no contexts', () => {
+    expect(layoutMap(contextMap([['c1', 0, 0], ['c1', 1, 0]], ['c1'])).title!.size).toBe(24)
+  })
+})
+
+
+describe('layoutMap — the map title width is part of the bounds', () => {
+  it('grows the bounds to hold a long title on a narrow multi-context map', () => {
+    const narrow = { ...contextMap([['c1', 0, 0], ['c2', 1, 0]], ['c1', 'c2']), title: 'T'.repeat(300) }
+    const { title, bounds } = layoutMap(narrow)
+    expect(bounds.x + bounds.width).toBeGreaterThanOrEqual(title!.x + 300 * title!.size! * 0.58)
+  })
+})
+
+describe('layoutMap — the chip edge fallback', () => {
+  it('lands in clear space when every spot above the region is taken by another region', () => {
+    const { contexts } = layoutMap(HONEYCOMB)
+    const c2 = contexts.find((c) => c.id === 'c2')!
+    for (const v of c2.loops.flat()) {
+      const spot = { x: v.x, y: v.y - 12 }
+      expect(contexts.some((c) => pointInRegion(spot, c.loops)), 'fixture must force the fallback').toBe(true)
+    }
+    for (const c of contexts) expect(pointInRegion(c2.chip, c.loops)).toBe(false)
+  })
+})
+

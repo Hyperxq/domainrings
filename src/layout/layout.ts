@@ -91,6 +91,8 @@ export interface LayoutText {
   x: number
   y: number
   style: 'title' | 'subtitle'
+  /** Font size override; the style's own size when absent. */
+  size?: number
 }
 
 /** Overview drops everything but names, the rings, notched sockets and the horizontal flow. */

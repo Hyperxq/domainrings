@@ -317,6 +317,13 @@ describe('MapDiagram — context hulls and chips (CB-01, CB-02, CB-05)', () => {
       expect(chip.textContent).toBe(context.label)
     }
   })
+
+  it('draws each chip at the size its layout chose', () => {
+    const { container, model } = renderSvg(threeHexTwoContextMap())
+    for (const context of model.contexts) {
+      expect(container.querySelector(`[data-chip="${context.id}"]`)!.getAttribute('font-size')).toBe(String(context.size))
+    }
+  })
 })
 
 // A ring's own title always centres at the top (-π/2) — `ringedArcPath`'s M→A direction has always read correctly
