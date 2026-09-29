@@ -22,7 +22,7 @@ vi.mock('./layout/clean', async (importOriginal) => {
 import { newCleanMap, newOnionMap, parseHexa, toHexa, toMap } from './model/hexa'
 import { diagramOf, UNTITLED_HEXAGON } from './model/map'
 import { autosave, MAP_KEY } from './model/persistence'
-import { VERSION, type HexaMap } from './model/schema'
+import { VERSION, type CleanFile, type HexaMap, type OnionFile } from './model/schema'
 import { useMapStore } from './model/store'
 import { useOnionStore } from './model/onionStore'
 import { useCleanStore } from './model/cleanStore'
@@ -2571,6 +2571,41 @@ describe('Clean undo (REQ-09)', () => {
     expect(useCleanStore.getState().map.elements.map((e) => e.id)).toEqual([elementId])
   })
 
+  it('removing an element shows an undo toast, and Undo restores it', () => {
+    const editor = openClean()
+    fireEvent.click(editor.getByRole('button', { name: 'Add sector to Entities' }))
+    fireEvent.click(editor.getByRole('button', { name: 'Add element to NewSector' }))
+    const before = useCleanStore.getState().map
+
+    fireEvent.click(editor.getByRole('button', { name: 'Remove element NewElement' }))
+
+    expect(useCleanStore.getState().map.elements).toEqual([])
+    expect(toastEl()!.textContent).toContain('Deleted NewElement.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useCleanStore.getState().map).toStrictEqual(before)
+  })
+
+  it.each([
+    { label: 'element name', was: 'NewElement', now: 'Order', pick: (map: CleanFile) => map.elements[0].name },
+    { label: 'sector name', was: 'NewSector', now: 'Billing', pick: (map: CleanFile) => map.sectors[0].name },
+  ])('renaming a $label shows an undo toast naming both names, and Undo restores the prior name', ({ label, was, now, pick }) => {
+    const editor = openClean()
+    fireEvent.click(editor.getByRole('button', { name: 'Add sector to Entities' }))
+    fireEvent.click(editor.getByRole('button', { name: 'Add element to NewSector' }))
+    const before = useCleanStore.getState().map
+    const field = editor.getByLabelText(label)
+    fireEvent.focus(field)
+    fireEvent.change(field, { target: { value: now } })
+    fireEvent.blur(field)
+
+    expect(pick(useCleanStore.getState().map)).toBe(now)
+    expect(toastEl()!.textContent).toContain(`Renamed ${was} to ${now}.`)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useCleanStore.getState().map).toStrictEqual(before)
+  })
+
   it('the canvas Depend-on gesture shows an undo toast, and Undo restores the prior document', () => {
     const editor = openClean()
     fireEvent.click(editor.getByRole('button', { name: 'Add sector to Entities' }))
@@ -2608,6 +2643,80 @@ describe('Clean undo (REQ-09)', () => {
   })
 })
 
+// The actions the two kinds share through RingedSections. Each seeds a document that already holds the sample's
+// dependency, actor and external (Onion's sample has no external, so one is added), then checks Undo returns the
+// exact document from before the edit.
+// Fixtures on an older version only validate after parseHexa upgrades them to the current one, which the
+// stores' validate-by-reparse edits (add dependency/endpoint) require.
+const sample = <T extends OnionFile | CleanFile>(raw: string) => {
+  const parsed = parseHexa(raw)
+  if (!parsed.ok) throw new Error(parsed.errors.join('; '))
+  return parsed.map as T
+}
+
+type EndpointPatch = Pick<Partial<OnionFile>, 'actors' | 'externals'>
+
+describe.each([
+  {
+    kind: 'Onion',
+    doc: () => useOnionStore.getState().map,
+    seed: (patch: EndpointPatch) => act(() => useOnionStore.getState().replace({ ...(sample<OnionFile>(v3OnionExample)), externals: [{ id: 'ext-pay', name: 'Payment gateway', targetId: 'el-controller' }], ...patch })),
+  },
+  {
+    kind: 'Clean',
+    doc: () => useCleanStore.getState().map,
+    seed: (patch: EndpointPatch) => act(() => useCleanStore.getState().replace({ ...(sample<CleanFile>(v4CleanExample)), ...patch })),
+  },
+])('$kind undo of dependency and endpoint edits (REQ-09)', ({ kind, doc, seed }) => {
+  const open = (patch: EndpointPatch = {}) => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: kind }))
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    seed(patch)
+    return doc()
+  }
+  const undoRestores = (before: unknown) => {
+    expect(doc()).not.toStrictEqual(before)
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(doc()).toStrictEqual(before)
+  }
+
+  it('removing a dependency shows an undo toast, and Undo restores it', () => {
+    const before = open()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete dependency OrderController to Order' }))
+
+    expect(doc().dependencies).toEqual([])
+    expect(toastEl()!.textContent).toContain('Deleted the dependency OrderController → Order.')
+    undoRestores(before)
+  })
+
+  it.each([
+    { noun: 'actor', collection: 'actors', field: 0, name: 'New actor' },
+    { noun: 'external system', collection: 'externals', field: 1, name: 'New system' },
+  ] as const)('adding an $noun shows an undo toast, and Undo removes it', ({ noun, collection, field, name }) => {
+    const before = open({ actors: [], externals: [] })
+    fireEvent.change(screen.getAllByLabelText('Target (outer ring)')[field], { target: { value: 'el-controller' } })
+    fireEvent.click(screen.getByRole('button', { name: `Add ${noun}` }))
+
+    expect(doc()[collection].map((e) => e.name)).toEqual([name])
+    expect(toastEl()!.textContent).toContain(`Added ${name} for OrderController.`)
+    undoRestores(before)
+  })
+
+  it.each([
+    { noun: 'actor', collection: 'actors', name: 'Web shop' },
+    { noun: 'external system', collection: 'externals', name: 'Payment gateway' },
+  ] as const)('removing an $noun shows an undo toast, and Undo restores it', ({ noun, collection, name }) => {
+    const before = open()
+    fireEvent.click(screen.getByRole('button', { name: `Remove ${noun} ${name}` }))
+
+    expect(doc()[collection]).toEqual([])
+    expect(toastEl()!.textContent).toContain(`Removed ${name}.`)
+    undoRestores(before)
+  })
+})
+
 // REQ-09: swap() (New, Open, an Example, a share link) offers Undo whatever kind is active before and after —
 // Undo restores the replaced document into its own store and brings back its view (activeKind), not just when
 // staying within the kind already on screen.
@@ -2638,6 +2747,54 @@ describe('swap undo across kinds (REQ-09)', () => {
     const option = screen.getByRole('option', { name: 'Chat feedback slice' }) as HTMLOptionElement
     fireEvent.change(screen.getByLabelText('Load an example'), { target: { value: option.value } })
     expect(useMapStore.getState().map).toStrictEqual(EXAMPLES.find((x) => x.id === 'hexagonal-basic')!.map)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useCleanStore.getState().map).toBe(cleanBefore)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    expect(within(container.querySelector('aside.editor')!).getByRole('button', { name: 'Add sector to Entities' })).toBeInstanceOf(HTMLButtonElement)
+  })
+
+  it('Hexagonal → Clean via New, then Undo restores the Hexagonal map and its view', () => {
+    const { container } = render(<App />)
+    const hexBefore = useMapStore.getState().map
+
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
+    expect(useCleanStore.getState().map.kind).toBe('clean')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useMapStore.getState().map).toBe(hexBefore)
+    expect(container.querySelector('[data-hex]')).not.toBeNull()
+  })
+
+  it('Onion → Clean via New, then Undo restores the Onion document and its view', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
+    const onionBefore = useOnionStore.getState().map
+
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
+    expect(useCleanStore.getState().map.kind).toBe('clean')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useOnionStore.getState().map).toBe(onionBefore)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    expect(screen.getByRole('button', { name: 'Add element to Domain Model' })).toBeInstanceOf(HTMLButtonElement)
+  })
+
+  it('Clean → Onion via New, then Undo restores the Clean document and its view', () => {
+    const { container } = render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
+    const cleanBefore = useCleanStore.getState().map
+
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
+    expect(useOnionStore.getState().map.kind).toBe('onion')
 
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
 
