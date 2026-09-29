@@ -85,7 +85,8 @@ export function placeHexagon(map: HexaMap, view: Diagram, at: { cell: Cell; cont
  * holds none — that context. A foreign context that already had none of its own is left alone (ADR-03 E2: the
  * freed hexagon/context ids may be reused by the next `nextId` call). */
 export function removeHexagon(map: HexaMap, hexId: string): { map: HexaMap; pruned: Link[] } {
-  const removed = map.hexagons.find((h) => h.id === hexId)!
+  const removed = map.hexagons.find((h) => h.id === hexId)
+  if (!removed) return { map, pruned: [] }
   const hexagons = map.hexagons.filter((h) => h.id !== hexId)
   const pruned = map.links.filter((l) => l.from.hexagonId === hexId || l.to.hexagonId === hexId)
   const links = map.links.filter((l) => l.from.hexagonId !== hexId && l.to.hexagonId !== hexId)

@@ -344,6 +344,11 @@ describe('removeHexagon (ADR-02, ADR-03 E2)', () => {
     expect(next.hexagons[0]).toBe(map.hexagons[0])
   })
 
+  it('is a no-op for an unknown hexagon id', () => {
+    const map = twoContextMap()
+    expect(removeHexagon(map, 'nope')).toStrictEqual({ map, pruned: [] })
+  })
+
   it('drops the removed hexagon’s own context once it holds no other hexagon (DEL-03.1)', () => {
     const map = twoContextMap()
     const { map: next } = removeHexagon(map, 'h2')

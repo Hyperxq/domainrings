@@ -123,8 +123,9 @@ export const useMapStore = create<MapState>()((set, get) => {
       const map = get().map
       const source = map.hexagons.find((h) => h.id === from)
       if (!source) return undefined
-      const growSide = side ?? freeSides(map, source.cell)[0]
-      if (growSide === undefined) return undefined
+      const free = freeSides(map, source.cell)
+      const growSide = side ?? free[0]
+      if (growSide === undefined || !free.includes(growSide)) return undefined
       const view: Diagram = { version: 1, kind: 'hexagonal', title: UNTITLED_HEXAGON, domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }
       return placeAndFocus(map, view, neighbour(source.cell, growSide), context === 'same' ? source.contextId : undefined)
     },

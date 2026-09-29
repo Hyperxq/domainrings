@@ -195,6 +195,14 @@ describe('map store', () => {
       expect(state().revision).toBe(revisionBefore)
     })
 
+    it('is a no-op when the explicit side is already occupied', () => {
+      state().addHexagon(state().focus, { side: 'e', context: 'same' })
+      state().setFocus(state().map.hexagons[0].id)
+      const before = state().map
+      expect(state().addHexagon(state().focus, { side: 'e', context: 'same' })).toBeUndefined()
+      expect(state().map).toBe(before)
+    })
+
     it('grows into a new context appended in the same transition when context is "new"', () => {
       const before = state()
       const hexId = state().addHexagon(before.focus, { side: 'w', context: 'new' })
