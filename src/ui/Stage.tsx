@@ -300,8 +300,13 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
           if (panned.current) return
           const target = e.target as Element
           // The map link, and every context hull/chip, are inert by handler, not by pointer-events:none (ADR-05):
-          // none of them must ever select, focus-switch or reveal.
-          if (target.closest('[data-map-link], [data-hull], [data-chip]')) return
+          // none of them must ever select, focus-switch or reveal. A hull/chip still counts as empty canvas for
+          // dismissal, since hulls cover the gaps between hexagons.
+          if (target.closest('[data-map-link]')) return
+          if (target.closest('[data-hull], [data-chip]')) {
+            setSelected(null)
+            return onLinking(null)
+          }
           if (e.detail === 1) gestureAnchorHexId.current = hexId
           const clickedHexId = target.closest('[data-hex]')?.getAttribute('data-hex') ?? null
           const ref = target.closest('.node')?.getAttribute('data-ref') ?? null
