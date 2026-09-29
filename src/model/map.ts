@@ -66,10 +66,20 @@ export function contextOrdinal(map: Pick<HexaMap, 'contexts'>, contextId: string
   for (const c of map.contexts) {
     if (/^c\d+$/.test(c.id)) continue
     while (taken.has(++ordinal));
+    if (c.id === contextId) return `Context ${ordinal}`
     taken.add(ordinal)
-    if (c.id === contextId) break
   }
-  return `Context ${ordinal}`
+  return 'Context 0'
+}
+
+/** A new `c<n>` id whose placeholder no existing context already shows, so adding a context never renumbers a
+ * foreign one (CB-03.2). */
+function nextContextId(map: Pick<HexaMap, 'contexts'>): string {
+  const shown = new Set(map.contexts.map((c) => contextOrdinal(map, c.id)))
+  const ids = map.contexts.map((c) => c.id)
+  let id = nextId(ids, 'c')
+  while (shown.has(`Context ${id.slice(1)}`)) id = nextId([...ids, id], 'c')
+  return id
 }
 
 /** The contexts that own at least one hexagon — a declared, empty context (schema allows it) is not shown or drawn. */
@@ -89,7 +99,7 @@ export function contextName(map: Pick<HexaMap, 'contexts'>, contextId: string): 
 export function placeHexagon(map: HexaMap, view: Diagram, at: { cell: Cell; contextId?: string }): { map: HexaMap; hexId: string } {
   const hexId = nextId(map.hexagons.map((h) => h.id), 'h')
   const { version: _version, kind: _kind, ...fields } = view
-  const contexts = at.contextId !== undefined ? map.contexts : [...map.contexts, { id: nextId(map.contexts.map((c) => c.id), 'c') }]
+  const contexts = at.contextId !== undefined ? map.contexts : [...map.contexts, { id: nextContextId(map) }]
   const contextId = at.contextId ?? contexts[contexts.length - 1].id
   const hexagon: Hexagon = { id: hexId, contextId, cell: at.cell, ...fields }
   return { map: { ...map, kind: 'hexagonal', contexts, hexagons: [...map.hexagons, hexagon] }, hexId }
