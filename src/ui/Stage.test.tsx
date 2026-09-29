@@ -945,9 +945,13 @@ describe('Stage — hull and chip are inert (CB-05, ADR-05 extended to context o
     expect(useMapStore.getState().map).toBe(beforeMap)
   })
 
-  it('does not change an existing selection when a hull is clicked', () => {
+  const twoContextMap = () => {
     const base = twoHexMap()
     useMapStore.getState().replace({ ...base, contexts: [base.contexts[0], { id: 'c2' }], hexagons: [base.hexagons[0], { ...base.hexagons[1], contextId: 'c2' }] })
+  }
+
+  it('clears the selection when a hull is clicked', () => {
+    twoContextMap()
     const { container } = render(<Harness />)
     const node = hexGroup(container, 'h1').querySelector<HTMLElement>('.node[data-ref]')!
     fireEvent.click(node)
@@ -955,7 +959,19 @@ describe('Stage — hull and chip are inert (CB-05, ADR-05 extended to context o
 
     fireEvent.click(container.querySelector('[data-hull]')!)
 
-    expect(node.hasAttribute('data-selected')).toBe(true)
+    expect(node.hasAttribute('data-selected')).toBe(false)
+  })
+
+  it('cancels link mode when a hull is clicked', () => {
+    twoContextMap()
+    const { container } = render(<Harness />)
+    fireEvent.click(hexGroup(container, 'h1').querySelector('[data-ref="p-repo"]')!)
+    fireEvent.keyDown(document.body, { key: 'l' })
+    expect(svg(container).hasAttribute('data-link-mode')).toBe(true)
+
+    fireEvent.click(container.querySelector('[data-hull]')!)
+
+    expect(svg(container).hasAttribute('data-link-mode')).toBe(false)
   })
 })
 
