@@ -1,5 +1,7 @@
 import { validated } from './validated'
 
+export const UNTITLED = 'Untitled architecture'
+
 type WithId = { id: string }
 type EndpointCollection = 'actors' | 'externals'
 

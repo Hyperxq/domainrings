@@ -1965,6 +1965,37 @@ describe('save the current map as a .hexa file, per kind (mirrors "copy link"\'s
     expect(result.ok && result.map).toEqual(useOnionStore.getState().map)
   })
 
+  it.each(['Onion', 'Clean'])('renames the active %s document: saved title and file name follow it, and Undo restores the previous name', async (kind) => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: kind }))
+
+    const field = screen.getByLabelText('Diagram title')
+    fireEvent.focus(field)
+    fireEvent.change(field, { target: { value: 'Payments Core' } })
+    fireEvent.blur(field)
+
+    const downloads: string[] = []
+    let captured: Blob | undefined
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      downloads.push(this.download)
+    })
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save as .hexa file' }))
+    const text = await captured!.text()
+    createSpy.mockRestore()
+    clickSpy.mockRestore()
+    const saved = parseHexa(text)
+    expect(saved.ok && saved.map.title).toBe('Payments Core')
+    expect(downloads).toEqual(['payments-core.hexa'])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect((screen.getByLabelText('Diagram title') as HTMLInputElement).value).toBe('Untitled architecture')
+  })
+
   it('saves the active CLEAN document, not the Hexagonal map, when Clean is active', async () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
