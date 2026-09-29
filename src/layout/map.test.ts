@@ -695,3 +695,16 @@ describe('layoutMap — the map title width is part of the bounds', () => {
     expect(bounds.x + bounds.width).toBeGreaterThanOrEqual(title!.x + 300 * title!.size! * 0.58)
   })
 })
+
+describe('layoutMap — the chip edge fallback', () => {
+  it('lands in clear space when every spot above the region is taken by another region', () => {
+    const { contexts } = layoutMap(HONEYCOMB)
+    const c2 = contexts.find((c) => c.id === 'c2')!
+    for (const v of c2.loops.flat()) {
+      const spot = { x: v.x, y: v.y - 12 }
+      expect(contexts.some((c) => pointInRegion(spot, c.loops)), 'fixture must force the fallback').toBe(true)
+    }
+    for (const c of contexts) expect(pointInRegion(c2.chip, c.loops)).toBe(false)
+  })
+})
+

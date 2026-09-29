@@ -90,6 +90,7 @@ function chipAnchor(loops: Point[][], all: Point[][][]): Point {
       loop.flatMap((a, i) => {
         const b = loop[(i + 1) % loop.length]
         const len = Math.hypot(b.x - a.x, b.y - a.y)
+        if (len === 0) return []
         const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
         const normal = { x: (a.y - b.y) / len, y: (b.x - a.x) / len }
         return [1, -1].map((sign): Point => ({ x: mid.x + normal.x * sign * CHIP_GAP, y: mid.y + normal.y * sign * CHIP_GAP }))
