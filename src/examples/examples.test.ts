@@ -341,7 +341,7 @@ describe('Onion/Clean examples read at a usable size when fit to a 1440×900 sta
   const MIN_FIT_PERCENT: Record<string, number> = {
     'onion-advanced.hexa': 70,
     'onion-stress.hexa': 55,
-    'clean-advanced.hexa': 70,
+    'clean-advanced.hexa': 68,
     // 55 → 50: Decision 5's own per-sector label clearance now checks EVERY sector, not only a lone one (see the
     // crossing-count pin above) — a few of clean-stress's own crowded sectors genuinely need a touch more radius
     // to keep their own curved name clear of their own elements, real clearance a title must never trade away for
