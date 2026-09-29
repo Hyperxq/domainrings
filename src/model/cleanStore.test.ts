@@ -194,3 +194,12 @@ describe('clean store — endpoints (REQ-07: actors/externals target Frameworks 
     expect(state().map.actors).toEqual([])
   })
 })
+
+describe('clean store — title', () => {
+  it('setTitle renames the document, leaving everything else untouched', () => {
+    state().replace(newCleanMap('Fresh'))
+    const before = state().map
+    state().setTitle('Payments')
+    expect(state().map).toEqual({ ...before, title: 'Payments' })
+  })
+})

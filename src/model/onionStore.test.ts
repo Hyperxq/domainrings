@@ -142,3 +142,12 @@ describe('onion store — endpoints (REQ-05)', () => {
     expect(state().map.actors).toEqual([])
   })
 })
+
+describe('onion store — title', () => {
+  it('setTitle renames the document, leaving everything else untouched', () => {
+    state().replace(newOnionMap('Fresh'))
+    const before = state().map
+    state().setTitle('Payments')
+    expect(state().map).toEqual({ ...before, title: 'Payments' })
+  })
+})

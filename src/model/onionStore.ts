@@ -24,6 +24,7 @@ interface OnionState {
   /** Removes an element, pruning any dependency it took part in and clearing any endpoint target pointing to it —
    * both would otherwise leave the document referencing an element that no longer exists. */
   removeElement: (id: string) => void
+  setTitle: (title: string) => void
   /** Creates a dependency from `fromId` to `toId` (ADR-02: validate-by-reparse, same idiom as useMapStore's
    * addLink) — undefined ⇒ no-op: the pair would point to a more outward ring (REQ-04). */
   addDependency: (fromId: string, toId: string) => string | undefined
@@ -53,6 +54,7 @@ export const useOnionStore = create<OnionState>()((set, get) => ({
     if (!next) return
     set({ map: next })
   },
+  setTitle: (title) => set((s) => ({ map: { ...s.map, title } })),
   removeElement: (id) => set({ map: ringedDocument.removeElement(get().map, id) }),
   addDependency: (fromId, toId) => {
     const result = ringedDocument.addDependency(get().map, fromId, toId, () => `dependency-${crypto.randomUUID().slice(0, 8)}`, OnionFileSchema)

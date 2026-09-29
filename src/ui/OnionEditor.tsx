@@ -1,16 +1,16 @@
 import { flushSync } from 'react-dom'
 import { tidyOnionOrder } from '../layout/onion'
 import { outerRoleOf } from '../model/rings'
-import { elementName } from '../model/ringedDocument'
+import { elementName, UNTITLED } from '../model/ringedDocument'
 import type { OnionFile, OnionRingRole } from '../model/schema'
 import { useOnionStore } from '../model/onionStore'
 import { Fold, revealInEditor } from './Editor'
 import { Icon } from './Icon'
-import { DependenciesSection, ElementList, EndpointsSection } from './RingedSections'
+import { DependenciesSection, ElementList, EndpointsSection, RenameField } from './RingedSections'
 
 type EndpointCollection = 'actors' | 'externals'
 
-const { addElement, updateElement, removeElement, addDependency, removeDependency, addEndpoint, removeEndpoint, restore } = useOnionStore.getState()
+const { setTitle, addElement, updateElement, removeElement, addDependency, removeDependency, addEndpoint, removeEndpoint, restore } = useOnionStore.getState()
 
 // A rename only ever touches the one element's `name` — everything else in `doc` is exactly what it was before
 // the edit started, so replaying the pre-edit name back onto the CURRENT doc reconstructs the pre-edit snapshot
@@ -84,6 +84,7 @@ function RingSection({
  * read since Onion elements carry their own ring role (Clean's own indirects through its sector, ADR-02). */
 export function OnionEditor({ open, onToggle, onMutate = () => {} }: OnionEditorProps) {
   const doc = useOnionStore((s) => s.map)
+  const title = doc.title || UNTITLED
   const ringRoleOf = (elementId: string) => doc.elements.find((e) => e.id === elementId)?.ringRole ?? ''
 
   const handleAddEndpoint = (collection: EndpointCollection, patch: { name: string; targetId: string }) => {
@@ -113,7 +114,7 @@ export function OnionEditor({ open, onToggle, onMutate = () => {} }: OnionEditor
   return (
     <aside className={`island editor${open ? '' : ' is-collapsed'}`} aria-label="Diagram editor">
       <header className="editor-head">
-        <h2>{doc.title || 'Untitled architecture'}</h2>
+        <h2>{title}</h2>
         <button type="button" className="text-button small" title="Reduce dependency-edge crossings by reordering rings" onClick={handleTidy}>
           Tidy ring order
         </button>
@@ -122,6 +123,12 @@ export function OnionEditor({ open, onToggle, onMutate = () => {} }: OnionEditor
         </button>
       </header>
       <div id="onion-editor-body" className="editor-body" hidden={!open}>
+        <Fold id="diagram" title="Diagram">
+          <label className="field">
+            <span>Diagram title</span>
+            <RenameField ariaLabel="Diagram title" value={doc.title} onChange={setTitle} onCommit={(before) => onMutate(`Renamed ${before || UNTITLED} to ${title}.`, { ...doc, title: before })} />
+          </label>
+        </Fold>
         {doc.rings.map((ring) => (
           <RingSection key={ring.role} role={ring.role} name={ring.name} elements={doc.elements.filter((e) => e.ringRole === ring.role)} doc={doc} onMutate={onMutate} />
         ))}

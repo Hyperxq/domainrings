@@ -1,7 +1,7 @@
 import { flushSync } from 'react-dom'
 import { tidyCleanOrder } from '../layout/clean'
 import { outerRoleOf } from '../model/rings'
-import { elementName } from '../model/ringedDocument'
+import { elementName, UNTITLED } from '../model/ringedDocument'
 import type { CleanElement, CleanFile, CleanRingRole, CleanSector } from '../model/schema'
 import { useCleanStore } from '../model/cleanStore'
 import { Fold, revealInEditor } from './Editor'
@@ -10,7 +10,7 @@ import { DependenciesSection, ElementList, EndpointsSection, RenameField } from 
 
 type EndpointCollection = 'actors' | 'externals'
 
-const { addSector, updateSector, removeSector, addElement, updateElement, removeElement, addDependency, removeDependency, addEndpoint, removeEndpoint, restore } = useCleanStore.getState()
+const { setTitle, addSector, updateSector, removeSector, addElement, updateElement, removeElement, addDependency, removeDependency, addEndpoint, removeEndpoint, restore } = useCleanStore.getState()
 
 // See OnionEditor's own `withElementName` for why replaying the pre-edit string back onto the CURRENT doc is a
 // sound reconstruction of the pre-edit snapshot (a rename session never overlaps any other edit).
@@ -148,6 +148,7 @@ function RingSection({
  * element's own sector (ADR-02), never a direct field (Onion's own indirects the other way). */
 export function CleanEditor({ open, onToggle, onMutate = () => {} }: CleanEditorProps) {
   const doc = useCleanStore((s) => s.map)
+  const title = doc.title || UNTITLED
   const sectorById = new Map(doc.sectors.map((s) => [s.id, s]))
   const ringRoleOf = (elementId: string) => {
     const element = doc.elements.find((e) => e.id === elementId)
@@ -181,7 +182,7 @@ export function CleanEditor({ open, onToggle, onMutate = () => {} }: CleanEditor
   return (
     <aside className={`island editor${open ? '' : ' is-collapsed'}`} aria-label="Diagram editor">
       <header className="editor-head">
-        <h2>{doc.title || 'Untitled architecture'}</h2>
+        <h2>{title}</h2>
         <button type="button" className="text-button small" title="Reduce dependency-edge crossings by reordering rings" onClick={handleTidy}>
           Tidy ring order
         </button>
@@ -190,6 +191,12 @@ export function CleanEditor({ open, onToggle, onMutate = () => {} }: CleanEditor
         </button>
       </header>
       <div id="clean-editor-body" className="editor-body" hidden={!open}>
+        <Fold id="diagram" title="Diagram">
+          <label className="field">
+            <span>Diagram title</span>
+            <RenameField ariaLabel="Diagram title" value={doc.title} onChange={setTitle} onCommit={(before) => onMutate(`Renamed ${before || UNTITLED} to ${title}.`, { ...doc, title: before })} />
+          </label>
+        </Fold>
         {doc.rings.map((ring) => (
           <RingSection key={ring.role} role={ring.role} name={ring.name} sectors={doc.sectors.filter((s) => s.ringRole === ring.role)} elements={doc.elements} doc={doc} onMutate={onMutate} />
         ))}

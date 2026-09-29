@@ -141,3 +141,27 @@ describe('CleanEditor — "Tidy ring order" (Decision 3, now an explicit action)
     expect(onMutate).toHaveBeenCalledWith('Tidied ring order.', before)
   })
 })
+
+describe('CleanEditor — document title', () => {
+  it('renames the document live and reports one undoable edit per rename session', () => {
+    const onMutate = vi.fn()
+    renderEditor({ onMutate })
+    const field = screen.getByLabelText('Diagram title')
+    fireEvent.focus(field)
+    fireEvent.change(field, { target: { value: 'Payments' } })
+    expect(state().map.title).toBe('Payments')
+    expect(screen.getByRole('heading', { level: 2, name: 'Payments' })).toBeTruthy()
+    expect(onMutate).not.toHaveBeenCalled()
+
+    fireEvent.blur(field)
+    expect(onMutate).toHaveBeenCalledTimes(1)
+    expect(onMutate).toHaveBeenCalledWith('Renamed Fresh architecture to Payments.', expect.objectContaining({ title: 'Fresh architecture' }))
+  })
+
+  it('falls back to "Untitled architecture" in the heading when the name is cleared', () => {
+    renderEditor()
+    fireEvent.change(screen.getByLabelText('Diagram title'), { target: { value: '' } })
+    expect(state().map.title).toBe('')
+    expect(screen.getByRole('heading', { level: 2, name: 'Untitled architecture' })).toBeTruthy()
+  })
+})
