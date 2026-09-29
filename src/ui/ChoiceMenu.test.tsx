@@ -161,4 +161,50 @@ describe('ChoiceMenu', () => {
     const menu = screen.getByRole('menu')
     expect([menu.style.top, menu.style.left, menu.style.right]).toEqual(['44px', '', `${innerWidth - 932}px`])
   })
+
+  describe('keeping the menu on screen', () => {
+    const MENU = { width: 200, height: 80 }
+    const rectOf = (left: number, top: number, width: number, height: number) =>
+      ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top }) as DOMRect
+
+    function openAt(trigger: DOMRect, obstacle?: DOMRect) {
+      vi.stubGlobal('innerWidth', 1000)
+      vi.stubGlobal('innerHeight', 700)
+      const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+        if (this.getAttribute('role') === 'menu') return rectOf(0, 0, MENU.width, MENU.height)
+        if (this.hasAttribute('data-menu-avoid')) return obstacle!
+        return trigger
+      })
+      const legend = document.createElement('section')
+      legend.setAttribute('data-menu-avoid', '')
+      if (obstacle) document.body.append(legend)
+      const { trigger: button } = renderMenu()
+      fireEvent.click(button)
+      legend.remove()
+      spy.mockRestore()
+      vi.unstubAllGlobals()
+      return screen.getByRole('menu')
+    }
+
+    it('opens upward when the trigger is near the bottom edge', () => {
+      const menu = openAt(rectOf(100, 660, 32, 32))
+      expect(parseFloat(menu.style.top) + MENU.height).toBeLessThanOrEqual(700)
+      expect(parseFloat(menu.style.top)).toBe(660 - MENU.height - 4)
+    })
+
+    it('opens leftward when the trigger is near the right edge', () => {
+      const menu = openAt(rectOf(970, 100, 24, 24))
+      expect(menu.style.left).toBe('')
+      expect(parseFloat(menu.style.right)).toBe(1000 - 994)
+    })
+
+    it('never covers an element marked data-menu-avoid', () => {
+      const legend = rectOf(740, 440, 260, 250)
+      const menu = openAt(rectOf(780, 400, 24, 24), legend)
+      const left = menu.style.left ? parseFloat(menu.style.left) : 1000 - parseFloat(menu.style.right) - MENU.width
+      const top = parseFloat(menu.style.top)
+      const overlaps = left < legend.right && left + MENU.width > legend.left && top < legend.bottom && top + MENU.height > legend.top
+      expect(overlaps).toBe(false)
+    })
+  })
 })

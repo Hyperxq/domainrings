@@ -1,5 +1,5 @@
-import { contextName, diagramOf, occupiedContexts, UNTITLED_HEXAGON } from '../model/map'
-import type { HexaMap, Link } from '../model/schema'
+import { contextName, diagramOf, neighbour, occupiedContexts, UNTITLED_HEXAGON } from '../model/map'
+import type { HexaMap, Link, Wall } from '../model/schema'
 import { contextRegions } from './hull'
 import { layoutDiagram, type Box, type LayoutModel, type LayoutNode, type LayoutOptions, type LayoutText, type NodeKind, type Point } from './layout'
 import { GAP_MARGIN, outwardEdgePoint, routeLink, type LinkLabel } from './links'
@@ -98,6 +98,19 @@ export const hexagonBounds = (hex: Pick<MapHexagonLayout, 'model' | 'centre'>): 
   width: hex.model.bounds.width,
   height: hex.model.bounds.height,
 })
+
+/** Where a grow "+" toward `side` sits: the midpoint to the neighbouring cell, pushed along that line until a button
+ * of half-size `margin` clears the hexagon's own bounds — one-sided content can reach past the midpoint. The
+ * neighbour's centre always clears them, so the push never overshoots it. */
+export function growAnchor(hex: Pick<MapHexagonLayout, 'centre' | 'cell' | 'model'>, side: Wall, pitch: Point, margin: number): Point {
+  const to = cellCentre(neighbour(hex.cell, side), pitch)
+  const d = { x: to.x - hex.centre.x, y: to.y - hex.centre.y }
+  const box = hexagonBounds(hex)
+  const leaves = (delta: number, min: number, size: number, from: number) =>
+    delta > 0 ? (min + size + margin - from) / delta : delta < 0 ? (min - margin - from) / delta : Infinity
+  const t = Math.min(1, Math.max(0.5, Math.min(leaves(d.x, box.x, box.width, hex.centre.x), leaves(d.y, box.y, box.height, hex.centre.y))))
+  return { x: hex.centre.x + d.x * t, y: hex.centre.y + d.y * t }
+}
 
 /** A hexagon's laid-out title, falling back like every other untitled-hexagon display. */
 export const hexagonTitle = (model: LayoutModel): string => model.texts.find((t) => t.key === 'title')?.text || UNTITLED_HEXAGON

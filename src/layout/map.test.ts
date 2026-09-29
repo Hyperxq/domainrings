@@ -1,10 +1,10 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
-import { cellCentre, hexagonBounds, layoutMap, MAP_GAP } from './map'
+import { cellCentre, growAnchor, hexagonBounds, layoutMap, MAP_GAP } from './map'
 import { outwardEdgePoint, routeLink } from './links'
 import { layoutDiagram, type Box, type LayoutMode, type LayoutOptions } from './layout'
 import { toMap } from '../model/hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM } from '../model/example'
-import { freeCell, removeHexagon } from '../model/map'
+import { freeCell, removeHexagon, SIDE_ORDER } from '../model/map'
 import { MapSchema, VERSION, type Diagram, type HexaMap, type Hexagon, type Wall } from '../model/schema'
 import { twoHexagonMap } from '../test/fixtures'
 
@@ -581,5 +581,32 @@ describe('layoutMap — full no-overlap property (CANVAS-01.2–01.4)', () => {
         expect(gap).toBeGreaterThanOrEqual(MAP_GAP - 1e-6)
       }
     }
+  })
+})
+
+describe('growAnchor', () => {
+  const MARGIN = 12
+  const EPS = 1e-6
+  const clearOf = (p: { x: number; y: number }, box: Box) =>
+    p.x <= box.x - MARGIN + EPS || p.x >= box.x + box.width + MARGIN - EPS || p.y <= box.y - MARGIN + EPS || p.y >= box.y + box.height + MARGIN - EPS
+
+  for (const mode of MODES) {
+    for (const [label, diagram] of CORPUS) {
+      it(`sits outside the hexagon's own content bounds on all six sides for ${label} in ${mode} mode`, () => {
+        const layout = layoutMap(toMap(diagram), { mode })
+        const hex = layout.hexagons[0]
+        for (const side of SIDE_ORDER) {
+          expect(clearOf(growAnchor(hex, side, layout.pitch, MARGIN), hexagonBounds(hex)), side).toBe(true)
+        }
+      })
+    }
+  }
+
+  it('stays on the lattice line toward the neighbour, never past the neighbour itself', () => {
+    const layout = layoutMap(toMap(STRESS_DIAGRAM))
+    const hex = layout.hexagons[0]
+    const east = growAnchor(hex, 'e', layout.pitch, MARGIN)
+    expect(east.y).toBe(hex.centre.y)
+    expect(east.x).toBeLessThanOrEqual(hex.centre.x + layout.pitch.x)
   })
 })
