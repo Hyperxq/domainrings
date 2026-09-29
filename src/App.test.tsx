@@ -1989,14 +1989,14 @@ describe('save the current map as a .hexa file, per kind (mirrors "copy link"\'s
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
       downloads.push(this.download)
     })
+    onTestFinished(() => clickSpy.mockRestore())
     const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
       captured = blob as Blob
       return 'blob:mock'
     })
+    onTestFinished(() => createSpy.mockRestore())
     fireEvent.click(screen.getByRole('button', { name: 'Save as .hexa file' }))
     const text = await captured!.text()
-    createSpy.mockRestore()
-    clickSpy.mockRestore()
     const saved = parseHexa(text)
     expect(saved.ok && saved.map.title).toBe('Payments Core')
     expect(downloads).toEqual(['payments-core.hexa'])
