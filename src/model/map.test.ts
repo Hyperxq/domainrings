@@ -307,6 +307,11 @@ describe('contextName (ADR-03)', () => {
     const map = { contexts: [{ id: 'c1' }, { id: 'core' }] }
     expect(map.contexts.map((c) => contextOrdinal(map, c.id))).not.toContain(contextOrdinal(map, 'ghost'))
   })
+
+  it('does not give an id outside the map the placeholder of a declared c0 context', () => {
+    const map = { contexts: [{ id: 'c0' }] }
+    expect(contextOrdinal(map, 'ghost')).not.toBe(contextOrdinal(map, 'c0'))
+  })
 })
 
 describe('placeHexagon (ADR-02)', () => {
