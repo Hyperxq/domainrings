@@ -1,10 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
-import { autosave, browserStorage, useSaveFailed } from './model/persistence'
-import { useCleanStore } from './model/cleanStore'
-import { useOnionStore } from './model/onionStore'
-import { boot, useMapStore } from './model/store'
+import { wireAutosave } from './model/autosaveWiring'
+import { browserStorage } from './model/persistence'
+import { boot } from './model/store'
 import { PALETTES, paletteCss } from './ui/palette'
 import './styles.css'
 
@@ -21,14 +20,7 @@ try {
 } catch {
   // Blocked storage falls back to the system theme and the default palette.
 }
-// Only the store whose map actually changes ever writes (its subscribe callback is a no-op otherwise) — safe to
-// wire every document store to the same slot, since only the active view's store ever mutates (ADR-02).
-if (storage) {
-  const onSave = (ok: boolean) => useSaveFailed.setState({ failed: !ok })
-  autosave(useMapStore, storage, boot.recovery, undefined, onSave)
-  autosave(useOnionStore, storage, boot.recovery, undefined, onSave)
-  autosave(useCleanStore, storage, boot.recovery, undefined, onSave)
-}
+wireAutosave(storage, boot.recovery)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

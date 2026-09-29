@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { StrictMode } from 'react'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { App } from './App'
+import { App, UNDO_LIMIT } from './App'
 import { EXAMPLE_DIAGRAM, EXAMPLES, STRESS_DIAGRAM } from './model/example'
 import { layoutDiagram } from './layout/layout'
 import { layoutOnion } from './layout/onion'
@@ -22,6 +22,7 @@ vi.mock('./layout/clean', async (importOriginal) => {
 import { newCleanMap, newOnionMap, parseHexa, toHexa, toMap } from './model/hexa'
 import { diagramOf, UNTITLED_HEXAGON } from './model/map'
 import { autosave, MAP_KEY, useSaveFailed } from './model/persistence'
+import { wireAutosave } from './model/autosaveWiring'
 import { VERSION, type CleanFile, type HexaMap, type OnionFile } from './model/schema'
 import { useMapStore } from './model/store'
 import { useOnionStore } from './model/onionStore'
@@ -310,10 +311,10 @@ describe('undo toast', () => {
     const { container } = render(<App />)
     const { domain, useCases, ports, adapters, actors, externals } = STRESS_DIAGRAM
     const refs = [domain, useCases, ports, adapters, actors, externals].flatMap((items) => items.map((i) => i.id))
-    expect(refs.length).toBeGreaterThan(21)
-    const deleted = refs.slice(0, 21)
+    expect(refs.length).toBeGreaterThan(UNDO_LIMIT + 1)
+    const deleted = refs.slice(0, UNDO_LIMIT + 1)
     for (const ref of deleted) deleteRef(container, ref)
-    for (let i = 0; i < 25; i++) undoKey()
+    for (let i = 0; i < UNDO_LIMIT + 5; i++) undoKey()
     const remaining = new Set(Array.from(container.querySelectorAll('svg.canvas [data-ref]'), (el) => el.getAttribute('data-ref')))
     expect(remaining.has(deleted[0])).toBe(false)
     expect(remaining.has(deleted[1])).toBe(true)
@@ -330,6 +331,45 @@ describe('undo toast', () => {
     expect(hasUseCase()).toBe(false)
     undoKey()
     expect(hasUseCase()).toBe(true)
+  })
+
+  it('refuses to undo once an unrecorded edit touched the document, and keeps that edit', () => {
+    const { container } = render(<App />)
+    deleteUseCase(container)
+    waitOutToast()
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    fireEvent.change(screen.getByLabelText('Map title'), { target: { value: 'Retitled' } })
+    undoKey()
+    expect(useMapStore.getState().map.title).toBe('Retitled')
+    expect(hasUseCase()).toBe(false)
+    undoKey()
+    expect(hasUseCase()).toBe(false)
+  })
+
+  it('never steps back past an unrecorded edit into older history', () => {
+    const { container } = render(<App />)
+    const [first, second] = [EXAMPLE_DIAGRAM.adapters[0].id, EXAMPLE_DIAGRAM.adapters[1].id]
+    const present = (id: string) => currentDiagram().adapters.some((a) => a.id === id)
+    deleteRef(container, first)
+    waitOutToast()
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    fireEvent.change(screen.getByLabelText('Map title'), { target: { value: 'Retitled' } })
+    deleteRef(container, second)
+    undoKey()
+    expect(present(second)).toBe(true)
+    undoKey()
+    expect(useMapStore.getState().map.title).toBe('Retitled')
+    expect(present(first)).toBe(false)
+  })
+
+  it('leaves Ctrl+Z to an open menu', () => {
+    const { container } = render(<App />)
+    deleteUseCase(container)
+    waitOutToast()
+    fireEvent.click(container.ownerDocument.querySelector('[aria-haspopup="menu"]')!)
+    expect(screen.getByRole('menu')).toBeTruthy()
+    undoKey()
+    expect(hasUseCase()).toBe(false)
   })
 
   it('leaves Cmd+Z to the field while typing in an input', () => {
@@ -932,6 +972,27 @@ describe('autosave failure notice', () => {
     render(<App />)
     expect(recoveryEl()).toBeNull()
   })
+
+  describe('through the real boot wiring', () => {
+    afterEach(() => vi.useRealTimers())
+
+    it('shows the notice when a storage write throws after an edit', () => {
+      vi.useFakeTimers()
+      const storage = { setItem: vi.fn(() => { throw new DOMException('full', 'QuotaExceededError') }) }
+      onTestFinished(wireAutosave(storage as unknown as Storage, 'none'))
+      render(<App />)
+      expect(recoveryEl()).toBeNull()
+      act(() => useMapStore.getState().setMapMeta({ title: 'Edited' }))
+      act(() => vi.advanceTimersByTime(1000))
+      expect(recoveryEl()!.textContent).toContain("latest changes couldn't be saved")
+    })
+
+    it('shows the notice from the start when the browser gives no storage at all', () => {
+      onTestFinished(wireAutosave(undefined, 'none'))
+      render(<App />)
+      expect(recoveryEl()!.textContent).toContain("latest changes couldn't be saved")
+    })
+  })
 })
 
 describe('boot recovery notice', () => {
@@ -1296,6 +1357,20 @@ describe('grow the map (GROW-01..04, ADR-02)', () => {
     expect(screen.queryByRole('textbox', { name: 'Hexagon title' })).toBeNull()
   })
 
+  it('Ctrl+Z still undoes the grow after the new hexagon was named', () => {
+    render(<App />)
+    growEast()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hexagon in Context 1' }))
+    const input = screen.getByRole('textbox', { name: 'Hexagon title' })
+    fireEvent.change(input, { target: { value: 'Billing' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(useMapStore.getState().map.hexagons.at(-1)!.title).toBe('Billing')
+
+    fireEvent.keyDown(document.body, { key: 'z', ctrlKey: true })
+
+    expect(useMapStore.getState().map.hexagons).toHaveLength(1)
+  })
+
   it('Esc while naming removes the grown hexagon, exactly as Undo would (GROW-03.2)', () => {
     render(<App />)
     const before = useMapStore.getState().map
@@ -1432,7 +1507,7 @@ describe('renaming a bounded context (NAME-01..03)', () => {
   it('survives a real autosave/reload cycle (NAME-02.2)', () => {
     vi.useFakeTimers()
     const storage = { setItem: vi.fn() }
-    autosave(useMapStore, storage, 'none', 400)
+    autosave(useMapStore, storage, 'none', { delay: 400 })
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
     const input = screen.getByLabelText('Name for Context 1')
