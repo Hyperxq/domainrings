@@ -143,7 +143,9 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const recordedStep = useRef(false)
   const show = (next: Omit<Notice, 'id'>) => {
     if (next.undo) {
-      undoStack.current = [...undoStack.current, next.undo].slice(-UNDO_LIMIT)
+      // A step that doesn't lead back from the document the last one left means an unrecorded edit sits between them.
+      const contiguous = !trustedDoc.current || trustedDoc.current === next.undo.map || toHexa(trustedDoc.current) === toHexa(next.undo.map)
+      undoStack.current = [...(contiguous ? undoStack.current : []), next.undo].slice(-UNDO_LIMIT)
       recordedStep.current = true
     }
     setNotice({ ...next, id: ++noticeSeq.current })

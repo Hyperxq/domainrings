@@ -346,6 +346,22 @@ describe('undo toast', () => {
     expect(hasUseCase()).toBe(false)
   })
 
+  it('never steps back past an unrecorded edit into older history', () => {
+    const { container } = render(<App />)
+    const [first, second] = [EXAMPLE_DIAGRAM.adapters[0].id, EXAMPLE_DIAGRAM.adapters[1].id]
+    const present = (id: string) => currentDiagram().adapters.some((a) => a.id === id)
+    deleteRef(container, first)
+    waitOutToast()
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    fireEvent.change(screen.getByLabelText('Map title'), { target: { value: 'Retitled' } })
+    deleteRef(container, second)
+    undoKey()
+    expect(present(second)).toBe(true)
+    undoKey()
+    expect(useMapStore.getState().map.title).toBe('Retitled')
+    expect(present(first)).toBe(false)
+  })
+
   it('leaves Ctrl+Z to an open menu', () => {
     const { container } = render(<App />)
     deleteUseCase(container)
