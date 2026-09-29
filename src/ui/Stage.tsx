@@ -3,9 +3,9 @@ import { flushSync } from 'react-dom'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
 import type { LayoutMode, LayoutNode, Point } from '../layout/layout'
 import type { LegendModel } from '../layout/legend'
-import { cellCentre, currentHexagon, hexagonBounds, hexagonTitle, type MapLayout } from '../layout/map'
+import { currentHexagon, growAnchor, hexagonBounds, hexagonTitle, type MapLayout } from '../layout/map'
 import { collectionOf, linkTargets, type LinkChoice } from '../model/links'
-import { crossHexagonPorts, freeSides, neighbour, UNTITLED_HEXAGON, type Destination } from '../model/map'
+import { crossHexagonPorts, freeSides, UNTITLED_HEXAGON, type Destination } from '../model/map'
 import type { CollectionKey, Diagram as DiagramModel, DomainType, HexaMap, Wall } from '../model/schema'
 import { useMapStore } from '../model/store'
 import { MapDiagram } from '../render/Diagram'
@@ -16,6 +16,8 @@ import { keyOnCanvas } from './keys'
 import { contains, fitMap, fitTo, islandInset, visibleRect } from './viewport'
 import { gridBackgroundStyle, useElementSize, useViewportInteractions, ZoomControls } from './viewportChrome'
 
+/** Half the side "+" button's 24px circle. */
+const SIDE_PLUS_RADIUS = 12
 /** Lowercase, hyphenated compass names for the grow "+" aria-label ("Add hexagon to the {…} of {title}"). */
 const SIDE_NAME: Record<Wall, string> = { e: 'east', se: 'south-east', sw: 'south-west', w: 'west', nw: 'north-west', ne: 'north-east' }
 
@@ -215,10 +217,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
   })
   // The grow-menu anchors are already in map space (cell centres), unlike hexagon-local insertion points.
   const mapToScreen = (p: Point) => ({ x: (p.x - viewport.x) * viewport.scale, y: (p.y - viewport.y) * viewport.scale })
-  const growSides = freeSides(model, hex.cell).map((side) => {
-    const neighbourCentre = cellCentre(neighbour(hex.cell, side), model.pitch)
-    return { side, at: mapToScreen({ x: (hex.centre.x + neighbourCentre.x) / 2, y: (hex.centre.y + neighbourCentre.y) / 2 }) }
-  })
+  const growSides = freeSides(model, hex.cell).map((side) => ({ side, at: mapToScreen(growAnchor(hex, side, model.pitch, SIDE_PLUS_RADIUS / viewport.scale)) }))
   const growChoices = (context: string) => [
     { id: 'same' as const, label: `Hexagon in ${context}` },
     { id: 'new' as const, label: 'Hexagon in a new bounded context' },
@@ -373,7 +372,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
         // No `transform` here (e.g. translate to centre): ChoiceMenu's own menu is `position: fixed` under the
         // trigger, whose containing block a transformed ancestor would hijack — the half-button-size offset is
         // baked into left/top instead, matching .plus's own 24px circle.
-        <span key={side} className="side-plus" style={{ left: at.x - 12, top: at.y - 12 }}>
+        <span key={side} className="side-plus" style={{ left: at.x - SIDE_PLUS_RADIUS, top: at.y - SIDE_PLUS_RADIUS }}>
           <ChoiceMenu
             label={<Icon name="plus" />}
             ariaLabel={`Add hexagon to the ${SIDE_NAME[side]} of ${title || UNTITLED_HEXAGON}`}
