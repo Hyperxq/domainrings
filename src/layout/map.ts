@@ -1,6 +1,6 @@
 import { contextName, diagramOf, neighbour, occupiedContexts, UNTITLED_HEXAGON } from '../model/map'
 import type { HexaMap, Link, Wall } from '../model/schema'
-import { contextRegions } from './hull'
+import { contextRegions, pointInRegion } from './hull'
 import { layoutDiagram, type Box, type LayoutModel, type LayoutNode, type LayoutOptions, type LayoutText, type NodeKind, type Point } from './layout'
 import { GAP_MARGIN, outwardEdgePoint, routeLink, type LinkLabel } from './links'
 import { CHIP_LABEL, measure } from './text'
@@ -71,10 +71,28 @@ const MAX_LANE_OFFSET = MAP_GAP / 2 - GAP_MARGIN
 const CHIP_GAP = 12
 const CHIP_HEIGHT = 16
 
-/** Above the region's topmost vertex (min y, then min x to break ties) — always inside the map's own bounds. */
-function chipAnchor(loops: Point[][]): Point {
-  const top = loops.flat().reduce((best, v) => (v.y < best.y || (v.y === best.y && v.x < best.x) ? v : best))
-  return { x: top.x, y: top.y - CHIP_GAP }
+/** Above the region's highest vertex (min y, then min x) whose spot is clear of every context's region — the
+ * plain topmost vertex can sit under a neighbouring context's tiles. When every such spot is taken, the highest
+ * boundary-edge midpoint pushed off the region into clear space; the topmost vertex only if nothing is clear. */
+function chipAnchor(loops: Point[][], all: Point[][][]): Point {
+  const clear = (p: Point) => !all.some((region) => pointInRegion(p, region))
+  const byHeight = (a: Point, b: Point) => a.y - b.y || a.x - b.x
+  const vertices = loops.flat().sort(byHeight)
+  const above = vertices.map((v): Point => ({ x: v.x, y: v.y - CHIP_GAP })).find(clear)
+  if (above) return above
+  const beside = loops
+    .flatMap((loop) =>
+      loop.flatMap((a, i) => {
+        const b = loop[(i + 1) % loop.length]
+        const len = Math.hypot(b.x - a.x, b.y - a.y)
+        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+        const normal = { x: (a.y - b.y) / len, y: (b.x - a.x) / len }
+        return [1, -1].map((sign): Point => ({ x: mid.x + normal.x * sign * CHIP_GAP, y: mid.y + normal.y * sign * CHIP_GAP }))
+      }),
+    )
+    .sort(byHeight)
+    .find(clear)
+  return beside ?? { x: vertices[0].x, y: vertices[0].y - CHIP_GAP }
 }
 
 /** A chip's approximate footprint, so a long context name still grows the map's bounds to include it. */
@@ -233,11 +251,6 @@ export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout 
     return { id: link.id, points, ...(pattern ? { pattern, label } : {}) }
   })
   let bounds = unionBox(hexagons.map(hexagonBounds))
-  let title: LayoutText | undefined
-  if (map.hexagons.length > 1) {
-    title = { key: 'map-title', text: map.title, x: bounds.x, y: bounds.y - MAP_TITLE_GAP, style: 'title' }
-    bounds = { x: bounds.x, y: bounds.y - MAP_TITLE_GAP - MAP_TITLE_SIZE, width: bounds.width, height: bounds.height + MAP_TITLE_GAP + MAP_TITLE_SIZE }
-  }
 
   // Outlined regions + chips only from two occupied contexts up (CB-01.1) — a single-context map draws and exports
   // exactly as a single hexagon always did (CB-01.4). A declared context owning no hexagon doesn't count.
@@ -247,11 +260,18 @@ export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout 
     for (const context of map.contexts) {
       const loops = regions.get(context.id) ?? []
       if (!loops.length) continue // a context declared with no hexagons (schema allows it, the store never creates one) draws nothing
-      const chip = chipAnchor(loops)
+      const chip = chipAnchor(loops, [...regions.values()])
       contexts.push({ id: context.id, label: contextName(map, context.id), loops, chip })
     }
     const contextBoxes = contexts.flatMap((c) => [...c.loops.flat().map((p): Box => ({ x: p.x, y: p.y, width: 0, height: 0 })), chipBox(c.chip, c.label)])
     bounds = unionBox([bounds, ...contextBoxes])
+  }
+
+  // Placed last so it clears the hulls and chips the bounds just grew to include, not only the hexagons.
+  let title: LayoutText | undefined
+  if (map.hexagons.length > 1) {
+    title = { key: 'map-title', text: map.title, x: bounds.x, y: bounds.y - MAP_TITLE_GAP, style: 'title' }
+    bounds = { x: bounds.x, y: bounds.y - MAP_TITLE_GAP - MAP_TITLE_SIZE, width: bounds.width, height: bounds.height + MAP_TITLE_GAP + MAP_TITLE_SIZE }
   }
 
   return { hexagons, links, bounds, title, pitch, contexts }

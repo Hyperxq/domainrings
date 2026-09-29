@@ -1,5 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { cellCentre, growAnchor, hexagonBounds, layoutMap, MAP_GAP } from './map'
+import { pointInRegion } from './hull'
 import { outwardEdgePoint, routeLink } from './links'
 import { layoutDiagram, type Box, type LayoutMode, type LayoutOptions } from './layout'
 import { toMap } from '../model/hexa'
@@ -608,5 +609,43 @@ describe('growAnchor', () => {
     const east = growAnchor(hex, 'e', layout.pitch, MARGIN)
     expect(east.y).toBe(hex.centre.y)
     expect(east.x).toBeLessThanOrEqual(hex.centre.x + layout.pitch.x)
+  })
+})
+
+const hex = (id: string, contextId: string, q: number, r: number): Hexagon => ({ id, contextId, cell: { q, r }, title: id, domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] })
+const contextMap = (cells: Array<[string, number, number]>, contexts = ['c1', 'c2', 'c3']): HexaMap => ({
+  version: VERSION,
+  kind: 'hexagonal',
+  title: 'Multi context',
+  contexts: contexts.map((id) => ({ id })),
+  hexagons: cells.map(([contextId, q, r], i) => hex(`h${i + 1}`, contextId, q, r)),
+  links: [],
+})
+/** Three contexts over five hexagons, packed so one context's tiles sit right above another's. */
+const HONEYCOMB = contextMap([['c1', 0, 0], ['c1', 1, 0], ['c2', 0, 1], ['c3', 1, 1], ['c3', -1, 2]])
+
+describe('layoutMap — the map title clears every context region and chip', () => {
+  it('sits above every hull vertex and every chip on a multi-context map', () => {
+    const { title, contexts } = layoutMap(HONEYCOMB)
+    const topOfContent = Math.min(...contexts.flatMap((c) => [c.chip.y, ...c.loops.flat().map((p) => p.y)]))
+    expect(title!.y).toBeLessThan(topOfContent)
+  })
+
+  it('keeps the title inside the map bounds', () => {
+    const { title, bounds } = layoutMap(HONEYCOMB)
+    expect(title!.y).toBeGreaterThan(bounds.y)
+  })
+})
+
+describe('layoutMap — a chip anchor is never inside a context region (pointInRegion)', () => {
+  it.each([
+    ['a packed honeycomb', HONEYCOMB],
+    ['a stacked column', contextMap([['c1', 0, 0], ['c2', 0, 1], ['c3', 0, 2]])],
+    ['a context ringing another', contextMap([['c1', 0, 0], ['c1', 1, 0], ['c1', -1, 1], ['c1', 0, 1], ['c1', 1, -1], ['c1', -1, 0], ['c2', 0, 2], ['c3', 2, 0]], ['c1', 'c2', 'c3'])],
+  ])('%s', (_name, map) => {
+    const { contexts } = layoutMap(map)
+    for (const c of contexts) {
+      for (const other of contexts) expect(pointInRegion(c.chip, other.loops), `${c.id} chip inside ${other.id}`).toBe(false)
+    }
   })
 })
