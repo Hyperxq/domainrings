@@ -280,6 +280,13 @@ describe('contextName (ADR-03)', () => {
     expect(contextName(map, 'imported-ctx')).toBe('Context 1')
   })
 
+  it('never gives two contexts the same placeholder when a foreign id shares a slot with a c<n> id', () => {
+    const map = { contexts: [{ id: 'c1' }, { id: 'core' }, { id: 'c2' }, { id: 'edge' }] }
+    const names = map.contexts.map((c) => contextName(map, c.id))
+    expect(new Set(names).size).toBe(names.length)
+    expect(names).toEqual(['Context 1', 'Context 3', 'Context 2', 'Context 4'])
+  })
+
   it('stays fixed once assigned, even after an earlier context is deleted (CB-03.2)', () => {
     const full = { contexts: [{ id: 'c1' }, { id: 'c2' }, { id: 'c3' }] }
     const afterDeletingC1 = { contexts: [{ id: 'c2' }, { id: 'c3' }] }
@@ -342,6 +349,11 @@ describe('removeHexagon (ADR-02, ADR-03 E2)', () => {
     const { map: next } = removeHexagon(map, 'h2')
     expect(next.hexagons).toStrictEqual([map.hexagons[0]])
     expect(next.hexagons[0]).toBe(map.hexagons[0])
+  })
+
+  it('is a no-op for an unknown hexagon id', () => {
+    const map = twoContextMap()
+    expect(removeHexagon(map, 'nope')).toStrictEqual({ map, pruned: [] })
   })
 
   it('drops the removed hexagon’s own context once it holds no other hexagon (DEL-03.1)', () => {

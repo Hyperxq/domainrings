@@ -1,4 +1,4 @@
-import { contextName, diagramOf, UNTITLED_HEXAGON } from '../model/map'
+import { contextName, diagramOf, occupiedContexts, UNTITLED_HEXAGON } from '../model/map'
 import type { HexaMap, Link } from '../model/schema'
 import { contextRegions } from './hull'
 import { layoutDiagram, type Box, type LayoutModel, type LayoutNode, type LayoutOptions, type LayoutText, type NodeKind, type Point } from './layout'
@@ -226,10 +226,10 @@ export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout 
     bounds = { x: bounds.x, y: bounds.y - MAP_TITLE_GAP - MAP_TITLE_SIZE, width: bounds.width, height: bounds.height + MAP_TITLE_GAP + MAP_TITLE_SIZE }
   }
 
-  // Outlined regions + chips only from two contexts up (CB-01.1) — a single-context map draws and exports exactly
-  // as a single hexagon always did (CB-01.4).
+  // Outlined regions + chips only from two occupied contexts up (CB-01.1) — a single-context map draws and exports
+  // exactly as a single hexagon always did (CB-01.4). A declared context owning no hexagon doesn't count.
   const contexts: MapContextLayout[] = []
-  if (map.contexts.length >= 2) {
+  if (occupiedContexts(map).length >= 2) {
     const regions = contextRegions(hexagons, pitch)
     for (const context of map.contexts) {
       const loops = regions.get(context.id) ?? []

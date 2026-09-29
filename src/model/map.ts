@@ -55,12 +55,26 @@ export function nextId(ids: readonly string[], prefix: 'h' | 'c' | 'link'): stri
   return `${prefix}${max + 1}`
 }
 
-/** The stable "Context {n}" placeholder for a context: its id's numeric suffix, else its 1-based position among
- * the map's contexts (ADR-03) — fixed while the context exists (CB-03.2), regardless of whether it has a name. */
+/** The stable "Context {n}" placeholder for a context: its id's numeric suffix, else the lowest number no `c<n>`
+ * id and no earlier foreign id already claims (ADR-03) — so two contexts never share a placeholder. Fixed while the
+ * context exists (CB-03.2), regardless of whether it has a name. */
 export function contextOrdinal(map: Pick<HexaMap, 'contexts'>, contextId: string): string {
-  const index = map.contexts.findIndex((c) => c.id === contextId)
   const suffix = /^c(\d+)$/.exec(contextId)?.[1]
-  return `Context ${suffix ?? index + 1}`
+  if (suffix) return `Context ${suffix}`
+  const taken = new Set(map.contexts.flatMap((c) => /^c(\d+)$/.exec(c.id)?.[1] ?? []).map(Number))
+  let ordinal = 0
+  for (const c of map.contexts) {
+    if (/^c\d+$/.test(c.id)) continue
+    while (taken.has(++ordinal));
+    taken.add(ordinal)
+    if (c.id === contextId) break
+  }
+  return `Context ${ordinal}`
+}
+
+/** The contexts that own at least one hexagon — a declared, empty context (schema allows it) is not shown or drawn. */
+export function occupiedContexts(map: Pick<HexaMap, 'contexts' | 'hexagons'>): HexaMap['contexts'] {
+  return map.contexts.filter((c) => map.hexagons.some((h) => h.contextId === c.id))
 }
 
 /** A context's display name: its own name, else its ordinal placeholder (ADR-03). */
@@ -85,7 +99,8 @@ export function placeHexagon(map: HexaMap, view: Diagram, at: { cell: Cell; cont
  * holds none — that context. A foreign context that already had none of its own is left alone (ADR-03 E2: the
  * freed hexagon/context ids may be reused by the next `nextId` call). */
 export function removeHexagon(map: HexaMap, hexId: string): { map: HexaMap; pruned: Link[] } {
-  const removed = map.hexagons.find((h) => h.id === hexId)!
+  const removed = map.hexagons.find((h) => h.id === hexId)
+  if (!removed) return { map, pruned: [] }
   const hexagons = map.hexagons.filter((h) => h.id !== hexId)
   const pruned = map.links.filter((l) => l.from.hexagonId === hexId || l.to.hexagonId === hexId)
   const links = map.links.filter((l) => l.from.hexagonId !== hexId && l.to.hexagonId !== hexId)
