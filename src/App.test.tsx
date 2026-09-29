@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { StrictMode } from 'react'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { App } from './App'
+import { App, UNDO_LIMIT } from './App'
 import { EXAMPLE_DIAGRAM, EXAMPLES, STRESS_DIAGRAM } from './model/example'
 import { layoutDiagram } from './layout/layout'
 import { layoutOnion } from './layout/onion'
@@ -311,10 +311,10 @@ describe('undo toast', () => {
     const { container } = render(<App />)
     const { domain, useCases, ports, adapters, actors, externals } = STRESS_DIAGRAM
     const refs = [domain, useCases, ports, adapters, actors, externals].flatMap((items) => items.map((i) => i.id))
-    expect(refs.length).toBeGreaterThan(21)
-    const deleted = refs.slice(0, 21)
+    expect(refs.length).toBeGreaterThan(UNDO_LIMIT + 1)
+    const deleted = refs.slice(0, UNDO_LIMIT + 1)
     for (const ref of deleted) deleteRef(container, ref)
-    for (let i = 0; i < 25; i++) undoKey()
+    for (let i = 0; i < UNDO_LIMIT + 5; i++) undoKey()
     const remaining = new Set(Array.from(container.querySelectorAll('svg.canvas [data-ref]'), (el) => el.getAttribute('data-ref')))
     expect(remaining.has(deleted[0])).toBe(false)
     expect(remaining.has(deleted[1])).toBe(true)
@@ -331,6 +331,16 @@ describe('undo toast', () => {
     expect(hasUseCase()).toBe(false)
     undoKey()
     expect(hasUseCase()).toBe(true)
+  })
+
+  it('leaves Ctrl+Z to an open menu', () => {
+    const { container } = render(<App />)
+    deleteUseCase(container)
+    waitOutToast()
+    fireEvent.click(container.ownerDocument.querySelector('[aria-haspopup="menu"]')!)
+    expect(screen.getByRole('menu')).toBeTruthy()
+    undoKey()
+    expect(hasUseCase()).toBe(false)
   })
 
   it('leaves Cmd+Z to the field while typing in an input', () => {

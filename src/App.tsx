@@ -65,7 +65,7 @@ const SAVE_FAILED_MESSAGE = "Your latest changes couldn't be saved in this brows
  * two labels, not a general-purpose English article rule. */
 const article = (label: string) => (/^[aeiou]/i.test(label) ? 'an' : 'a')
 
-const UNDO_LIMIT = 20
+export const UNDO_LIMIT = 20
 
 const LEGEND_EXPORT_KEY = 'domainrings:legend-export'
 const OVERVIEW_KEY = 'domainrings:overview'
@@ -155,9 +155,12 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     // Undoing a grow is the same restore as Esc-while-naming — close the field too.
     setGrowing(null)
   }
+  // No dependency array on purpose: re-subscribing every render is what keeps `choosingArchitecture` and `undoLast` fresh.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.key.toLowerCase() !== 'z' || typing(e.target) || choosingArchitecture || !undoStack.current.length) return
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.key.toLowerCase() !== 'z' || e.defaultPrevented || typing(e.target) || choosingArchitecture || !undoStack.current.length) return
+      // An open menu owns the keyboard; the choose-architecture dialog is tracked above, any other modal is a native one.
+      if (document.querySelector('[role="menu"], dialog[open]')) return
       e.preventDefault()
       undoLast()
     }
