@@ -596,6 +596,7 @@ label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
 .field > span, .note summary, .empty, .hint { color: var(--muted); font-size: 12px; }
 .empty { margin: 0; }
 /* Read-only value, styled like .field but the second span keeps normal text (CB-05.2). */
+.button-pair { display: flex; flex-wrap: wrap; gap: 8px; }
 .field-static { display: grid; gap: 3px; }
 .field-static > span:first-child { color: var(--muted); font-size: 12px; }
 
