@@ -3,6 +3,7 @@ import type { OnionDependency, OnionElement, OnionFile, OnionRingRole } from '..
 import { countCrossings } from './crossings'
 import { minimizeCrossings, neighborLookup, type CrossingGroup } from './crossingMinimization'
 import type { Box, LayoutRing, Point } from './layout'
+import { routeEdgesAroundLabels } from './edgeRouting'
 import { endpointLayout, ringedBounds, ringedElementHeight, ringedElementWidth, ringOutlines, ringSlotRadii } from './ringed'
 
 /** An element placed on its ring's circumference (REQ-07). */
@@ -36,6 +37,8 @@ export interface OnionEdgeLayout {
   toRef: string
   from: Point
   to: Point
+  /** The quadratic control point Detailed view bows this arrow through, kept clear of every ring title. */
+  control: Point
 }
 
 export interface OnionLayoutModel {
@@ -76,14 +79,14 @@ function buildOnionModel(doc: OnionFile, orderedElementsOn: (role: string) => re
   const outerElements = elements.filter((e) => e.ringRole === outer.role).map((e) => ({ x: e.x, y: e.y, width: ringedElementWidth(e.name), height: ringedElementHeight(e.name) }))
   const { endpoints, extraReach } = endpointLayout(doc.actors, doc.externals, outer, outerElements)
 
-  const dependencyEdges: OnionEdgeLayout[] = doc.dependencies.flatMap((dep: OnionDependency) => {
+  const dependencyEdges: Omit<OnionEdgeLayout, 'control'>[] = doc.dependencies.flatMap((dep: OnionDependency) => {
     const from = elementAt.get(dep.fromId)
     const to = elementAt.get(dep.toId)
     return from && to
       ? [{ key: `dependency:${dep.id}`, kind: 'dependency' as const, fromRef: dep.fromId, toRef: dep.toId, from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y } }]
       : []
   })
-  const endpointEdges: OnionEdgeLayout[] = endpoints.flatMap((endpoint) => {
+  const endpointEdges: Omit<OnionEdgeLayout, 'control'>[] = endpoints.flatMap((endpoint) => {
     const target = endpoint.targetId ? elementAt.get(endpoint.targetId) : undefined
     return target
       ? [{ key: `endpoint-edge:${endpoint.ref}`, kind: 'endpoint' as const, fromRef: endpoint.ref, toRef: endpoint.targetId!, from: { x: endpoint.x, y: endpoint.y }, to: { x: target.x, y: target.y } }]
@@ -94,7 +97,7 @@ function buildOnionModel(doc: OnionFile, orderedElementsOn: (role: string) => re
     rings,
     elements,
     endpoints,
-    edges: [...dependencyEdges, ...endpointEdges],
+    edges: routeEdgesAroundLabels([...dependencyEdges, ...endpointEdges], rings),
     bounds: ringedBounds(outer, extraReach),
   }
 }

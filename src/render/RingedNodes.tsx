@@ -1,4 +1,5 @@
 import type { LayoutMode, Point } from '../layout/layout'
+import { edgeControl } from '../layout/edgeRouting'
 import { endpointLabelHeight, endpointLines, RINGED_ELEMENT_METRICS, RINGED_ENDPOINT_DIAMETER, ringedElementHeight, ringedElementLines, ringedElementWidth } from '../layout/ringed'
 
 const ENDPOINT_RADIUS = RINGED_ENDPOINT_DIAMETER / 2
@@ -29,6 +30,7 @@ export interface RingedEdgeLayout {
   kind: 'dependency' | 'endpoint'
   from: Point
   to: Point
+  control?: Point
 }
 
 /** Decision 1 (Overview/Detailed toolbar switch, shared by Onion and Clean — ADR-01): Detailed draws every edge;
@@ -40,35 +42,20 @@ export function ringedVisibleEdges<E extends { fromRef: string; toRef: string }>
   return edges.filter((e) => activeRefs.has(e.fromRef) || activeRefs.has(e.toRef))
 }
 
-/** Bows a dependency arrow's chord away from the diagram's own centre (Decision 1, Detailed view): drawn all at
- * once, straight chords through the centre overlap into an unreadable knot — curving each one outward by a
- * fraction of its own length spreads them into distinguishable arcs, the same "bow away from the pole" idiom
- * chord diagrams use. The bow itself must move PERPENDICULAR to the chord, never straight "away from the origin":
- * a chord collinear with the centre (both ends roughly on the same line through it, e.g. two outer-ring elements
- * near-opposite each other with one inner element between them) has its own "away from the origin" direction
- * running PARALLEL to the chord — nudging the control point along the chord itself leaves the curve exactly
- * straight regardless of how big `bow` is (the reported edge running dead straight through the whole diagram).
- * Picking the chord's own perpendicular, oriented toward the origin's own "outward" side when that's known (so
- * every ordinary edge keeps bowing the same way as before) and falling back to either perpendicular when the
- * chord passes exactly through the origin, always produces a visible curve. */
-function edgePath(from: Point, to: Point, curved: boolean): string {
+/** Detailed view bows each arrow's chord instead of drawing it straight: all at once, straight chords through the
+ * centre overlap into an unreadable knot, and curving each one spreads them into distinguishable arcs. The layout
+ * picks the control point (`routeEdgesAroundLabels`) so the bow also stays off every curved label. */
+function edgePath(from: Point, to: Point, curved: boolean, control: Point | undefined): string {
   if (!curved) return `M${from.x} ${from.y}L${to.x} ${to.y}`
-  const mid = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
-  const chordLength = Math.hypot(to.x - from.x, to.y - from.y)
-  const bow = chordLength * 0.18
-  const perp = chordLength > 1e-6 ? { x: -(to.y - from.y) / chordLength, y: (to.x - from.x) / chordLength } : { x: 0, y: 0 }
-  const centreDist = Math.hypot(mid.x, mid.y)
-  const outward = centreDist > 1e-6 ? { x: mid.x / centreDist, y: mid.y / centreDist } : perp
-  const side = Math.sign(perp.x * outward.x + perp.y * outward.y) || 1
-  const control = { x: mid.x + perp.x * side * bow, y: mid.y + perp.y * side * bow }
-  return `M${from.x} ${from.y}Q${control.x} ${control.y} ${to.x} ${to.y}`
+  const c = control ?? edgeControl(from, to)
+  return `M${from.x} ${from.y}Q${c.x} ${c.y} ${to.x} ${to.y}`
 }
 
 /** The marker id is the caller's own `<defs>` concern, since Onion's and Clean's own diagrams each declare their
  * own arrow marker. `curved` follows the Overview/Detailed toolbar switch (Decision 1): straight chords for the
  * few edges Overview ever shows at once, curved for Detailed's every-edge view. */
 export function RingedEdge({ edge, markerId, curved = false }: { edge: RingedEdgeLayout; markerId: string; curved?: boolean }) {
-  return <path className="edge edge-import" markerEnd={`url(#${markerId})`} d={edgePath(edge.from, edge.to, curved)} />
+  return <path className="edge edge-import" markerEnd={`url(#${markerId})`} d={edgePath(edge.from, edge.to, curved, edge.control)} />
 }
 
 /** A (possibly wrapped, Decision 8) name's own lines, stacked as `<tspan>`s evenly sharing `height` and vertically
