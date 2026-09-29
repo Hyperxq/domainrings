@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addLink, contextName, crossHexagonPorts, diagramOf, freeCell, freeSides, linkEndLabel, neighbour, nextId, placeHexagon, putDiagram, pruneLinks, removeHexagon, removeLink, SIDE_ORDER, UNTITLED_HEXAGON, updateLink, type Cell } from './map'
+import { addLink, contextOrdinal, contextName, crossHexagonPorts, diagramOf, freeCell, freeSides, linkEndLabel, neighbour, nextId, placeHexagon, putDiagram, pruneLinks, removeHexagon, removeLink, SIDE_ORDER, UNTITLED_HEXAGON, updateLink, type Cell } from './map'
 import { toMap } from './hexa'
 import { EXAMPLE_DIAGRAM } from './example'
 import { VERSION, type Diagram, type HexaMap, type Link, type LinkEnd } from './schema'
@@ -292,6 +292,20 @@ describe('contextName (ADR-03)', () => {
     const afterDeletingC1 = { contexts: [{ id: 'c2' }, { id: 'c3' }] }
     expect(contextName(full, 'c3')).toBe('Context 3')
     expect(contextName(afterDeletingC1, 'c3')).toBe('Context 3')
+  })
+
+  it('keeps a foreign context’s placeholder when a context is added or removed next to it (CB-03.2)', () => {
+    const before = { ...toMap(EXAMPLE_DIAGRAM), contexts: [{ id: 'core' }], hexagons: [{ ...toMap(EXAMPLE_DIAGRAM).hexagons[0], contextId: 'core' }] }
+    const { map: after } = placeHexagon(before, EXAMPLE_DIAGRAM, { cell: { q: 5, r: 5 } })
+    const added = after.contexts[1]
+    expect(contextName(after, 'core')).toBe(contextName(before, 'core'))
+    expect(contextName(after, added.id)).not.toBe(contextName(after, 'core'))
+    expect(contextName({ contexts: after.contexts.filter((c) => c.id !== added.id) }, 'core')).toBe('Context 1')
+  })
+
+  it('does not give an id outside the map the placeholder of a real context', () => {
+    const map = { contexts: [{ id: 'c1' }, { id: 'core' }] }
+    expect(map.contexts.map((c) => contextOrdinal(map, c.id))).not.toContain(contextOrdinal(map, 'ghost'))
   })
 })
 
