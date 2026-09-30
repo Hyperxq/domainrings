@@ -1083,6 +1083,14 @@ describe('layoutMap — several expanded hexagons', () => {
       }
     })
 
+    it.each(SUBSETS)('keeps every point of every link inside the bounds: %s', (_, expanded) => {
+      const result = layoutWith(mode, expanded)
+      const b = result.bounds
+      for (const link of result.links) {
+        for (const p of link.points) expect(contains({ x: b.x - 1e-6, y: b.y - 1e-6, width: b.width + 2e-6, height: b.height + 2e-6 }, { ...p, width: 0, height: 0 }), `${link.id} at ${p.x},${p.y}`).toBe(true)
+      }
+    })
+
     it.each(SUBSETS)('fits every expanded hexagon on screen: %s', (_, expanded) => {
       const result = layoutWith(mode, expanded)
       const view = fitTo(result.bounds, STAGE.width, STAGE.height, INSET, 0)
