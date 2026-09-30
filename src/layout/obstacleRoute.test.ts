@@ -120,4 +120,15 @@ describe('routeAround', () => {
   it('returns a single point when both ends coincide', () => {
     expect(routeAround([start], [start], scene([]))).toEqual([start])
   })
+
+  // The worst case for the search: nothing stops it until it has tried every crossing the goal's walls leave reachable.
+  it('gives up on a goal sealed inside a crowded map within a fraction of a second', () => {
+    const hexagons = Array.from({ length: 30 }, (_, i) => box((i % 6) * 400, Math.floor(i / 6) * 400, 340, 340))
+    const chips = Array.from({ length: 6 }, (_, i) => box(i * 400 + 50, -40, 120, 20))
+    const sealed = { x: 370, y: 370 }
+    const ring = [box(355, 355, 30, 4), box(355, 381, 30, 4), box(355, 355, 4, 30), box(381, 355, 4, 30)]
+    const started = performance.now()
+    expect(routeAround([{ x: -30, y: -30 }], [sealed], scene([...hexagons, ...ring], chips, box(-100, -100, 2500, 2500)))).toBeUndefined()
+    expect(performance.now() - started).toBeLessThan(1000)
+  })
 })

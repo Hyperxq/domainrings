@@ -234,14 +234,18 @@ export function routeLink(from: RouteEnd, to: RouteEnd, laneOffset = 0, scene?: 
   if (!scene || !crossesBox(direct.points, [...scene.hexagons, ...scene.chips])) return direct
 
   const stub = (walk: Point[]) => walk[walk.length - 1]
-  const [fromWalks, toWalks] = [[exitWalk(from)], [exitWalk(to)]]
   const around = { ...scene, hexagons: [...scene.hexagons, from.box, to.box] }
-  let detour = routeAround(fromWalks.map(stub), toWalks.map(stub), around, laneOffset)
-  if (!detour) {
-    for (const [end, walks] of [[from, fromWalks], [to, toWalks]] as const) walks.push(...[sideWalk(end)].filter((w) => w !== undefined))
-    detour = routeAround(fromWalks.map(stub), toWalks.map(stub), around, laneOffset)
-  }
+  // A walk runs from the anchor, inside its own box, so it only has to keep off what the search also keeps off.
+  const open = (end: RouteEnd, other: RouteEnd, walk?: Point[]) => (walk && !crossesBox([end.point, ...walk], [...scene.hexagons, ...scene.chips, other.box]) ? [walk] : [])
+  const [fromPrimary, fromSide] = [open(from, to, exitWalk(from)), open(from, to, sideWalk(from))]
+  const [toPrimary, toSide] = [open(to, from, exitWalk(to)), open(to, from, sideWalk(to))]
+  const search = (fromWalks: Point[][], toWalks: Point[][]) =>
+    fromWalks.length && toWalks.length ? routeAround(fromWalks.map(stub), toWalks.map(stub), around, laneOffset) : undefined
+  let detour = search(fromPrimary, toPrimary)
+  if (!detour && (fromSide.length || toSide.length)) detour = search([...fromPrimary, ...fromSide], [...toPrimary, ...toSide])
   if (!detour || detour.length < 2) return direct
+  const fromWalks = [...fromPrimary, ...fromSide]
+  const toWalks = [...toPrimary, ...toSide]
   const endsAt = (p: Point) => (walk: Point[]) => stub(walk).x === p.x && stub(walk).y === p.y
   const fromWalk = fromWalks.find(endsAt(detour[0]))!
   const toWalk = toWalks.find(endsAt(detour[detour.length - 1]))!

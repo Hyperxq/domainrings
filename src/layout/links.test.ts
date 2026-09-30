@@ -539,4 +539,18 @@ describe('routeLink — with a scene, a route through a third hexagon or a chip 
     expect(detoured).toBe(true)
     expect(hits(points, chip)).toBe(false)
   })
+
+  it('never takes an exit walk that itself crosses a chip, leaving the other way instead', () => {
+    const slanted: RouteEnd = { point: { x: 40, y: 40 }, wall: 'se', box: { x: -50, y: -50, width: 100, height: 100 }, clear: [] }
+    const chip: Box = { x: 30, y: 52, width: 20, height: 6 }
+    const { points, detoured } = routeLink(slanted, { ...to, point: { x: 250, y: 40 } }, 0, { hexagons: [], chips: [chip], within })
+    expect(detoured).toBe(true)
+    expect(hits(points, chip)).toBe(false)
+  })
+
+  it('keeps the direct route when a chip seals in the only exit of a port', () => {
+    const chip: Box = { x: 55, y: -20, width: 6, height: 20 }
+    const scene = { hexagons: [third], chips: [chip], within }
+    expect(routeLink(from, to, 0, scene)).toEqual(routeLink(from, to))
+  })
 })
