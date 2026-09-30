@@ -34,7 +34,7 @@ const renderEditor = (
       onToggle={() => {}}
       onPrune={() => {}}
       onRecord={() => {}}
-      onField={{ begin: () => {}, end: () => {} }}
+      fieldSession={{ begin: () => {}, end: () => {} }}
       onAddHexagon={onAddHexagon}
       onDeleteHexagon={onDeleteHexagon}
       onAddFromFile={onAddFromFile}
