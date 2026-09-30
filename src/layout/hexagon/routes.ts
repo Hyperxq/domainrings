@@ -35,6 +35,8 @@ export interface RouteInput {
   d: Diagram
   overview: boolean
   nodes: LayoutNode[]
+  /** The composition root node, when one is drawn. */
+  composition: LayoutNode | undefined
   plan: BoxPlan
   app: Outline
   insideApp: Outline
@@ -44,7 +46,7 @@ export interface RouteInput {
 }
 
 /** Every edge of the diagram: each planned import, the use cases' asks into the domain, the domain's port declarations and the composition trunks. */
-export function routeEdges({ d, overview, nodes, plan, app, insideApp, domain, outer, seating }: RouteInput): LayoutEdge[] {
+export function routeEdges({ d, overview, nodes, composition, plan, app, insideApp, domain, outer, seating }: RouteInput): LayoutEdge[] {
   const { labels } = HEXAGONAL_KIND
   const { edgePlan } = plan
   const { stack, laneX } = seating
@@ -66,13 +68,13 @@ export function routeEdges({ d, overview, nodes, plan, app, insideApp, domain, o
     return [{ x: ax, y: a.y }, { x: mx, y: a.y }, { x: mx, y: b.y }, { x: bx, y: b.y }]
   }
 
-  /** Use case → bus → socket: sideways out of the use case, down its lane, then straight into the socket. */
   /** Use case to the head of its bus lane for this socket's side (see toLane). */
   const laneHead = (useCase: LayoutNode, socket: LayoutNode) => {
     const side = socket.side ?? 'driven'
     const lane = laneX(side, d.useCases.findIndex((u) => `useCase:${u.id}` === useCase.key), insideApp.halfWidth)
     return toLane({ ...useCase, seated: !!useCase.wall }, lane, insideApp.apex, socket.y)
   }
+  /** Use case → bus → socket: sideways out of the use case, down its lane, then straight into the socket. */
   const busRoute = (useCase: LayoutNode, socket: LayoutNode): Point[] => {
     const head = laneHead(useCase, socket)
     const lane = head.at(-1)!.x
@@ -224,8 +226,8 @@ export function routeEdges({ d, overview, nodes, plan, app, insideApp, domain, o
     const tail = face
       ? (() => {
           const { n } = wallFrame(socket.wall!)
-          const reach = (face.x - lane) / n.x
-          return [{ x: lane, y: face.y - n.y * reach }, face]
+          const run = (face.x - lane) / n.x
+          return [{ x: lane, y: face.y - n.y * run }, face]
         })()
       : [{ x: lane, y: to }, { x: socket.x - socket.width / 2, y: to }]
     const points = dedupe([...head, { x: lane, y: from }, ...tail])
@@ -247,13 +249,12 @@ export function routeEdges({ d, overview, nodes, plan, app, insideApp, domain, o
     edges.push({ key: `${declaration.key}->${socket.key}`, kind: 'declares', points, insideTo })
   })
 
-  if (d.composition && !overview) {
-    const root = byKey.get('composition')!
+  if (composition) {
     // One trunk per side hugging the outer ring, just inside the endpoints. Each branch runs in along its wall's
     // normal to the adapter's outer face, a quarter of the box off the endpoint arrow, so it meets no box.
     const r = outer.apex + TRUNK_GAP / COS30
     const vertex = (k: number) => ({ x: r * VERTEX[k].x, y: r * VERTEX[k].y })
-    const rootTop = { x: 0, y: root.y - root.height / 2 }
+    const rootTop = { x: 0, y: composition.y - composition.height / 2 }
     const walls: Record<Side, Wall[]> = { driving: ['sw', 'w', 'nw'], driven: ['se', 'e', 'ne'] }
     const vertices: Record<Side, number[]> = { driving: [3, 4, 5, 0], driven: [3, 2, 1, 0] }
     for (const side of SideSchema.options) {

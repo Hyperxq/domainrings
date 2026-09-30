@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type Ref } from 'react'
-import type { Box } from '../../layout/layout'
+import type { Box } from '../../layout/geometry'
 import { layerOf, refOf } from '../canvasTarget'
 import { keyOnCanvas } from '../keys'
 import { fitTo, islandInset } from '../viewport'

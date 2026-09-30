@@ -1,5 +1,5 @@
 import type { HexaMap, Link } from '../model/schema'
-import { hexagonBounds } from './compactHexagon'
+import { hexagonBounds } from './lattice'
 import { chipBox } from './contextChips'
 import { MAP_GAP } from './gap'
 import { unionBox, type Box, type Point } from './geometry'
@@ -15,7 +15,7 @@ const AVOIDED_KINDS: ReadonlySet<NodeKind> = new Set(['port', 'adapter', 'actor'
 /** Spacing between adjacent lanes when several links share the same hexagon-pair gap (REQ-LNK-05.5). */
 const LANE_PITCH = 10
 /** The farthest a lane may push the gap midline off-centre: half of `MAP_GAP` minus `links.ts`'s `GAP_MARGIN`
- * (imported — this direction is fine, only the reverse isn't: `layoutMap` calls `routeLink`, so `links.ts` must
+ * (imported — this direction is fine, only the reverse isn't: `layLinks` calls `routeLink`, so `links.ts` must
  * never import back from this module). At this bound, a lane's crossing still sits at least `GAP_MARGIN` from the
  * NEARER of the two boxes; it never crosses that margin no matter how many links share the gap — beyond 4 links,
  * extra lanes clamp to this same outermost offset instead (they compress together rather than push into either

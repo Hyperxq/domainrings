@@ -1,4 +1,4 @@
-import type { Box } from '../layout/layout'
+import type { Box } from '../layout/geometry'
 import { LEGEND_GAP } from '../layout/legend'
 
 const FONT_CSS =

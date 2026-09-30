@@ -13,8 +13,6 @@ import { seatUseCases } from './hexagon/useCaseSeating'
 import { VERTEX } from './hexagon/walls'
 import type { TextLine } from './text'
 
-export type { Box, Point } from './geometry'
-
 /** Colour = side or layer: driving and driven pills, slate external systems, teal ports and use cases. */
 export type Tone = 'driving' | 'driven' | 'teal' | 'slate' | 'muted' | 'domain'
 export type NodeKind =
@@ -69,7 +67,7 @@ export interface LayoutRing {
   /** The title and subtitle block, which nothing may cover. */
   titleBox: Box
   /** Onion/Clean only (ADR-01, Decision 7): how many concentric radial lanes this ring's own elements are
-   * staggered across (`ringSlotRadius`, layout/ringed.ts) — undefined for Hexagonal, which has no such concept. */
+   * staggered across (`ringSlotRadius`, layout/ringOutlines.ts) — undefined for Hexagonal, which has no such concept. */
   tracks?: number
 }
 
@@ -130,8 +128,8 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   const outer = outlines[0]
   const domain = outlines[config.rings.length - 1]
 
-  const nodes = placeNodes({ d, overview, app, insideApp, outer, domain, titles, domainShift, centre, plan, frames, useCaseFrames, seating })
-  const edges = routeEdges({ d, overview, nodes, plan, app, insideApp, domain, outer, seating })
+  const { nodes, composition } = placeNodes({ d, overview, app, insideApp, outer, domain, titles, domainShift, centre, plan, frames, useCaseFrames, seating })
+  const edges = routeEdges({ d, overview, nodes, composition, plan, app, insideApp, domain, outer, seating })
   const { texts, bounds } = layoutBounds(d, outer, nodes, edges)
   assignLayers(nodes, centre.serviceItems)
 

@@ -8,7 +8,7 @@ import { ringSlotRadii } from './ringOutlines'
 
 const FULL_CIRCLE = { start: -Math.PI / 2, end: -Math.PI / 2 + 2 * Math.PI }
 
-/** The `PlusGlyph`'s own rendered footprint (`RingedCanvas.tsx`: a `r={10}` circle) as an axis-aligned box, for a
+/** The `PlusGlyph`'s own rendered footprint (`ui/ringed/RingedAffordances.tsx`: a `r={10}` circle) as an axis-aligned box, for a
  * gap "+"'s own "would I actually sit on that?" check below — never exact for a circle, but a fair, cheap stand-in
  * for "close enough to read as touching". */
 const PLUS_DIAMETER = 20

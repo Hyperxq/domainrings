@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type Dispatch, type PointerEvent as ReactPointerEvent, type RefObject, type SetStateAction } from 'react'
-import type { Point } from '../layout/layout'
+import type { Point } from '../layout/geometry'
 import { Icon } from './Icon'
 import { MIN_SCALE, panBy, pinch, zoomAt, type Viewport } from './viewport'
 

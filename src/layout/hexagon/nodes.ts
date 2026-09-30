@@ -27,8 +27,8 @@ export interface NodesInput {
   seating: UseCaseSeating
 }
 
-/** Every node of the diagram at its final position, in draw order: domain block, use cases, column boxes, wall boxes, overview port names, composition root. */
-export function placeNodes({ d, overview, app, insideApp, outer, domain, titles, domainShift, centre, plan, frames, useCaseFrames, seating }: NodesInput): LayoutNode[] {
+/** Every node of the diagram at its final position, in draw order: domain block, use cases, column boxes, wall boxes, overview port names, composition root; `composition` is that root, absent when none is drawn. */
+export function placeNodes({ d, overview, app, insideApp, outer, domain, titles, domainShift, centre, plan, frames, useCaseFrames, seating }: NodesInput): { nodes: LayoutNode[]; composition: LayoutNode | undefined } {
   const { titleDepth } = titles
   const { planned, widths, portOf, wallBoxes } = plan
   const { stack } = seating
@@ -47,15 +47,14 @@ export function placeNodes({ d, overview, app, insideApp, outer, domain, titles,
     const node = place(r.key, r.ref, r.kind, 'domain', r.frame, r.x, blockTop + domainShift + r.top + r.frame.height / 2)
     if (r.kind !== 'aggregate') node.align = 'center'
   }
-  let y = 0
-  y = -(domain.apex + GAP + centre.servicesBlock.height)
+  let y = -(domain.apex + GAP + centre.servicesBlock.height)
   centre.serviceItems.forEach((item, i) => {
     const f = centre.serviceFrames[i]
     place(`domainItem:${item.id}`, item.id, 'domainItem', 'domain', f, 0, y + f.height / 2)
     y += f.height
   })
-  // Use cases hang right under the application title, lowered only where the ring is too narrow for a box or
-  // for its bus corners; the solver guaranteed the stacked position fits, so this never goes below it.
+  // Use cases hang right under the application title at the centres `seating` resolved, which lower them only
+  // where the ring is too narrow for a box or for its bus corners.
   stack.forEach((i, j) => {
     const u = d.useCases[i]
     place(`useCase:${u.id}`, u.id, 'useCase', 'teal', useCaseFrames[i], 0, useCaseCentres[j]).align = 'center'
@@ -110,8 +109,8 @@ export function placeNodes({ d, overview, app, insideApp, outer, domain, titles,
     add({ key: `portLabel:${l.ref}`, ref: l.ref, kind: 'portLabel', tone: 'teal', lines: l.frame.lines, align: l.align, side: l.side, rotation: l.rotation, x: l.x, y: l.y, width: l.frame.width, height: l.frame.height })
   }
 
-  if (compositionFrame) place('composition', 'composition', 'composition', 'muted', compositionFrame, 0, outer.apex + GAP + compositionFrame.height / 2).align = 'center'
-  return nodes
+  const composition = compositionFrame ? Object.assign(place('composition', 'composition', 'composition', 'muted', compositionFrame, 0, outer.apex + GAP + compositionFrame.height / 2), { align: 'center' as const }) : undefined
+  return { nodes, composition }
 }
 
 // Layer membership: use cases in application, ports and adapters in the adapter ring, the domain block in the

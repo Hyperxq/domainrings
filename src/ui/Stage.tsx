@@ -1,6 +1,7 @@
 import { useRef, useState, type Ref } from 'react'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
-import type { LayoutMode, LayoutNode, Point } from '../layout/layout'
+import type { LayoutMode, LayoutNode } from '../layout/layout'
+import type { Point } from '../layout/geometry'
 import type { LegendModel } from '../layout/legend'
 import { currentHexagon, type MapLayout } from '../layout/map'
 import { dependencyChain } from '../model/chain'

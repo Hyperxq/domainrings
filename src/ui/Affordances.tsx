@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { DOMAIN_CHOICES, type InsertionPoint } from '../layout/insertion'
-import type { Point } from '../layout/layout'
+import type { Point } from '../layout/geometry'
 import { DOMAIN_TAGS } from '../layout/tags'
 import type { DomainType } from '../model/schema'
 import { Icon } from './Icon'

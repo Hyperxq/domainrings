@@ -1,4 +1,4 @@
-import type { Box, Point } from '../layout/layout'
+import type { Box, Point } from '../layout/geometry'
 
 /** (x, y) is the diagram coordinate shown at the stage's top-left corner. */
 export interface Viewport {

@@ -2,7 +2,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createRef, useState } from 'react'
 import { Stage } from './Stage'
-import { currentHexagon, hexagonBounds, layoutMap } from '../layout/map'
+import { hexagonBounds } from '../layout/lattice'
+import { currentHexagon, layoutMap } from '../layout/map'
 import { legendFor } from '../layout/legend'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
 import { toMap } from '../model/hexa'
@@ -12,7 +13,7 @@ import type { HexaMap } from '../model/schema'
 import { parseHexa } from '../model/hexa'
 import { hexGroup, linkedTwoHexMap, manyHexagonMap, twoHexMap } from '../test/fixtures'
 import { contains, fitMap, fitTo, islandInset, MIN_FIT_SCALE, MIN_SCALE, pinch, visibleRect, zoomAt } from './viewport'
-import type { Box, Point } from '../layout/layout'
+import type { Box, Point } from '../layout/geometry'
 import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
 
 beforeAll(() => {
