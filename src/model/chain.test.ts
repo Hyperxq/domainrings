@@ -60,4 +60,19 @@ describe('dependencyChain', () => {
     expect(dependencyChain(map, 'h1', 'composition', both)).toBeUndefined()
     expect(dependencyChain(map, 'h1', 'layer:domain', both)).toBeUndefined()
   })
+
+  // The schema rejects these on every load path, so they are only reachable by a map built around it; the walk must still end.
+  it('ends on a link cycle', () => {
+    const cyclic = { ...map, links: [...map.links, { id: 'back', from: { hexagonId: 'h2', portId: 'p-submit' }, to: { hexagonId: 'h1', portId: 'p-repo' } }] }
+    const chain = dependencyChain(cyclic, 'h1', 'p-repo', both)
+    expect(refs(chain, 'h2')).toContain('p-submit')
+    expect([...chain!.links].sort()).toEqual(['back', 'link-1'])
+  })
+
+  it('ends on a parent cycle', () => {
+    const [h1, ...rest] = map.hexagons
+    const domain = h1.domain.map((i) => (i.id === 'd-feedback' ? { ...i, parentId: 'd-rating' } : i))
+    const chain = dependencyChain({ ...map, hexagons: [{ ...h1, domain }, ...rest] }, 'h1', 'd-rating', both)
+    expect(refs(chain, 'h1')).toEqual(['d-feedback', 'd-rating'])
+  })
 })

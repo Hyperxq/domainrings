@@ -29,7 +29,8 @@ export function dependencyChain(map: HexaMap, hexId: string, ref: string, expand
 
   const follow = (hex: string, from: string) => {
     const d = diagramOf(map, hex)
-    for (let at: string | undefined = from; at; at = inward(d, at)) {
+    // Already in the chain means already followed, which also ends any cycle.
+    for (let at: string | undefined = from; at && !chain.elements.get(hex)?.has(at); at = inward(d, at)) {
       add(hex, at)
       for (const link of map.links) {
         if (link.from.hexagonId !== hex || link.from.portId !== at) continue
