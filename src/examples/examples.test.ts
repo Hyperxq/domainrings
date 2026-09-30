@@ -212,7 +212,7 @@ describe('example .hexa files', () => {
 // Onion/Clean ring placement spaced elements evenly by angle and count only, ignoring each element's rendered box
 // width — the stress/advanced examples above exposed real overlaps this way. Hexagonal is excluded: its own
 // reported "overlaps" are an aggregate's outline around its own members, which is intentional, not a bug.
-// Reuses `layout/ringed.ts`'s own `boxWithinBand` (never a local reimplementation) so this test and the sizing
+// Reuses `layout/ringOutlines.ts`'s own `boxWithinBand` (never a local reimplementation) so this test and the sizing
 // search it gates can never quietly drift apart on what "fully inside its own band" means (the reported "Pricing
 // Service"/"Place Order Service"/"Order Controller" straddling their own ring, onion-basic.hexa: the old duplicate
 // check here and the layout's own zero-margin search always agreed on paper, since both allowed bare touching —
