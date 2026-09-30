@@ -948,6 +948,25 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
     }
   })
 
+  // routeLink only knows its two endpoint boxes, so a link between hexagons that are not neighbours crosses the ones
+  // between them, and every route ignores chips. `fails` keeps that visible: it goes red once routing avoids them.
+  it.fails.each(MODES_UNDER_TEST)('routes no link through another hexagon or across a chip in %s', (mode) => {
+    const through = (a: { x: number; y: number }, b: { x: number; y: number }, box: Box) =>
+      Math.max(a.x, b.x) > box.x && Math.min(a.x, b.x) < box.x + box.width && Math.max(a.y, b.y) > box.y && Math.min(a.y, b.y) < box.y + box.height
+    for (const current of currentsIn(mode)) {
+      const result = layoutFor(mode, current)
+      const chips = result.contexts.map((c) => ({ id: c.id, box: chipBoxOf(c) }))
+      map.links.forEach((link) => {
+        const { points } = result.links.find((l) => l.id === link.id)!
+        const ends = [link.from.hexagonId, link.to.hexagonId]
+        for (let i = 0; i < points.length - 1; i++) {
+          for (const hexagon of result.hexagons.filter((h) => !ends.includes(h.id))) expect(through(points[i], points[i + 1], hexagonBounds(hexagon)), `${current}: ${link.id} through ${hexagon.id}`).toBe(false)
+          for (const chip of chips) expect(through(points[i], points[i + 1], chip.box), `${current}: ${link.id} across chip ${chip.id}`).toBe(false)
+        }
+      })
+    }
+  })
+
   it('moves only the hexagons around a hexagon when another becomes current', () => {
     const wide = manyHexagonMap(12)
     wide.hexagons[6].externals.push({ id: 'ext-wide', name: 'A Very Long External System Name That Extends Far To The Right'.repeat(4) })
