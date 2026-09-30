@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { addLink as addLinkToMap, diagramOf, freeCell, freeSides, neighbour, placeHexagon, putDiagram, pruneLinks, removeHexagon as removeHexagonFromMap, removeLink as removeLinkFromMap, UNTITLED_HEXAGON, updateLink as updateLinkOnMap, type Cell, type Destination, type LinkPatch } from './map'
+import { addLink as addLinkToMap, diagramOf, freeCell, freeSides, moveToContext as moveToContextOnMap, neighbour, placeHexagon, putDiagram, pruneLinks, removeHexagon as removeHexagonFromMap, removeLink as removeLinkFromMap, UNTITLED_HEXAGON, updateLink as updateLinkOnMap, type Cell, type Destination, type LinkPatch } from './map'
 import { EXAMPLE_DIAGRAM } from './example'
 import { toMap } from './hexa'
 import { browserStorage, loadMap } from './persistence'
@@ -48,6 +48,9 @@ interface MapState {
    * the deleted one was current. No-op ([]), leaving the map untouched, on the map's last hexagon (DEL-01) — a
    * map is never left with zero. Never bumps `revision`. */
   removeHexagon: (hexId: string) => Link[]
+  /** Moves `hexId` into the existing `contextId`, or a fresh one when omitted, dropping its old context if that
+   * empties it. Focus stays put; a no-op (own context, unknown ids) leaves the map untouched. Never bumps `revision`. */
+  moveToContext: (hexId: string, contextId?: string) => void
   /** Sets or clears `contextId`'s display name; `''` removes the `name` key entirely rather than storing an empty
    * string, so a cleared context falls back to its "Context {n}" placeholder (NAME-02.3). Every other context is
    * untouched; never bumps `revision`. */
@@ -143,6 +146,7 @@ export const useMapStore = create<MapState>()((set, get) => {
       set({ map: next, focus: get().focus === hexId ? next.hexagons[0].id : get().focus })
       return pruned
     },
+    moveToContext: (hexId, contextId) => set((s) => ({ map: moveToContextOnMap(s.map, hexId, contextId) })),
     setContextName: (contextId, name) =>
       set((s) => ({
         map: {

@@ -3166,3 +3166,34 @@ describe('Onion/Clean layout is memoised across renders that do not change the d
     expect(layoutClean).not.toHaveBeenCalled()
   })
 })
+
+describe('move a hexagon to another bounded context', () => {
+  const twoContexts = () => {
+    const base = twoHexMap()
+    useMapStore.getState().replace({ ...base, contexts: [{ id: 'c1' }, { id: 'c2' }], hexagons: [base.hexagons[0], { ...base.hexagons[1], contextId: 'c2' }] })
+  }
+  const moveTo = (name: string) => {
+    fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move to context…' }))
+    fireEvent.click(screen.getByRole('menuitem', { name }))
+  }
+
+  it('moves the current hexagon, toasts its title and destination, and Undo restores map and focus', () => {
+    twoContexts()
+    render(<App />)
+    const before = useMapStore.getState().map
+    const title = currentDiagram().title
+
+    moveTo('Context 2')
+
+    expect(useMapStore.getState().map.hexagons[0].contextId).toBe('c2')
+    expect(useMapStore.getState().map.contexts.map((c) => c.id)).toEqual(['c2'])
+    expect(toastEl()!.querySelector('p')!.textContent).toBe(`Moved ${title} to Context 2.`)
+    expect(useMapStore.getState().focus).toBe('h1')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useMapStore.getState().map).toEqual(before)
+    expect(useMapStore.getState().focus).toBe('h1')
+  })
+})

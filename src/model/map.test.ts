@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addLink, contextOrdinal, contextName, crossHexagonPorts, diagramOf, freeCell, freeSides, linkEndLabel, neighbour, nextId, placeHexagon, putDiagram, pruneLinks, removeHexagon, removeLink, SIDE_ORDER, UNTITLED_HEXAGON, updateLink, type Cell } from './map'
+import { addLink, contextOrdinal, contextName, crossHexagonPorts, diagramOf, freeCell, freeSides, linkEndLabel, moveToContext, neighbour, nextId, placeHexagon, putDiagram, pruneLinks, removeHexagon, removeLink, SIDE_ORDER, UNTITLED_HEXAGON, updateLink, type Cell } from './map'
 import { toMap } from './hexa'
 import { EXAMPLE_DIAGRAM } from './example'
 import { VERSION, type Diagram, type HexaMap, type Link, type LinkEnd } from './schema'
@@ -641,5 +641,55 @@ describe('updateLink / removeLink (ADR-02, REQ-LNK-02, REQ-LNK-04)', () => {
       expect(result!.map.links).toEqual([map.links[0]])
       expect(result!.map.links[0]).toBe(map.links[0])
     })
+  })
+})
+
+describe('moveToContext', () => {
+  const map = (): HexaMap => ({
+    version: VERSION,
+    kind: 'hexagonal',
+    title: 'Three',
+    contexts: [{ id: 'c1', name: 'Billing' }, { id: 'c2' }],
+    hexagons: [emptyHexagon('h1', 'c1', { q: 0, r: 0 }), emptyHexagon('h2', 'c1', { q: 1, r: 0 }), emptyHexagon('h3', 'c2', { q: 2, r: 0 })],
+    links: [{ id: 'l1', from: { hexagonId: 'h1', portId: 'p1' }, to: { hexagonId: 'h3', portId: 'p2' } }],
+  })
+
+  it('reassigns only the moved hexagon’s contextId, keeping its content, cell, the others and the links', () => {
+    const before = map()
+    const next = moveToContext(before, 'h1', 'c2')
+    expect(next.hexagons[0]).toStrictEqual({ ...before.hexagons[0], contextId: 'c2' })
+    expect(next.hexagons[1]).toBe(before.hexagons[1])
+    expect(next.hexagons[2]).toBe(before.hexagons[2])
+    expect(next.links).toBe(before.links)
+    expect(next.contexts).toStrictEqual(before.contexts)
+  })
+
+  it('drops the old context when the move leaves it empty', () => {
+    const next = moveToContext(map(), 'h3', 'c1')
+    expect(next.contexts).toStrictEqual([{ id: 'c1', name: 'Billing' }])
+  })
+
+  it('moves into a new context appended in the same transition when no contextId is given', () => {
+    const next = moveToContext(map(), 'h1')
+    expect(next.contexts.map((c) => c.id)).toEqual(['c1', 'c2', 'c3'])
+    expect(next.hexagons[0].contextId).toBe('c3')
+  })
+
+  it('drops the emptied old context when moving its only hexagon into a new one', () => {
+    const next = moveToContext(map(), 'h3')
+    expect(next.contexts.map((c) => c.id)).toEqual(['c1', 'c3'])
+    expect(next.hexagons[2].contextId).toBe('c3')
+  })
+
+  it('leaves a foreign context that already held no hexagon alone', () => {
+    const before: HexaMap = { ...map(), contexts: [...map().contexts, { id: 'c9' }] }
+    expect(moveToContext(before, 'h1', 'c2').contexts.map((c) => c.id)).toEqual(['c1', 'c2', 'c9'])
+  })
+
+  it('is a no-op for the hexagon’s own context, an unknown hexagon, or an unknown context', () => {
+    const before = map()
+    expect(moveToContext(before, 'h1', 'c1')).toBe(before)
+    expect(moveToContext(before, 'nope', 'c2')).toBe(before)
+    expect(moveToContext(before, 'h1', 'nope')).toBe(before)
   })
 })

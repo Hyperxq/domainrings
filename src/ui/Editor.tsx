@@ -17,7 +17,7 @@ import {
   type Wall,
 } from '../model/schema'
 import { parentCandidates } from '../model/links'
-import { contextOrdinal, crossHexagonPorts, diagramOf, freeSides, linkEndLabel, occupiedContexts, UNTITLED_HEXAGON, type Destination, type LinkPatch, type PortRef } from '../model/map'
+import { contextName, contextOrdinal, crossHexagonPorts, diagramOf, freeSides, linkEndLabel, occupiedContexts, UNTITLED_HEXAGON, type Destination, type LinkPatch, type PortRef } from '../model/map'
 import { useMapStore, type Item } from '../model/store'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
@@ -35,6 +35,9 @@ const WALL_LABEL: Record<Wall, string> = { nw: 'North-west', w: 'West', sw: 'Sou
 const FLASH_MS = 1200
 const NO_FREE_SIDE_HINT = 'No free side around this hexagon.'
 const LAST_HEXAGON_HINT = 'A map needs at least one hexagon.'
+const NO_CONTEXT_TO_MOVE_HINT = 'This hexagon is alone in the only bounded context.'
+/** Stands in for a context id in the move menu: a new context has none yet. */
+const NEW_CONTEXT = ''
 
 /** Bring a card into view and flash it, so canvas and panel stay in step; `focus` also selects its first field. */
 export function revealInEditor(id: string, focus: boolean) {
@@ -355,6 +358,7 @@ export function Editor({
   onPrune,
   onAddHexagon,
   onDeleteHexagon,
+  onMoveToContext,
   onAddFromFile,
   contextLabel,
   onRenameContext,
@@ -367,6 +371,8 @@ export function Editor({
   onPrune: OnPrune
   onAddHexagon: () => void
   onDeleteHexagon: () => void
+  /** Moves the current hexagon into the given context, or a new one when `undefined`. */
+  onMoveToContext: (contextId: string | undefined) => void
   /** Imports the chosen file's one hexagon (IMP-01). */
   onAddFromFile: (file: File, context: Destination) => void
   /** The current hexagon's own bounded context, for the import menu's "Import into {context}" choice. */
@@ -391,6 +397,11 @@ export function Editor({
   const currentCell = map.hexagons.find((h) => h.id === hexId)?.cell
   const canGrow = !!currentCell && freeSides(map, currentCell).length > 0
   const canDelete = map.hexagons.length > 1
+  const ownContext = map.hexagons.find((h) => h.id === hexId)?.contextId
+  const moveChoices = [
+    ...occupiedContexts(map).filter((c) => c.id !== ownContext).map((c) => ({ id: c.id, label: contextName(map, c.id) })),
+    ...(map.hexagons.filter((h) => h.contextId === ownContext).length > 1 ? [{ id: NEW_CONTEXT, label: 'New bounded context' }] : []),
+  ]
   const importContext = useRef<Destination>('same')
   const importInputRef = useRef<HTMLInputElement>(null)
   // Keyed by contextId, so renaming two contexts in the same session (unlikely, but never concurrent within one
@@ -501,6 +512,16 @@ export function Editor({
           </div>
           {!canGrow && <Hint id="no-free-side-hint">{NO_FREE_SIDE_HINT}</Hint>}
           {!canDelete && <Hint id="last-hexagon-hint">{LAST_HEXAGON_HINT}</Hint>}
+          {moveChoices.length ? (
+            <ChoiceMenu label="Move to context…" choices={moveChoices} onChoose={(id) => onMoveToContext(id === NEW_CONTEXT ? undefined : id)} />
+          ) : (
+            <>
+              <HintedButton enabled={false} hintId="no-context-to-move-hint" onClick={() => {}}>
+                Move to context…
+              </HintedButton>
+              <Hint id="no-context-to-move-hint">{NO_CONTEXT_TO_MOVE_HINT}</Hint>
+            </>
+          )}
         </Fold>
 
         <Fold id="layers" title="Layers" count={HEXAGONAL_KIND.rings.length}>

@@ -72,7 +72,7 @@ const OVERVIEW_KEY = 'domainrings:overview'
 const GUIDES_KEY = 'domainrings:guides'
 const HIGHLIGHT_KEY = 'domainrings:highlight'
 const LEGEND_OPEN_KEY = 'domainrings:legend-open'
-const { replace, restore, removeItem, updateItem, addHexagon, importHexagon, removeHexagon, setMeta, addLink, updateLink: updateLinkAction, removeLink: removeLinkAction } = useMapStore.getState()
+const { replace, restore, removeItem, updateItem, addHexagon, importHexagon, removeHexagon, moveToContext, setMeta, addLink, updateLink: updateLinkAction, removeLink: removeLinkAction } = useMapStore.getState()
 const { replace: replaceOnion, restore: restoreOnion } = useOnionStore.getState()
 const { replace: replaceClean, restore: restoreClean } = useCleanStore.getState()
 
@@ -312,6 +312,14 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     show({ tone: 'status', message, undo: before, sticky: true, staleWhenMapIsnt: after })
   }
 
+  const handleMoveToContext = (contextId: string | undefined) => {
+    moveToContext(hexId, contextId)
+    const after = useMapStore.getState().map
+    if (after === map) return
+    const label = contextName(after, after.hexagons.find((h) => h.id === hexId)!.contextId)
+    show({ tone: 'status', message: `Moved ${diagram.title || UNTITLED_HEXAGON} to ${label}.`, undo: before })
+  }
+
   // Link mode: the element being linked. It ends when that element goes, or the whole map is swapped.
   const [linking, setLinking] = useState<string | null>(null)
   const [linkRevision, setLinkRevision] = useState(revision)
@@ -547,6 +555,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
             onPrune={pruneToast}
             onAddHexagon={() => completeGrow(undefined, 'same')}
             onDeleteHexagon={handleDelete}
+            onMoveToContext={handleMoveToContext}
             onAddFromFile={handleAddFromFile}
             contextLabel={contextLabel}
             onRenameContext={handleRenameContext}
