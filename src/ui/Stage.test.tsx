@@ -36,6 +36,8 @@ function Harness({
   onNamingCancel = () => {},
   mode = 'detailed',
   panelOpen = false,
+  expanded,
+  onToggleExpanded = () => {},
 }: {
   highlight?: boolean
   onReveal?: (ref: string, focus: boolean) => void
@@ -46,6 +48,8 @@ function Harness({
   onNamingCancel?: () => void
   mode?: import('../layout/layout').LayoutMode
   panelOpen?: boolean
+  expanded?: ReadonlySet<string>
+  onToggleExpanded?: (id: string) => void
 }) {
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
@@ -55,7 +59,7 @@ function Harness({
   const currentContextId = map.hexagons.find((h) => h.id === hexId)!.contextId
   return (
     <Stage
-      model={layoutMap(map, { mode, current: hexId })}
+      model={layoutMap(map, { mode, current: hexId, expanded })}
       map={map}
       hexId={hexId}
       diagram={diagram}
@@ -79,6 +83,7 @@ function Harness({
       naming={naming}
       onNamed={onNamed}
       onNamingCancel={onNamingCancel}
+      onToggleExpanded={onToggleExpanded}
     />
   )
 }
@@ -1175,6 +1180,83 @@ describe('Stage — compact neighbours on a large map', () => {
     render(<Harness />)
     const current = map.hexagons.find((h) => h.id === useMapStore.getState().focus)!
     expect(screen.getAllByRole('button', { name: /^Add hexagon to the / })).toHaveLength(freeSides(map, current.cell).length)
+  })
+
+  describe('the Expand / Collapse toggle of each hexagon', () => {
+    it('offers Expand on every compact hexagon, and on none of a map below the compact threshold', () => {
+      useMapStore.getState().replace(manyHexagonMap(6))
+      const { unmount } = render(<Harness />)
+      expect(screen.getAllByRole('button', { name: /^Expand Slice / })).toHaveLength(5)
+      unmount()
+
+      useMapStore.getState().replace(manyHexagonMap(3))
+      render(<Harness />)
+      expect(screen.queryAllByRole('button', { name: /^(Expand|Collapse) Slice / })).toHaveLength(0)
+    })
+
+    it('offers Collapse on an expanded hexagon and a disabled Collapse on the current one', () => {
+      useMapStore.getState().replace(manyHexagonMap(6))
+      render(<Harness expanded={new Set(['h3'])} />)
+      expect(screen.getByRole('button', { name: 'Collapse Slice 3' })).toHaveProperty('disabled', false)
+      expect(screen.getByRole('button', { name: 'Collapse Slice 1' })).toHaveProperty('disabled', true)
+      expect(screen.queryByRole('button', { name: 'Expand Slice 3' })).toBeNull()
+    })
+
+    it('reports the hexagon pressed, and leaves the current hexagon and the selection alone', () => {
+      useMapStore.getState().replace(manyHexagonMap(6))
+      const onToggleExpanded = vi.fn()
+      render(<Harness onToggleExpanded={onToggleExpanded} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Expand Slice 4' }))
+
+      expect(onToggleExpanded).toHaveBeenCalledTimes(1)
+      expect(onToggleExpanded).toHaveBeenCalledWith('h4')
+      expect(useMapStore.getState().focus).toBe('h1')
+    })
+
+    it('never reports the current hexagon', () => {
+      useMapStore.getState().replace(manyHexagonMap(6))
+      const onToggleExpanded = vi.fn()
+      render(<Harness onToggleExpanded={onToggleExpanded} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Collapse Slice 1' }))
+      expect(onToggleExpanded).not.toHaveBeenCalled()
+    })
+
+    it('sits at the top-right corner of its hexagon', () => {
+      useMapStore.getState().replace(manyHexagonMap(6))
+      const restore = stubFixedSize(1200, 900)
+      try {
+        const { container } = render(<Harness />)
+        const { x, y, scale } = viewportOf(container)
+        const model = layoutMap(useMapStore.getState().map, { current: 'h1' })
+        const box = hexagonBounds(model.hexagons.find((h) => h.id === 'h4')!)
+        const button = screen.getByRole('button', { name: 'Expand Slice 4' })
+        expect(parseFloat(button.style.left) + 12).toBeCloseTo((box.x + box.width - x) * scale, 6)
+        expect(parseFloat(button.style.top) + 12).toBeCloseTo((box.y - y) * scale, 6)
+      } finally {
+        restore()
+      }
+    })
+
+    it('drops a manual view for the whole-map fit when expanding a hexagon grows it in place', () => {
+      useMapStore.getState().replace(manyHexagonMap(6))
+      const restore = stubFixedSize(1200, 900)
+      try {
+        const { container, rerender } = render(<Harness />)
+        const main = container.querySelector('main') as HTMLElement
+        main.setPointerCapture = () => {}
+        fireEvent.pointerDown(svg(container), { button: 0, buttons: 1, clientX: 0, clientY: 0 })
+        fireEvent.pointerMove(main, { buttons: 1, clientX: 100000, clientY: 100000 })
+        fireEvent.pointerUp(main)
+
+        rerender(<Harness expanded={new Set(['h6'])} />)
+
+        const model = layoutMap(useMapStore.getState().map, { current: 'h1', expanded: new Set(['h6']) })
+        expectViewport(container, fitTo(model.bounds, 1200, 900, islandInset({ width: 1200, height: 900 }, false, false), 0))
+      } finally {
+        restore()
+      }
+    })
   })
 
   describe('linking onto a compact hexagon\'s port marker', () => {

@@ -8,7 +8,7 @@ import { parseHexa, toMap } from '../model/hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM } from '../model/example'
 import { diagramOf, freeCell, freeSides, neighbour, removeHexagon, SIDE_ORDER } from '../model/map'
 import { MapSchema, VERSION, type Diagram, type HexaMap, type Hexagon, type Wall } from '../model/schema'
-import { fitTo, islandInset } from '../ui/viewport'
+import { contains, fitTo, islandInset, visibleRect } from '../ui/viewport'
 import projectBuilder from '../model/fixtures/project-builder.hexa?raw'
 import { manyHexagonMap, twoHexagonMap } from '../test/fixtures'
 
@@ -1013,6 +1013,127 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
   })
   it.fails.each(MODES_UNDER_TEST)('routes no link across a chip in %s', (mode) => {
     expect(crossings(mode, 'chip')).toBe(0)
+  })
+})
+
+describe('layoutMap — several expanded hexagons', () => {
+  const map = projectBuilderMap()
+  const STAGE = { width: 1440, height: 900 }
+  const INSET = islandInset(STAGE, true, false)
+  const ids = map.hexagons.map((h) => h.id)
+  const SUBSETS: Array<[string, string[]]> = [
+    ['only Execution', ['h-exec']],
+    ['Execution and one neighbour', ['h-exec', 'h-cat']],
+    ['Execution and two far hexagons', ['h-exec', 'h-sel', 'h-run']],
+    ['a neighbour without the current one', ['h-auth', 'h-launch']],
+    ['every hexagon but one', ids.filter((id) => id !== 'h-auth')],
+    ['every hexagon', ids],
+  ]
+  const layoutWith = (mode: LayoutMode, expanded: string[]) => layoutMap(map, { mode, current: 'h-exec', expanded: new Set(expanded) })
+  const gapBetween = (a: Box, b: Box) => Math.max(a.x - (b.x + b.width), b.x - (a.x + a.width), a.y - (b.y + b.height), b.y - (a.y + a.height))
+  const portPoint = (hex: ReturnType<typeof layoutMap>['hexagons'][number], portId: string, adapterId?: string) => {
+    if (hex.compact) {
+      const marker = hex.compact.ports.find((m) => m.id === portId)!
+      return { x: hex.centre.x + marker.at.x, y: hex.centre.y + marker.at.y }
+    }
+    const port = hex.model.nodes.find((n) => n.kind === 'port' && n.ref === portId)!
+    if (!adapterId) return { x: port.x + hex.centre.x, y: port.y + hex.centre.y }
+    const a = hex.model.nodes.find((n) => n.kind === 'adapter' && n.ref === adapterId)!
+    return outwardEdgePoint({ x: a.x - a.width / 2 + hex.centre.x, y: a.y - a.height / 2 + hex.centre.y, width: a.width, height: a.height }, port.wall!)
+  }
+
+  it.each(MODES)('lays out every hexagon in full, as the uncompacted layout does, when all are expanded in %s', (mode) => {
+    expect(layoutWith(mode, ids)).toStrictEqual(layoutMap(map, { mode }))
+  })
+
+  it.each(SUBSETS)('draws exactly the current and the expanded hexagons in full: %s', (_, expanded) => {
+    const result = layoutWith('detailed', expanded)
+    for (const h of result.hexagons) expect(h.compact === undefined, h.id).toBe(h.id === 'h-exec' || expanded.includes(h.id))
+  })
+
+  it.each(SUBSETS)('keeps the current hexagon full however the expanded set is given: %s', (_, expanded) => {
+    const without = expanded.filter((id) => id !== 'h-exec')
+    expect(layoutWith('detailed', without)).toStrictEqual(layoutWith('detailed', ['h-exec', ...without]))
+  })
+
+  describe.each(MODES)('in %s', (mode) => {
+    it.each(SUBSETS)('keeps MAP_GAP between every pair of hexagon boxes: %s', (_, expanded) => {
+      const boxes = layoutWith(mode, expanded).hexagons.map((h) => ({ id: h.id, box: hexagonBounds(h) }))
+      for (const a of boxes) for (const b of boxes) if (a.id < b.id) expect(gapBetween(a.box, b.box), `${a.id} vs ${b.id}`).toBeGreaterThanOrEqual(MAP_GAP - 1e-6)
+    })
+
+    it.each(SUBSETS)('ends every link on its own port, or its adapter, or its marker: %s', (_, expanded) => {
+      const result = layoutWith(mode, expanded)
+      for (const link of map.links) {
+        const { points } = result.links.find((l) => l.id === link.id)!
+        const [from, to] = [link.from, link.to].map((end) => portPoint(result.hexagons.find((h) => h.id === end.hexagonId)!, end.portId, end.adapterId))
+        expect(points[0], `${link.id} from`).toStrictEqual(from)
+        expect(points.at(-1), `${link.id} to`).toStrictEqual(to)
+      }
+    })
+
+    it.each(SUBSETS)('fits every expanded hexagon on screen: %s', (_, expanded) => {
+      const result = layoutWith(mode, expanded)
+      const view = fitTo(result.bounds, STAGE.width, STAGE.height, INSET, 0)
+      const visible = visibleRect(view, STAGE, INSET)
+      for (const h of result.hexagons.filter((x) => !x.compact)) {
+        expect(contains(result.bounds, hexagonBounds(h)), `${h.id} in bounds`).toBe(true)
+        expect(contains(visible, hexagonBounds(h)), `${h.id} on screen`).toBe(true)
+      }
+    })
+
+    // With every hexagon expanded the layout is the uncompacted one, whose chips are placed by the tile-hull rule.
+    it.each(SUBSETS.slice(0, -1))('draws each hull clear of every hexagon of another context, and every chip clear of every hexagon: %s', (_, expanded) => {
+      const result = layoutWith(mode, expanded)
+      for (const context of result.contexts) {
+        for (const h of result.hexagons) {
+          const box = hexagonBounds(h)
+          const crosses = h.contextId !== context.id && context.loops.some((loop) => loop.some((a, i) => segmentHitsBox(a, loop[(i + 1) % loop.length], box)))
+          expect(crosses, `${context.id} across ${h.id}`).toBe(false)
+          const width = measure(context.label, { ...CHIP_LABEL, size: context.size })
+          const chip = { x: context.chip.x - width / 2, y: context.chip.y - context.size, width, height: context.size * 1.25 }
+          expect(gapBetween(chip, box), `chip ${context.id} vs ${h.id}`).toBeGreaterThan(0)
+        }
+      }
+    })
+
+    it.each(SUBSETS)('puts a grow "+" on every free side of the current hexagon clear of every hexagon: %s', (_, expanded) => {
+      const result = layoutWith(mode, expanded)
+      const hex = currentHexagon(result, 'h-exec')
+      for (const side of freeSides(map, hex.cell)) {
+        const at = growAnchor(hex, side, result.pitch, 12)
+        for (const other of result.hexagons) {
+          const box = hexagonBounds(other)
+          const inside = at.x > box.x - 12 + 1e-6 && at.x < box.x + box.width + 12 - 1e-6 && at.y > box.y - 12 + 1e-6 && at.y < box.y + box.height + 12 - 1e-6
+          expect(inside, `${side} vs ${other.id}`).toBe(false)
+        }
+      }
+    })
+  })
+
+  it('compacts every hexagon but the expanded ones when no current hexagon is given', () => {
+    const result = layoutMap(map, { expanded: new Set(['h-cat']) })
+    expect(result.hexagons.filter((h) => !h.compact).map((h) => h.id)).toEqual(['h-cat'])
+    expect(layoutMap(map, { expanded: new Set() }).hexagons.every((h) => h.compact)).toBe(true)
+  })
+
+  it('never lets a compact hexagon outgrow the smallest expanded one', () => {
+    const large = manyHexagonMap(30)
+    large.hexagons[5].externals.push({ id: 'ext-wide', name: 'A Very Long External System Name That Extends Far To The Right'.repeat(4) })
+    large.hexagons[6] = { ...large.hexagons[6], domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }
+    const result = layoutMap(large, { current: 'h6', expanded: new Set(['h7']) })
+    const small = hexagonBounds(result.hexagons.find((h) => h.id === 'h7')!)
+    for (const h of result.hexagons.filter((x) => x.compact)) expect(hexagonBounds(h).height).toBeLessThan(small.height / 2)
+  })
+
+  it('grows the map with each expanded hexagon, and never past the uncompacted layout', () => {
+    const area = (expanded: string[]) => {
+      const { bounds } = layoutWith('detailed', expanded)
+      return bounds.width * bounds.height
+    }
+    expect(area(['h-exec'])).toBeLessThan(area(['h-exec', 'h-cat']))
+    expect(area(['h-exec', 'h-cat'])).toBeLessThan(area(['h-exec', 'h-cat', 'h-sel']))
+    expect(area(ids.filter((id) => id !== 'h-auth'))).toBeLessThanOrEqual(area(ids))
   })
 })
 

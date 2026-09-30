@@ -43,8 +43,11 @@ export interface MapHexagonLayout {
 }
 
 export interface MapLayoutOptions extends LayoutOptions {
-  /** The hexagon kept in full; without it (or below `COMPACT_FROM` hexagons) every hexagon is laid out in full. */
+  /** The hexagon that is always kept in full. */
   current?: string
+  /** More hexagons kept in full besides `current`. Without either (or below `COMPACT_FROM` hexagons, or when they
+   * cover the whole map) every hexagon is laid out in full. */
+  expanded?: ReadonlySet<string>
 }
 
 export interface MapLinkLayout {
@@ -84,15 +87,17 @@ export interface MapLayout {
   contexts: MapContextLayout[]
 }
 
-/** From this many hexagons up, every hexagon but the current one renders compact. */
+/** From this many hexagons up, every hexagon but the current and the expanded ones renders compact. */
 export const COMPACT_FROM = 4
+/** Whether a map of `count` hexagons is large enough to compact; `layoutMap` still draws every hexagon full without a current or expanded set. */
+export const canCompact = (count: number): boolean => count >= COMPACT_FROM
 /** A compact hexagon's silhouette radius and title size at unit scale; both grow together so a title always fits. */
 const COMPACT_RADIUS = 78
 const COMPACT_TITLE = { size: 14, em: 0.6 } as const
 /** Room kept clear of the silhouette's edge on each side of a compact title. */
 const COMPACT_TITLE_PAD = 14
-/** The most of the current hexagon's height a compact silhouette may take, so a large map's compact hexagons never
- * outgrow the one being read. */
+/** The most of a full hexagon's height a compact silhouette may take, so a large map's compact hexagons never
+ * outgrow the ones being read. */
 const COMPACT_MAX_SHARE = 1 / 3
 const ELLIPSIS = '…'
 
@@ -131,7 +136,8 @@ const REFERENCE_STAGE = { width: 1100, height: 820 }
  *
  * With the chip's `text` extent, "clear" covers all of the text rather than just its baseline point, and a crowded
  * map also gets spots further out (`CHIP_REACHES`) and slid sideways (`CHIP_SLIDES`) — a name wider than the
- * hexagon it labels would otherwise always run into the neighbour beside it. */
+ * hexagon it labels would otherwise always run into the neighbour beside it. When nothing above is clear, a crowded
+ * map falls back to spots below the region. */
 function chipAnchor(loops: Point[][], all: Point[][][], hexagons: Box[], text?: { width: number; size: number }): Point {
   const inBox = (p: Point, b: Box) => p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height
   const keepOut = hexagons.map((b): Box =>
@@ -163,6 +169,13 @@ function chipAnchor(loops: Point[][], all: Point[][][], hexagons: Box[], text?: 
       if (spot) return spot
     }
   }
+  // A region hemmed in between tall full hexagons has no clear spot above it, but its underside can be free.
+  if (text) {
+    for (const gap of CHIP_REACHES) {
+      const spot = [...vertices].reverse().map((v): Point => ({ x: v.x, y: v.y + gap + text.size })).find(clear)
+      if (spot) return spot
+    }
+  }
   return { x: vertices[0].x, y: vertices[0].y - CHIP_GAP }
 }
 
@@ -188,18 +201,19 @@ export const hexagonBounds = (hex: Pick<MapHexagonLayout, 'model' | 'centre' | '
   return { x: own.x + hex.centre.x, y: own.y + hex.centre.y, width: own.width, height: own.height }
 }
 
-/** Where the compact hexagons go once the full current one claims its box: those at or right of its centre move right,
+/** Where the other hexagons go once the full hexagon `full` claims its box: those at or right of its centre move right,
  * the rest left, each side by the least that clears the nearest hexagon still level with the box. A side moves as one,
- * so no two hexagons on it come closer, and the lattice keeps its compact pitch. */
-function clearCurrent(centres: Point[], owns: Box[], current: number): Point[] {
+ * so no two hexagons on it come closer and a pair on opposite sides only moves apart — clearing one full hexagon after
+ * another therefore never undoes the clearance of an earlier one. The lattice keeps its compact pitch. */
+function clearFull(centres: Point[], owns: Box[], full: number): Point[] {
   const at = (i: number): Box => ({ ...owns[i], x: owns[i].x + centres[i].x, y: owns[i].y + centres[i].y })
-  const box = at(current)
+  const box = at(full)
   const level = (i: number) => at(i).y - (box.y + box.height) < MAP_GAP && box.y - (at(i).y + at(i).height) < MAP_GAP
-  const east = (i: number) => centres[i].x >= centres[current].x
+  const east = (i: number) => centres[i].x >= centres[full].x
   const push = (isEast: boolean) =>
-    Math.max(0, ...centres.flatMap((_, i) => (i === current || !level(i) || east(i) !== isEast ? [] : [isEast ? box.x + box.width + MAP_GAP - at(i).x : at(i).x + at(i).width - (box.x - MAP_GAP)])))
+    Math.max(0, ...centres.flatMap((_, i) => (i === full || !level(i) || east(i) !== isEast ? [] : [isEast ? box.x + box.width + MAP_GAP - at(i).x : at(i).x + at(i).width - (box.x - MAP_GAP)])))
   const [eastward, westward] = [push(true), push(false)]
-  return centres.map((p, i) => (i === current ? p : { x: p.x + (east(i) ? eastward : -westward), y: p.y }))
+  return centres.map((p, i) => (i === full ? p : { x: p.x + (east(i) ? eastward : -westward), y: p.y }))
 }
 
 /** The corners of the area a context's hull keeps around `hex`: the silhouette's own hexagon when compact, else its box. */
@@ -359,19 +373,20 @@ export function cellCentre(cell: { q: number; r: number }, pitch: Point): Point 
  * are then guaranteed at least `MAP_GAP` apart, for any N (ADR-01).
  */
 export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayout {
-  const compacting = options.current !== undefined && map.hexagons.length >= COMPACT_FROM
+  const full = (id: string) => id === options.current || !!options.expanded?.has(id)
+  const compacting = (options.current !== undefined || options.expanded !== undefined) && canCompact(map.hexagons.length) && !map.hexagons.every((h) => full(h.id))
   const perHexagon = map.hexagons.map((hexagon) => ({
     hexagon,
     model: layoutDiagram(diagramOf(map, hexagon.id), options),
-    compact: compacting && hexagon.id !== options.current,
+    compact: compacting && !full(hexagon.id),
   }))
 
   // The lattice and the hexagons' union for compact hexagons drawn at `unit` scale.
   const place = (unit: number) => {
     const owns = perHexagon.map(({ model, compact }) => (compact ? compactBounds(COMPACT_RADIUS * unit) : model.bounds))
     // Every pair of hexagons that can sit in adjacent cells must clear each other by MAP_GAP on the pitch's axis. With
-    // compact neighbours the lattice is sized from the compact footprint alone: the one full hexagon claims its room
-    // afterwards (`clearCurrent`) instead of inflating every cell.
+    // compact neighbours the lattice is sized from the compact footprint alone: each full hexagon claims its room
+    // afterwards (`clearFull`) instead of inflating every cell.
     const extents = perHexagon.map(({ compact }, i) => ({ compact, left: -owns[i].x, right: owns[i].x + owns[i].width, top: -owns[i].y, bottom: owns[i].y + owns[i].height }))
     const small = extents.filter((e) => e.compact)
     const pairs = compacting ? [[small, small]] : [[extents, extents]]
@@ -386,8 +401,7 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
     const boxY = span('bottom', 'top') + (compacting ? COMPACT_TITLE.size * unit * CHIP_LINE * 2 + 2 * CHIP_GAP : 0)
     const pitch: Point = compacting ? { x: boxX, y: boxY } : { x: Math.max(boxX, (boxY * 2) / Math.sqrt(3)), y: Math.max(boxY, (boxX * Math.sqrt(3)) / 2) }
     const cells = perHexagon.map(({ hexagon }) => cellCentre(hexagon.cell, pitch))
-    const current = perHexagon.findIndex(({ compact }) => !compact)
-    const centres = compacting && current >= 0 ? clearCurrent(cells, owns, current) : cells
+    const centres = compacting ? perHexagon.reduce((placed, { compact }, i) => (compact ? placed : clearFull(placed, owns, i)), cells) : cells
     const bounds = unionBox(owns.map((own, i) => ({ ...own, x: own.x + centres[i].x, y: own.y + centres[i].y })))
     return { pitch, centres, bounds }
   }
@@ -396,8 +410,8 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
   // CHIP_FLOOR_PX and on large maps keep inflating the silhouette, so the passes stay capped.
   let unit = 1
   if (compacting) {
-    const currentHeight = perHexagon.find(({ compact }) => !compact)?.model.bounds.height ?? Infinity
-    const maxUnit = (currentHeight * COMPACT_MAX_SHARE) / (2 * COMPACT_RADIUS)
+    const fullHeight = Math.min(...perHexagon.filter(({ compact }) => !compact).map(({ model }) => model.bounds.height))
+    const maxUnit = (fullHeight * COMPACT_MAX_SHARE) / (2 * COMPACT_RADIUS)
     for (let pass = 0; pass < 4; pass++) {
       const { bounds } = place(unit)
       const scale = Math.min(REFERENCE_STAGE.width / bounds.width, REFERENCE_STAGE.height / bounds.height)

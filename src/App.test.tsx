@@ -29,7 +29,7 @@ import { useOnionStore } from './model/onionStore'
 import { useCleanStore } from './model/cleanStore'
 import { fileSlug } from './ui/exporters'
 import { decodeSharePayload, encodeSharePayload, SHARE_HASH_PREFIX } from './ui/shareLink'
-import { card, currentDiagram, hexGroup, installCompressionStreamPolyfill, installDialogPolyfill, linkedTwoHexMap, twoHexagonMap, twoHexMap } from './test/fixtures'
+import { card, currentDiagram, hexGroup, installCompressionStreamPolyfill, installDialogPolyfill, linkedTwoHexMap, manyHexagonMap, twoHexagonMap, twoHexMap } from './test/fixtures'
 import v1Minimal from './model/fixtures/v1-minimal.hexa?raw'
 import v1Maximal from './model/fixtures/v1-maximal.hexa?raw'
 import v2EmptyContext from './model/fixtures/v2-empty-context.hexa?raw'
@@ -1151,6 +1151,140 @@ describe('boot recovery notice', () => {
 
     fireEvent.click(recoverySection.querySelector<HTMLButtonElement>('[aria-label="Dismiss"]')!)
     expect(screen.queryByRole('button', { name: 'Download saved copy' })).toBeNull()
+  })
+})
+
+describe('expanding hexagons on a large map', () => {
+  const isFull = (container: HTMLElement, id: string) => hexGroup(container, id).querySelector('.compact-title') === null
+  const fullIds = (container: HTMLElement) => ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].filter((id) => isFull(container, id))
+  beforeEach(() => useMapStore.getState().replace(manyHexagonMap(6)))
+
+  it('expands a compact hexagon in full with its own Expand button, and collapses it again with Collapse', () => {
+    const { container } = render(<App />)
+    expect(fullIds(container)).toEqual(['h1'])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Slice 3' }))
+    expect(fullIds(container)).toEqual(['h1', 'h3'])
+    expect(useMapStore.getState().focus).toBe('h1')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Slice 3' }))
+    expect(fullIds(container)).toEqual(['h1'])
+  })
+
+  it('keeps the current hexagon expanded, and compacts a hexagon again once it is no longer current unless it was expanded', () => {
+    const { container } = render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Slice 2' }))
+
+    fireEvent.click(hexGroup(container, 'h3').querySelector('.compact-title')!)
+
+    expect(useMapStore.getState().focus).toBe('h3')
+    expect(fullIds(container)).toEqual(['h2', 'h3'])
+    expect(screen.getByRole('button', { name: 'Collapse Slice 3' })).toHaveProperty('disabled', true)
+  })
+
+  it('expands every hexagon with Expand all and collapses back to the current one with Collapse all', () => {
+    const { container } = render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand all' }))
+    expect(fullIds(container)).toEqual(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse all' }))
+    expect(fullIds(container)).toEqual(['h1'])
+  })
+
+  it('offers Expand all only from the hexagon count that compacts', () => {
+    useMapStore.getState().replace(manyHexagonMap(3))
+    render(<App />)
+    expect(screen.queryByRole('button', { name: 'Expand all' })).toBeNull()
+  })
+
+  it('forgets the expanded hexagons when another document replaces the map', () => {
+    const { container } = render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand all' }))
+
+    act(() => useMapStore.getState().replace(manyHexagonMap(6)))
+
+    expect(fullIds(container)).toEqual(['h1'])
+  })
+
+  it('keeps the expanded hexagons through ordinary edits, growing the map and undo', () => {
+    const { container } = render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Slice 3' }))
+    const revision = useMapStore.getState().revision
+
+    act(() => {
+      useMapStore.getState().updateItem('h1', 'useCases', EXAMPLE_DIAGRAM.useCases[0].id, { name: 'Renamed use case' })
+      useMapStore.getState().addItem('h1', 'useCases', { name: 'Another use case' })
+    })
+    expect(fullIds(container)).toEqual(['h1', 'h3'])
+
+    const before = { map: useMapStore.getState().map, focus: 'h1' }
+    act(() => void useMapStore.getState().addHexagon('h1', { context: 'same' }))
+    expect(fullIds(container)).toContain('h3')
+    act(() => useMapStore.getState().restore(before))
+
+    expect(useMapStore.getState().revision).toBe(revision)
+    expect(fullIds(container)).toEqual(['h1', 'h3'])
+  })
+
+  it('is view state: the map, its undo trail and the saved .hexa are untouched', async () => {
+    render(<App />)
+    const before = useMapStore.getState().map
+    const revision = useMapStore.getState().revision
+    const saved = async () => {
+      const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+      let captured: Blob | undefined
+      const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+        captured = blob as Blob
+        return 'blob:mock'
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Save as .hexa file' }))
+      const text = await captured!.text()
+      createSpy.mockRestore()
+      clickSpy.mockRestore()
+      return text
+    }
+    const hexaBefore = await saved()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Slice 3' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Expand all' }))
+
+    expect(useMapStore.getState().map).toBe(before)
+    expect(useMapStore.getState().revision).toBe(revision)
+    expect(toastEl()).toBeNull()
+    expect(await saved()).toBe(hexaBefore)
+  })
+
+  it('exports the expanded hexagons as drawn', async () => {
+    const { container } = render(<App />)
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+    onTestFinished(() => void vi.unstubAllGlobals())
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    onTestFinished(() => clickSpy.mockRestore())
+    let captured: Blob | undefined
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      captured = blob as Blob
+      return 'blob:mock'
+    })
+    onTestFinished(() => createSpy.mockRestore())
+    const exported = async () => {
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+      return captured!.text()
+    }
+    const useCase = EXAMPLE_DIAGRAM.useCases[0].name
+    const drawn = (markup: string) => markup.split(`>${useCase}<`).length - 1
+
+    expect(drawn(await exported())).toBe(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Slice 3' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Slice 5' }))
+
+    expect(fullIds(container)).toEqual(['h1', 'h3', 'h5'])
+    expect(drawn(await exported())).toBe(3)
   })
 })
 
