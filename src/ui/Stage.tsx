@@ -13,8 +13,8 @@ import { useMapStore } from '../model/store'
 import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
 import { hexIdOf, layerOf, refOf } from './canvasTarget'
-import { keyOnCanvas } from './keys'
 import { ExpandToggles, GrowButtons, LinkChip } from './stage/overlays'
+import { useCanvasShortcuts } from './stage/useCanvasShortcuts'
 import { useStageViewport } from './stage/useStageViewport'
 import { gridBackgroundStyle, ZoomControls } from './viewportChrome'
 
@@ -111,36 +111,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
     onPanStart: () => setHovered(null),
   })
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      // Esc first leaves link mode, keeping the selection; a second Esc clears it.
-      if (e.key === 'Escape' && linking) onLinking(null)
-      else if (e.key === 'Escape') {
-        setHovered(null)
-        setSelected(null)
-      }
-      if (!selected || linking || !keyOnCanvas(e.target)) return
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault()
-        if (onDelete(selected)) setSelected(null)
-      }
-      if (e.key.toLowerCase() === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && canLink(map, diagram, hexId, selected)) {
-        e.preventDefault()
-        onLinking(selected)
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, onDelete, linking, onLinking, diagram, map])
-
-  useEffect(() => {
-    if (!linking) return
-    // Link mode ends on any press outside the canvas (the hint's own close button ends it too).
-    const away = (e: PointerEvent) => !(e.target as Element).closest?.('svg.canvas, .toast') && onLinking(null)
-    document.addEventListener('pointerdown', away)
-    return () => document.removeEventListener('pointerdown', away)
-  }, [linking, onLinking])
+  useCanvasShortcuts({ selected, linking, hexId, map, diagram, onDelete, onLinking, setSelected, setHovered })
 
   /** Clears selection, ends link mode, and commits any inline name being typed — the settle-on-switch contract (FOCUS-04). */
   const settleFocusSwitch = () => {
