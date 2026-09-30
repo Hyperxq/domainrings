@@ -1,10 +1,11 @@
 import { HEXAGONAL_KIND } from '../../model/kinds'
-import { SideSchema, type Diagram, type Port, type Side, type UseCase, type Wall } from '../../model/schema'
+import { SideSchema, type Diagram, type Port, type Side, type Wall } from '../../model/schema'
 import { dot, hairline, quadsOverlap, rectCorners, type Point } from '../geometry'
 import type { Frame, NodeKind, Planned, WallBox } from '../layout'
 import { COS30, fitRing, halfWidthAt, hexagon, type Need, type Outline } from '../outline'
 import { RING_LABEL } from '../text'
 import { DOMAIN_PAD, DOMAIN_RUN, GAP, LABEL_GAP, LABEL_PAD_X, OUTSIDE_GAP, PAD, RUN } from './spacing'
+import { faceOf, laneFoot, seatWall, toLane } from './useCaseSeating'
 import { sectorApothem, wallAngle, wallFrame } from './walls'
 
 const LABEL_LINE = RING_LABEL.size + 4
@@ -67,13 +68,9 @@ export interface RingSolverInput {
     busX: (side: Side, k: number, innerHalfWidth: number) => number
     laneX: (side: Side, k: number, innerHalfWidth: number) => number
     socketClearance: (side: Side, innerHalfWidth: number) => number
-    seatWall: (u: UseCase) => Wall | undefined
     seats: () => Seat[]
     seatsAt: (appO: Outline) => Seated[]
     useCaseCentres: (appO: Outline, insideO: Outline) => number[]
-    toLane: (box: { x: number; y: number; width: number; height: number; seated: boolean }, lane: number, insideApex: number, portY: number) => Point[]
-    laneFoot: (face: Point, wall: Wall, lane: number) => Point
-    faceOf: (b: WallBox, appO: Outline) => Point
     labelU: (b: WallBox, f: Frame) => number
     portLabels: (appO: Outline) => { x: number; y: number; frame: Sized; rotation: number | undefined }[]
   }
@@ -83,7 +80,7 @@ export interface RingSolverInput {
  * Every ring's outline, inside-out, and how far the domain body drops below its title: each ring holds its own
  * content, fitted to the real box corners.
  */
-export function solveRings({ d, overview, appIndex, titles: { titleWidth, titleHeight, titleDepth }, centre, columns: { ports, wallOf, planned, of, widths, wallBoxes, hasSlanted, sectored, localCorners, columnCorners }, frames: { portLabel, labelReach }, seating: { stack, stackFrames, useCaseFrames, useCaseBlock, useCaseOffsets, busX, laneX, socketClearance, seatWall, seats, seatsAt, useCaseCentres, toLane, laneFoot, faceOf, labelU, portLabels } }: RingSolverInput): { outlines: Outline[]; domainShift: number } {
+export function solveRings({ d, overview, appIndex, titles: { titleWidth, titleHeight, titleDepth }, centre, columns: { ports, wallOf, planned, of, widths, wallBoxes, hasSlanted, sectored, localCorners, columnCorners }, frames: { portLabel, labelReach }, seating: { stack, stackFrames, useCaseFrames, useCaseBlock, useCaseOffsets, busX, laneX, socketClearance, seats, seatsAt, useCaseCentres, labelU, portLabels } }: RingSolverInput): { outlines: Outline[]; domainShift: number } {
   const config = HEXAGONAL_KIND
   const { bodyShift, serviceFrames, servicesBlock } = centre
   const last = config.rings.length - 1

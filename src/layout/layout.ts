@@ -1,15 +1,16 @@
 import { HEXAGONAL_KIND, type RingRole } from '../model/kinds'
-import { defaultWall, type Adapter, type Diagram, type DomainItem, type Endpoint, type Port, type Side, type UseCase, type Wall } from '../model/schema'
+import { defaultWall, type Adapter, type Diagram, type DomainItem, type Endpoint, type Port, type Side, type Wall } from '../model/schema'
 import { dot, reach, rectCorners, type Box, type Point } from './geometry'
 import { layoutBounds } from './hexagon/bounds'
 import { assignLayers, placeNodes } from './hexagon/nodes'
 import { solveRings } from './hexagon/ringSolver'
 import { routeEdges } from './hexagon/routes'
-import { COLUMN_GAP, DOMAIN_PAD, DOMAIN_RUN, GAP, LABEL_GAP, LABEL_PAD_X, LANE, OUTSIDE_GAP, PAD, RUN } from './hexagon/spacing'
-import { SLANTED_WALLS, VERTEX, WALLS, wallAngle, wallFrame } from './hexagon/walls'
+import { COLUMN_GAP, DOMAIN_PAD, GAP, LABEL_GAP, LABEL_PAD_X, OUTSIDE_GAP } from './hexagon/spacing'
+import { seatUseCases } from './hexagon/useCaseSeating'
+import { SLANTED_WALLS, VERTEX, wallAngle, wallFrame } from './hexagon/walls'
 import { depthAt, halfWidthAt, SQRT3, type Outline } from './outline'
 import { adapterTag, DOMAIN_TAGS, portTag, USE_CASE_TAG } from './tags'
-import { DOMAIN_TITLE, EDGE_LABEL, LINE_METRICS, lineWidth, measure, noteLines, RING_LABEL, RING_SUBTITLE, styled, type TextLine } from './text'
+import { DOMAIN_TITLE, LINE_METRICS, lineWidth, measure, noteLines, RING_LABEL, RING_SUBTITLE, styled, type TextLine } from './text'
 
 export type { Box, Point } from './geometry'
 
@@ -510,77 +511,24 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     const [signature, ...steps] = (u.note ?? '').split('\n')
     return frame([...styled('tag', USE_CASE_TAG), ...styled('name', u.name), ...styled('mono', signature, 34), ...steps.flatMap((s) => styled('muted', s, 34))], 120)
   })
-  // A hexagon can seat a use case on a wall, in that wall's sector; circles ignore it, as they ignore port walls.
-  const seatWall = (u: UseCase): Wall | undefined => (u.placement && u.placement !== 'top' ? u.placement : undefined)
-  /** Indices into d.useCases of the use cases stacked under the application title. */
-  const stack = d.useCases.flatMap((u, i) => (seatWall(u) ? [] : [i]))
-  const stackFrames = stack.map((i) => useCaseFrames[i])
-  const useCaseBlock = {
-    width: Math.max(0, ...stackFrames.map((f) => f.width)),
-    height: stackFrames.reduce((h, f) => h + f.height, 0) + GAP * Math.max(0, stackFrames.length - 1),
-  }
-
-  // Use-case buses: one vertical lane per use case and side, between the inner ring and the sockets. The top
-  // use case takes the outermost lane so no exit crosses another bus, and the exit run fits the lane's verb.
-  const laneVerb: Record<Side, string> = { driving: labels.runs, driven: labels.uses }
-  const busX = (side: Side, k: number, innerHalfWidth: number) =>
-    // The driven side also keeps one lane per declared port, for the dotted ownership links.
-    Math.max(innerHalfWidth + LANE * (1 + (side === 'driven' ? declared.length : 0)), useCaseBlock.width / 2 + measure(laneVerb[side], EDGE_LABEL) + 2 * LANE) +
-    LANE * (useCaseFrames.length - 1 - k)
-  /** The bus lane's x: the driving lanes run left of the centre, the driven ones right. */
-  const laneX = (side: Side, k: number, innerHalfWidth: number) => (side === 'driving' ? -1 : 1) * busX(side, k, innerHalfWidth)
-  const socketClearance = (side: Side, innerHalfWidth: number) =>
-    useCaseFrames.length && !overview ? busX(side, 0, innerHalfWidth) + RUN : 0
-  const useCaseOffsets = stackFrames.map((_, j) => stackFrames.slice(0, j).reduce((o, f) => o + f.height + GAP, 0))
+  const appIndex = config.rings.findIndex((r) => r.role === 'application')
+  const seating = seatUseCases({
+    d,
+    overview,
+    appIndex,
+    useCaseFrames,
+    declaredPorts: declared.length,
+    titles: { titleHeight, titleDepth: TITLE_DEPTH },
+    columns: { ports, wallBoxes, of, widths },
+    frames: { portLabel, labelReach },
+  })
+  const { stack, useCaseBlock, useCaseCentres, seatsAt } = seating
 
   // A hexagon is no wider at a fixed depth under its vertex however big it grows, so a box too wide for the slope
   // just under the title can only fit lower: the body (never the title) drops until every box clears the slope.
   const bodyShift = (o: Outline) =>
     Math.max(0, ...coreBoxes.map((r) => depthAt(o, Math.abs(r.x) + r.frame.width / 2 + DOMAIN_PAD) - (TITLE_DEPTH + r.top)))
 
-  /** Where a bus lane turns onto the wall normal that ends on a slanted socket's face. */
-  const laneFoot = (face: Point, wall: Wall, lane: number): Point => {
-    const { n } = wallFrame(wall)
-    return { x: lane, y: face.y - (n.y * (face.x - lane)) / n.x }
-  }
-  /** The socket's inner face on a slanted wall of a candidate application ring. */
-  const faceOf = (b: WallBox, appO: Outline): Point => {
-    const { n, dir } = wallFrame(b.wall)
-    return { x: n.x * (appO.halfWidth - b.height / 2) + dir.x * b.u, y: n.y * (appO.halfWidth - b.height / 2) + dir.y * b.u }
-  }
-
-  /** Centres of the stacked use cases under the application title, in stack order (see placement below). */
-  const useCaseCentres = (appO: Outline, insideO: Outline) => {
-    const titleBottom = TITLE_DEPTH + titleHeight(appIndex)
-    const depth = Math.max(
-      titleBottom + GAP,
-      ...stackFrames.flatMap((f, j) => [
-        depthAt(appO, useCaseBlock.width / 2 + PAD) - useCaseOffsets[j],
-        // Bus corners only exist in Detailed, as in the solver: on a circle they would sink the stack into the domain.
-        ...(overview ? [] : SIDES.map((s) => depthAt(appO, busX(s, stack[j], insideO.halfWidth) + PAD) - useCaseOffsets[j] - f.height / 2)),
-      ]),
-    )
-    // A run meets an upper slanted wall square, rising as it goes, so its row cannot sit above the lane foot. The
-    // feet stay put as the ring grows, so when they lie below the room above the domain no ring can seat the stack
-    // under them: the stack then keeps the depth it would have without them, and those runs still double back.
-    const belowFeet = overview
-      ? -Infinity
-      : Math.max(
-          -Infinity,
-          ...stackFrames.flatMap((f, j) =>
-            wallBoxes
-              .filter((b) => b.kind === 'port' && wallFrame(b.wall).n.y < 0 && ports.get(b.ref)!.useCaseId === d.useCases[stack[j]].id)
-              .map((b) => laneFoot(faceOf(b, appO), b.wall, laneX(b.side, stack[j], insideO.halfWidth)).y + appO.apex - useCaseOffsets[j] - f.height / 2),
-          ),
-        )
-    const lowest = appO.apex - insideO.apex - DOMAIN_RUN - useCaseBlock.height
-    let y = -appO.apex + (belowFeet <= lowest ? Math.max(depth, belowFeet) : depth)
-    return stackFrames.map((f) => {
-      const centre = y + f.height / 2
-      y += f.height + GAP
-      return centre
-    })
-  }
   /**
    * A slanted name starts level with its notch's upper end and runs downhill: centred, an upper wall's name would
    * reach toward the top vertex and the application title, and the ring would have to grow to clear it.
@@ -607,74 +555,6 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
             }),
         ]
       : []
-  /**
-   * Use cases seated on a wall, in wall coordinates: stacked along it like ports, the run centred on the ports they
-   * serve on that wall, and set in past the wall's sockets (and their overview names) by the room an arrow needs.
-   */
-  const seats = () =>
-    WALLS.flatMap((wall) => {
-      const here = d.useCases.flatMap((u, i) => (seatWall(u) === wall ? [i] : []))
-      if (!here.length) return []
-      const { n, dir } = wallFrame(wall)
-      // The wall's sockets: where each sits along the wall, and how far in it (and its name) reaches.
-      const sockets = [
-        ...wallBoxes
-          .filter((b) => b.kind === 'port' && b.wall === wall)
-          .map((b) => ({ port: ports.get(b.ref)!, u: b.u, inward: b.height / 2 + (overview ? LABEL_GAP + portLabel(ports.get(b.ref)!).height : 0) })),
-        ...of('port')
-          .filter((p) => defaultWall(p.side) === wall)
-          .map((p) => ({ port: ports.get(p.ref)!, u: p.y * dir.y, inward: widths[p.side].socketHalf + labelReach(ports.get(p.ref)!) })),
-      ]
-      const inset = Math.max(0, ...sockets.map((s) => s.inward)) + (overview ? GAP : DOMAIN_RUN)
-      const socketsAlong = sockets.map((s) => s.u).sort((a, b) => a - b)
-      const items = here
-        .map((i) => {
-          const f = useCaseFrames[i]
-          const own = sockets.find((s) => s.port.useCaseId === d.useCases[i].id)?.u
-          const along = reach(f.width, f.height, dir)
-          // Another use case's run to a socket on this wall passes through any seat level with that socket, at every
-          // ring size, so a seat with no socket of its own here steps past them along the wall.
-          let want = own ?? 0
-          if (own === undefined) {
-            for (const u of socketsAlong) if (Math.abs(u - want) < along + GAP) want = u + along + GAP
-          }
-          return { i, wall, frame: f, want, along, across: reach(f.width, f.height, n) }
-        })
-        .sort((a, b) => a.want - b.want)
-      let end = -Infinity
-      const packed = items.map((it) => {
-        const u = Math.max(it.want, end + it.along)
-        end = u + it.along + GAP
-        return { ...it, u, inset }
-      })
-      const shift = packed.reduce((t, it) => t + it.want - it.u, 0) / packed.length
-      return packed.map((it) => ({ ...it, u: it.u + shift }))
-    })
-  /** Seated use cases for a candidate application ring, centred in the plane. */
-  const seatsAt = (appO: Outline) =>
-    seats().map((s) => {
-      const { n, dir } = wallFrame(s.wall)
-      const depth = appO.halfWidth - s.inset - s.across
-      return { ...s, x: n.x * depth + dir.x * s.u, y: n.y * depth + dir.y * s.u }
-    })
-  /**
-   * From a use case to its bus lane. A stacked one leaves sideways. A seated one may sit beside the domain, so it
-   * first steps (vertically) to just past the domain's top or bottom, in the free band under the stack, then across.
-   * A port lying past that band picks the band on its own side, so the run never turns back; any other keeps to the
-   * use case's side. One already beyond the band crosses at its own row: stepping back to the band would only double back.
-   */
-  const toLane = (box: { x: number; y: number; width: number; height: number; seated: boolean }, lane: number, insideApex: number, portY: number): Point[] => {
-    const toward = Math.sign(lane - box.x)
-    if (!box.seated) return [{ x: box.x + (toward * box.width) / 2, y: box.y }, { x: lane, y: box.y }]
-    const band = insideApex + LANE
-    const clearY = (Math.sign(Math.abs(portY) > band ? portY : box.y) || -1) * band
-    const past = Math.sign(box.y) === Math.sign(clearY) && Math.abs(box.y) - box.height / 2 >= band
-    const rowY = past ? box.y : clearY
-    if (past || Math.abs(clearY - box.y) <= box.height / 2) return [{ x: box.x + (toward * box.width) / 2, y: rowY }, { x: lane, y: rowY }]
-    return [{ x: box.x, y: box.y + (Math.sign(clearY - box.y) * box.height) / 2 }, { x: box.x, y: clearY }, { x: lane, y: clearY }]
-  }
-
-  const appIndex = config.rings.findIndex((r) => r.role === 'application')
   const { outlines, domainShift } = solveRings({
     d,
     overview,
@@ -683,7 +563,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     centre: { boxes: coreBoxes, serviceFrames, servicesBlock, bodyShift },
     columns: { ports, wallOf, planned, of, widths, wallBoxes, hasSlanted, sectored, localCorners, columnCorners },
     frames: { portLabel, labelReach },
-    seating: { stack, stackFrames, useCaseFrames, useCaseBlock, useCaseOffsets, busX, laneX, socketClearance, seatWall, seats, seatsAt, useCaseCentres, toLane, laneFoot, faceOf, labelU, portLabels },
+    seating: { ...seating, useCaseFrames, labelU, portLabels },
   })
 
   const app = outlines[appIndex]
@@ -717,7 +597,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     compositionFrame,
   })
 
-  const edges = routeEdges({ d, overview, nodes, edgePlan, app, insideApp, domain, outer, seating: { stack, blockWidth: useCaseBlock.width, laneX, toLane, laneFoot } })
+  const edges = routeEdges({ d, overview, nodes, edgePlan, app, insideApp, domain, outer, seating: { stack, blockWidth: useCaseBlock.width, laneX: seating.laneX } })
 
   const { texts, bounds } = layoutBounds(d, outer, nodes, edges)
 

@@ -5,6 +5,7 @@ import type { LayoutEdge, LayoutNode } from '../layout'
 import { COS30, halfWidthAt, type Outline } from '../outline'
 import { EDGE_LABEL, measure } from '../text'
 import { COLUMN_GAP, LANE, OUTSIDE_GAP } from './spacing'
+import { laneFoot, toLane } from './useCaseSeating'
 import { SLANTED_WALLS, VERTEX, wallFrame } from './walls'
 
 /** The composition trunk hugs the outer hexagon this far out. */
@@ -36,8 +37,6 @@ export interface RouteSeating {
   /** Width of the stacked use cases' widest box. */
   blockWidth: number
   laneX: (side: Side, k: number, innerHalfWidth: number) => number
-  toLane: (box: { x: number; y: number; width: number; height: number; seated: boolean }, lane: number, insideApex: number, portY: number) => Point[]
-  laneFoot: (face: Point, wall: Wall, lane: number) => Point
 }
 
 export interface RouteInput {
@@ -53,7 +52,7 @@ export interface RouteInput {
 }
 
 /** Every edge of the diagram: each planned import, the use cases' asks into the domain, the domain's port declarations and the composition trunks. */
-export function routeEdges({ d, overview, nodes, edgePlan, app, insideApp, domain, outer, seating: { stack, blockWidth, laneX, toLane, laneFoot } }: RouteInput): LayoutEdge[] {
+export function routeEdges({ d, overview, nodes, edgePlan, app, insideApp, domain, outer, seating: { stack, blockWidth, laneX } }: RouteInput): LayoutEdge[] {
   const { labels } = HEXAGONAL_KIND
   const byKey = new Map(nodes.map((n) => [n.key, n]))
   const faceX = (n: LayoutNode, towardX: number) => n.x + (Math.sign(towardX - n.x) * n.width) / 2
