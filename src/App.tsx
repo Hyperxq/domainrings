@@ -551,7 +551,12 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       const options = { legend: active.legend, legendHeight: legendSize(legend).height, only: active.scoped ? hexId : undefined }
       const markup = await svgMarkup(svgRef.current, active.bounds, active.title, options)
       if (format === 'svg') download(markup, `${name}.svg`, 'image/svg+xml')
-      else download(await pngBlob(markup, exportBounds(active.bounds, { ...options, legend: legendDrawn(svgRef.current, options) })), `${name}.png`)
+      else {
+        const requested = 2
+        const { blob, pixelRatio } = await pngBlob(markup, exportBounds(active.bounds, { ...options, legend: legendDrawn(svgRef.current, options) }), requested)
+        download(blob, `${name}.png`)
+        if (pixelRatio < requested) show({ tone: 'status', message: `Exported at ${Math.round((pixelRatio / requested) * 100)}% resolution. Use SVG for full resolution.` })
+      }
     } catch (error) {
       show({ tone: 'error', message: `Export failed: ${(error as Error).message}` })
     }
