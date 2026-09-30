@@ -932,12 +932,6 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
     for (const s of sizes) expect(s.extent, s.id).toBeLessThanOrEqual(median * 2)
   })
 
-  // A run meets an upper slanted wall square, travelling up and outward, so it can only avoid doubling back when its
-  // use case's row is below the face. These two sit above their ports; moving the use cases is issue #29.
-  const DOUBLING_BACK = {
-    'h-run: port:p-run-spawn->useCase:uc-run-spawn': 'use case above its nw port',
-    'h-run: useCase:uc-run-spawn->port:p-run-entry': 'use case above its ne port',
-  }
   it('keeps every use-case run out of the domain and clear of every box it does not connect, in Detailed', () => {
     const SQRT3 = Math.sqrt(3)
     const crossings: string[] = []
@@ -967,7 +961,7 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
     expect([...new Set(crossings)]).toEqual([])
   })
 
-  it('never doubles back on a run to a slanted-wall port in Detailed, bar the known ones', () => {
+  it('never doubles back on a run to a slanted-wall port in Detailed', () => {
     const doubling: string[] = []
     for (const h of map.hexagons) {
       const m = layoutDiagram(diagramOf(map, h.id), { mode: 'detailed' })
@@ -980,7 +974,7 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
         if (new Set(climbs).size > 1) doubling.push(`${h.id}: ${edge.key}`)
       }
     }
-    expect(doubling.toSorted()).toEqual(Object.keys(DOUBLING_BACK).toSorted())
+    expect(doubling).toEqual([])
   })
 
   it.each(MODES_UNDER_TEST)('fits %s at least twice as large as the full-pitch baseline, with Execution current', (mode) => {

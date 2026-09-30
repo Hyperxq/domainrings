@@ -709,6 +709,17 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     Math.max(0, ...coreBoxes.map((r) => depthAt(o, Math.abs(r.x) + r.frame.width / 2 + DOMAIN_PAD) - (TITLE_DEPTH + r.top)))
   let domainShift = 0
 
+  /** Where a bus lane turns onto the wall normal that ends on a slanted socket's face. */
+  const laneFoot = (face: Point, wall: Wall, lane: number): Point => {
+    const { n } = wallFrame(wall)
+    return { x: lane, y: face.y - (n.y * (face.x - lane)) / n.x }
+  }
+  /** The socket's inner face on a slanted wall of a candidate application ring. */
+  const faceOf = (b: WallBox, appO: Outline): Point => {
+    const { n, dir } = wallFrame(b.wall)
+    return { x: n.x * (appO.halfWidth - b.height / 2) + dir.x * b.u, y: n.y * (appO.halfWidth - b.height / 2) + dir.y * b.u }
+  }
+
   /** Centres of the stacked use cases under the application title, in stack order (see placement below). */
   const useCaseCentres = (appO: Outline, insideO: Outline) => {
     const titleBottom = TITLE_DEPTH + titleHeight(appIndex)
@@ -720,7 +731,21 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
         ...(overview ? [] : SIDES.map((s) => depthAt(appO, busX(s, stack[j], insideO.halfWidth) + PAD) - useCaseOffsets[j] - f.height / 2)),
       ]),
     )
-    let y = -appO.apex + depth
+    // A run meets an upper slanted wall square, rising as it goes, so its row cannot sit above the lane foot. The
+    // feet stay put as the ring grows: when they lie below the room above the domain no ring seats the stack under
+    // them, and it keeps its place.
+    const belowFeet = overview
+      ? -Infinity
+      : Math.max(
+          -Infinity,
+          ...stackFrames.flatMap((f, j) =>
+            wallBoxes
+              .filter((b) => b.kind === 'port' && wallFrame(b.wall).n.y < 0 && ports.get(b.ref)!.useCaseId === d.useCases[stack[j]].id)
+              .map((b) => laneFoot(faceOf(b, appO), b.wall, (b.side === 'driving' ? -1 : 1) * busX(b.side, stack[j], insideO.halfWidth)).y + appO.apex - useCaseOffsets[j] - f.height / 2),
+          ),
+        )
+    const lowest = appO.apex - insideO.apex - DOMAIN_RUN - useCaseBlock.height
+    let y = -appO.apex + (belowFeet <= lowest ? Math.max(depth, belowFeet) : depth)
     return stackFrames.map((f) => {
       const centre = y + f.height / 2
       y += f.height + GAP
@@ -845,7 +870,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
       .map((b) => {
         const { n, dir } = wallFrame(b.wall)
         const centre = { x: n.x * appO.halfWidth + dir.x * b.u, y: n.y * appO.halfWidth + dir.y * b.u }
-        const face = { x: n.x * (appO.halfWidth - b.height / 2) + dir.x * b.u, y: n.y * (appO.halfWidth - b.height / 2) + dir.y * b.u }
+        const face = faceOf(b, appO)
         return { ref: b.ref, side: b.side, wall: b.wall, face, quad: rectCorners(centre.x, centre.y, b.width, b.height, wallAngle(b.wall)) }
       })
     const centres = useCaseCentres(appO, insideO)
@@ -874,9 +899,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
       head.slice(1).forEach((q, j) => runs.push({ ref: port.id, useCase: k, quad: hairline(head[j], q) }))
       const laneTop = head.at(-1)!.y
       if (slanted) {
-        const { n } = wallFrame(slanted.wall)
-        const reach = (slanted.face.x - lane) / n.x
-        const foot = { x: lane, y: slanted.face.y - n.y * reach }
+        const foot = laneFoot(slanted.face, slanted.wall, lane)
         runs.push({ ref: port.id, useCase: k, quad: hairline({ x: lane, y: laneTop }, foot) }, { ref: port.id, useCase: k, quad: hairline(foot, slanted.face) })
       } else {
         const inner = sign * (appO.halfWidth - widths[port.side].socketHalf)
@@ -1157,10 +1180,9 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   const slantedBusRoute = (useCase: LayoutNode, socket: LayoutNode): Point[] => {
     const head = laneHead(useCase, socket)
     const lane = head.at(-1)!.x
-    const { n, dir } = wallFrame(socket.wall!)
+    const { dir } = wallFrame(socket.wall!)
     const q = socketFace(socket, -1, dot(socket, dir))
-    const reach = (q.x - lane) / n.x
-    return [...head, { x: lane, y: q.y - n.y * reach }, q]
+    return [...head, laneFoot(q, socket.wall!, lane), q]
   }
 
   /** A use case seated on its port's wall meets the socket straight along the wall normal, where the two overlap. */
