@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Box, Point } from './layout'
+import type { Box, Point } from './geometry'
 import { crossesBox, routeAround, type Scene } from './obstacleRoute'
 
 const box = (x: number, y: number, width: number, height: number): Box => ({ x, y, width, height })

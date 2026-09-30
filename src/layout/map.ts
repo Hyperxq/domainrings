@@ -2,7 +2,9 @@ import { contextName, diagramOf, neighbour, occupiedContexts, UNTITLED_HEXAGON }
 import type { HexaMap, Hexagon, Link, Wall } from '../model/schema'
 import { MAP_GAP } from './gap'
 import { contextRegions, footprintRegions, pointInRegion } from './hull'
-import { layoutDiagram, wallFrame, type Box, type LayoutModel, type LayoutNode, type LayoutOptions, type LayoutText, type NodeKind, type Point } from './layout'
+import { unionBox, type Box, type Point } from './geometry'
+import { wallFrame } from './hexagon/walls'
+import { layoutDiagram, type LayoutModel, type LayoutNode, type LayoutOptions, type LayoutText, type NodeKind } from './layout'
 import { GAP_MARGIN, outwardEdgePoint, routeLink, type LinkLabel } from './links'
 import { CHIP_LABEL, measure, TITLE } from './text'
 
@@ -184,14 +186,6 @@ function chipAnchor(loops: Point[][], all: Point[][][], hexagons: Box[], text?: 
  * the map's bounds to include it. */
 function chipBox(chip: Point, label: string, size: number): Box {
   return { x: chip.x - measure(label, { ...CHIP_LABEL, size }) / 2, y: chip.y - size, width: measure(label, { ...CHIP_LABEL, size }), height: size * CHIP_LINE }
-}
-
-function unionBox(boxes: Box[]): Box {
-  const x0 = Math.min(...boxes.map((b) => b.x))
-  const y0 = Math.min(...boxes.map((b) => b.y))
-  const x1 = Math.max(...boxes.map((b) => b.x + b.width))
-  const y1 = Math.max(...boxes.map((b) => b.y + b.height))
-  return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
 }
 
 const compactBounds = (radius: number): Box => ({ x: (-radius * Math.sqrt(3)) / 2, y: -radius, width: radius * Math.sqrt(3), height: radius * 2 })

@@ -1,6 +1,6 @@
 import { arcAngles, outerRoleOf, polarPoint, ringedArcAngles } from '../model/rings'
 import type { CleanFile, CleanRingRole } from '../model/schema'
-import type { Point } from './layout'
+import type { Point } from './geometry'
 import type { CleanLayoutModel } from './clean'
 import { elementGapPoints, endpointInsertionPoints } from './ringedInsertion'
 import { ringedElementHeight, ringedElementWidth, ringElementRadius, ringSlotRadii, risksLabelAt } from './ringed'

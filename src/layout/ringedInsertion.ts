@@ -1,4 +1,4 @@
-import type { Point } from './layout'
+import type { Point } from './geometry'
 
 const ENDPOINT_OFFSET = 40
 const ENDPOINT_SPREAD = 14

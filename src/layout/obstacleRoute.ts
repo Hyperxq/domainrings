@@ -1,5 +1,5 @@
 import { MAP_GAP } from './gap'
-import type { Box, Point } from './layout'
+import type { Box, Point } from './geometry'
 
 /** What a route must keep off: every hexagon's box and every context chip. It runs inside the map's own `within` area,
  * or one channel beyond it — the way round a hexagon on the map's edge. */

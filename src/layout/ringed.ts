@@ -1,6 +1,7 @@
 import { arcAngles, polarPoint } from '../model/rings'
 import { RINGED_KIND_LABEL, type RingedKind } from '../model/ringedKinds'
-import { circle, type LayoutRing, type Outline } from './layout'
+import type { LayoutRing } from './layout'
+import { circle, type Outline } from './outline'
 import { LINE_METRICS, measure, RING_LABEL, wrapLabel } from './text'
 
 /** A ring title's own rendered line height — the one thing every ring band must be thick enough to hold. */

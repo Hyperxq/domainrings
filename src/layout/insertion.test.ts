@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { insertionItem, insertionPoints, type InsertionPoint } from './insertion'
-import { layoutDiagram, wallFrame } from './layout'
+import { wallFrame } from './hexagon/walls'
+import { layoutDiagram } from './layout'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
 import type { Diagram } from '../model/schema'
 

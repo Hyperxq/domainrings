@@ -1,4 +1,4 @@
-import type { Point } from './layout'
+import type { Point } from './geometry'
 import { ringElementRadius, titleHalfSpan, TITLE_ARC_PAD, TITLE_LINE } from './ringed'
 import { measure, RING_LABEL, RING_SUBTITLE } from './text'
 

@@ -1,19 +1,12 @@
 import { HEXAGONAL_KIND, type RingRole } from '../model/kinds'
 import { defaultWall, type Adapter, type Diagram, type DomainItem, type Endpoint, type Port, type Side, type UseCase, type Wall } from '../model/schema'
+import { dot, enterBox, hairline, quadsOverlap, reach, rectCorners, dedupe, type Box, type Point } from './geometry'
+import { SLANTED_WALLS, sectorApothem, VERTEX, WALLS, wallAngle, wallFrame } from './hexagon/walls'
+import { COS30, depthAt, fitRing, halfWidthAt, hexagon, SQRT3, topAt, type Need, type Outline } from './outline'
 import { adapterTag, DOMAIN_TAGS, portTag, USE_CASE_TAG } from './tags'
 import { DOMAIN_TITLE, EDGE_LABEL, LINE_METRICS, lineWidth, measure, noteLines, RING_LABEL, RING_SUBTITLE, styled, SUBTITLE, TITLE, type TextLine } from './text'
 
-export interface Point {
-  x: number
-  y: number
-}
-
-export interface Box {
-  x: number
-  y: number
-  width: number
-  height: number
-}
+export type { Box, Point } from './geometry'
 
 /** Colour = side or layer: driving and driven pills, slate external systems, teal ports and use cases. */
 export type Tone = 'driving' | 'driven' | 'teal' | 'slate' | 'muted' | 'domain'
@@ -113,14 +106,11 @@ export interface LayoutModel {
   bounds: Box
 }
 
-const SQRT3 = Math.sqrt(3)
-const COS30 = SQRT3 / 2
 const PAD_X = 12
 const PAD_Y = 9
 const GAP = 14
 const PAD = 16
 const ROW_GAP = 18
-const MIN_BAND = 36
 const DOMAIN_PAD = 24
 const LABEL_LINE = RING_LABEL.size + 4
 const LABEL_INSET = 8
@@ -140,139 +130,10 @@ const BLOCK_GAP = 6
 const DOMAIN_RUN = 34
 const OUTSIDE_GAP = 20
 const MARGIN = 16
-/** Every wall-hosted box stays this far inside its wall's 60° sector, so the spokes run clear of it. */
-const SECTOR_CLEAR = 8
 /** Between an overview socket's inner face and its port name. */
 const LABEL_GAP = 4
 /** The composition trunk hugs the outer hexagon this far out. */
 const TRUNK_GAP = OUTSIDE_GAP / 2
-
-// Wall frames of a pointy-top hexagon (y down): n is the outward normal, dir runs along the wall. A wall's midpoint
-// sits at the apothem along n, so any wall-hosted point is (apothem + v)·n + u·dir.
-const SLANTED_WALLS: ReadonlySet<Wall> = new Set(['nw', 'sw', 'ne', 'se'])
-const WALLS: Wall[] = ['nw', 'w', 'sw', 'ne', 'e', 'se']
-// Exact unit vectors (0, ±½, ±1, ±cos30) rather than trig, so axis-aligned runs come out exactly axis-aligned and
-// both ends of a shared edge land on identical coordinates.
-const WALL_NORMAL: Record<Wall, Point> = {
-  e: { x: 1, y: 0 },
-  se: { x: 0.5, y: COS30 },
-  sw: { x: -0.5, y: COS30 },
-  w: { x: -1, y: 0 },
-  nw: { x: -0.5, y: -COS30 },
-  ne: { x: 0.5, y: -COS30 },
-}
-/** Hexagon vertices on the unit circle, clockwise from the top. */
-const VERTEX: Point[] = [
-  { x: 0, y: -1 },
-  { x: COS30, y: -0.5 },
-  { x: COS30, y: 0.5 },
-  { x: 0, y: 1 },
-  { x: -COS30, y: 0.5 },
-  { x: -COS30, y: -0.5 },
-]
-export function wallFrame(wall: Wall) {
-  const n = WALL_NORMAL[wall]
-  return { n, dir: { x: -n.y === 0 ? 0 : -n.y, y: n.x } }
-}
-/** The wall's line angle in degrees, folded into (−90, 90]. */
-const wallAngle = (wall: Wall) => {
-  const { dir } = wallFrame(wall)
-  return (((Math.atan2(dir.y, dir.x) * 180) / Math.PI + 450) % 180) - 90
-}
-const dot = (a: Point, b: Point) => a.x * b.x + a.y * b.y
-/** Half the extent of an upright w×h box along a unit vector. */
-const reach = (w: number, h: number, v: Point) => (w / 2) * Math.abs(v.x) + (h / 2) * Math.abs(v.y)
-/** Smallest apothem keeping a local point (u along the wall, v off its line) inside the wall's sector. */
-const sectorApothem = (u: number, v: number) => (Math.abs(u) + SECTOR_CLEAR / COS30) * SQRT3 - v
-
-function rectCorners(cx: number, cy: number, w: number, h: number, rotation = 0): Point[] {
-  const a = (rotation * Math.PI) / 180
-  return [
-    [-1, -1],
-    [1, -1],
-    [1, 1],
-    [-1, 1],
-  ].map(([sx, sy]) => {
-    const [ox, oy] = [(sx * w) / 2, (sy * h) / 2]
-    return { x: cx + ox * Math.cos(a) - oy * Math.sin(a), y: cy + ox * Math.sin(a) + oy * Math.cos(a) }
-  })
-}
-
-/** Separating-axis test for convex quads; touching does not count. */
-function quadsOverlap(a: Point[], b: Point[]) {
-  const axes = [a, b].flatMap((q) => [{ x: q[1].x - q[0].x, y: q[1].y - q[0].y }, { x: q[3].x - q[0].x, y: q[3].y - q[0].y }])
-  return axes.every((axis) => {
-    const [pa, pb] = [a.map((p) => dot(p, axis)), b.map((p) => dot(p, axis))]
-    return Math.min(...pa) < Math.max(...pb) - 1e-6 && Math.min(...pb) < Math.max(...pa) - 1e-6
-  })
-}
-
-/** Where a ray from `from` along `v` first enters an upright box (slab method); `from` itself if it never does. */
-function enterBox(box: { x: number; y: number; width: number; height: number }, from: Point, v: Point): Point {
-  let [t0, t1] = [-Infinity, Infinity]
-  for (const [o, d, lo, hi] of [
-    [from.x, v.x, box.x - box.width / 2, box.x + box.width / 2],
-    [from.y, v.y, box.y - box.height / 2, box.y + box.height / 2],
-  ]) {
-    if (Math.abs(d) < 1e-12) {
-      if (o < lo || o > hi) return from
-      continue
-    }
-    const [a, b] = [(lo - o) / d, (hi - o) / d].sort((p, q) => p - q)
-    t0 = Math.max(t0, a)
-    t1 = Math.min(t1, b)
-  }
-  return t0 <= t1 && t1 >= 0 ? { x: from.x + v.x * Math.max(0, t0), y: from.y + v.y * Math.max(0, t0) } : from
-}
-
-
-export interface Outline {
-  halfWidth: number
-  straight: number
-  apex: number
-}
-
-interface Need {
-  x: number
-  y: number
-}
-
-function halfWidthAt(o: Outline, dy: number): number {
-  const a = Math.abs(dy)
-  return a <= o.straight ? o.halfWidth : Math.max(0, o.halfWidth - (a - o.straight) * SQRT3)
-}
-
-/** Distance from the centre line to the ring's top edge at horizontal offset x (0 outside the ring). */
-function topAt(o: Outline, x: number): number {
-  const a = Math.abs(x)
-  if (a >= o.halfWidth) return o.straight
-  return o.straight + (o.halfWidth - a) / SQRT3
-}
-
-/** Depth below the apex from which the ring is at least 2·half wide. */
-function depthAt(o: Outline, half: number): number {
-  return Math.min(half / SQRT3, o.apex - o.straight)
-}
-
-export const circle = (r: number): Outline => ({ halfWidth: r, straight: 0, apex: r })
-const hexagon = (r: number): Outline => ({ halfWidth: r * COS30, straight: r / 2, apex: r })
-
-/**
- * Smallest ring around `inner` holding every need. A regular hexagon's half-width at dy is
- * min(r·cos30, (r − |dy|)·√3), so a point (x, y) needs r >= x/cos30 and r >= y + x/√3. `side` needs
- * must also land on the straight vertical side (|dy| <= r/2), where ports and adapters line up.
- */
-function fitRing(inner: Outline, side: Need[], vertical: Need[], minApothem = 0): Outline {
-  const needs = [...side, ...vertical]
-  return hexagon(
-    Math.max(
-      minApothem / COS30,
-      inner.apex + MIN_BAND / COS30,
-      ...needs.map((n) => Math.max(n.x / COS30, n.y + n.x / SQRT3)),
-      ...side.map((n) => 2 * n.y),
-    ),
-  )
-}
 
 function frame(lines: TextLine[], minWidth = 0, padY = PAD_Y, padX = PAD_X) {
   return {
@@ -362,8 +223,6 @@ function laneOrder(spans: Array<[number, number]>): number[] {
   }
   return spans.map((_, i) => order.indexOf(i))
 }
-
-const dedupe = (points: Point[]) => points.filter((p, i) => i === 0 || p.x !== points[i - 1].x || p.y !== points[i - 1].y)
 
 const SIDES = ['driving', 'driven'] as const
 const nearest = (y: number, height: number) => Math.max(0, Math.abs(y) - height / 2)
@@ -780,17 +639,6 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
             }),
         ]
       : []
-  /** A segment as a hairline quad, so the same separating-axis test covers runs and boxes. */
-  const hairline = (a: Point, b: Point): Point[] => {
-    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1
-    const [nx, ny] = [(-(b.y - a.y) / len) * 0.5, ((b.x - a.x) / len) * 0.5]
-    return [
-      { x: a.x + nx, y: a.y + ny },
-      { x: b.x + nx, y: b.y + ny },
-      { x: b.x - nx, y: b.y - ny },
-      { x: a.x - nx, y: a.y - ny },
-    ]
-  }
   /**
    * Use cases seated on a wall, in wall coordinates: stacked along it like ports, the run centred on the ports they
    * serve on that wall, and set in past the wall's sockets (and their overview names) by the room an arrow needs.

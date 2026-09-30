@@ -86,7 +86,7 @@ describe('per-hexagon layout modules stay ignorant of the map', () => {
   // learn about HexaMap/multi-hexagon concerns — that boundary is what keeps them composable untouched (ADR-01).
   // model/links.ts is scoped to one Diagram (collectionOf/linkTargets), same as the three layout/ ones, even
   // though its FILE lives in the model layer — a model→model import isn't caught by the general layering rules.
-  const PER_HEXAGON_MODULES = ['./layout/layout.ts', './layout/insertion.ts', './model/links.ts', './layout/legend.ts']
+  const PER_HEXAGON_MODULES = ['./layout/layout.ts', './layout/insertion.ts', './model/links.ts', './layout/legend.ts', './layout/hexagon/walls.ts']
 
   it('lists only files that exist', () => {
     expect([...PER_HEXAGON_MODULES, './layout/hull.ts'].filter((p) => !(p in files))).toEqual([])
@@ -104,6 +104,21 @@ describe('per-hexagon layout modules stay ignorant of the map', () => {
 
   it('layout/hull.ts imports only model or layout (scoped pin, on top of the general layout-layer rule above)', () => {
     const violations = edges.filter((e) => e.path === './layout/hull.ts' && !['model', 'layout'].includes(layerOf(e.resolved)))
+    expect(violations.map((v) => `${v.path} -> ${v.specifier}`)).toEqual([])
+  })
+})
+
+describe('layout geometry leaves', () => {
+  // geometry and outline are the bottom of the layout stack: anything above may import them, they import nothing
+  // back, so a helper moved into either can never pull a cycle in.
+  const LEAVES = ['./layout/geometry.ts', './layout/outline.ts']
+
+  it('lists only files that exist', () => {
+    expect(LEAVES.filter((p) => !(p in files))).toEqual([])
+  })
+
+  it('import nothing from the project except each other', () => {
+    const violations = edges.filter((e) => LEAVES.includes(e.path) && !LEAVES.includes(e.resolved))
     expect(violations.map((v) => `${v.path} -> ${v.specifier}`)).toEqual([])
   })
 })
