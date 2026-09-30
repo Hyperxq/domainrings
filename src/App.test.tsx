@@ -1812,6 +1812,16 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     expect(useMapStore.getState().map.hexagons).toHaveLength(1)
   })
 
+  it('counts only the contexts a multi-hexagon file actually adds, in the plural when there are several', async () => {
+    const twoContexts = { ...twoHexagonMap(), contexts: [{ id: 'c1' }, { id: 'c2' }, { id: 'c3' }], hexagons: twoHexagonMap().hexagons.map((h, i) => ({ ...h, contextId: `c${i + 1}` })) }
+    render(<App />)
+    openEditor()
+    await pickFile(toHexa(twoContexts), 'two.hexa')
+
+    expect(useMapStore.getState().map.contexts).toHaveLength(3)
+    expect(toastEl()!.querySelector('p')!.textContent).toBe('Added 2 hexagons and 2 bounded contexts from two.hexa.')
+  })
+
   it('asks the destination only after reading the file, and imports nothing when that question is dismissed', async () => {
     render(<App />)
     openEditor()

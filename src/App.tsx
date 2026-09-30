@@ -8,7 +8,7 @@ import { layoutOnion } from './layout/onion'
 import { EXAMPLES } from './model/example'
 import { newCleanMap, newOnionMap, parseHexa, toHexa, toMap } from './model/hexa'
 import { collectionOf, type LinkChoice } from './model/links'
-import { contextName, diagramOf, linkEndLabel, UNTITLED_HEXAGON, type Destination, type LinkPatch } from './model/map'
+import { contextName, diagramOf, linkEndLabel, occupiedContexts, UNTITLED_HEXAGON, type Destination, type LinkPatch } from './model/map'
 import { useCleanStore } from './model/cleanStore'
 import { useOnionStore } from './model/onionStore'
 import { useSaveFailed, type Recovery } from './model/persistence'
@@ -456,7 +456,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     const { map: beforeMap, focus: beforeFocus } = useMapStore.getState()
     const newHexId = importHexagon(file, { context })
     const imported = useMapStore.getState().map.hexagons.find((h) => h.id === newHexId)!
-    const contexts = file.contexts.length
+    const contexts = occupiedContexts(file).length
     const message =
       file.hexagons.length > 1
         ? `Added ${file.hexagons.length} hexagons and ${contexts} bounded ${contexts === 1 ? 'context' : 'contexts'} from ${fileName}.`

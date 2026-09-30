@@ -105,7 +105,7 @@ export function placeHexagon(map: HexaMap, view: Diagram, at: { cell: Cell; cont
   return { map: { ...map, kind: 'hexagonal', contexts, hexagons: [...map.hexagons, hexagon] }, hexId }
 }
 
-/** Adds `incoming`'s hexagons, contexts and links to `map`: every context lands as a new one (name kept), and every
+/** Adds `incoming`'s hexagons, contexts and links to `map`: every context that owns a hexagon lands as a new one (name kept), and every
  * id is renumbered in file order past the map's own, so nothing collides and links keep joining the same hexagons.
  * The cluster keeps its shape but moves to the rows just below the map — disjoint rows can never share a cell — with
  * its leftmost screen column (q + r/2) aligned to the map's. */
@@ -119,7 +119,7 @@ export function mergeMap(map: HexaMap, incoming: HexaMap): { map: HexaMap; first
 
   const contextIds = new Map<string, string>()
   let contexts = map.contexts
-  for (const c of incoming.contexts) {
+  for (const c of occupiedContexts(incoming)) {
     const id = nextContextId({ contexts })
     contextIds.set(c.id, id)
     contexts = [...contexts, { ...c, id }]

@@ -716,6 +716,12 @@ describe('mergeMap', () => {
     expect(map.hexagons.slice(2).map((h) => h.contextId)).toEqual(['c2', 'c3'])
   })
 
+  it('skips an incoming context that owns no hexagon, so no empty context arrives', () => {
+    const file = { ...incoming(), contexts: [...incoming().contexts, { id: 'c9', name: 'Unused' }] }
+    const { map } = mergeMap(host(), file)
+    expect(map.contexts).toStrictEqual([{ id: 'c1', name: 'Host' }, { id: 'c2', name: 'Billing' }, { id: 'c3' }])
+  })
+
   it('keeps an incoming link connecting the same renumbered hexagons and ports', () => {
     const { map } = mergeMap(host(), incoming())
     expect(map.links[1]).toStrictEqual({ id: 'link1', from: { hexagonId: 'h3', portId: 'p-out' }, to: { hexagonId: 'h4', portId: 'p-in' } })
