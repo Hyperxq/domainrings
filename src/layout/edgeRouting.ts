@@ -1,5 +1,6 @@
-import type { Point } from './layout'
-import { ringElementRadius, titleHalfSpan, TITLE_ARC_PAD, TITLE_LINE } from './ringed'
+import type { Point } from './geometry'
+import { ringElementRadius } from './ringOutlines'
+import { titleHalfSpan, TITLE_ARC_PAD, TITLE_LINE } from './ringedMetrics'
 import { measure, RING_LABEL, RING_SUBTITLE } from './text'
 
 /** How far a Detailed-view arrow bows off its own chord, as a fraction of the chord's length. */

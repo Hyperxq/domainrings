@@ -1,4 +1,4 @@
-import type { Point } from './layout'
+import type { Point } from './geometry'
 
 /** One dependency/endpoint arrow's own two endpoints, plus the refs it connects — reused from
  * `OnionEdgeLayout`/`CleanEdgeLayout` (structurally compatible, no import needed) so the same counter measures

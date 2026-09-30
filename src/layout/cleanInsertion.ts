@@ -1,9 +1,10 @@
 import { arcAngles, outerRoleOf, polarPoint, ringedArcAngles } from '../model/rings'
 import type { CleanFile, CleanRingRole } from '../model/schema'
-import type { Point } from './layout'
+import type { Point } from './geometry'
 import type { CleanLayoutModel } from './clean'
 import { elementGapPoints, endpointInsertionPoints } from './ringedInsertion'
-import { ringedElementHeight, ringedElementWidth, ringElementRadius, ringSlotRadii, risksLabelAt } from './ringed'
+import { ringedElementHeight, ringedElementWidth } from './ringedMetrics'
+import { ringElementRadius, ringSlotRadii, risksLabelAt } from './ringOutlines'
 
 /** The `PlusGlyph`'s own rendered footprint (`RingedCanvas.tsx`: a `r={10}` circle) as an axis-aligned box, for a
  * gap "+"'s own "would I actually sit on that?" check below — never exact for a circle, but a fair, cheap stand-in

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { layoutDiagram, type LayoutModel, type LayoutNode, type LayoutRing, type Point } from './layout'
+import type { Point } from './geometry'
+import { layoutDiagram, type LayoutModel, type LayoutNode, type LayoutRing } from './layout'
 import { DOMAIN_TITLE, EDGE_LABEL, measure, RING_LABEL, RING_SUBTITLE } from './text'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
 import { HEXAGONAL_KIND } from '../model/kinds'

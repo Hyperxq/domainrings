@@ -86,7 +86,7 @@ describe('per-hexagon layout modules stay ignorant of the map', () => {
   // learn about HexaMap/multi-hexagon concerns — that boundary is what keeps them composable untouched (ADR-01).
   // model/links.ts is scoped to one Diagram (collectionOf/linkTargets), same as the three layout/ ones, even
   // though its FILE lives in the model layer — a model→model import isn't caught by the general layering rules.
-  const PER_HEXAGON_MODULES = ['./layout/layout.ts', './layout/insertion.ts', './model/links.ts', './layout/legend.ts']
+  const PER_HEXAGON_MODULES = ['./layout/layout.ts', './layout/insertion.ts', './model/links.ts', './layout/legend.ts', './layout/hexagon/walls.ts', './layout/hexagon/spacing.ts', './layout/hexagon/bounds.ts', './layout/hexagon/routes.ts', './layout/hexagon/nodes.ts', './layout/hexagon/ringSolver.ts', './layout/hexagon/useCaseSeating.ts', './layout/hexagon/boxFrames.ts', './layout/hexagon/ringTitles.ts', './layout/hexagon/centreBlock.ts', './layout/hexagon/columns.ts']
 
   it('lists only files that exist', () => {
     expect([...PER_HEXAGON_MODULES, './layout/hull.ts'].filter((p) => !(p in files))).toEqual([])
@@ -104,6 +104,21 @@ describe('per-hexagon layout modules stay ignorant of the map', () => {
 
   it('layout/hull.ts imports only model or layout (scoped pin, on top of the general layout-layer rule above)', () => {
     const violations = edges.filter((e) => e.path === './layout/hull.ts' && !['model', 'layout'].includes(layerOf(e.resolved)))
+    expect(violations.map((v) => `${v.path} -> ${v.specifier}`)).toEqual([])
+  })
+})
+
+describe('layout geometry leaves', () => {
+  // geometry and outline are the bottom of the layout stack: anything above may import them, they import nothing
+  // back, so a helper moved into either can never pull a cycle in.
+  const LEAVES = ['./layout/geometry.ts', './layout/outline.ts']
+
+  it('lists only files that exist', () => {
+    expect(LEAVES.filter((p) => !(p in files))).toEqual([])
+  })
+
+  it('import nothing from the project except each other', () => {
+    const violations = edges.filter((e) => LEAVES.includes(e.path) && !LEAVES.includes(e.resolved))
     expect(violations.map((v) => `${v.path} -> ${v.specifier}`)).toEqual([])
   })
 })
@@ -129,7 +144,7 @@ describe('dependency fences', () => {
 // Regression guard (ADR-01): a document-root union (`StoredFile`) must never reach a Hexagonal-only module —
 // those keep reading `HexaMap` only, exactly as before Onion or Clean existed.
 describe('Hexagonal-only modules never import StoredFile/OnionFile/CleanFile (ADR-01)', () => {
-  const HEXAGONAL_ONLY_MODULES = ['./model/map.ts', './model/store.ts', './layout/map.ts', './ui/Editor.tsx', './ui/Stage.tsx']
+  const HEXAGONAL_ONLY_MODULES = ['./model/map.ts', './model/store.ts', './layout/map.ts', './ui/Editor.tsx', './ui/Stage.tsx', './layout/compactHexagon.ts', './layout/contextChips.ts', './layout/linkEnds.ts', './layout/lattice.ts']
 
   it('lists only files that exist', () => {
     expect(HEXAGONAL_ONLY_MODULES.filter((p) => !(p in files))).toEqual([])

@@ -1,6 +1,6 @@
 import { neighbour, type Cell } from '../model/map'
 import type { Wall } from '../model/schema'
-import type { Point } from './layout'
+import type { Point } from './geometry'
 
 /**
  * The 6 tile vertices, clockwise from the top, as (dx, dy) offsets from a cell's own lattice coordinate. Scaling

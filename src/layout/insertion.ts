@@ -1,6 +1,8 @@
 import { HEXAGONAL_KIND, type RingRole } from '../model/kinds'
 import type { CollectionKey, Diagram, DomainType, Side, Wall } from '../model/schema'
-import { wallFrame, type LayoutModel, type LayoutNode, type Point } from './layout'
+import type { Point } from './geometry'
+import { wallFrame } from './hexagon/walls'
+import type { LayoutModel, LayoutNode } from './layout'
 
 /** What a "+" creates, and what the new element is linked to. The position of the "+" decides both. */
 export type InsertionAction =

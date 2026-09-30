@@ -1,5 +1,5 @@
-import { wallFrame } from './layout'
-import type { Box, Point } from './layout'
+import type { Box, Point } from './geometry'
+import { wallFrame } from './hexagon/walls'
 import type { Wall } from '../model/schema'
 import { MAP_GAP } from './gap'
 import { crossesBox, routeAround, type Scene } from './obstacleRoute'

@@ -3,9 +3,12 @@ import type { OnionDependency, OnionElement, OnionFile } from '../model/schema'
 import type { RingedKind } from '../model/ringedKinds'
 import { countCrossings } from './crossings'
 import { minimizeCrossings, neighborLookup, type CrossingGroup } from './crossingMinimization'
-import type { Box, LayoutRing, Point } from './layout'
+import type { Box, Point } from './geometry'
+import type { LayoutRing } from './layout'
 import { routeEdgesAroundLabels } from './edgeRouting'
-import { endpointLayout, ringedBounds, ringedElementHeight, ringedElementWidth, ringOutlines, ringSlotRadii } from './ringed'
+import { endpointLayout } from './endpointRing'
+import { ringedBounds, ringOutlines, ringSlotRadii } from './ringOutlines'
+import { ringedElementHeight, ringedElementWidth } from './ringedMetrics'
 
 /** An element placed on its ring's circumference (REQ-07). */
 export interface OnionElementLayout {
