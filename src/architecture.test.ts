@@ -86,7 +86,7 @@ describe('per-hexagon layout modules stay ignorant of the map', () => {
   // learn about HexaMap/multi-hexagon concerns — that boundary is what keeps them composable untouched (ADR-01).
   // model/links.ts is scoped to one Diagram (collectionOf/linkTargets), same as the three layout/ ones, even
   // though its FILE lives in the model layer — a model→model import isn't caught by the general layering rules.
-  const PER_HEXAGON_MODULES = ['./layout/layout.ts', './layout/insertion.ts', './model/links.ts', './layout/legend.ts', './layout/hexagon/walls.ts', './layout/hexagon/spacing.ts', './layout/hexagon/bounds.ts', './layout/hexagon/routes.ts', './layout/hexagon/nodes.ts', './layout/hexagon/ringSolver.ts', './layout/hexagon/useCaseSeating.ts']
+  const PER_HEXAGON_MODULES = ['./layout/layout.ts', './layout/insertion.ts', './model/links.ts', './layout/legend.ts', './layout/hexagon/walls.ts', './layout/hexagon/spacing.ts', './layout/hexagon/bounds.ts', './layout/hexagon/routes.ts', './layout/hexagon/nodes.ts', './layout/hexagon/ringSolver.ts', './layout/hexagon/useCaseSeating.ts', './layout/hexagon/boxFrames.ts']
 
   it('lists only files that exist', () => {
     expect([...PER_HEXAGON_MODULES, './layout/hull.ts'].filter((p) => !(p in files))).toEqual([])

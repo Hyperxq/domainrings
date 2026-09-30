@@ -1,6 +1,7 @@
 import { HEXAGONAL_KIND, type RingRole } from '../model/kinds'
 import { defaultWall, type Adapter, type Diagram, type DomainItem, type Endpoint, type Port, type Side, type Wall } from '../model/schema'
 import { dot, reach, rectCorners, type Box, type Point } from './geometry'
+import { boxFrames, frame, type Frame } from './hexagon/boxFrames'
 import { layoutBounds } from './hexagon/bounds'
 import { assignLayers, placeNodes } from './hexagon/nodes'
 import { solveRings } from './hexagon/ringSolver'
@@ -9,8 +10,8 @@ import { COLUMN_GAP, DOMAIN_PAD, GAP, LABEL_GAP, LABEL_PAD_X, OUTSIDE_GAP } from
 import { seatUseCases } from './hexagon/useCaseSeating'
 import { SLANTED_WALLS, VERTEX, wallAngle, wallFrame } from './hexagon/walls'
 import { depthAt, halfWidthAt, SQRT3, type Outline } from './outline'
-import { adapterTag, DOMAIN_TAGS, portTag, USE_CASE_TAG } from './tags'
-import { DOMAIN_TITLE, LINE_METRICS, lineWidth, measure, noteLines, RING_LABEL, RING_SUBTITLE, styled, type TextLine } from './text'
+import { DOMAIN_TAGS } from './tags'
+import { DOMAIN_TITLE, measure, RING_LABEL, RING_SUBTITLE, styled, type TextLine } from './text'
 
 export type { Box, Point } from './geometry'
 
@@ -112,8 +113,6 @@ export interface LayoutModel {
   bounds: Box
 }
 
-const PAD_X = 12
-const PAD_Y = 9
 const ROW_GAP = 18
 const LABEL_INSET = 8
 const SUBTITLE_GAP = 4
@@ -124,14 +123,6 @@ const PORTS_MAX_LINES = 4
 const OUTLINE_PAD = 8
 const BLOCK_GAP = 6
 
-function frame(lines: TextLine[], minWidth = 0, padY = PAD_Y, padX = PAD_X) {
-  return {
-    lines,
-    width: Math.max(minWidth, ...lines.map(lineWidth)) + 2 * padX,
-    height: lines.reduce((h, l) => h + LINE_METRICS[l.style].height, 0) + 2 * padY,
-  }
-}
-export type Frame = ReturnType<typeof frame>
 
 interface Slot {
   adapter: Adapter
@@ -236,25 +227,8 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   // sector too, so no two walls' content can meet.
   const sectored = hasSlanted || d.useCases.some((u) => u.placement && u.placement !== 'top')
 
-  // 1. Box contents: every size below derives from the text a box has to hold.
-  // Overview pills carry the name only, unwrapped; its sockets are bare notches on the ring edge.
-  const nameFrame = (name: string) => frame(styled('name', name), 80)
-  const NOTCH: Frame = { lines: [], width: 14, height: 30 }
-  // With the socket only a notch, the port name (the contract) sits beside it, inside the application ring.
-  const portLabel = (p: Port) => frame(styled('label', p.name), 0, 0, 0)
-  const labelReach = (p: Port) => (overview ? portLabel(p).width + LABEL_GAP : 0)
-  const adapterFrame = (a: Adapter, side: Side) =>
-    overview ? nameFrame(a.name) : frame([...styled('eyebrow', adapterTag(side, labels)), ...styled('name', a.name, 18), ...noteLines(a.note)], 110)
-  const socketFrame = (p: Port) =>
-    overview ? NOTCH : frame([...styled('tag', portTag(p.side, labels)), ...styled('name', p.name, 18), ...noteLines(p.note)], 70)
-  const leafFrame = (e: Endpoint, side: Side) =>
-    overview ? frame(styled('title', e.name), 80) : frame([...styled('title', e.name, 16), ...noteLines(e.note, side === 'driven' ? 'mono' : 'muted')], 80)
-  // The type tag replaces the old type line. An aggregate root's tag sits on its outline, so the root line is just
-  // its name, set strong; other roots carry the tag above their name.
-  const domainFrame = (i: DomainItem) =>
-    i.type === 'aggregate'
-      ? frame([...styled('strong', i.name), ...noteLines(i.note)], 0, 2, 0)
-      : frame([...styled('tag', DOMAIN_TAGS[i.type]), ...styled('mono', i.name), ...noteLines(i.note)], 0, 2, 0)
+  const frames = boxFrames(overview)
+  const { NOTCH, portLabel, labelReach, adapterFrame, socketFrame, leafFrame, domainFrame, useCaseFrame } = frames
 
   // 2. Rows: a uniform pitch fitted to the tallest single-row box, centred on the ring centre.
   const pending = SIDES.flatMap((side) => {
@@ -506,11 +480,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     width: Math.max(0, ...serviceFrames.map((f) => f.width)),
     height: serviceFrames.reduce((h, f) => h + f.height, 0),
   }
-  const useCaseFrames = d.useCases.map((u) => {
-    if (overview) return nameFrame(u.name)
-    const [signature, ...steps] = (u.note ?? '').split('\n')
-    return frame([...styled('tag', USE_CASE_TAG), ...styled('name', u.name), ...styled('mono', signature, 34), ...steps.flatMap((s) => styled('muted', s, 34))], 120)
-  })
+  const useCaseFrames = d.useCases.map(useCaseFrame)
   const appIndex = config.rings.findIndex((r) => r.role === 'application')
   const seating = seatUseCases({
     d,
@@ -581,7 +551,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     titleBox: { x: -titleWidth(i) / 2, y: -outlines[i].apex + TITLE_DEPTH, width: titleWidth(i), height: titleHeight(i) },
   }))
 
-  const compositionFrame = d.composition && !overview ? frame([...styled('mono', d.composition.name), ...noteLines(d.composition.note)], 120) : undefined
+  const compositionFrame = d.composition && !overview ? frames.compositionFrame(d.composition) : undefined
   const nodes = placeNodes({
     d,
     app,
