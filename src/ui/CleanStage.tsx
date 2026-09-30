@@ -29,6 +29,8 @@ interface CleanStageProps {
    * element's naming is cancelled, mirroring OnionStage's own `onCancelMutate` (and App.tsx's `onNamingCancel`
    * for a grown hexagon). */
   onCancelMutate?: () => void
+  /** Fires once a new element's name is committed: the name belongs to the add step already reported, not a step of its own. */
+  onNamed?: () => void
   /** Whether the CleanEditor/Legend islands are open — reserves their own screen space so a fit never tucks the
    * diagram under them (`RingedStage`/`viewport.ts`'s `islandInset`). */
   panelOpen?: boolean
@@ -42,7 +44,7 @@ const REJECT_MESSAGE = 'A dependency can only point to the same ring or a more i
  * sector has no canvas node of its own to attach an inline rename to (sectors only ever appear as wedge
  * dividers, REQ-08) — renaming one happens in `CleanEditor`; only a new ELEMENT opens inline here, same as
  * Onion's own "+" does. */
-export function CleanStage({ model, doc, mode, svgRef, onReject, onMutate = () => {}, onCancelMutate = () => {}, panelOpen = false, legendOpen = false }: CleanStageProps) {
+export function CleanStage({ model, doc, mode, svgRef, onReject, onMutate = () => {}, onCancelMutate = () => {}, onNamed = () => {}, panelOpen = false, legendOpen = false }: CleanStageProps) {
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
   const legend = legendForClean(doc)
   const { selected, linking, setLinking, selectedElement, validTargets, linkTargetRefs, clickTarget } = useDependGesture({
@@ -110,6 +112,7 @@ export function CleanStage({ model, doc, mode, svgRef, onReject, onMutate = () =
             defaultValue={editing.name}
             onCommit={(name) => {
               updateElement(editing.id, { name })
+              onNamed()
               setEditing(null)
             }}
             onCancel={() => {

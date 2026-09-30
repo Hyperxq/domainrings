@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { HEXAGONAL_KIND } from '../model/kinds'
+import { toHexa } from '../model/hexa'
 import {
   defaultWall,
   DomainTypeSchema,
@@ -29,6 +30,26 @@ type Patch<K extends CollectionKey> = Partial<Omit<Item<K>, 'id'>>
 /** Reports the links a port change/removal broke (SEAM-06), with the map/focus from just before the edit, so the
  * caller can toast and offer undo — Section calls the store directly, so this is how App finds out. */
 type OnPrune = (pruned: Link[], before: { map: HexaMap; focus: string }) => void
+
+/** Records a silent undo step: the map/focus from just before an edit that raises no toast of its own. */
+type OnRecord = (before: { map: HexaMap; focus: string }) => void
+
+/** Focus/blur handlers that make one edit session (focus → blur) of a text field a single undo step, the same
+ * boundary a context rename uses. A session that ends where it began records nothing. */
+function useFieldSession(onRecord: OnRecord) {
+  const start = useRef<{ map: HexaMap; focus: string } | null>(null)
+  return {
+    onFocus: () => {
+      const { map, focus } = useMapStore.getState()
+      start.current = { map, focus }
+    },
+    onBlur: () => {
+      const before = start.current
+      start.current = null
+      if (before && toHexa(before.map) !== toHexa(useMapStore.getState().map)) onRecord(before)
+    },
+  }
+}
 
 const WALL_LABEL: Record<Wall, string> = { nw: 'North-west', w: 'West', sw: 'South-west', ne: 'North-east', e: 'East', se: 'South-east' }
 
@@ -159,6 +180,7 @@ interface SectionProps<K extends CollectionKey> {
   hexId: string
   map: HexaMap
   onPrune: OnPrune
+  onRecord: OnRecord
   collection: K
   items: Item<K>[]
   title: string
@@ -171,10 +193,22 @@ interface SectionProps<K extends CollectionKey> {
   groups?: { key: string; title: string; items: Item<K>[] }[]
 }
 
-function Section<K extends CollectionKey>({ hexId, map, onPrune, collection, items, title, noun, empty, fields, actions, groups }: SectionProps<K>) {
-  const report = (pruned: Link[]) => pruned.length && onPrune(pruned, { map, focus: hexId })
+function Section<K extends CollectionKey>({ hexId, map, onPrune, onRecord, collection, items, title, noun, empty, fields, actions, groups }: SectionProps<K>) {
+  const session = useFieldSession(onRecord)
+  const before = { map, focus: hexId }
+  // A discrete edit is its own step: the prune toast when it broke links, a silent step otherwise.
+  const report = (pruned: Link[]) => (pruned.length ? onPrune(pruned, before) : onRecord(before))
   const add = (
-    <button type="button" className="icon-button small" aria-label={`Add ${noun}`} title={`Add ${noun}`} onClick={() => addItem(hexId, collection)}>
+    <button
+      type="button"
+      className="icon-button small"
+      aria-label={`Add ${noun}`}
+      title={`Add ${noun}`}
+      onClick={() => {
+        onRecord(before)
+        addItem(hexId, collection)
+      }}
+    >
       <Icon name="plus" />
     </button>
   )
@@ -182,9 +216,10 @@ function Section<K extends CollectionKey>({ hexId, map, onPrune, collection, ite
         <ul className="items">
           {list.map((item) => {
             const update = (patch: Patch<K>) => report(updateItem(hexId, collection, item.id, patch))
+            const type = (patch: Patch<K>) => updateItem(hexId, collection, item.id, patch)
             return (
               <li key={item.id} className="item" data-item-id={item.id}>
-                <input className="name" aria-label={`${noun} name`} value={item.name} onChange={(e) => update({ name: e.target.value } as Patch<K>)} />
+                <input className="name" aria-label={`${noun} name`} value={item.name} onChange={(e) => type({ name: e.target.value } as Patch<K>)} {...session} />
                 <button
                   type="button"
                   className="icon-button small remove"
@@ -197,7 +232,7 @@ function Section<K extends CollectionKey>({ hexId, map, onPrune, collection, ite
                 {fields?.(item, update)}
                 <details className="note">
                   <summary>Note</summary>
-                  <textarea aria-label={`Note for ${item.name}`} rows={2} value={item.note ?? ''} onChange={(e) => update({ note: e.target.value || undefined } as Patch<K>)} />
+                  <textarea aria-label={`Note for ${item.name}`} rows={2} value={item.note ?? ''} onChange={(e) => type({ note: e.target.value || undefined } as Patch<K>)} {...session} />
                 </details>
               </li>
             )
@@ -356,6 +391,7 @@ export function Editor({
   open,
   onToggle,
   onPrune,
+  onRecord,
   onAddHexagon,
   onDeleteHexagon,
   onMoveToContext,
@@ -369,6 +405,7 @@ export function Editor({
   open: boolean
   onToggle: () => void
   onPrune: OnPrune
+  onRecord: OnRecord
   onAddHexagon: () => void
   onDeleteHexagon: () => void
   /** Moves the current hexagon into the given context, or a new one when `undefined`. */
@@ -408,6 +445,7 @@ export function Editor({
   // Keyed by contextId, so renaming two contexts in the same session (unlikely, but never concurrent within one
   // input) each keeps its own pre-edit snapshot from focus to blur.
   const contextRenameBefore = useRef(new Map<string, HexaMap>())
+  const session = useFieldSession(onRecord)
 
   return (
     <aside className={`island editor${open ? '' : ' is-collapsed'}`} aria-label="Diagram editor">
@@ -422,7 +460,7 @@ export function Editor({
         <Fold id="map" title="Map">
           <label className="field">
             <span>Map title</span>
-            <input value={map.title} onChange={(e) => setMapMeta({ title: e.target.value })} />
+            <input value={map.title} onChange={(e) => setMapMeta({ title: e.target.value })} {...session} />
           </label>
           <ChoiceMenu
             label="Add hexagon from file…"
@@ -495,11 +533,11 @@ export function Editor({
           </p>
           <label className="field" data-item-id="hexagon">
             <span>Hexagon title</span>
-            <input value={d.title} onChange={(e) => setMeta(hexId, { title: e.target.value })} />
+            <input value={d.title} onChange={(e) => setMeta(hexId, { title: e.target.value })} {...session} />
           </label>
           <label className="field">
             <span>Subtitle</span>
-            <input value={d.subtitle ?? ''} onChange={(e) => setMeta(hexId, { subtitle: e.target.value || undefined })} />
+            <input value={d.subtitle ?? ''} onChange={(e) => setMeta(hexId, { subtitle: e.target.value || undefined })} {...session} />
           </label>
           <label className="field" data-item-id="composition">
             <span>Composition root</span>
@@ -507,6 +545,7 @@ export function Editor({
               value={d.composition?.name ?? ''}
               placeholder="e.g. composition.ts"
               onChange={(e) => setMeta(hexId, { composition: e.target.value ? { ...d.composition, name: e.target.value } : undefined })}
+              {...session}
             />
           </label>
           <div className="button-pair">
@@ -543,11 +582,11 @@ export function Editor({
                     <legend>{ring.name}</legend>
                   <label className="field">
                     <span>Ring title</span>
-                    <input value={override?.title ?? ''} placeholder={ring.name} onChange={(e) => setLayer({ title: e.target.value || undefined })} />
+                    <input value={override?.title ?? ''} placeholder={ring.name} onChange={(e) => setLayer({ title: e.target.value || undefined })} {...session} />
                   </label>
                   <label className="field">
                     <span>Subtitle</span>
-                    <input value={override?.subtitle ?? ''} placeholder={ring.subtitle ?? 'None'} onChange={(e) => setLayer({ subtitle: e.target.value || undefined })} />
+                    <input value={override?.subtitle ?? ''} placeholder={ring.subtitle ?? 'None'} onChange={(e) => setLayer({ subtitle: e.target.value || undefined })} {...session} />
                   </label>
                   </fieldset>
                 </li>
@@ -560,6 +599,7 @@ export function Editor({
           hexId={hexId}
           map={map}
           onPrune={onPrune}
+          onRecord={onRecord}
           collection="domain"
           items={d.domain}
           title="Domain"
@@ -582,6 +622,7 @@ export function Editor({
           hexId={hexId}
           map={map}
           onPrune={onPrune}
+          onRecord={onRecord}
           collection="useCases"
           items={d.useCases}
           title="Use cases"
@@ -602,6 +643,7 @@ export function Editor({
           hexId={hexId}
           map={map}
           onPrune={onPrune}
+          onRecord={onRecord}
           collection="ports"
           items={d.ports}
           title="Ports"
@@ -613,7 +655,10 @@ export function Editor({
               className="text-button small"
               aria-label={`Add ${article(sideLabel[side])} ${sideLabel[side]}`}
               title={`Add ${article(sideLabel[side])} ${sideLabel[side]}`}
-              onClick={() => addPort(hexId, side)}
+              onClick={() => {
+                onRecord({ map, focus: hexId })
+                addPort(hexId, side)
+              }}
             >
               + {sideLabel[side].split(' ')[0]}
             </button>
@@ -646,6 +691,7 @@ export function Editor({
           hexId={hexId}
           map={map}
           onPrune={onPrune}
+          onRecord={onRecord}
           collection="adapters"
           items={d.adapters}
           title="Adapters"
@@ -660,6 +706,7 @@ export function Editor({
           hexId={hexId}
           map={map}
           onPrune={onPrune}
+          onRecord={onRecord}
           collection="actors"
           items={d.actors}
           title="Actors"
@@ -674,6 +721,7 @@ export function Editor({
           hexId={hexId}
           map={map}
           onPrune={onPrune}
+          onRecord={onRecord}
           collection="externals"
           items={d.externals}
           title="External systems"
