@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { hexagonBounds, layoutMap } from './map'
+import { crossesBox } from './obstacleRoute'
 import type { LayoutMode } from './layout'
 import type { HexaMap, Link } from '../model/schema'
 import { linkedTwoHexMap, manyHexagonMap } from '../test/fixtures'
@@ -22,35 +23,30 @@ const threeHexagons = (cells: Array<[number, number]>, links: Link[]): HexaMap =
   return { ...base, hexagons: base.hexagons.map((h, i) => ({ ...h, cell: { q: cells[i][0], r: cells[i][1] } })), links }
 }
 
-const SMALL_MAPS: Array<[string, HexaMap]> = [
+const CLEAR_MAPS: Array<[string, HexaMap]> = [
   ['two linked hexagons', linkedTwoHexMap()],
   ['three hexagons in a triangle', threeHexagons([[0, 0], [1, 0], [0, 1]], LINKS)],
   ['three hexagons in a row, neighbours linked', threeHexagons([[0, 0], [1, 0], [2, 0]], LINKS.slice(0, 3))],
-  ['three hexagons in a row, the ends linked', threeHexagons([[0, 0], [1, 0], [2, 0]], LINKS.slice(4))],
 ]
 
-// Recorded before link routing learned about third hexagons and chips: a route that was already clear keeps these points.
-describe('layoutMap — links on maps of one to three hexagons', () => {
+// Recorded from the routes `layoutMap` drew before it routed round third hexagons and chips. None of these maps has a
+// link in the way of another hexagon or a chip, so routing round them must leave every point where it was.
+describe('layoutMap — links that are already clear on maps of two or three hexagons', () => {
   describe.each(['detailed', 'overview'] as LayoutMode[])('in %s', (mode) => {
-    it.each(SMALL_MAPS)('routes %s as it always has', (_, map) => {
+    it.each(CLEAR_MAPS)('keeps the routes of %s', (_, map) => {
       expect(layoutMap(map, { mode }).links).toMatchSnapshot()
     })
-    it.each(SMALL_MAPS)('routes %s the same with a current hexagon', (_, map) => {
+    it.each(CLEAR_MAPS)('keeps the routes of %s with a current hexagon', (_, map) => {
       expect(layoutMap(map, { mode, current: 'h1' }).links).toMatchSnapshot()
     })
   })
 })
 
 describe('layoutMap — a link between the ends of a row of three hexagons', () => {
-  const row = SMALL_MAPS[3][1]
+  const row = threeHexagons([[0, 0], [1, 0], [2, 0]], LINKS.slice(4))
   it.each(['detailed', 'overview'] as LayoutMode[])('does not cross the hexagon between them in %s', (mode) => {
     const result = layoutMap(row, { mode })
     const middle = hexagonBounds(result.hexagons.find((h) => h.id === 'h2')!)
-    const { points } = result.links[0]
-    const crosses = points.slice(1).some((p, i) => {
-      const q = points[i]
-      return Math.max(p.x, q.x) > middle.x && Math.min(p.x, q.x) < middle.x + middle.width && Math.max(p.y, q.y) > middle.y && Math.min(p.y, q.y) < middle.y + middle.height
-    })
-    expect(crosses).toBe(false)
+    expect(crossesBox(result.links[0].points, [middle])).toBe(false)
   })
 })

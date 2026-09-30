@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`layoutMap — links on maps of one to three hexagons > in detailed > routes three hexagons in a row, neighbours linked as it always has 1`] = `
+exports[`layoutMap — links that are already clear on maps of two or three hexagons > in detailed > keeps the routes of three hexagons in a row, neighbours linked 1`] = `
 [
   {
     "id": "l-a",
@@ -140,7 +140,7 @@ exports[`layoutMap — links on maps of one to three hexagons > in detailed > ro
 ]
 `;
 
-exports[`layoutMap — links on maps of one to three hexagons > in detailed > routes three hexagons in a row, neighbours linked the same with a current hexagon 1`] = `
+exports[`layoutMap — links that are already clear on maps of two or three hexagons > in detailed > keeps the routes of three hexagons in a row, neighbours linked with a current hexagon 1`] = `
 [
   {
     "id": "l-a",
@@ -280,107 +280,7 @@ exports[`layoutMap — links on maps of one to three hexagons > in detailed > ro
 ]
 `;
 
-exports[`layoutMap — links on maps of one to three hexagons > in detailed > routes three hexagons in a row, the ends linked as it always has 1`] = `
-[
-  {
-    "id": "l-e",
-    "points": [
-      {
-        "x": 372.56000000000006,
-        "y": -110,
-      },
-      {
-        "x": 459.1600000000001,
-        "y": -110,
-      },
-      {
-        "x": 459.1600000000001,
-        "y": -162,
-      },
-      {
-        "x": 846.5600000000002,
-        "y": -162,
-      },
-      {
-        "x": 846.5600000000002,
-        "y": -819.8341128002394,
-      },
-      {
-        "x": 4790.250838948028,
-        "y": -819.8341128002394,
-      },
-      {
-        "x": 4790.250838948028,
-        "y": -52,
-      },
-      {
-        "x": 4402.8508389480285,
-        "y": -52,
-      },
-      {
-        "x": 4402.8508389480285,
-        "y": 0,
-      },
-      {
-        "x": 4316.250838948028,
-        "y": 0,
-      },
-    ],
-  },
-]
-`;
-
-exports[`layoutMap — links on maps of one to three hexagons > in detailed > routes three hexagons in a row, the ends linked the same with a current hexagon 1`] = `
-[
-  {
-    "id": "l-e",
-    "points": [
-      {
-        "x": 372.56000000000006,
-        "y": -110,
-      },
-      {
-        "x": 459.1600000000001,
-        "y": -110,
-      },
-      {
-        "x": 459.1600000000001,
-        "y": -162,
-      },
-      {
-        "x": 846.5600000000002,
-        "y": -162,
-      },
-      {
-        "x": 846.5600000000002,
-        "y": -819.8341128002394,
-      },
-      {
-        "x": 4790.250838948028,
-        "y": -819.8341128002394,
-      },
-      {
-        "x": 4790.250838948028,
-        "y": -52,
-      },
-      {
-        "x": 4402.8508389480285,
-        "y": -52,
-      },
-      {
-        "x": 4402.8508389480285,
-        "y": 0,
-      },
-      {
-        "x": 4316.250838948028,
-        "y": 0,
-      },
-    ],
-  },
-]
-`;
-
-exports[`layoutMap — links on maps of one to three hexagons > in detailed > routes three hexagons in a triangle as it always has 1`] = `
+exports[`layoutMap — links that are already clear on maps of two or three hexagons > in detailed > keeps the routes of three hexagons in a triangle 1`] = `
 [
   {
     "id": "l-a",
@@ -610,7 +510,7 @@ exports[`layoutMap — links on maps of one to three hexagons > in detailed > ro
 ]
 `;
 
-exports[`layoutMap — links on maps of one to three hexagons > in detailed > routes three hexagons in a triangle the same with a current hexagon 1`] = `
+exports[`layoutMap — links that are already clear on maps of two or three hexagons > in detailed > keeps the routes of three hexagons in a triangle with a current hexagon 1`] = `
 [
   {
     "id": "l-a",
@@ -840,7 +740,7 @@ exports[`layoutMap — links on maps of one to three hexagons > in detailed > ro
 ]
 `;
 
-exports[`layoutMap — links on maps of one to three hexagons > in detailed > routes two linked hexagons as it always has 1`] = `
+exports[`layoutMap — links that are already clear on maps of two or three hexagons > in detailed > keeps the routes of two linked hexagons 1`] = `
 [
   {
     "id": "link-1",
@@ -890,7 +790,7 @@ exports[`layoutMap — links on maps of one to three hexagons > in detailed > ro
 ]
 `;
 
-exports[`layoutMap — links on maps of one to three hexagons > in detailed > routes two linked hexagons the same with a current hexagon 1`] = `
+exports[`layoutMap — links that are already clear on maps of two or three hexagons > in detailed > keeps the routes of two linked hexagons with a current hexagon 1`] = `
 [
   {
     "id": "link-1",
@@ -940,7 +840,7 @@ exports[`layoutMap — links on maps of one to three hexagons > in detailed > ro
 ]
 `;
 
-exports[`layoutMap — links on maps of one to three hexagons > in overview > routes three hexagons in a row, neighbours linked as it always has 1`] = `
+exports[`layoutMap — links that are already clear on maps of two or three hexagons > in overview > keeps the routes of three hexagons in a row, neighbours linked 1`] = `
 [
   {
     "id": "l-a",
@@ -1076,7 +976,7 @@ exports[`layoutMap — links on maps of one to three hexagons > in overview > ro
 ]
 `;
 
-exports[`layoutMap — links on maps of one to three hexagons > in overview > routes three hexagons in a row, neighbours linked the same with a current hexagon 1`] = `
+exports[`layoutMap — links that are already clear on maps of two or three hexagons > in overview > keeps the routes of three hexagons in a row, neighbours linked with a current hexagon 1`] = `
 [
   {
     "id": "l-a",
@@ -1212,107 +1112,7 @@ exports[`layoutMap — links on maps of one to three hexagons > in overview > ro
 ]
 `;
 
-exports[`layoutMap — links on maps of one to three hexagons > in overview > routes three hexagons in a row, the ends linked as it always has 1`] = `
-[
-  {
-    "id": "l-e",
-    "points": [
-      {
-        "x": 233.7324676165759,
-        "y": -56,
-      },
-      {
-        "x": 239.7324676165759,
-        "y": -56,
-      },
-      {
-        "x": 239.7324676165759,
-        "y": -89.5,
-      },
-      {
-        "x": 781.3324676165757,
-        "y": -89.5,
-      },
-      {
-        "x": 781.3324676165757,
-        "y": -677.3122747062769,
-      },
-      {
-        "x": 3909.7038606334295,
-        "y": -677.3122747062769,
-      },
-      {
-        "x": 3909.7038606334295,
-        "y": -33.5,
-      },
-      {
-        "x": 3368.1038606334296,
-        "y": -33.5,
-      },
-      {
-        "x": 3368.1038606334296,
-        "y": 0,
-      },
-      {
-        "x": 3362.1038606334296,
-        "y": 0,
-      },
-    ],
-  },
-]
-`;
-
-exports[`layoutMap — links on maps of one to three hexagons > in overview > routes three hexagons in a row, the ends linked the same with a current hexagon 1`] = `
-[
-  {
-    "id": "l-e",
-    "points": [
-      {
-        "x": 233.7324676165759,
-        "y": -56,
-      },
-      {
-        "x": 239.7324676165759,
-        "y": -56,
-      },
-      {
-        "x": 239.7324676165759,
-        "y": -89.5,
-      },
-      {
-        "x": 781.3324676165757,
-        "y": -89.5,
-      },
-      {
-        "x": 781.3324676165757,
-        "y": -677.3122747062769,
-      },
-      {
-        "x": 3909.7038606334295,
-        "y": -677.3122747062769,
-      },
-      {
-        "x": 3909.7038606334295,
-        "y": -33.5,
-      },
-      {
-        "x": 3368.1038606334296,
-        "y": -33.5,
-      },
-      {
-        "x": 3368.1038606334296,
-        "y": 0,
-      },
-      {
-        "x": 3362.1038606334296,
-        "y": 0,
-      },
-    ],
-  },
-]
-`;
-
-exports[`layoutMap — links on maps of one to three hexagons > in overview > routes three hexagons in a triangle as it always has 1`] = `
+exports[`layoutMap — links that are already clear on maps of two or three hexagons > in overview > keeps the routes of three hexagons in a triangle 1`] = `
 [
   {
     "id": "l-a",
@@ -1538,7 +1338,7 @@ exports[`layoutMap — links on maps of one to three hexagons > in overview > ro
 ]
 `;
 
-exports[`layoutMap — links on maps of one to three hexagons > in overview > routes three hexagons in a triangle the same with a current hexagon 1`] = `
+exports[`layoutMap — links that are already clear on maps of two or three hexagons > in overview > keeps the routes of three hexagons in a triangle with a current hexagon 1`] = `
 [
   {
     "id": "l-a",
@@ -1764,7 +1564,7 @@ exports[`layoutMap — links on maps of one to three hexagons > in overview > ro
 ]
 `;
 
-exports[`layoutMap — links on maps of one to three hexagons > in overview > routes two linked hexagons as it always has 1`] = `
+exports[`layoutMap — links that are already clear on maps of two or three hexagons > in overview > keeps the routes of two linked hexagons 1`] = `
 [
   {
     "id": "link-1",
@@ -1814,7 +1614,7 @@ exports[`layoutMap — links on maps of one to three hexagons > in overview > ro
 ]
 `;
 
-exports[`layoutMap — links on maps of one to three hexagons > in overview > routes two linked hexagons the same with a current hexagon 1`] = `
+exports[`layoutMap — links that are already clear on maps of two or three hexagons > in overview > keeps the routes of two linked hexagons with a current hexagon 1`] = `
 [
   {
     "id": "link-1",
