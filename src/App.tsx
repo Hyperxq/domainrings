@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import type { LayoutMode } from './layout/layout'
 import { canCompact } from './layout/compactHexagon'
@@ -8,7 +8,6 @@ import { legendFor, legendForClean, legendForOnion } from './layout/legend'
 import { layoutClean } from './layout/clean'
 import { layoutOnion } from './layout/onion'
 import { EXAMPLES } from './model/example'
-import { toHexa } from './model/hexa'
 import { collectionOf, type LinkChoice } from './model/links'
 import { contextName, diagramOf, linkEndLabel, occupiedContexts, UNTITLED_HEXAGON, type Destination, type LinkPatch } from './model/map'
 import { useCleanStore } from './model/cleanStore'
@@ -21,11 +20,11 @@ import { ArchitectureChoiceDialog, CHOICES } from './ui/ArchitectureChoiceDialog
 import { revealInEditor } from './ui/revealInEditor'
 import { useExport } from './ui/useExport'
 import { useOpenDocument } from './ui/useOpenDocument'
+import { useUndoHistory } from './ui/useUndoHistory'
 import type { PaletteId } from './ui/palette'
 import { readPref, setRootPref, writePref } from './ui/prefs'
 import { encodeSharePayload, isOversizedShareLink, shareLinkURL } from './ui/shareLink'
 import { useShareLinkOnMount } from './ui/useShareLinkOnMount'
-import { typing } from './ui/keys'
 import type { Notice, UndoSnapshot } from './ui/notice'
 import { CleanWorkspace } from './ui/CleanWorkspace'
 import { HexagonalWorkspace } from './ui/HexagonalWorkspace'
@@ -44,8 +43,6 @@ const RECOVERY_MESSAGE: Record<'kept' | 'not-kept', string> = {
  * two labels, not a general-purpose English article rule. */
 const article = (label: string) => (/^[aeiou]/i.test(label) ? 'an' : 'a')
 
-export const UNDO_LIMIT = 20
-
 const LEGEND_EXPORT_KEY = 'domainrings:legend-export'
 const OVERVIEW_KEY = 'domainrings:overview'
 const GUIDES_KEY = 'domainrings:guides'
@@ -54,17 +51,6 @@ const DEPENDENTS_KEY = 'domainrings:dependents'
 const LEGEND_OPEN_KEY = 'domainrings:legend-open'
 const NONE_EXPANDED: ReadonlySet<string> = new Set()
 const { restore, removeItem, updateItem, addHexagon, importHexagon, removeHexagon, moveToContext, setMeta, addLink, updateLink: updateLinkAction, removeLink: removeLinkAction } = useMapStore.getState()
-const { restore: restoreOnion } = useOnionStore.getState()
-const { restore: restoreClean } = useCleanStore.getState()
-
-/** Undo, generalized over all three kinds (REQ-09): routes to whichever store the snapshot's own document
- * belongs to — the one restore path every kind's toast shares. The runtime check IS the type guard; the cast
- * only tells TS what it already knows once `map.kind` has been read. */
-const restoreUndo = (undo: UndoSnapshot) => {
-  if (undo.map.kind === 'hexagonal') restore(undo as Extract<UndoSnapshot, { map: HexaMap }>)
-  else if (undo.map.kind === 'onion') restoreOnion(undo as Extract<UndoSnapshot, { map: OnionFile }>)
-  else restoreClean(undo as Extract<UndoSnapshot, { map: CleanFile }>)
-}
 
 interface AppProps {
   boot?: { recovery: Recovery; unreadableText?: string; kind?: StoredFile['kind'] }
@@ -117,107 +103,53 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   )
   const saveFailed = useSaveFailed((s) => s.failed)
   const noticeSeq = useRef(0)
-  // One in-memory history for all three kinds, fed by every notice that offers an Undo: the toast's button and
-  // Ctrl/Cmd+Z both pop it, so they can never undo the same step twice.
-  const undoStack = useRef<UndoSnapshot[]>([])
-  // Snapshots are whole documents, so undoing over an edit that never went through show() would silently discard
-  // it. The document as the newest step left it is kept here (refreshed after the render that follows a recorded
-  // step); undo refuses, and drops the now-unsafe history, once the active document has moved off it.
-  const trustedDoc = useRef<StoredFile | undefined>(undefined)
-  const recordedStep = useRef(false)
-  const [, rerender] = useReducer((n: number) => n + 1, 0)
-  const sameDoc = (a: StoredFile, b: StoredFile) => a === b || toHexa(a) === toHexa(b)
-  // The text field being edited, if any: its session ends on blur, or when the field leaves the page without one.
-  const pendingField = useRef<{ before: { map: HexaMap; focus: string }; field: Element } | null>(null)
-  // `after` is the document the session left: a discrete edit flushing it has already changed the store since.
-  const endField = (after: HexaMap = useMapStore.getState().map) => {
-    const pending = pendingField.current
-    pendingField.current = null
-    if (!pending || sameDoc(pending.before.map, after)) return
-    pushStep(pending.before)
-    trustedDoc.current = after
-  }
-  const beginField = (before: { map: HexaMap; focus: string }, field: Element) => {
-    endField()
-    pendingField.current = { before, field }
-  }
-  // A step with no toast, for edits that never raised one (adding an item); a pending field session ends first.
-  const record = (undo: UndoSnapshot) => {
-    endField(undo.map.kind === 'hexagonal' ? undo.map : undefined)
-    pushStep(undo)
-  }
-  // The stack push alone: `endField` uses it directly so ending a session can never end one again.
-  const pushStep = (undo: UndoSnapshot) => {
-    // A step that doesn't lead back from the document the last one left means an unrecorded edit sits between them.
-    const contiguous = !trustedDoc.current || sameDoc(trustedDoc.current, undo.map)
-    undoStack.current = [...(contiguous ? undoStack.current : []), undo].slice(-UNDO_LIMIT)
-    recordedStep.current = true
-    // The flag is only consumed by a render, and a step recorded once its edit is done (a field session ends on blur) has none coming.
-    rerender()
-  }
+  // Grow: the just-added hexagon's own inline title field is open until it commits (onNamed) or is undone
+  // (onNamingCancel, or the toast's own Undo — either restores `before`, exactly as a one-step undo (GROW-03)).
+  const [growing, setGrowing] = useState<{ hexId: string; before: { map: HexaMap; focus: string } } | null>(null)
+  const [legendInExport, setLegendInExport] = useState(() => readPref(LEGEND_EXPORT_KEY, true))
+  const [legendOpen, setLegendOpen] = useState(() => readPref(LEGEND_OPEN_KEY, false))
+  const [exportScope, setExportScope] = useState<ExportScope>('map')
+  const [choosingArchitecture, setChoosingArchitecture] = useState(false)
+  // Export scope (Hexagon vs Map) only exists for a multi-hexagon Hexagonal map (EXPORT-03.1) — Onion and Clean
+  // are always one diagram, so neither scopes or carries a legend (neither has a legend panel at all). Resolved
+  // once, here, so a third kind only ever touches this one branch instead of every read below it.
+  const canScopeExport = activeKind === 'hexagonal' && multiHexagon
+  const scoped = canScopeExport && exportScope === 'hexagon'
+  const active =
+    activeKind === 'onion'
+      ? { file: onionMap, bounds: onionModel!.bounds, title: onionMap.title, scoped: false, legend: legendInExport }
+      : activeKind === 'clean'
+        ? { file: cleanMap, bounds: cleanModel!.bounds, title: cleanMap.title, scoped: false, legend: legendInExport }
+        : { file: map, bounds: scoped ? hexagonBounds(currentHexagon(model, hexId)) : model.bounds, title: scoped ? diagram.title || UNTITLED_HEXAGON : map.title, scoped, legend: legendInExport }
+  const { record, beginField, endField, dropUndo, undoLast, absorbEdit } = useUndoHistory({
+    activeFile: active.file,
+    hexId,
+    choosingArchitecture,
+    onUnavailable: () => show({ tone: 'status', message: "Undo isn't available: the document changed in ways Undo doesn't track." }),
+    onRestored: (entry) => {
+      // The restored document's own kind IS the view to bring back (REQ-09) — a same-kind edit's undo
+      // just re-sets the kind already on screen, a no-op render.
+      setActiveKind(entry.map.kind)
+      setNotice((n) => (n?.undo === entry ? null : n))
+      // Undoing a grow is the same restore as Esc-while-naming — close the field too.
+      setGrowing(null)
+    },
+  })
   const show = (next: Omit<Notice, 'id'>) => {
     if (next.undo) record(next.undo)
     setNotice({ ...next, id: ++noticeSeq.current })
   }
-  // For an edit that unwinds itself (naming cancelled): its step must not stay behind as an undo.
-  const dropUndo = (entry?: UndoSnapshot) => {
-    recordedStep.current = true
-    if (entry && undoStack.current.at(-1) === entry) undoStack.current.pop()
-  }
-  const undoLast = () => {
-    if (!trustedDoc.current || !sameDoc(active.file, trustedDoc.current)) {
-      undoStack.current = []
-      show({ tone: 'status', message: "Undo isn't available: the document changed in ways Undo doesn't track." })
-      return
-    }
-    const entry = undoStack.current.pop()
-    if (!entry) return
-    const live = pendingField.current
-    pendingField.current = null
-    restoreUndo(entry)
-    // A field still focused keeps recording: its next edit starts a session from the restored document.
-    if (live?.field.isConnected && document.activeElement === live.field) {
-      const { map, focus } = useMapStore.getState()
-      pendingField.current = { before: { map, focus }, field: live.field }
-    }
-    recordedStep.current = true
-    // The restored document's own kind IS the view to bring back (REQ-09) — a same-kind edit's undo
-    // just re-sets the kind already on screen, a no-op render.
-    setActiveKind(entry.map.kind)
-    setNotice((n) => (n?.undo === entry ? null : n))
-    // Undoing a grow is the same restore as Esc-while-naming — close the field too.
-    setGrowing(null)
-  }
-  // No dependency array on purpose: re-subscribing every render is what keeps `choosingArchitecture` and `undoLast` fresh.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.key.toLowerCase() !== 'z' || e.defaultPrevented || typing(e.target) || choosingArchitecture || !undoStack.current.length) return
-      // An open menu owns the keyboard; the choose-architecture dialog is tracked above, any other modal is a native one.
-      if (document.querySelector('[role="menu"], dialog[open]')) return
-      e.preventDefault()
-      undoLast()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  })
   // The one undo mechanism (REQ-09), instantiated once per kind: OnionEditor/OnionStage and CleanEditor/CleanStage
   // each get the SAME callback for every action they offer, so a dependency created from the canvas gesture
   // toasts identically to one created from the editor's own form (ADR-02).
   const mutateOnion = (message: string, before: OnionFile) => show({ tone: 'status', message, undo: { map: before } })
   const mutateClean = (message: string, before: CleanFile) => show({ tone: 'status', message, undo: { map: before } })
-  // Naming a just-added element completes the add step Undo already covers, so the document it leaves is trusted.
-  const absorbEdit = () => {
-    recordedStep.current = true
-    rerender()
-  }
   // Retracts the toast for an add that was immediately cancelled (naming Esc'd out) without offering it as an
   // undo step — the add already unwound itself; mirrors onNamingCancel's own setNotice(null) below.
   const clearNotice = () => {
     dropUndo(notice?.undo)
     setNotice(null)
   }
-  const [legendInExport, setLegendInExport] = useState(() => readPref(LEGEND_EXPORT_KEY, true))
-  const [legendOpen, setLegendOpen] = useState(() => readPref(LEGEND_OPEN_KEY, false))
   // Onion and Clean have no ports or adapters — each kind builds the legend it actually draws (ADR-01), all
   // three sharing the one open/close and "include in export" state above.
   const legend = activeKind === 'onion' ? legendForOnion(onionMap) : activeKind === 'clean' ? legendForClean(cleanMap) : legendFor(diagram)
@@ -235,14 +167,11 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       setLegendInExport(include)
     },
   }
-  const [exportScope, setExportScope] = useState<ExportScope>('map')
-
   // The document being replaced (REQ-09), captured before any store mutation whatever kind is currently active —
   // Undo restores it into its own store (`restoreUndo`) and the toast's onUndo below flips `activeKind` back from
   // `undo.map.kind`, so the view returns with it. One snapshot, one restore path, for every swap direction.
   const beforeSwap: UndoSnapshot = activeKind === 'onion' ? { map: onionMap, swap: true } : activeKind === 'clean' ? { map: cleanMap, swap: true } : { ...before, swap: true }
 
-  const [choosingArchitecture, setChoosingArchitecture] = useState(false)
   const { swap, completeNew, parseSource, parseFile, importFile } = useOpenDocument({ beforeSwap, show, setActiveKind, setExportScope, setChoosingArchitecture })
 
   const nameOf = (ref: string) => {
@@ -281,9 +210,6 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     return true
   }
 
-  // Grow: the just-added hexagon's own inline title field is open until it commits (onNamed) or is undone
-  // (onNamingCancel, or the toast's own Undo — either restores `before`, exactly as a one-step undo (GROW-03)).
-  const [growing, setGrowing] = useState<{ hexId: string; before: { map: HexaMap; focus: string } } | null>(null)
   const completeGrow = (side: Wall | undefined, context: Destination) => {
     const newHexId = addHexagon(hexId, { side, context })
     if (!newHexId) return
@@ -424,26 +350,6 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     }
     return (context) => completeImport(parsed, context, file.name)
   }
-
-  // Export scope (Hexagon vs Map) only exists for a multi-hexagon Hexagonal map (EXPORT-03.1) — Onion and Clean
-  // are always one diagram, so neither scopes or carries a legend (neither has a legend panel at all). Resolved
-  // once, here, so a third kind only ever touches this one branch instead of every read below it.
-  const canScopeExport = activeKind === 'hexagonal' && multiHexagon
-  const scoped = canScopeExport && exportScope === 'hexagon'
-  const active =
-    activeKind === 'onion'
-      ? { file: onionMap, bounds: onionModel!.bounds, title: onionMap.title, scoped: false, legend: legendInExport }
-      : activeKind === 'clean'
-        ? { file: cleanMap, bounds: cleanModel!.bounds, title: cleanMap.title, scoped: false, legend: legendInExport }
-        : { file: map, bounds: scoped ? hexagonBounds(currentHexagon(model, hexId)) : model.bounds, title: scoped ? diagram.title || UNTITLED_HEXAGON : map.title, scoped, legend: legendInExport }
-
-  useEffect(() => {
-    // A browser does not reliably blur a field that is removed, and a still-mounted one can outlive its hexagon.
-    if (pendingField.current && (!pendingField.current.field.isConnected || pendingField.current.before.focus !== hexId)) endField()
-    if (!recordedStep.current) return
-    trustedDoc.current = active.file
-    recordedStep.current = false
-  })
 
   const { svgRef, exportAs } = useExport(active, legend, hexId, show)
 
