@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { kindsFor, ONION_KINDS } from './ringedKinds'
-import { APP, CleanFileSchema, DiagramSchema, HexaFileV3Schema, HexaFileV4Schema, linkEndProblem, MapSchema, OnionFileSchema, VERSION } from './schema'
+import { HexaFileV3Schema, HexaFileV4Schema } from './fileFormat'
+import { APP, CleanFileSchema, DiagramSchema, linkEndProblem, MapSchema, OnionFileSchema, VERSION } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
 import { newCleanMap, newOnionMap, toMap } from './hexa'
 

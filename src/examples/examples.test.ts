@@ -8,7 +8,8 @@ import { layoutClean } from '../layout/clean'
 import { countCrossings } from '../layout/crossings'
 import { boxWithinBand, RING_TITLE_PAD, ringedElementHeight, ringedElementWidth, TITLE_LINE } from '../layout/ringed'
 import { fitTo, islandInset } from '../ui/viewport'
-import { VERSION, type CleanFile, type HexaMap, type OnionFile, type StoredFile } from '../model/schema'
+import type { StoredFile } from '../model/fileFormat'
+import { VERSION, type CleanFile, type HexaMap, type OnionFile } from '../model/schema'
 
 const EXAMPLES_DIR = __dirname
 
