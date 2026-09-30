@@ -71,9 +71,9 @@ function RingSection({
         onRename={(id, newName) => updateElement(id, { name: newName })}
         onRenameCommit={(id, before) => onMutate(`Renamed ${before || 'the element'} to ${elementName(doc.elements, id)}.`, withElementName(doc, id, before))}
         onKind={(id, kind) => {
-          const before = doc
+          const before = useOnionStore.getState().map
           updateElement(id, { kind })
-          onMutate(kindMessage(elementName(doc.elements, id), kind), before)
+          if (useOnionStore.getState().map !== before) onMutate(kindMessage(elementName(doc.elements, id), kind), before)
         }}
         onRemove={(id) => {
           const removedName = elementName(doc.elements, id)

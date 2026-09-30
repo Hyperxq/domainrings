@@ -151,6 +151,18 @@ describe('OnionEditor — element kind', () => {
     expect(onMutate.mock.calls[0][1].elements[0].kind).toBeUndefined()
   })
 
+  it('reports nothing when the store rejects the kind', () => {
+    const id = state().addElement({ name: 'Order', ringRole: 'domain' })
+    const onMutate = vi.fn()
+    const { container } = renderEditor({ onMutate })
+    const select = kindSelect(container)
+    // The editor's own options never offer a bad kind; a stale render (the element moved rings underneath it) is what reaches a rejection.
+    state().replace({ ...state().map, elements: [{ id, name: 'Order', ringRole: 'application' }] })
+    fireEvent.change(select, { target: { value: 'entity' } })
+    expect(state().map.elements[0].kind).toBeUndefined()
+    expect(onMutate).not.toHaveBeenCalled()
+  })
+
   it('choosing no kind clears it', () => {
     state().addElement({ name: 'Order', ringRole: 'domain', kind: 'entity' })
     const { container } = renderEditor()

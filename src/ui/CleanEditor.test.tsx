@@ -181,4 +181,18 @@ describe('CleanEditor — element kind', () => {
     expect(onMutate.mock.calls[0][0]).toBe('Set OrderController to controller.')
     expect(onMutate.mock.calls[0][1].elements[0].kind).toBeUndefined()
   })
+
+  it('reports nothing when the store rejects the kind', () => {
+    const adapters = state().addSector({ name: 'Web', ringRole: 'adapters' })
+    const application = state().addSector({ name: 'Cases', ringRole: 'application' })
+    const id = state().addElement({ name: 'OrderController', sectorId: adapters })
+    const onMutate = vi.fn()
+    const { container } = renderEditor({ onMutate })
+    const select = within(container).getByLabelText('OrderController kind') as HTMLSelectElement
+    // The editor's own options never offer a bad kind; a stale render (the element moved rings underneath it) is what reaches a rejection.
+    state().replace({ ...state().map, elements: [{ id, name: 'OrderController', sectorId: application }] })
+    fireEvent.change(select, { target: { value: 'controller' } })
+    expect(state().map.elements[0].kind).toBeUndefined()
+    expect(onMutate).not.toHaveBeenCalled()
+  })
 })
