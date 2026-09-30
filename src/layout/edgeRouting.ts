@@ -32,7 +32,7 @@ interface LabelArc {
 
 /** Every ring title (always at the top) and, for Clean, every sector name — laid out at the SAME radius and reach
  * `render/Diagram.tsx`/`render/CleanDiagram.tsx` paint them at. */
-function labelArcs(
+export function labelArcs(
   rings: readonly { title: string; apex: number }[],
   sectors: readonly { ringIndex: number; name: string; startAngle: number; endAngle: number }[],
 ): LabelArc[] {
@@ -42,7 +42,7 @@ function labelArcs(
     centerAngle: -Math.PI / 2,
     halfSpan: titleHalfSpan(measure(ring.title, RING_LABEL) + 2 * TITLE_ARC_PAD, radiusOf(i)),
   }))
-  const names = sectors.map((s) => {
+  const names = sectors.filter((s) => s.ringIndex >= 0 && s.ringIndex < rings.length).map((s) => {
     const radius = radiusOf(s.ringIndex)
     const wedgeHalfSpan = Math.max(0, (s.endAngle - s.startAngle) / 2 - TITLE_ARC_PAD / Math.max(radius, 1))
     return {
@@ -60,6 +60,18 @@ const insideArc = (p: Point, arc: LabelArc): boolean => {
   return Math.abs(d) <= arc.halfSpan
 }
 
+/** How many of the curve's samples fall on a curved label. */
+export function labelCrossings(edge: { from: Point; to: Point }, control: Point, arcs: readonly LabelArc[]): number {
+  let n = 0
+  for (let i = 0; i <= SAMPLES; i++) {
+    const t = i / SAMPLES
+    const u = 1 - t
+    const p = { x: u * u * edge.from.x + 2 * u * t * control.x + t * t * edge.to.x, y: u * u * edge.from.y + 2 * u * t * control.y + t * t * edge.to.y }
+    if (arcs.some((arc) => insideArc(p, arc))) n++
+  }
+  return n
+}
+
 /** Each arrow's own control point, bowed just enough (`BOW_CANDIDATES`) to keep its curve off every ring title and
  * sector name — the halo keeps a crossing readable, but it is still text an arrow runs across. An arrow no
  * candidate fully clears keeps whichever crosses the least, the default bow winning any tie. */
@@ -70,16 +82,7 @@ export function routeEdgesAroundLabels<E extends { from: Point; to: Point }>(
 ): (E & { control: Point })[] {
   const arcs = labelArcs(rings, sectors)
   return edges.map((edge) => {
-    const crossings = (control: Point) => {
-      let n = 0
-      for (let i = 0; i <= SAMPLES; i++) {
-        const t = i / SAMPLES
-        const u = 1 - t
-        const p = { x: u * u * edge.from.x + 2 * u * t * control.x + t * t * edge.to.x, y: u * u * edge.from.y + 2 * u * t * control.y + t * t * edge.to.y }
-        if (arcs.some((arc) => insideArc(p, arc))) n++
-      }
-      return n
-    }
+    const crossings = (control: Point) => labelCrossings(edge, control, arcs)
     const candidates = BOW_CANDIDATES.map((k) => edgeControl(edge.from, edge.to, DEFAULT_BOW * k))
     const control = candidates.reduce((best, c) => (crossings(c) < crossings(best) ? c : best))
     return { ...edge, control }
