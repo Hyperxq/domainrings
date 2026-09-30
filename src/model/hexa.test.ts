@@ -506,6 +506,12 @@ it('the base fixture the refusal matrix mutates is itself valid', () => {
   expect(parseHexa(JSON.stringify(VALID_BASE)).ok).toBe(true)
 })
 
+it('refuses a current-version Hexagonal file with no hexagon, so an import never sees an empty map', () => {
+  const file = { ...JSON.parse(toHexa(toMap(EXAMPLE_DIAGRAM))), hexagons: [] }
+  const result = parseHexa(JSON.stringify(file))
+  expect(result.ok).toBe(false)
+})
+
 describe('the 18-cell refusal matrix (MIG-02, MIG-03)', () => {
   const cells: [string, 'invalid' | 'newer', string | RegExp][] = [
     ['not JSON', 'invalid', /not valid JSON/],

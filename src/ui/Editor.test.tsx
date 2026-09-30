@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { Editor, revealInEditor } from './Editor'
 import { EXAMPLE_DIAGRAM } from '../model/example'
 import { toMap } from '../model/hexa'
@@ -20,7 +20,7 @@ afterEach(cleanup)
 const renderEditor = (
   onAddHexagon: () => void = () => {},
   onDeleteHexagon: () => void = () => {},
-  onAddFromFile: (file: File, context: 'same' | 'new') => void = () => {},
+  onAddFromFile: (file: File) => Promise<((context: 'same' | 'new') => void) | undefined> = async () => undefined,
   contextLabel = 'Context 1',
   onRenameContext: (before: HexaMap, contextId: string) => void = () => {},
   onCreateLink: (from: LinkEnd, to: LinkEnd) => void = () => {},
@@ -228,7 +228,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
     const onRenameContext = vi.fn()
     const contextId = useMapStore.getState().map.contexts[0].id
     const beforeMap = useMapStore.getState().map
-    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', onRenameContext)
+    const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', onRenameContext)
     const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1')
 
     fireEvent.focus(input)
@@ -271,7 +271,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
   it('reports the rename with the trimmed name, not the untrimmed keystroke value (NAME-03.1, NAME-02.3)', () => {
     const onRenameContext = vi.fn()
     const contextId = useMapStore.getState().map.contexts[0].id
-    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', onRenameContext)
+    const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', onRenameContext)
     const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1')
 
     fireEvent.focus(input)
@@ -291,7 +291,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
       ...useMapStore.getState().map,
       contexts: useMapStore.getState().map.contexts.map((c) => (c.id === contextId ? { id: c.id } : c)),
     })
-    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', onRenameContext)
+    const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', onRenameContext)
     const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1')
 
     fireEvent.focus(input)
@@ -307,7 +307,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
 
   it('does not report a blur that never changed the name', () => {
     const onRenameContext = vi.fn()
-    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', onRenameContext)
+    const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', onRenameContext)
     const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1')
 
     fireEvent.focus(input)
@@ -317,7 +317,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
   })
 
   it('the Hexagon section shows the current hexagon’s bounded context as read-only text, with no rename input', () => {
-    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Billing')
+    const { container } = renderEditor(() => {}, () => {}, undefined, 'Billing')
     const hexagonSection = section(container, 'Hexagon')
     expect(within(hexagonSection).getByText('Billing')).toBeTruthy()
     expect(within(hexagonSection).queryByLabelText('Name for Context 1')).toBeNull()
@@ -325,53 +325,78 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
 })
 
 describe('"Add hexagon from file…" in the Map section (IMP-01, IMP-01.4)', () => {
-  const openMenu = (container: HTMLElement) =>
-    fireEvent.click(within(section(container, 'Map')).getByRole('button', { name: 'Add hexagon from file…' }))
-
-  it('offers "Import into {context}" and "Import into a new bounded context"', () => {
-    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Billing')
-    openMenu(container)
-    expect(within(section(container, 'Map')).getByRole('menuitem', { name: 'Import into Billing' })).toBeTruthy()
-    expect(within(section(container, 'Map')).getByRole('menuitem', { name: 'Import into a new bounded context' })).toBeTruthy()
-  })
-
-  it('choosing "Import into {context}" opens the hidden file input before onAddFromFile fires, then reports the picked file with "same"', () => {
-    const onAddFromFile = vi.fn()
-    const { container } = renderEditor(() => {}, () => {}, onAddFromFile, 'Billing')
-    openMenu(container)
-
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Billing' }))
-    expect(onAddFromFile).not.toHaveBeenCalled()
-    const file = new File(['{}'], 'billing.hexa', { type: 'application/json' })
+  const trigger = (container: HTMLElement) => within(section(container, 'Map')).getByRole('button', { name: 'Add hexagon from file…' })
+  const pick = async (name = 'billing.hexa') => {
+    const file = new File(['{}'], name, { type: 'application/json' })
     const input = screen.getByLabelText('Add hexagon from a .hexa file') as HTMLInputElement
     fireEvent.change(input, { target: { files: [file] } })
+    await act(async () => {})
+    return { file, input }
+  }
 
-    expect(onAddFromFile).toHaveBeenCalledOnce()
-    expect(onAddFromFile).toHaveBeenCalledWith(file, 'same')
+  it('opens the file picker straight away, without offering a destination first', () => {
+    const click = vi.spyOn(HTMLInputElement.prototype, 'click')
+    const { container } = renderEditor()
+    fireEvent.click(trigger(container))
+    expect(click).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('menu')).toBeNull()
+    click.mockRestore()
+  })
+
+  it('hands the picked file to onAddFromFile and asks nothing when it returns no continuation', async () => {
+    const onAddFromFile = vi.fn(async () => undefined)
+    renderEditor(() => {}, () => {}, onAddFromFile)
+    const { file, input } = await pick()
+    expect(onAddFromFile).toHaveBeenCalledExactlyOnceWith(file)
+    expect(screen.queryByRole('menu')).toBeNull()
     expect(input.value).toBe('')
   })
 
-  it('choosing "Import into a new bounded context" reports the picked file with "new"', () => {
-    const onAddFromFile = vi.fn()
-    const { container } = renderEditor(() => {}, () => {}, onAddFromFile)
-    openMenu(container)
-
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
-    const file = new File(['{}'], 'billing.hexa', { type: 'application/json' })
-    fireEvent.change(screen.getByLabelText('Add hexagon from a .hexa file'), { target: { files: [file] } })
-
-    expect(onAddFromFile).toHaveBeenCalledWith(file, 'new')
+  it('does not call onAddFromFile when the file picker is cancelled (no file chosen)', () => {
+    const onAddFromFile = vi.fn(async () => undefined)
+    renderEditor(() => {}, () => {}, onAddFromFile)
+    fireEvent.change(screen.getByLabelText('Add hexagon from a .hexa file'), { target: { files: [] } })
+    expect(onAddFromFile).not.toHaveBeenCalled()
   })
 
-  it('does not call onAddFromFile when the file picker is cancelled (no file chosen)', () => {
-    const onAddFromFile = vi.fn()
-    const { container } = renderEditor(() => {}, () => {}, onAddFromFile)
-    openMenu(container)
+  it('offers "Import into {context}" and "Import into a new bounded context" once the file asks for a destination', async () => {
+    const { container } = renderEditor(() => {}, () => {}, async () => () => {}, 'Billing')
+    await pick()
+    const map = within(section(container, 'Map'))
+    expect(map.getByRole('menuitem', { name: 'Import into Billing' })).toBeTruthy()
+    expect(map.getByRole('menuitem', { name: 'Import into a new bounded context' })).toBeTruthy()
+  })
+
+  it('choosing "Import into {context}" completes the import with "same"', async () => {
+    const complete = vi.fn()
+    renderEditor(() => {}, () => {}, async () => complete, 'Billing')
+    await pick()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Billing' }))
+    expect(complete).toHaveBeenCalledExactlyOnceWith('same')
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('choosing "Import into a new bounded context" completes the import with "new"', async () => {
+    const complete = vi.fn()
+    renderEditor(() => {}, () => {}, async () => complete)
+    await pick()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
+    expect(complete).toHaveBeenCalledExactlyOnceWith('new')
+  })
 
-    fireEvent.change(screen.getByLabelText('Add hexagon from a .hexa file'), { target: { files: [] } })
+  it('dismissing the destination question imports nothing and turns the button back into a file picker', async () => {
+    const complete = vi.fn()
+    const click = vi.spyOn(HTMLInputElement.prototype, 'click')
+    const { container } = renderEditor(() => {}, () => {}, async () => complete)
+    await pick()
+    fireEvent.keyDown(screen.getAllByRole('menuitem')[0], { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(complete).not.toHaveBeenCalled()
 
-    expect(onAddFromFile).not.toHaveBeenCalled()
+    fireEvent.click(trigger(container))
+    expect(click).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('menu')).toBeNull()
+    click.mockRestore()
   })
 })
 
@@ -462,7 +487,7 @@ describe('Links section (REQ-LNK-01, REQ-LNK-07)', () => {
   it('creating a link calls onCreateLink with the chosen ends and resets the form (REQ-LNK-01.2)', () => {
     useMapStore.getState().replace(twoHexMap())
     const onCreateLink = vi.fn()
-    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', () => {}, onCreateLink)
+    const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', () => {}, onCreateLink)
     const linksSection = within(section(container, 'Links'))
     // Driven index 0 = h1's first driven port (p-repo); driving index 1 = h2's p-submit.
     fireEvent.change(linksSection.getByLabelText('Driven port'), { target: { value: '0' } })
@@ -491,7 +516,7 @@ describe('Links section (REQ-LNK-01, REQ-LNK-07)', () => {
   it('passes the chosen adapter through to onCreateLink', () => {
     useMapStore.getState().replace(twoHexMap())
     const onCreateLink = vi.fn()
-    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', () => {}, onCreateLink)
+    const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', () => {}, onCreateLink)
     const linksSection = within(section(container, 'Links'))
     fireEvent.change(linksSection.getByLabelText('Driven port'), { target: { value: '0' } })
     fireEvent.change(linksSection.getByLabelText('Driven port adapter'), { target: { value: 'a-knex' } })
@@ -512,7 +537,7 @@ describe('Links section (REQ-LNK-01, REQ-LNK-07)', () => {
   it('shows a delete button for each link, calling onDeleteLink with its id (REQ-LNK-04.1)', () => {
     useMapStore.getState().replace(linkedTwoHexMap())
     const onDeleteLink = vi.fn()
-    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', () => {}, () => {}, () => {}, onDeleteLink)
+    const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', () => {}, () => {}, () => {}, onDeleteLink)
     const row = within(section(container, 'Links')).getByRole('listitem')
 
     fireEvent.click(within(row).getByRole('button', { name: /Delete link/ }))
@@ -523,7 +548,7 @@ describe('Links section (REQ-LNK-01, REQ-LNK-07)', () => {
   it('offers an adapter edit for each end, calling onUpdateLink — a chosen value sets it, the placeholder clears it with null (REQ-LNK-02.1)', () => {
     useMapStore.getState().replace(linkedTwoHexMap())
     const onUpdateLink = vi.fn()
-    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', () => {}, () => {}, onUpdateLink)
+    const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', () => {}, () => {}, onUpdateLink)
     const row = within(section(container, 'Links')).getByRole('listitem')
 
     fireEvent.change(within(row).getByLabelText('Driven port adapter'), { target: { value: 'a-knex' } })
@@ -547,7 +572,7 @@ describe('Links section (REQ-LNK-01, REQ-LNK-07)', () => {
   it('calls onUpdateLink with the chosen pattern, or null when cleared back to the placeholder (REQ-LNK-02.2)', () => {
     useMapStore.getState().replace(crossContextLinkedMap())
     const onUpdateLink = vi.fn()
-    const { container } = renderEditor(() => {}, () => {}, () => {}, 'Context 1', () => {}, () => {}, onUpdateLink)
+    const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', () => {}, () => {}, onUpdateLink)
     const row = within(section(container, 'Links')).getByRole('listitem')
 
     fireEvent.change(within(row).getByLabelText('Pattern'), { target: { value: 'acl' } })

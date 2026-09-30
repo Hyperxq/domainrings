@@ -8,7 +8,7 @@ import { layoutOnion } from './layout/onion'
 import { EXAMPLES } from './model/example'
 import { newCleanMap, newOnionMap, parseHexa, toHexa, toMap } from './model/hexa'
 import { collectionOf, type LinkChoice } from './model/links'
-import { contextName, diagramOf, linkEndLabel, UNTITLED_HEXAGON, type Destination, type LinkPatch } from './model/map'
+import { contextName, diagramOf, linkEndLabel, occupiedContexts, UNTITLED_HEXAGON, type Destination, type LinkPatch } from './model/map'
 import { useCleanStore } from './model/cleanStore'
 import { useOnionStore } from './model/onionStore'
 import { useSaveFailed, type Recovery } from './model/persistence'
@@ -452,27 +452,34 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   }
 
   const completeImport = (file: HexaMap, context: Destination, fileName: string) => {
+    // Read at commit time: the map may have changed while the file was read or the destination question was open.
+    const { map: beforeMap, focus: beforeFocus } = useMapStore.getState()
     const newHexId = importHexagon(file, { context })
-    if (!newHexId) return
     const imported = useMapStore.getState().map.hexagons.find((h) => h.id === newHexId)!
-    show({ tone: 'status', message: `Added ${imported.title || UNTITLED_HEXAGON} from ${fileName}.`, undo: before })
+    const contexts = occupiedContexts(file).length
+    const message =
+      file.hexagons.length > 1
+        ? `Added ${file.hexagons.length} hexagons and ${contexts} bounded ${contexts === 1 ? 'context' : 'contexts'} from ${fileName}.`
+        : `Added ${imported.title || UNTITLED_HEXAGON} from ${fileName}.`
+    show({ tone: 'status', message, undo: { map: beforeMap, focus: beforeFocus } })
   }
 
   // "Add hexagon from file…" (IMP-01..07): only a Hexagonal source has hexagons to add; refuses an Onion source
-  // (REQ-03) and a multi-hexagon file (IMP-04.2) before importing.
-  const handleAddFromFile = async (file: File, context: Destination) => {
+  // (REQ-03). A several-hexagon file merges at once; a one-hexagon file hands back the step that imports it once
+  // the author has picked a destination, so the question is only asked of a file that needs it.
+  const handleAddFromFile = async (file: File): Promise<((context: Destination) => void) | undefined> => {
     const parsed = await parseFile(file)
-    if (!parsed) return
+    if (!parsed) return undefined
     if (parsed.kind !== 'hexagonal') {
       const kindLabel = CHOICES.find((c) => c.kind === parsed.kind)!.label
       show({ tone: 'error', message: `${file.name} is ${article(kindLabel)} ${kindLabel} file. Add hexagon from file… only accepts a Hexagonal map.` })
-      return
+      return undefined
     }
     if (parsed.hexagons.length > 1) {
-      show({ tone: 'error', message: `This file has ${parsed.hexagons.length} hexagons. Add hexagon from file… takes one; use Open to replace the map.` })
-      return
+      completeImport(parsed, 'new', file.name)
+      return undefined
     }
-    completeImport(parsed, context, file.name)
+    return (context) => completeImport(parsed, context, file.name)
   }
 
   // Export scope (Hexagon vs Map) only exists for a multi-hexagon Hexagonal map (EXPORT-03.1) — Onion and Clean

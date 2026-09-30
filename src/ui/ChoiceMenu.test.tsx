@@ -207,4 +207,43 @@ describe('ChoiceMenu', () => {
       expect(overlaps).toBe(false)
     })
   })
+
+  it('runs onTrigger instead of opening when given one', () => {
+    const onTrigger = vi.fn()
+    render(<ChoiceMenu label="Pick" choices={CHOICES} onChoose={() => {}} onTrigger={onTrigger} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Pick' }))
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Pick' }), { key: 'ArrowDown' })
+    expect(onTrigger).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('opens itself when autoOpen turns true', () => {
+    const { rerender } = render(<ChoiceMenu label="Pick" choices={CHOICES} onChoose={() => {}} />)
+    expect(screen.queryByRole('menu')).toBeNull()
+    rerender(<ChoiceMenu label="Pick" choices={CHOICES} onChoose={() => {}} autoOpen />)
+    expect(screen.getByRole('menu')).toBeTruthy()
+  })
+
+  it('reports onDismiss for Escape, Tab, an outside press and the trigger, but not for a choice', () => {
+    const onDismiss = vi.fn()
+    render(
+      <>
+        <ChoiceMenu label="Pick" choices={CHOICES} onChoose={() => {}} onDismiss={onDismiss} />
+        <button type="button">Elsewhere</button>
+      </>,
+    )
+    const trigger = screen.getByRole('button', { name: 'Pick' })
+    fireEvent.click(trigger)
+    fireEvent.keyDown(items()[0], { key: 'Escape' })
+    fireEvent.click(trigger)
+    fireEvent.keyDown(items()[0], { key: 'Tab' })
+    fireEvent.click(trigger)
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Elsewhere' }))
+    fireEvent.click(trigger)
+    fireEvent.click(trigger)
+    expect(onDismiss).toHaveBeenCalledTimes(4)
+    fireEvent.click(trigger)
+    fireEvent.click(items()[0])
+    expect(onDismiss).toHaveBeenCalledTimes(4)
+  })
 })
