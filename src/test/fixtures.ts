@@ -35,6 +35,14 @@ export function linkedTwoHexMap(): HexaMap {
   return { ...twoHexMap(), links: [TWO_HEX_LINK] }
 }
 
+/** `count` hexagons shaped like the example diagram, on a 4-wide axial grid across three contexts, h1's FeedbackRepository port linked to h2's submit port. */
+export function manyHexagonMap(count: number): HexaMap {
+  const base = toMap(EXAMPLE_DIAGRAM)
+  const [h1] = base.hexagons
+  const hexagons = Array.from({ length: count }, (_, i) => ({ ...h1, id: `h${i + 1}`, contextId: `c${(i % 3) + 1}`, cell: { q: i % 4, r: Math.floor(i / 4) }, title: `Slice ${i + 1}` }))
+  return { ...base, contexts: [{ id: 'c1' }, { id: 'c2' }, { id: 'c3' }], hexagons, links: [TWO_HEX_LINK] }
+}
+
 export const hexGroup = (container: HTMLElement, hexId: string) => container.querySelector(`[data-hex="${CSS.escape(hexId)}"]`)!
 export const card = (container: HTMLElement, id: string) => container.querySelector<HTMLElement>(`[data-item-id="${id}"]`)!
 export const currentDiagram = () => diagramOf(useMapStore.getState().map, useMapStore.getState().focus)

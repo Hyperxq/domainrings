@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { currentHexagon, hexagonBounds, hexagonTitle, type MapContextLayout, type MapLayout } from '../layout/map'
+import { currentHexagon, hexagonBounds, hexagonTitle, type CompactLayout, type MapContextLayout, type MapLayout } from '../layout/map'
 import { ringElementRadius, titleHalfSpan, TITLE_ARC_PAD } from '../layout/ringed'
 import { bandPath, type Shape } from './band'
 import type { LayoutEdge, LayoutModel, LayoutNode, LayoutRing, LayoutText, Point } from '../layout/layout'
@@ -272,6 +272,35 @@ function HexagonBody({ model, showGuides, selected, linkTargets, interactive }: 
   )
 }
 
+/** A non-current hexagon on a large map: its outer silhouette, title and element count, none of its rings or nodes. */
+function CompactBody({ compact, title, linkTargets }: { compact: CompactLayout; title: string; linkTargets: ReadonlySet<string> }) {
+  const { radius, size, elements, label } = compact
+  const outline = { halfWidth: (radius * Math.sqrt(3)) / 2, straight: radius / 2, apex: radius }
+  return (
+    <>
+      <path className="ring ring-outer" d={bandPath('hexagon', outline)} />
+      <text className="compact-title" y={-size * 0.4} fontSize={size}>{label}</text>
+      <text className="compact-count" y={size * 0.8} fontSize={size * 0.85}>{elements} {elements === 1 ? 'element' : 'elements'}</text>
+      {compact.ports.map((port) => {
+        const target = linkTargets.has(port.id)
+        return (
+          <g
+            key={port.id}
+            className="node node-port compact-port"
+            data-ref={port.id}
+            data-link-target={target ? '' : undefined}
+            tabIndex={target ? 0 : undefined}
+            role={target ? 'button' : undefined}
+            aria-label={target ? `${port.name} on ${title}` : undefined}
+          >
+            <circle cx={port.at.x} cy={port.at.y} r={size * 0.4} />
+          </g>
+        )
+      })}
+    </>
+  )
+}
+
 /** The current hexagon's own outer silhouette, scaled outward slightly, as the visible "this one is current" cue (FOCUS-01). */
 function HexCue({ model }: { model: LayoutModel }) {
   return <path className="hex-cue" data-cue="" aria-hidden="true" transform="scale(1.06)" d={bandPath(model.shape, model.rings[0])} />
@@ -350,13 +379,17 @@ export function MapDiagram({ map, legend, showGuides, focus, selected, linkTarge
             data-hover={isCurrent && hovered ? hovered : undefined}
           >
             {!isCurrent && <title>{title}</title>}
-            <HexagonBody
-              model={hex.model}
-              showGuides={showGuides}
-              selected={isCurrent ? selected : null}
-              linkTargets={isCurrent ? linkTargets : (crossLinkTargets.get(hex.id) ?? NO_TARGETS)}
-              interactive={isCurrent}
-            />
+            {hex.compact ? (
+              <CompactBody compact={hex.compact} title={title} linkTargets={crossLinkTargets.get(hex.id) ?? NO_TARGETS} />
+            ) : (
+              <HexagonBody
+                model={hex.model}
+                showGuides={showGuides}
+                selected={isCurrent ? selected : null}
+                linkTargets={isCurrent ? linkTargets : (crossLinkTargets.get(hex.id) ?? NO_TARGETS)}
+                interactive={isCurrent}
+              />
+            )}
             {isCurrent && map.hexagons.length > 1 && <HexCue model={hex.model} />}
           </g>
         )

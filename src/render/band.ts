@@ -14,7 +14,7 @@ function outline(shape: Shape, r: Pick<LayoutRing, 'halfWidth' | 'straight' | 'a
 }
 
 /** A ring's own band: its outline minus the next inner ring's, drawn with fill-rule evenodd. */
-export const bandPath = (shape: Shape, ring: LayoutRing, inner?: LayoutRing) =>
+export const bandPath = (shape: Shape, ring: Pick<LayoutRing, 'halfWidth' | 'straight' | 'apex'>, inner?: Pick<LayoutRing, 'halfWidth' | 'straight' | 'apex'>) =>
   inner ? `${outline(shape, ring)}${outline(shape, inner)}` : outline(shape, ring)
 
 /** One radial line per sector boundary angle (REQ-08) — from the inner ring's own edge (or the centre, for the

@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react'
+import { cleanup, render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -9,7 +9,7 @@ import { EXAMPLE_DIAGRAM } from '../model/example'
 import { legendFor } from '../layout/legend'
 import { diagramOf } from '../model/map'
 import type { HexaMap } from '../model/schema'
-import { twoHexagonMap } from '../test/fixtures'
+import { manyHexagonMap, twoHexagonMap } from '../test/fixtures'
 
 const NO_TARGETS = new Set<string>()
 const NO_CROSS_TARGETS = new Map<string, ReadonlySet<string>>()
@@ -24,7 +24,7 @@ function renderSvg(
     hovered?: string | null
   } = {},
 ) {
-  const model = layoutMap(map)
+  const model = layoutMap(map, { current: extra.focus ?? map.hexagons[0].id })
   const legend = legendFor(diagramOf(map, map.hexagons[0].id))
   const { container } = render(
     <svg>
@@ -332,6 +332,57 @@ describe('MapDiagram — context hulls and chips (CB-01, CB-02, CB-05)', () => {
 // every glyph upside down/mirrored (the reported sector-label "stray" garbling at the bottom of the outer ring) —
 // the fix flips the path's own direction (and sweep) whenever the centre angle falls in the lower half, so the
 // path always reads left-to-right regardless of where around the ring it sits.
+describe('MapDiagram — compact neighbours', () => {
+  it('draws a non-current hexagon as a silhouette with its title and element count, without rings, nodes or edges', () => {
+    const { container } = renderSvg(manyHexagonMap(5), { focus: 'h2' })
+    const compact = container.querySelector('[data-hex="h1"]')!
+    expect(compact.querySelector('.compact-title')?.textContent).toBe('Slice 1')
+    expect(compact.querySelector('.compact-count')?.textContent).toBe('16 elements')
+    expect(compact.querySelectorAll('path.ring')).toHaveLength(1)
+    expect(compact.querySelectorAll('.node:not(.compact-port), .edge, [data-band]')).toHaveLength(0)
+    expect(container.querySelector('[data-hex="h2"]')!.querySelectorAll('.node').length).toBeGreaterThan(0)
+  })
+
+  it('names the compact hexagon after its title and keeps it one focusable control', () => {
+    const { container } = renderSvg(manyHexagonMap(5), { focus: 'h2' })
+    const compact = container.querySelector('[data-hex="h3"]')!
+    expect(compact.getAttribute('role')).toBe('button')
+    expect(compact.getAttribute('tabindex')).toBe('0')
+    expect(compact.getAttribute('aria-label')).toBe('Make Slice 3 the current hexagon')
+    expect(compact.querySelector('title')?.textContent).toBe('Slice 3')
+  })
+
+  it('draws each port of a compact hexagon as a marker, focusable and named only while it is a link target', () => {
+    const idle = renderSvg(manyHexagonMap(5), { focus: 'h2' }).container
+    const markers = idle.querySelectorAll('[data-hex="h1"] .node-port')
+    expect([...markers].map((m) => m.getAttribute('data-ref'))).toEqual(['p-submit', 'p-repo', 'p-notify', 'p-users'])
+    expect(idle.querySelectorAll('[data-hex="h1"] .node-port[tabindex]')).toHaveLength(0)
+    cleanup()
+
+    const { container } = renderSvg(manyHexagonMap(5), { focus: 'h2', crossLinkTargets: new Map([['h1', new Set(['p-submit'])]]) })
+    const target = container.querySelector('[data-hex="h1"] .node-port[data-ref="p-submit"]')!
+    expect(target.getAttribute('tabindex')).toBe('0')
+    expect(target.getAttribute('role')).toBe('button')
+    expect(target.getAttribute('aria-label')).toBe('submitChatFeedback on Slice 1')
+    expect(target.hasAttribute('data-link-target')).toBe(true)
+    expect(container.querySelectorAll('[data-hex="h1"] .node-port[tabindex]')).toHaveLength(1)
+  })
+
+  it('singular count reads "1 element"', () => {
+    const map = manyHexagonMap(4)
+    Object.assign(map.hexagons[0], { domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [{ id: 'e', name: 'E' }] })
+    map.links = []
+    const { container } = renderSvg(map, { focus: 'h2' })
+    expect(container.querySelector('[data-hex="h1"] .compact-count')?.textContent).toBe('1 element')
+  })
+
+  it('renders every hexagon in full while the map is below the threshold', () => {
+    const { container } = renderSvg(manyHexagonMap(3), { focus: 'h2' })
+    expect(container.querySelectorAll('.compact-title')).toHaveLength(0)
+    expect(container.querySelectorAll('[data-hex="h1"] .node').length).toBeGreaterThan(0)
+  })
+})
+
 describe('ringedArcPath — the path always reads left-to-right, wherever around the ring it centres', () => {
   it.each([
     ['top', -Math.PI / 2],

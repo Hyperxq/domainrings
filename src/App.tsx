@@ -112,7 +112,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const [mode, setMode] = useState<LayoutMode>(() => (readPref(OVERVIEW_KEY, false) ? 'overview' : 'detailed'))
   const [guides, setGuides] = useState(() => readPref(GUIDES_KEY, true))
   const [highlight, setHighlight] = useState(() => readPref(HIGHLIGHT_KEY, true))
-  const model = layoutMap(map, { mode })
+  const model = layoutMap(map, { mode, current: hexId })
   const svgRef = useRef<SVGSVGElement>(null)
   const [editorOpen, setEditorOpen] = useState(() => !matchMedia('(max-width: 720px)').matches)
   const reveal = (ref: string, focus: boolean) => {
