@@ -1,12 +1,13 @@
 import { HEXAGONAL_KIND, type RingRole } from '../model/kinds'
 import { defaultWall, type Adapter, type Diagram, type DomainItem, type Endpoint, type Port, type Side, type UseCase, type Wall } from '../model/schema'
-import { dot, hairline, quadsOverlap, reach, rectCorners, type Box, type Point } from './geometry'
+import { dot, reach, rectCorners, type Box, type Point } from './geometry'
 import { layoutBounds } from './hexagon/bounds'
 import { assignLayers, placeNodes } from './hexagon/nodes'
+import { solveRings } from './hexagon/ringSolver'
 import { routeEdges } from './hexagon/routes'
-import { COLUMN_GAP, GAP, LANE, OUTSIDE_GAP } from './hexagon/spacing'
-import { SLANTED_WALLS, sectorApothem, VERTEX, WALLS, wallAngle, wallFrame } from './hexagon/walls'
-import { COS30, depthAt, fitRing, halfWidthAt, hexagon, SQRT3, type Need, type Outline } from './outline'
+import { COLUMN_GAP, DOMAIN_PAD, DOMAIN_RUN, GAP, LABEL_GAP, LABEL_PAD_X, LANE, OUTSIDE_GAP, PAD, RUN } from './hexagon/spacing'
+import { SLANTED_WALLS, VERTEX, WALLS, wallAngle, wallFrame } from './hexagon/walls'
+import { depthAt, halfWidthAt, SQRT3, type Outline } from './outline'
 import { adapterTag, DOMAIN_TAGS, portTag, USE_CASE_TAG } from './tags'
 import { DOMAIN_TITLE, EDGE_LABEL, LINE_METRICS, lineWidth, measure, noteLines, RING_LABEL, RING_SUBTITLE, styled, type TextLine } from './text'
 
@@ -112,24 +113,15 @@ export interface LayoutModel {
 
 const PAD_X = 12
 const PAD_Y = 9
-const PAD = 16
 const ROW_GAP = 18
-const DOMAIN_PAD = 24
-const LABEL_LINE = RING_LABEL.size + 4
 const LABEL_INSET = 8
-const LABEL_PAD_X = 8
 const SUBTITLE_GAP = 4
-const RUN = 16
 /** Past these rendered line counts the domain tree, then the declared-port list, flow into two columns. */
 const DOMAIN_MAX_LINES = 8
 const PORTS_MAX_LINES = 4
 /** An aggregate outline: 8 padding all round, plus its tag line above the root. */
 const OUTLINE_PAD = 8
 const BLOCK_GAP = 6
-/** Room between a use case and the ring it asks, for the arrow's straight run and its label. */
-const DOMAIN_RUN = 34
-/** Between an overview socket's inner face and its port name. */
-const LABEL_GAP = 4
 
 function frame(lines: TextLine[], minWidth = 0, padY = PAD_Y, padX = PAD_X) {
   return {
@@ -138,7 +130,7 @@ function frame(lines: TextLine[], minWidth = 0, padY = PAD_Y, padX = PAD_X) {
     height: lines.reduce((h, l) => h + LINE_METRICS[l.style].height, 0) + 2 * padY,
   }
 }
-type Frame = ReturnType<typeof frame>
+export type Frame = ReturnType<typeof frame>
 
 interface Slot {
   adapter: Adapter
@@ -157,13 +149,29 @@ interface Column {
 }
 
 /** A box whose row (y) is known before the rings are solved; x comes after. */
-interface Planned {
+export interface Planned {
   key: string
   ref: string
   kind: NodeKind
   side: Side
   y: number
   frame: Frame
+  height: number
+}
+
+/** A box on a slanted wall: u runs along the wall, v steps out along its normal. */
+export interface WallBox {
+  key: string
+  ref: string
+  kind: NodeKind
+  side: Side
+  wall: Wall
+  frame: Frame
+  u: number
+  v: number
+  /** v counts from the outer ring's wall rather than the application ring's. */
+  outer: boolean
+  width: number
   height: number
 }
 
@@ -202,8 +210,6 @@ function buildColumn(
 }
 
 const SIDES = ['driving', 'driven'] as const
-const nearest = (y: number, height: number) => Math.max(0, Math.abs(y) - height / 2)
-const farthest = (y: number, height: number) => Math.abs(y) + height / 2
 
 export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions = {}): LayoutModel {
   const overview = mode === 'overview'
@@ -314,20 +320,6 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
 
   // 2b. Slanted walls: the same port → adapter → endpoint groups, laid in lanes along the wall (u) and stepped out
   // along its normal (v). Sockets straddle the application wall; endpoints sit outside the outer ring.
-  interface WallBox {
-    key: string
-    ref: string
-    kind: NodeKind
-    side: Side
-    wall: Wall
-    frame: Frame
-    u: number
-    v: number
-    /** v counts from the outer ring's wall rather than the application ring's. */
-    outer: boolean
-    width: number
-    height: number
-  }
   const wallBoxes: WallBox[] = []
   for (const wall of [...SLANTED_WALLS]) {
     const onWall = slantedPorts.filter((p) => wallOf(p) === wall)
@@ -545,7 +537,6 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   // just under the title can only fit lower: the body (never the title) drops until every box clears the slope.
   const bodyShift = (o: Outline) =>
     Math.max(0, ...coreBoxes.map((r) => depthAt(o, Math.abs(r.x) + r.frame.width / 2 + DOMAIN_PAD) - (TITLE_DEPTH + r.top)))
-  let domainShift = 0
 
   /** Where a bus lane turns onto the wall normal that ends on a slanted socket's face. */
   const laneFoot = (face: Point, wall: Wall, lane: number): Point => {
@@ -666,7 +657,6 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
       const depth = appO.halfWidth - s.inset - s.across
       return { ...s, x: n.x * depth + dir.x * s.u, y: n.y * depth + dir.y * s.u }
     })
-  const boxQuad = (b: { x: number; y: number; frame: Frame }) => rectCorners(b.x, b.y, b.frame.width, b.frame.height)
   /**
    * From a use case to its bus lane. A stacked one leaves sideways. A seated one may sit beside the domain, so it
    * first steps (vertically) to just past the domain's top or bottom, in the free band under the stack, then across.
@@ -684,181 +674,17 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     return [{ x: box.x, y: box.y + (Math.sign(clearY - box.y) * box.height) / 2 }, { x: box.x, y: clearY }, { x: lane, y: clearY }]
   }
 
-  /**
-   * For a candidate application ring: does a slanted-wall socket, an overview port name or a seated use case touch
-   * the stacked use cases or the title (sectors keep each wall's own content apart); or does a use-case run
-   * (bus lane, branch or wall-normal run) meet a slanted socket or seated use case it does not serve, or a seated use
-   * case's exit cross the stack or the domain? The upper walls lean in exactly where the buses come down from the
-   * use cases, so this is what usually sizes the ring once they are used.
-   */
-  const appClashes = (appO: Outline, insideO: Outline) => {
-    const slantedSocket = wallBoxes
-      .filter((b) => b.kind === 'port')
-      .map((b) => {
-        const { n, dir } = wallFrame(b.wall)
-        const centre = { x: n.x * appO.halfWidth + dir.x * b.u, y: n.y * appO.halfWidth + dir.y * b.u }
-        const face = faceOf(b, appO)
-        return { ref: b.ref, side: b.side, wall: b.wall, face, quad: rectCorners(centre.x, centre.y, b.width, b.height, wallAngle(b.wall)) }
-      })
-    const centres = useCaseCentres(appO, insideO)
-    const stacked = stack.map((i, j) => ({ x: 0, y: centres[j], frame: useCaseFrames[i] }))
-    const seated = seatsAt(appO)
-    const others = [rectCorners(0, -appO.apex + TITLE_DEPTH + titleHeight(appIndex) / 2, titleWidth(appIndex), titleHeight(appIndex)), ...stacked.map(boxQuad)]
-    const labels = portLabels(appO).map((l) => rectCorners(l.x, l.y, l.frame.width, l.frame.height, l.rotation))
-    const seatQuads = seated.map(boxQuad)
-    if ([...slantedSocket.map((s) => s.quad), ...labels, ...seatQuads].some((q) => others.some((o) => quadsOverlap(q, o)))) return true
-    if (overview) return false
-    // Every use-case run, tagged with the port and use case it serves.
-    const runs: { ref: string; useCase: number; quad: Point[] }[] = []
-    for (const port of d.ports) {
-      const k = d.useCases.findIndex((u) => u.id === port.useCaseId)
-      if (k < 0) continue
-      const seat = seated.find((s) => s.i === k)
-      if (seat && seat.wall === wallOf(port)) continue
-      const from = seat ?? stacked[stack.indexOf(k)]
-      const sign = port.side === 'driving' ? -1 : 1
-      const lane = laneX(port.side, k, insideO.halfWidth)
-      const slanted = slantedSocket.find((s) => s.ref === port.id)
-      const socket = planned.find((p) => p.key === `port:${port.id}`)
-      const portY = slanted?.face.y ?? socket?.y
-      if (portY === undefined) continue
-      const head = toLane({ x: from.x, y: from.y, width: from.frame.width, height: from.frame.height, seated: !!seat }, lane, insideO.apex, portY)
-      head.slice(1).forEach((q, j) => runs.push({ ref: port.id, useCase: k, quad: hairline(head[j], q) }))
-      const laneTop = head.at(-1)!.y
-      if (slanted) {
-        const foot = laneFoot(slanted.face, slanted.wall, lane)
-        runs.push({ ref: port.id, useCase: k, quad: hairline({ x: lane, y: laneTop }, foot) }, { ref: port.id, useCase: k, quad: hairline(foot, slanted.face) })
-      } else {
-        const inner = sign * (appO.halfWidth - widths[port.side].socketHalf)
-        runs.push(
-          { ref: port.id, useCase: k, quad: hairline({ x: lane, y: laneTop }, { x: lane, y: portY }) },
-          { ref: port.id, useCase: k, quad: hairline({ x: lane, y: portY }, { x: inner, y: portY }) },
-        )
-      }
-    }
-    if (slantedSocket.some((s) => runs.some((r) => r.ref !== s.ref && quadsOverlap(s.quad, r.quad)))) return true
-    const boxes = [...seated.map((s) => ({ i: s.i, quad: boxQuad(s) })), ...stacked.map((b, j) => ({ i: stack[j], quad: boxQuad(b) }))]
-    return boxes.some((b) => runs.some((r) => r.useCase !== b.i && quadsOverlap(b.quad, r.quad)))
-  }
-
-  // 4. Rings, inside-out: each one holds its own content, fitted to the real box corners. The stack above the
-  // inner ring (use cases, then the title) is absolute here; titles move up under the top vertex afterwards.
-  const outlines: Outline[] = []
   const appIndex = config.rings.findIndex((r) => r.role === 'application')
-
-  for (let i = last; i >= 0; i--) {
-    const role = config.rings[i].role
-    const inner = outlines[i + 1]
-    if (role === 'domain') {
-      // The block hangs TITLE_DEPTH under the apex, so its corners move with the radius; the width at a fixed
-      // depth under the apex only grows with r, which makes the smallest fitting radius a binary search.
-      const outline = (r: number) => hexagon(r)
-      const fits = (o: Outline) => {
-        const top = -o.apex + TITLE_DEPTH
-        const shift = bodyShift(o)
-        const boxes = [
-          { x: titleWidth(i) / 2 + LABEL_PAD_X, from: 0, to: titleHeight(i) },
-          ...coreBoxes.map((r) => ({ x: Math.abs(r.x) + r.frame.width / 2 + DOMAIN_PAD, from: r.top + shift, to: r.top + shift + r.frame.height })),
-        ]
-        // The title stays in the upper half even when the domain is empty, so it never floats mid-ring.
-        const titleUp = top + titleHeight(i) <= -LABEL_LINE / 2
-        // A body shifted onto the slope touches it exactly; the tolerance keeps that tangency from failing on rounding.
-        return titleUp && boxes.every((b) => [top + b.from, top + b.to].every((y) => Math.abs(y) <= o.apex + 1e-6 && halfWidthAt(o, y) >= b.x - 1e-6))
-      }
-      let [lo, hi] = [1, 64]
-      while (!fits(outline(hi))) hi *= 2
-      for (let n = 0; n < 50; n++) {
-        const mid = (lo + hi) / 2
-        if (fits(outline(mid))) hi = mid
-        else lo = mid
-      }
-      outlines[i] = outline(hi)
-      domainShift = bodyShift(outlines[i])
-      continue
-    }
-    const side: Need[] = []
-    const vertical: Need[] = []
-    let stackTop = inner.apex
-    if (role === 'domainServices' && serviceFrames.length) {
-      stackTop += GAP + servicesBlock.height
-      vertical.push({ x: servicesBlock.width / 2 + PAD, y: stackTop })
-    }
-    if (role === 'application') {
-      for (const p of of('port')) {
-        const clear = Math.max(halfWidthAt(inner, nearest(p.y, p.height)) + GAP, socketClearance(p.side, inner.halfWidth))
-        side.push({ x: clear + widths[p.side].socketHalf + labelReach(ports.get(p.ref)!), y: farthest(p.y, p.height) })
-      }
-      if (stack.length) {
-        const blockTop = inner.apex + (overview ? GAP : DOMAIN_RUN) + useCaseBlock.height
-        vertical.push({ x: useCaseBlock.width / 2 + PAD, y: blockTop })
-        if (!overview) {
-          stackFrames.forEach((f, j) => {
-            const centre = blockTop - useCaseOffsets[j] - f.height / 2
-            for (const s of SIDES) vertical.push({ x: busX(s, stack[j], inner.halfWidth) + PAD, y: centre })
-          })
-        }
-        stackTop = blockTop
-      }
-    }
-    vertical.push({ x: 0, y: stackTop + GAP + titleHeight(i) + TITLE_DEPTH })
-    if (role === 'adapters') {
-      for (const p of of('adapter')) {
-        const w = widths[p.side]
-        side.push({ x: halfWidthAt(inner, p.y) + w.socketHalf + GAP + w.adapter + PAD, y: farthest(p.y, p.height) })
-      }
-    }
-    let minApothem = 0
-    if (role === 'application') {
-      for (const b of wallBoxes.filter((b) => !b.outer)) for (const c of localCorners(b)) minApothem = Math.max(minApothem, sectorApothem(c.u, c.v))
-      for (const b of wallBoxes.filter((b) => b.kind === 'port')) {
-        const label = portLabel(ports.get(b.ref)!)
-        const labelDepth = overview ? LABEL_GAP + label.height : 0
-        minApothem = Math.max(minApothem, inner.halfWidth + GAP + b.height / 2 + labelDepth)
-        if (overview) {
-          for (const u of [labelU(b, label) - label.width / 2, labelU(b, label) + label.width / 2]) {
-            for (const v of [-(b.height / 2 + LABEL_GAP), -(b.height / 2 + labelDepth)]) minApothem = Math.max(minApothem, sectorApothem(u, v))
-          }
-        }
-        const port = d.ports.find((p) => p.id === b.ref)!
-        const k = d.useCases.findIndex((u) => u.id === port.useCaseId)
-        if (k >= 0 && !overview && seatWall(d.useCases[k]) !== b.wall) {
-          // The run from the bus lane to the socket, along the wall normal, keeps at least RUN.
-          const { n, dir } = wallFrame(b.wall)
-          const bus = laneX(b.side, k, inner.halfWidth)
-          minApothem = Math.max(minApothem, (bus + RUN * n.x - b.u * dir.x) / n.x + b.height / 2)
-        }
-      }
-      for (const s of seats()) {
-        // Clear of the domain by the room its question needs, and inside its sector like every wall box.
-        minApothem = Math.max(minApothem, inner.halfWidth + (overview ? GAP : DOMAIN_RUN) + s.inset + 2 * s.across)
-        const { n, dir } = wallFrame(s.wall)
-        for (const c of rectCorners(0, 0, s.frame.width, s.frame.height)) {
-          minApothem = Math.max(minApothem, sectorApothem(s.u + dot(c, dir), -(s.inset + s.across) + dot(c, n)))
-        }
-      }
-      if (sectored) {
-        const socketSpan = (p: Planned) => [-widths[p.side].socketHalf - labelReach(ports.get(p.ref)!), widths[p.side].socketHalf]
-        for (const c of columnCorners('port', socketSpan)) minApothem = Math.max(minApothem, sectorApothem(c.u, c.v))
-        for (const c of columnCorners('adapter', (p) => [widths[p.side].socketHalf + GAP])) minApothem = Math.max(minApothem, sectorApothem(c.u, c.v))
-      }
-    }
-    if (role === 'adapters') {
-      const appApothem = inner.halfWidth
-      for (const b of wallBoxes.filter((b) => b.kind === 'adapter')) for (const c of localCorners(b)) minApothem = Math.max(minApothem, appApothem + c.v + PAD)
-      for (const b of wallBoxes.filter((b) => b.outer)) for (const c of localCorners(b)) minApothem = Math.max(minApothem, sectorApothem(c.u, c.v))
-      if (hasSlanted) for (const c of columnCorners('actor', () => [OUTSIDE_GAP]).concat(columnCorners('external', () => [OUTSIDE_GAP]))) minApothem = Math.max(minApothem, sectorApothem(c.u, c.v))
-    }
-    let fitted = fitRing(inner, side, vertical, minApothem)
-    // Sockets on the upper walls, and overview port names, lean in toward the use cases and the title: grow until
-    // none of them touch.
-    if (role === 'application' && (hasSlanted || overview || stack.length < d.useCases.length)) {
-      for (let guard = 0; guard < 400 && appClashes(fitted, inner); guard++) fitted = hexagon(fitted.apex * 1.01)
-    }
-    // The title must fit TITLE_DEPTH under the top: the hexagon's slope is wide enough by construction, so only
-    // its straight width can bind.
-    const w = titleWidth(i) / 2 + LABEL_PAD_X
-    outlines[i] = hexagon(Math.max(fitted.apex, w / COS30))
-  }
+  const { outlines, domainShift } = solveRings({
+    d,
+    overview,
+    appIndex,
+    titles: { titleWidth, titleHeight, titleDepth: TITLE_DEPTH },
+    centre: { boxes: coreBoxes, serviceFrames, servicesBlock, bodyShift },
+    columns: { ports, wallOf, planned, of, widths, wallBoxes, hasSlanted, sectored, localCorners, columnCorners },
+    frames: { portLabel, labelReach },
+    seating: { stack, stackFrames, useCaseFrames, useCaseBlock, useCaseOffsets, busX, laneX, socketClearance, seatWall, seats, seatsAt, useCaseCentres, toLane, laneFoot, faceOf, labelU, portLabels },
+  })
 
   const app = outlines[appIndex]
   const insideApp = outlines[appIndex + 1]
