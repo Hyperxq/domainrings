@@ -34,7 +34,7 @@ describe('ringedDocument.updateElement', () => {
   it('renames an element in place', () => {
     const doc = newOnionMap('Fresh')
     const added = ringedDocument.addElement<OnionFile, OnionElement>(doc, { name: 'Order', ringRole: 'domain' }, () => makeId('element'))
-    const next = ringedDocument.updateElement<OnionFile, OnionElement>(added.doc, added.id, { name: 'Purchase Order' }, OnionFileSchema)
+    const next = ringedDocument.updateElement<OnionFile, OnionElement>(added.doc, added.id, { name: 'Purchase Order' }, OnionFileSchema, () => [])
     expect(next?.elements[0].name).toBe('Purchase Order')
   })
 
@@ -46,7 +46,7 @@ describe('ringedDocument.updateElement', () => {
     doc = app.doc
     const dep = ringedDocument.addDependency(doc, app.id, domain.id, () => makeId('dependency'), OnionFileSchema)!
     doc = dep.doc
-    const next = ringedDocument.updateElement<OnionFile, OnionElement>(doc, domain.id, { ringRole: 'outer' }, OnionFileSchema)
+    const next = ringedDocument.updateElement<OnionFile, OnionElement>(doc, domain.id, { ringRole: 'outer' }, OnionFileSchema, () => [])
     expect(next).toBeUndefined()
   })
 })

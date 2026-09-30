@@ -46,6 +46,23 @@ Onion has four rings, innermost to outermost: **Domain Model**, **Domain Service
 
 Clean also has four rings — **Entities**, **Use Cases**, **Interface Adapters**, **Frameworks & Drivers** — but nothing sits directly in a ring: you create and name your own sectors inside it (drawn as wedges), and every element belongs to one. The same inward-or-same-ring rule governs dependencies; which sector an element sits in makes no difference to it. Actors and external systems can only connect to an element in Frameworks & Drivers. A Clean file, too, is always one diagram.
 
+### Element kinds
+
+In Onion and Clean, an element can optionally carry a kind, chosen in its card in the editor and drawn as a small tag above its name on the canvas and in exports. Each ring offers only its own kinds:
+
+| Ring | Kinds |
+|---|---|
+| Onion: Domain Model | entity, value object, aggregate, domain event |
+| Onion: Domain Services | domain service, repository interface |
+| Onion: Application Services | application service |
+| Onion: outer ring | UI, infrastructure, test, repository implementation |
+| Clean: Entities | entity, value object, aggregate |
+| Clean: Use Cases | interactor, input port, output port |
+| Clean: Interface Adapters | controller, presenter, gateway |
+| Clean: Frameworks & Drivers | framework, database, web, device |
+
+In a `.hexa` file the kind is an optional `kind` field on the element (`entity`, `valueObject`, `aggregate`, `domainEvent`, `domainService`, `repositoryInterface`, `applicationService`, `ui`, `infrastructure`, `test`, `repositoryImplementation`, `interactor`, `inputPort`, `outputPort`, `controller`, `presenter`, `gateway`, `framework`, `database`, `web`, `device`). A file with a kind its ring doesn't allow is refused with a message naming the element. Moving an element to a ring or sector that doesn't allow its kind clears the kind, and Undo brings it back.
+
 ## Draw your own system
 
 Start with **New** in the toolbar, or edit an example.

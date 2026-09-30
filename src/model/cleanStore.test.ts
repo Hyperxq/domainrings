@@ -203,3 +203,38 @@ describe('clean store — title', () => {
     expect(state().map).toEqual({ ...before, title: 'Payments' })
   })
 })
+
+describe('clean store — element kinds', () => {
+  const setup = () => {
+    state().replace(newCleanMap('Fresh'))
+    const domain = state().addSector({ name: 'Orders', ringRole: 'domain' })
+    const adapters = state().addSector({ name: 'Web', ringRole: 'adapters' })
+    const domain2 = state().addSector({ name: 'Billing', ringRole: 'domain' })
+    return { domain, adapters, domain2 }
+  }
+
+  it('updateElement sets a kind allowed in the sector\'s ring and rejects one that is not', () => {
+    const { domain } = setup()
+    const id = state().addElement({ name: 'Order', sectorId: domain })
+    state().updateElement(id, { kind: 'valueObject' })
+    expect(state().map.elements[0].kind).toBe('valueObject')
+    const before = state().map
+    state().updateElement(id, { kind: 'controller' as never })
+    expect(state().map).toBe(before)
+  })
+
+  it('moving an element to a sector whose ring does not allow its kind clears the kind', () => {
+    const { domain, adapters } = setup()
+    const id = state().addElement({ name: 'Order', sectorId: domain, kind: 'entity' })
+    state().updateElement(id, { sectorId: adapters })
+    expect(state().map.elements[0].sectorId).toBe(adapters)
+    expect(state().map.elements[0].kind).toBeUndefined()
+  })
+
+  it('moving an element to another sector of the same ring keeps its kind', () => {
+    const { domain, domain2 } = setup()
+    const id = state().addElement({ name: 'Order', sectorId: domain, kind: 'entity' })
+    state().updateElement(id, { sectorId: domain2 })
+    expect(state().map.elements[0].kind).toBe('entity')
+  })
+})

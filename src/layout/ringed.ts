@@ -1,7 +1,8 @@
 import type { RingRole } from '../model/kinds'
 import { arcAngles, polarPoint } from '../model/rings'
+import { RINGED_KIND_LABEL, type RingedKind } from '../model/ringedKinds'
 import { circle, type LayoutRing, type Outline } from './layout'
-import { measure, RING_LABEL, wrapLabel } from './text'
+import { LINE_METRICS, measure, RING_LABEL, wrapLabel } from './text'
 
 /** A ring title's own rendered line height — the one thing every ring band must be thick enough to hold. */
 export const TITLE_LINE = RING_LABEL.size + 4
@@ -99,13 +100,21 @@ const ELEMENT_LINE_STEP = 15
  * — camelCase-aware, never breaking inside a word. */
 export const ringedElementLines = (name: string): string[] => wrapLabel(name, ELEMENT_MAX_CHARS)
 
-export const ringedElementWidth = (name: string): number => Math.max(...ringedElementLines(name).map((l) => measure(l, RINGED_ELEMENT_METRICS))) + 2 * ELEMENT_PAD_X
+/** An element's kind tag sits on its own small rows above the name, so a box only grows by them when a kind is set. */
+export const KIND_METRICS = LINE_METRICS.tag
+const KIND_MAX_CHARS = 12
+export const KIND_LINE_STEP = 13
+export const ringedKindLines = (kind?: RingedKind): string[] => (kind ? wrapLabel(RINGED_KIND_LABEL[kind], KIND_MAX_CHARS) : [])
+export const ringedKindHeight = (kind?: RingedKind): number => ringedKindLines(kind).length * KIND_LINE_STEP
+
+export const ringedElementWidth = (name: string, kind?: RingedKind): number =>
+  Math.max(...ringedElementLines(name).map((l) => measure(l, RINGED_ELEMENT_METRICS)), ...ringedKindLines(kind).map((l) => measure(l, KIND_METRICS))) + 2 * ELEMENT_PAD_X
 
 /** A single-line name keeps the exact height every existing box always had; only a wrapped name (over
- * `ELEMENT_MAX_CHARS`) grows past it, by `ELEMENT_LINE_STEP` a line. */
-export const ringedElementHeight = (name: string): number => {
+ * `ELEMENT_MAX_CHARS`) grows past it, by `ELEMENT_LINE_STEP` a line — and a kind tag adds its own rows on top. */
+export const ringedElementHeight = (name: string, kind?: RingedKind): number => {
   const lines = ringedElementLines(name).length
-  return lines <= 1 ? RINGED_ELEMENT_HEIGHT : lines * ELEMENT_LINE_STEP + 2 * ELEMENT_PAD_Y
+  return (lines <= 1 ? RINGED_ELEMENT_HEIGHT : lines * ELEMENT_LINE_STEP + 2 * ELEMENT_PAD_Y) + ringedKindHeight(kind)
 }
 
 /** An actor/external's own name wraps the same way an element's does (Decision 8) — its label runs AWAY from the

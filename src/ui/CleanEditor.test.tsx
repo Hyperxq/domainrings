@@ -165,3 +165,20 @@ describe('CleanEditor — document title', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Untitled architecture' })).toBeTruthy()
   })
 })
+
+describe('CleanEditor — element kind', () => {
+  it('offers only the kinds of the ring its sector sits in, and sets one as an undoable step', () => {
+    const sector = state().addSector({ name: 'Web', ringRole: 'adapters' })
+    state().addElement({ name: 'OrderController', sectorId: sector })
+    const onMutate = vi.fn()
+    const { container } = renderEditor({ onMutate })
+    const select = within(container).getByLabelText('OrderController kind') as HTMLSelectElement
+    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['No kind', 'controller', 'presenter', 'gateway'])
+
+    fireEvent.change(select, { target: { value: 'controller' } })
+    expect(state().map.elements[0].kind).toBe('controller')
+    expect(onMutate).toHaveBeenCalledTimes(1)
+    expect(onMutate.mock.calls[0][0]).toBe('Set OrderController to controller.')
+    expect(onMutate.mock.calls[0][1].elements[0].kind).toBeUndefined()
+  })
+})

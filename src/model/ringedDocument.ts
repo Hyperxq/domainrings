@@ -47,14 +47,20 @@ export function addElement<D extends RingedDoc<E, WithId & { fromId: string; toI
 }
 
 /** Patches an existing element (validate-by-reparse) — undefined ⇒ no-op: the patch would break something the
- * schema's own integrity rules check (e.g. a dependency or endpoint target no longer standing). */
-export function updateElement<D extends RingedDoc<E, WithId & { fromId: string; toId: string }, WithId & { targetId?: string }>, E extends WithId>(
+ * schema's own integrity rules check (e.g. a dependency or endpoint target no longer standing). A move that
+ * leaves the element's kind outside what its new ring allows (`kindsOf`) drops the kind in the same edit, unless
+ * the patch sets `kind` itself, in which case the schema decides. */
+export function updateElement<D extends RingedDoc<E, WithId & { fromId: string; toId: string }, WithId & { targetId?: string }>, E extends WithId & { kind?: string }>(
   doc: D,
   id: string,
   patch: Partial<Omit<E, 'id'>>,
   schema: SafeParseable<D>,
+  kindsOf: (doc: D, id: string) => readonly string[],
 ): D | undefined {
-  const candidate = { ...doc, elements: doc.elements.map((e) => (e.id === id ? { ...e, ...patch } : e)) } as D
+  const moved = { ...doc, elements: doc.elements.map((e) => (e.id === id ? { ...e, ...patch } : e)) } as D
+  const kind = moved.elements.find((e) => e.id === id)?.kind
+  const dropKind = !('kind' in patch) && kind !== undefined && !kindsOf(moved, id).includes(kind)
+  const candidate = dropKind ? ({ ...moved, elements: moved.elements.map((e) => (e.id === id ? { ...e, kind: undefined } : e)) } as D) : moved
   return validated(schema, candidate)
 }
 

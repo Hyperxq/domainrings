@@ -84,7 +84,7 @@ export function cleanInsertionPoints(model: CleanLayoutModel, doc: CleanFile): C
       const plusBox = { x: at.x, y: at.y, width: PLUS_DIAMETER, height: PLUS_DIAMETER }
       const neighborBoxes = neighborIds.flatMap((id) => {
         const el = id && model.elements.find((e) => e.ref === id)
-        return el ? [{ x: el.x, y: el.y, width: ringedElementWidth(el.name), height: ringedElementHeight(el.name) }] : []
+        return el ? [{ x: el.x, y: el.y, width: ringedElementWidth(el.name, el.kind), height: ringedElementHeight(el.name, el.kind) }] : []
       })
       return neighborBoxes.every((box) => !boxesOverlap(plusBox, box))
     }

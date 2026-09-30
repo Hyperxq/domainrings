@@ -1,11 +1,13 @@
 import { useRef, useState } from 'react'
 import { isInwardOrSame } from '../model/rings'
+import { RINGED_KIND_LABEL, type RingedKind } from '../model/ringedKinds'
 import { Fold } from './Editor'
 import { Icon } from './Icon'
 
 interface RingedElement {
   id: string
   name: string
+  kind?: RingedKind
 }
 interface RingedDependency {
   id: string
@@ -51,20 +53,28 @@ export function RenameField({
   )
 }
 
+/** The undo-toast wording for a kind change, shared by Onion's and Clean's editors. */
+export const kindMessage = (name: string, kind: RingedKind | undefined) => (kind ? `Set ${name} to ${RINGED_KIND_LABEL[kind]}.` : `Cleared the kind of ${name}.`)
+
 /** A flat element list's own card idiom — inline-renamable name plus a remove button, or an empty-state message.
  * Extracted from what was a character-for-character duplicate of Onion's `RingSection` (ring-level list) and
  * Clean's `SectorRow` (sector-level list) — both wrap it in their own container, only the elements shown differ. */
 export function ElementList({
   elements,
+  kinds,
   onRename,
   onRenameCommit,
+  onKind,
   onRemove,
 }: {
   elements: readonly RingedElement[]
+  /** What the ring these elements sit in allows; a kind outside it is never offered. */
+  kinds: readonly RingedKind[]
   onRename: (id: string, name: string) => void
   /** Fires once per rename session, with the name the element held before it (REQ-09) — the caller composes the
    * undo toast from it, the same "Renamed X to Y" idiom Editor.tsx's context rename uses. */
   onRenameCommit: (id: string, before: string) => void
+  onKind: (id: string, kind: RingedKind | undefined) => void
   onRemove: (id: string) => void
 }) {
   if (!elements.length) return <p className="empty">No elements yet.</p>
@@ -78,6 +88,12 @@ export function ElementList({
             onChange={(name) => onRename(element.id, name)}
             onCommit={(before) => onRenameCommit(element.id, before)}
           />
+          <select className="item-kind" aria-label={`${element.name} kind`} value={element.kind ?? ''} onChange={(e) => onKind(element.id, kinds.find((k) => k === e.target.value))}>
+            <option value="">No kind</option>
+            {kinds.map((k) => (
+              <option key={k} value={k}>{RINGED_KIND_LABEL[k]}</option>
+            ))}
+          </select>
           <button type="button" className="icon-button small remove" aria-label={`Remove element ${element.name}`} title="Remove element" onClick={() => onRemove(element.id)}>
             <Icon name="close" />
           </button>

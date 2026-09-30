@@ -1,12 +1,13 @@
 import { flushSync } from 'react-dom'
 import { tidyCleanOrder } from '../layout/clean'
 import { outerRoleOf } from '../model/rings'
+import { CLEAN_KINDS } from '../model/ringedKinds'
 import { elementName, UNTITLED } from '../model/ringedDocument'
 import type { CleanElement, CleanFile, CleanRingRole, CleanSector } from '../model/schema'
 import { useCleanStore } from '../model/cleanStore'
 import { Fold, revealInEditor } from './Editor'
 import { Icon } from './Icon'
-import { DependenciesSection, ElementList, EndpointsSection, RenameField } from './RingedSections'
+import { DependenciesSection, ElementList, EndpointsSection, kindMessage, RenameField } from './RingedSections'
 
 type EndpointCollection = 'actors' | 'externals'
 
@@ -79,8 +80,14 @@ function SectorRow({
       </div>
       <ElementList
         elements={elements}
+        kinds={CLEAN_KINDS[sector.ringRole]}
         onRename={(id, newName) => updateElement(id, { name: newName })}
         onRenameCommit={(id, before) => onMutate(`Renamed ${before || 'the element'} to ${elementName(doc.elements, id)}.`, withElementName(doc, id, before))}
+        onKind={(id, kind) => {
+          const before = doc
+          updateElement(id, { kind })
+          onMutate(kindMessage(elementName(doc.elements, id), kind), before)
+        }}
         onRemove={(id) => {
           const removedName = elementName(doc.elements, id)
           const before = doc

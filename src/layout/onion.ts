@@ -1,5 +1,6 @@
 import { polarPoint, ringedArcAngles } from '../model/rings'
 import type { OnionDependency, OnionElement, OnionFile, OnionRingRole } from '../model/schema'
+import type { RingedKind } from '../model/ringedKinds'
 import { countCrossings } from './crossings'
 import { minimizeCrossings, neighborLookup, type CrossingGroup } from './crossingMinimization'
 import type { Box, LayoutRing, Point } from './layout'
@@ -12,6 +13,7 @@ export interface OnionElementLayout {
   ref: string
   ringRole: OnionRingRole
   name: string
+  kind?: RingedKind
   x: number
   y: number
 }
@@ -60,7 +62,7 @@ function buildOnionModel(doc: OnionFile, orderedElementsOn: (role: string) => re
     const onRing = orderedElementsOn(role)
     const ringIndex = doc.rings.findIndex((r) => r.role === role)
     const angles = ringedArcAngles(onRing.length, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI, ringIndex)
-    return onRing.map((e, k) => ({ angle: angles[k], width: ringedElementWidth(e.name), height: ringedElementHeight(e.name) }))
+    return onRing.map((e, k) => ({ angle: angles[k], width: ringedElementWidth(e.name, e.kind), height: ringedElementHeight(e.name, e.kind) }))
   }
   const rings = ringOutlines(doc.rings, slotsOf)
 
@@ -71,12 +73,12 @@ function buildOnionModel(doc: OnionFile, orderedElementsOn: (role: string) => re
     const onRing = orderedElementsOn(ring.role)
     const angles = ringedArcAngles(onRing.length, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI, i)
     const radii = ringSlotRadii(ring, rings[i - 1], angles)
-    return onRing.map((e, k) => ({ key: `element:${e.id}`, ref: e.id, ringRole: e.ringRole, name: e.name, ...polarPoint(radii[k], angles[k]) }))
+    return onRing.map((e, k) => ({ key: `element:${e.id}`, ref: e.id, ringRole: e.ringRole, name: e.name, kind: e.kind, ...polarPoint(radii[k], angles[k]) }))
   })
   const elementAt = new Map(elements.map((e) => [e.ref, e]))
 
   const outer = rings[rings.length - 1]
-  const outerElements = elements.filter((e) => e.ringRole === outer.role).map((e) => ({ x: e.x, y: e.y, width: ringedElementWidth(e.name), height: ringedElementHeight(e.name) }))
+  const outerElements = elements.filter((e) => e.ringRole === outer.role).map((e) => ({ x: e.x, y: e.y, width: ringedElementWidth(e.name, e.kind), height: ringedElementHeight(e.name, e.kind) }))
   const { endpoints, extraReach } = endpointLayout(doc.actors, doc.externals, outer, outerElements)
 
   const dependencyEdges: Omit<OnionEdgeLayout, 'control'>[] = doc.dependencies.flatMap((dep: OnionDependency) => {

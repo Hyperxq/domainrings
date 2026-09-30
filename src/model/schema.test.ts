@@ -294,3 +294,49 @@ describe('use case placement', () => {
     expect(result.error!.issues[0].path).toEqual(['useCases', 0, 'placement'])
   })
 })
+
+describe('ringed element kinds', () => {
+  const onion = (elements: unknown[]) => ({ ...newOnionMap('Kinds'), elements })
+  const clean = (elements: unknown[]) => ({
+    ...newCleanMap('Kinds'),
+    sectors: [
+      { id: 's-domain', name: 'Orders', ringRole: 'domain' as const },
+      { id: 's-adapters', name: 'Web', ringRole: 'adapters' as const },
+    ],
+    elements,
+  })
+  const issueMessage = (result: { success: boolean; error?: { issues: { path: PropertyKey[]; message: string }[] } }, path: string) =>
+    result.error?.issues.find((i) => i.path.join('.') === path)?.message
+
+  it('accepts a kind from the element\'s own Onion ring, and no kind at all', () => {
+    const doc = onion([
+      { id: 'a', name: 'Order', ringRole: 'domain', kind: 'domainEvent' },
+      { id: 'b', name: 'PricingService', ringRole: 'domainServices', kind: 'repositoryInterface' },
+      { id: 'c', name: 'PlaceOrder', ringRole: 'application', kind: 'applicationService' },
+      { id: 'd', name: 'Web', ringRole: 'outer', kind: 'repositoryImplementation' },
+      { id: 'e', name: 'Untyped', ringRole: 'outer' },
+    ])
+    expect(OnionFileSchema.safeParse(doc).success).toBe(true)
+  })
+
+  it('rejects an Onion kind that belongs to another ring, naming the element, the kind and the allowed kinds', () => {
+    const result = OnionFileSchema.safeParse(onion([{ id: 'a', name: 'Order', ringRole: 'application', kind: 'entity' }]))
+    expect(result.success).toBe(false)
+    expect(issueMessage(result, 'elements.0.kind')).toBe('Element "Order" has kind "entity", which its ring does not allow (allowed: application service).')
+  })
+
+  it('rejects a kind that exists in no ring', () => {
+    expect(OnionFileSchema.safeParse(onion([{ id: 'a', name: 'Order', ringRole: 'domain', kind: 'bogus' }])).success).toBe(false)
+  })
+
+  it('accepts a Clean kind resolved through the element\'s sector, and rejects one from another ring', () => {
+    expect(CleanFileSchema.safeParse(clean([{ id: 'a', name: 'Order', sectorId: 's-domain', kind: 'aggregate' }])).success).toBe(true)
+    const result = CleanFileSchema.safeParse(clean([{ id: 'a', name: 'OrderController', sectorId: 's-adapters', kind: 'interactor' }]))
+    expect(result.success).toBe(false)
+    expect(issueMessage(result, 'elements.0.kind')).toBe('Element "OrderController" has kind "interactor", which its ring does not allow (allowed: controller, presenter, gateway).')
+  })
+
+  it('does not offer domain event in Clean\'s entities ring', () => {
+    expect(CleanFileSchema.safeParse(clean([{ id: 'a', name: 'Order', sectorId: 's-domain', kind: 'domainEvent' }])).success).toBe(false)
+  })
+})
