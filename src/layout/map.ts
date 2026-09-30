@@ -1,9 +1,12 @@
 import { contextName, diagramOf, neighbour, occupiedContexts, UNTITLED_HEXAGON } from '../model/map'
 import type { HexaMap, Hexagon, Link, Wall } from '../model/schema'
+import { MAP_GAP } from './gap'
 import { contextRegions, footprintRegions, pointInRegion } from './hull'
 import { layoutDiagram, wallFrame, type Box, type LayoutModel, type LayoutNode, type LayoutOptions, type LayoutText, type NodeKind, type Point } from './layout'
 import { GAP_MARGIN, outwardEdgePoint, routeLink, type LinkLabel } from './links'
 import { CHIP_LABEL, measure, TITLE } from './text'
+
+export { MAP_GAP }
 
 /** The node kinds REQ-LNK-05.1 names: a routed link must cross none of them, other than the node each end
  * anchors on. Excludes decorative/label nodes (`portLabel`, titles) — not "node boxes" in the requirement's
@@ -101,8 +104,6 @@ const COMPACT_TITLE_PAD = 14
 const COMPACT_MAX_SHARE = 1 / 3
 const ELLIPSIS = '…'
 
-/** Gap kept between two adjacent hexagons' outer edges, on top of their content width. */
-export const MAP_GAP = 60
 const MAP_TITLE_GAP = 16
 /** How far a context's hull stands off the footprints of the hexagons it outlines when the lattice tiles don't. */
 const HULL_PAD = MAP_GAP / 3
@@ -429,21 +430,8 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
     ...(compact ? { compact: compactOf(hexagon, model, unit) } : {}),
   }))
   const hexagonOf = new Map(hexagons.map((h) => [h.id, h]))
-  const lanes = laneOffsets(map.links)
-  const links: MapLinkLayout[] = map.links.map((link: Link) => {
-    const fromHexagon = hexagonOf.get(link.from.hexagonId)!
-    const toHexagon = hexagonOf.get(link.to.hexagonId)!
-    const { points, label } = routeLink(
-      routeEnd(fromHexagon, link.from.portId, link.from.adapterId),
-      routeEnd(toHexagon, link.to.portId, link.to.adapterId),
-      lanes.get(link.id),
-    )
-    // Pattern eligibility mirrors checkMap's own rule (LinkSchema refine): only a link crossing contexts may
-    // carry a pattern — no hull dependency, just the two hexagons' own contextId.
-    const pattern = fromHexagon.contextId !== toHexagon.contextId ? link.pattern : undefined
-    return { id: link.id, points, ...(pattern ? { pattern, label } : {}) }
-  })
-  let bounds = unionBox(hexagons.map(hexagonBounds))
+  const boxes = hexagons.map(hexagonBounds)
+  let bounds = unionBox(boxes)
 
   // Outlined regions + chips only from two occupied contexts up (CB-01.1) — a single-context map draws and exports
   // exactly as a single hexagon always did (CB-01.4). A declared context owning no hexagon doesn't count.
@@ -454,7 +442,6 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
     const regions = compacting
       ? footprintRegions(hexagons.map((h) => ({ cell: h.cell, contextId: h.contextId, outline: footprint(h) })))
       : contextRegions(hexagons, pitch)
-    const boxes = hexagons.map(hexagonBounds)
     for (const context of map.contexts) {
       const loops = regions.get(context.id) ?? []
       if (!loops.length) continue // a context declared with no hexagons (schema allows it, the store never creates one) draws nothing
@@ -481,6 +468,28 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
     for (const c of contexts) c.size = size
     bounds = boundsWith(size)
   }
+
+  // Routed once the chips are placed, so a route can keep off them.
+  const lanes = laneOffsets(map.links)
+  const detours: Point[] = []
+  const chips = contexts.map((c) => chipBox(c.chip, c.label, c.size))
+  const links: MapLinkLayout[] = map.links.map((link: Link) => {
+    const fromHexagon = hexagonOf.get(link.from.hexagonId)!
+    const toHexagon = hexagonOf.get(link.to.hexagonId)!
+    const scene = { hexagons: boxes.filter((_, i) => hexagons[i] !== fromHexagon && hexagons[i] !== toHexagon), chips, within: bounds }
+    const { points, label, detoured } = routeLink(
+      routeEnd(fromHexagon, link.from.portId, link.from.adapterId),
+      routeEnd(toHexagon, link.to.portId, link.to.adapterId),
+      lanes.get(link.id),
+      scene,
+    )
+    if (detoured) detours.push(...points)
+    // Pattern eligibility mirrors checkMap's own rule (LinkSchema refine): only a link crossing contexts may
+    // carry a pattern — no hull dependency, just the two hexagons' own contextId.
+    const pattern = fromHexagon.contextId !== toHexagon.contextId ? link.pattern : undefined
+    return { id: link.id, points, ...(pattern ? { pattern, label } : {}) }
+  })
+  if (detours.length) bounds = unionBox([bounds, ...detours.map((p): Box => ({ x: p.x, y: p.y, width: 0, height: 0 }))])
 
   // Placed last so it clears the hulls and chips the bounds just grew to include, not only the hexagons. It scales
   // with the chips, keeping its ratio over them.
