@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { COMPACT_FROM, hexagonBounds } from './compactHexagon'
-import { cellCentre, currentHexagon, growAnchor, layoutMap, MAP_GAP, type MapLayoutOptions } from './map'
+import { cellCentre } from './lattice'
+import { currentHexagon, growAnchor, layoutMap, MAP_GAP, type MapLayoutOptions } from './map'
 import { pointInRegion } from './hull'
 import { CHIP_LABEL, measure, TITLE } from './text'
 import { outwardEdgePoint, routeLink } from './links'
