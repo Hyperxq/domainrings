@@ -59,7 +59,7 @@ export const legendDrawn = (svg: SVGSVGElement, options: ExportOptions): boolean
 
 // Hooks for styling and editing on the canvas; an exported file is a picture, not a control. Inline styles go
 // too: the resolved paint is already inlined as attributes, and a style could carry canvas motion into the file.
-const CANVAS_ONLY = ['class', 'style', 'tabindex', 'role', 'aria-label', 'data-ref', 'data-band', 'data-layer', 'data-selected', 'data-link-target']
+const CANVAS_ONLY = ['class', 'style', 'tabindex', 'role', 'aria-label', 'data-ref', 'data-band', 'data-layer', 'data-selected', 'data-link-target', 'data-chain', 'data-emphasis']
 // Map-scoping attributes (SEAM-07): stripped in a SECOND pass, after the `only` filter and the cue removal have
 // used `data-hex`/`data-map-link`/`data-map-title`/`data-hull`/`data-chip`/`data-hulls`/`data-link-pattern` as
 // selectors — stripping them earlier would leave nothing to select.

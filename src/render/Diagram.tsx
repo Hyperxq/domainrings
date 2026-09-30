@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import type { Chain } from '../model/chain'
 import { currentHexagon, hexagonBounds, hexagonTitle, type CompactLayout, type MapContextLayout, type MapLayout } from '../layout/map'
 import { ringElementRadius, titleHalfSpan, TITLE_ARC_PAD } from '../layout/ringed'
 import { bandPath, type Shape } from './band'
@@ -114,29 +115,39 @@ function orthogonalPath(points: Point[]): string {
   return `${d} L${end.x} ${end.y}`
 }
 
-function Edge({ edge }: { edge: LayoutEdge }) {
+/** An edge is part of the chain when both its ends are. Edge keys are `<node key>-><node key>`, a node key being
+ * `<kind>:<ref>`; the use cases' edges to the domain end in the bare `domain`, reached whenever a use case is. */
+function inChain(edge: LayoutEdge, refs: ReadonlySet<string> | undefined): boolean {
+  if (!refs) return false
+  const [from, to] = edge.key.split('->')
+  const refOf = (nodeKey: string) => nodeKey.slice(nodeKey.indexOf(':') + 1)
+  return refs.has(refOf(from)) && (to === 'domain' || refs.has(refOf(to)))
+}
+
+function Edge({ edge, chained }: { edge: LayoutEdge; chained: boolean }) {
   const marker = edge.kind === 'import' ? 'url(#arrow)' : undefined
+  const chain = chained ? '' : undefined
   if (edge.insideTo === undefined) {
-    return <path className={`edge edge-${edge.kind}`} d={orthogonalPath(edge.points)} markerEnd={marker} />
+    return <path className={`edge edge-${edge.kind}`} data-chain={chain} d={orthogonalPath(edge.points)} markerEnd={marker} />
   }
   return (
     <>
-      <path className={`edge edge-${edge.kind} on-domain`} d={orthogonalPath(edge.points.slice(0, edge.insideTo + 1))} />
-      <path className={`edge edge-${edge.kind}`} d={orthogonalPath(edge.points.slice(edge.insideTo))} markerEnd={marker} />
+      <path className={`edge edge-${edge.kind} on-domain`} data-chain={chain} d={orthogonalPath(edge.points.slice(0, edge.insideTo + 1))} />
+      <path className={`edge edge-${edge.kind}`} data-chain={chain} d={orthogonalPath(edge.points.slice(edge.insideTo))} markerEnd={marker} />
     </>
   )
 }
 
-function EdgeLabel({ edge }: { edge: LayoutEdge }) {
+function EdgeLabel({ edge, chained }: { edge: LayoutEdge; chained: boolean }) {
   if (!edge.label || !edge.labelAt) return null
   return (
-    <text className="edge-label" x={edge.labelAt.x} y={edge.labelAt.y} fontSize={EDGE_LABEL.size}>
+    <text className="edge-label" data-chain={chained ? '' : undefined} x={edge.labelAt.x} y={edge.labelAt.y} fontSize={EDGE_LABEL.size}>
       {edge.label}
     </text>
   )
 }
 
-function Node({ node, selected, target, interactive }: { node: LayoutNode; selected: boolean; target: boolean; interactive: boolean }) {
+function Node({ node, selected, target, chained, interactive }: { node: LayoutNode; selected: boolean; target: boolean; chained: boolean; interactive: boolean }) {
   const left = node.x - node.width / 2
   const top = node.y - node.height / 2
   const centered = node.align === 'center'
@@ -152,6 +163,7 @@ function Node({ node, selected, target, interactive }: { node: LayoutNode; selec
       data-ref={node.ref}
       data-selected={selected ? '' : undefined}
       data-link-target={target ? '' : undefined}
+      data-chain={chained ? '' : undefined}
       tabIndex={interactive ? 0 : undefined}
       role={interactive ? 'button' : undefined}
       aria-label={interactive ? `Edit ${node.lines.map((l) => l.text).join(' ')}` : undefined}
@@ -254,26 +266,28 @@ interface HexagonBodyProps {
   selected: string | null
   /** In link mode, the refs the selection can be linked to. */
   linkTargets: ReadonlySet<string>
+  /** The refs of this hexagon that belong to the emphasized dependency chain; none when nothing is emphasized. */
+  chain: ReadonlySet<string> | undefined
   /** False for a non-current hexagon in a multi-hexagon map: its rings and nodes carry no tabIndex/role of their own — the wrapping group is the one control (ADR-05). */
   interactive: boolean
 }
 
 /** One hexagon's rings, edges and nodes — everything but the shared `<defs>` and the once-per-map legend. */
-function HexagonBody({ model, showGuides, selected, linkTargets, interactive }: HexagonBodyProps) {
+function HexagonBody({ model, showGuides, selected, linkTargets, chain, interactive }: HexagonBodyProps) {
   return (
     <>
       {model.rings.map((ring, i) => <Ring key={ring.key} ring={ring} shape={model.shape} inner={model.rings[i + 1]} interactive={interactive} />)}
       {showGuides && model.guides.map((g, k) => <line key={k} className="guide" x1={g.from.x} y1={g.from.y} x2={g.to.x} y2={g.to.y} />)}
-      {model.edges.map((edge) => <Edge key={edge.key} edge={edge} />)}
-      {model.nodes.map((node) => <Node key={node.key} node={node} selected={node.ref === selected} target={linkTargets.has(node.ref)} interactive={interactive} />)}
-      {model.edges.map((edge) => <EdgeLabel key={edge.key} edge={edge} />)}
+      {model.edges.map((edge) => <Edge key={edge.key} edge={edge} chained={inChain(edge, chain)} />)}
+      {model.nodes.map((node) => <Node key={node.key} node={node} selected={node.ref === selected} target={linkTargets.has(node.ref)} chained={!!chain?.has(node.ref)} interactive={interactive} />)}
+      {model.edges.map((edge) => <EdgeLabel key={edge.key} edge={edge} chained={inChain(edge, chain)} />)}
       {model.texts.map((text) => <Heading key={text.key} text={text} />)}
     </>
   )
 }
 
 /** A non-current hexagon on a large map: its outer silhouette, title and element count, none of its rings or nodes. */
-function CompactBody({ compact, title, linkTargets }: { compact: CompactLayout; title: string; linkTargets: ReadonlySet<string> }) {
+function CompactBody({ compact, title, linkTargets, chain }: { compact: CompactLayout; title: string; linkTargets: ReadonlySet<string>; chain: ReadonlySet<string> | undefined }) {
   const { radius, size, elements, label } = compact
   const outline = { halfWidth: (radius * Math.sqrt(3)) / 2, straight: radius / 2, apex: radius }
   return (
@@ -289,6 +303,7 @@ function CompactBody({ compact, title, linkTargets }: { compact: CompactLayout; 
             className="node node-port compact-port"
             data-ref={port.id}
             data-link-target={target ? '' : undefined}
+            data-chain={chain?.has(port.id) ? '' : undefined}
             tabIndex={target ? 0 : undefined}
             role={target ? 'button' : undefined}
             aria-label={target ? `${port.name} on ${title}` : undefined}
@@ -353,11 +368,13 @@ interface MapDiagramProps {
   crossLinkTargets: ReadonlyMap<string, ReadonlySet<string>>
   /** The hovered layer, scoped to the current hexagon only (CANVAS-03). */
   hovered: string | null
+  /** The emphasized dependency chain of the selection; everything outside it dims (styles.css). */
+  chain?: Chain
 }
 
 /** Composes every hexagon of a map into one SVG: one `<defs>`, one `<g data-hex>` per hexagon, the map's links
  * drawn above them, an optional map title, and the legend once — under the current hexagon. */
-export function MapDiagram({ map, legend, showGuides, focus, selected, linkTargets, crossLinkTargets, hovered }: MapDiagramProps) {
+export function MapDiagram({ map, legend, showGuides, focus, selected, linkTargets, crossLinkTargets, hovered, chain }: MapDiagramProps) {
   const first = map.hexagons[0]
   const current = currentHexagon(map, focus)
   return (
@@ -367,6 +384,7 @@ export function MapDiagram({ map, legend, showGuides, focus, selected, linkTarge
       {map.hexagons.map((hex) => {
         const isCurrent = hex.id === focus
         const title = hexagonTitle(hex.model)
+        const chained = chain?.elements.get(hex.id)
         return (
           <g
             key={hex.id}
@@ -377,16 +395,18 @@ export function MapDiagram({ map, legend, showGuides, focus, selected, linkTarge
             tabIndex={isCurrent ? undefined : 0}
             aria-label={isCurrent ? title : `Make ${title} the current hexagon`}
             data-hover={isCurrent && hovered ? hovered : undefined}
+            data-chain={chained ? '' : undefined}
           >
             {!isCurrent && <title>{title}</title>}
             {hex.compact ? (
-              <CompactBody compact={hex.compact} title={title} linkTargets={crossLinkTargets.get(hex.id) ?? NO_TARGETS} />
+              <CompactBody compact={hex.compact} title={title} linkTargets={crossLinkTargets.get(hex.id) ?? NO_TARGETS} chain={chained} />
             ) : (
               <HexagonBody
                 model={hex.model}
                 showGuides={showGuides}
                 selected={isCurrent ? selected : null}
                 linkTargets={isCurrent ? linkTargets : (crossLinkTargets.get(hex.id) ?? NO_TARGETS)}
+                chain={chained}
                 interactive={isCurrent}
               />
             )}
@@ -395,7 +415,7 @@ export function MapDiagram({ map, legend, showGuides, focus, selected, linkTarge
         )
       })}
       {map.links.map((link) => (
-        <path key={link.id} className="map-link" data-map-link="" aria-hidden="true" d={orthogonalPath(link.points)} markerEnd="url(#arrow)" />
+        <path key={link.id} className="map-link" data-map-link="" data-chain={chain?.links.has(link.id) ? '' : undefined} aria-hidden="true" d={orthogonalPath(link.points)} markerEnd="url(#arrow)" />
       ))}
       {map.links.map(
         (link) =>
