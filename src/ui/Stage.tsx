@@ -6,7 +6,8 @@ import type { LegendModel } from '../layout/legend'
 import { canCompact, currentHexagon, growAnchor, hexagonBounds, hexagonTitle, type MapLayout } from '../layout/map'
 import { dependencyChain } from '../model/chain'
 import { collectionOf, linkTargets, type LinkChoice } from '../model/links'
-import { crossHexagonPorts, freeSides, UNTITLED_HEXAGON, type Destination } from '../model/map'
+import { canLink, crossPortTargets, isCrossTarget, targetsByHexagon } from '../model/linkTargeting'
+import { freeSides, UNTITLED_HEXAGON, type Destination } from '../model/map'
 import type { CollectionKey, Diagram as DiagramModel, DomainType, HexaMap, Wall } from '../model/schema'
 import { useMapStore } from '../model/store'
 import { MapDiagram } from '../render/Diagram'
@@ -150,13 +151,6 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
     if (typeof view !== 'string' && !changed.every((h) => contains(visibleRect(view, effectiveSize, inset), hexagonBounds(h)))) setView('auto')
   }
 
-  // ADR-02: a port's cross-hexagon targets — every port of the opposite side on another hexagon. Non-ports (and
-  // an unselected ref) have none; only ports carry map-level links.
-  const crossPortTargets = (ref: string | null) => {
-    const port = ref ? diagram.ports.find((p) => p.id === ref) : undefined
-    return port ? crossHexagonPorts(map, port.side === 'driven' ? 'driving' : 'driven', hexId) : []
-  }
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // Esc first leaves link mode, keeping the selection; a second Esc clears it.
@@ -170,7 +164,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
         e.preventDefault()
         if (onDelete(selected)) setSelected(null)
       }
-      if (e.key.toLowerCase() === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && (linkTargets(diagram, selected).length || crossPortTargets(selected).length)) {
+      if (e.key.toLowerCase() === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && canLink(map, diagram, hexId, selected)) {
         e.preventDefault()
         onLinking(selected)
       }
@@ -232,17 +226,8 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
   ]
   const targets = linking ? linkTargets(diagram, linking) : []
   // ADR-02: the ports of another hexagon a link-mode selection can connect to — empty unless `linking` is a port.
-  const crossTargets = linking ? crossPortTargets(linking) : []
-  // Decision 7387: the same targets, grouped by hexagon id, for MapDiagram to mark on the hexagons that own them —
-  // a bare portId is not enough, since ids collide across hexagons by construction (see the decoy-port test).
-  const crossLinkTargets = new Map<string, Set<string>>()
-  for (const t of crossTargets) {
-    const set = crossLinkTargets.get(t.hexagonId)
-    if (set) set.add(t.portId)
-    else crossLinkTargets.set(t.hexagonId, new Set([t.portId]))
-  }
-  const isCrossTarget = (clickedHexId: string | null | undefined, ref: string | null) =>
-    !!ref && !!clickedHexId && clickedHexId !== hexId && crossTargets.some((p) => p.hexagonId === clickedHexId && p.portId === ref)
+  const crossTargets = linking ? crossPortTargets(map, diagram, hexId, linking) : []
+  const crossLinkTargets = targetsByHexagon(crossTargets)
   // Only what is drawn can be followed, so the chain ends at the ports of a compact hexagon.
   const chain =
     highlight && !linking && selected ? dependencyChain(map, hexId, selected, new Set(model.hexagons.filter((h) => !h.compact).map((h) => h.id)), dependents ? 'dependents' : 'dependencies') : undefined
@@ -255,7 +240,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
   // — either a same-hexagon field target or a cross-hexagon port (ADR-02). A port is laid out twice under one ref
   // (its declaration in the domain and the box on the wall): anchor to the box.
   const linkable =
-    selected && !linking && (linkTargets(diagram, selected).length || crossPortTargets(selected).length)
+    selected && !linking && canLink(map, diagram, hexId, selected)
       ? hexModel.nodes.find((n) => n.ref === selected && n.kind === NODE_KIND[collectionOf(diagram, selected)!])
       : undefined
   const chipAt = (n: LayoutNode) => {
@@ -332,7 +317,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
           const ref = target.closest('.node')?.getAttribute('data-ref') ?? null
           // ADR-02: a click on another hexagon's port while linking, when that port is a valid cross-hexagon
           // target, creates the link instead of switching focus — checked before the ordinary focus-switch below.
-          if (linking && isCrossTarget(clickedHexId, ref)) return onLink(linking, { kind: 'link', hexagonId: clickedHexId!, portId: ref! })
+          if (linking && isCrossTarget(crossTargets, hexId, clickedHexId, ref)) return onLink(linking, { kind: 'link', hexagonId: clickedHexId!, portId: ref! })
           if (clickedHexId && clickedHexId !== hexId) return focusHexagon(clickedHexId)
           if (!linking) return setSelected(ref)
           const hit = targets.find((t) => t.targetRef === ref)
@@ -356,7 +341,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
           const groupId = hexIdOf(target)
           const activation = e.key === 'Enter' || e.key === ' '
           const ref = target.closest('.node')?.getAttribute('data-ref') ?? null
-          if (activation && linking && isCrossTarget(groupId, ref)) {
+          if (activation && linking && isCrossTarget(crossTargets, hexId, groupId, ref)) {
             e.preventDefault()
             return onLink(linking, { kind: 'link', hexagonId: groupId!, portId: ref! })
           }
