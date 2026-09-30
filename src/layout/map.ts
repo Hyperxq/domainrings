@@ -256,9 +256,9 @@ const compactOf = (hexagon: Hexagon, model: LayoutModel, unit: number): CompactL
  * bounds, so it is finite for any non-zero step. */
 export function growAnchor(hex: Pick<MapHexagonLayout, 'centre' | 'cell' | 'model'>, side: Wall, pitch: Point, margin: number): Point {
   // The lattice step, not the neighbour's cell centre: a hexagon pushed off its own cell still leaves along the line to its neighbour.
-  const from = cellCentre(hex.cell, pitch)
+  const cellOrigin = cellCentre(hex.cell, pitch)
   const to = cellCentre(neighbour(hex.cell, side), pitch)
-  const d = { x: to.x - from.x, y: to.y - from.y }
+  const d = { x: to.x - cellOrigin.x, y: to.y - cellOrigin.y }
   const box = hexagonBounds(hex)
   const leaves = (delta: number, min: number, size: number, from: number) =>
     delta > 0 ? (min + size + margin - from) / delta : delta < 0 ? (min - margin - from) / delta : Infinity

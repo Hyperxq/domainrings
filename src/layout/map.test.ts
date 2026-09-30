@@ -18,6 +18,23 @@ const CORPUS: Array<[string, Diagram]> = [
   ...RETIRED_SEEDS.map((seed, i): [string, Diagram] => [`retired seed v${i + 1}`, seed]),
 ]
 const MODES: LayoutMode[] = ['detailed', 'overview']
+/** Whether the segment a-b passes through the open interior of `box` (Liang-Barsky clip; grazing an edge is not a hit). */
+const segmentHitsBox = (a: { x: number; y: number }, b: { x: number; y: number }, box: Box): boolean => {
+  const d = { x: b.x - a.x, y: b.y - a.y }
+  let [t0, t1] = [0, 1]
+  for (const [p, q] of [[-d.x, a.x - box.x], [d.x, box.x + box.width - a.x], [-d.y, a.y - box.y], [d.y, box.y + box.height - a.y]]) {
+    if (p === 0) {
+      if (q <= 0) return false
+    } else if (p < 0) {
+      if (q / p >= t1) return false
+      t0 = Math.max(t0, q / p)
+    } else {
+      if (q / p <= t0) return false
+      t1 = Math.min(t1, q / p)
+    }
+  }
+  return t1 > t0
+}
 const projectBuilderMap = (): HexaMap => {
   const parsed = parseHexa(projectBuilder)
   if (!parsed.ok || parsed.map.kind !== 'hexagonal') throw new Error('project-builder fixture must parse')
@@ -904,7 +921,7 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
   }
   const distanceToLoops = (box: Box, loops: { x: number; y: number }[][]) =>
     Math.min(...loops.flat().map((p) => Math.hypot(Math.max(box.x - p.x, 0, p.x - (box.x + box.width)), Math.max(box.y - p.y, 0, p.y - (box.y + box.height)))))
-  // layoutDiagram itself lays Authentication out at ~87000x100000 in Detailed, which no map layout can make readable.
+  // layoutDiagram itself lays Authoring out at ~87000x100000 in Detailed, which no map layout can make readable.
   const currentsIn = (mode: LayoutMode) => map.hexagons.map((h) => h.id).filter((id) => mode === 'overview' || id !== 'h-auth')
 
   it.each(MODES_UNDER_TEST)('fits %s at least twice as large as the full-pitch baseline, with Execution current', (mode) => {
@@ -957,23 +974,37 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
     }
   })
 
-  // routeLink only knows its two endpoint boxes, so a link between hexagons that are not neighbours crosses the ones
-  // between them, and every route ignores chips. `fails` keeps that visible: it goes red once routing avoids them.
-  it.fails.each(MODES_UNDER_TEST)('routes no link through another hexagon or across a chip in %s', (mode) => {
-    const through = (a: { x: number; y: number }, b: { x: number; y: number }, box: Box) =>
-      Math.max(a.x, b.x) > box.x && Math.min(a.x, b.x) < box.x + box.width && Math.max(a.y, b.y) > box.y && Math.min(a.y, b.y) < box.y + box.height
+  // #23: routeLink only knows its two endpoint boxes, so a link between hexagons that are not neighbours crosses the
+  // ones between them, and every route ignores chips. The two `fails` tests go red once routing avoids them; the
+  // plain test above them then goes red too, as the cue to turn them into plain `it`s.
+  const crossings = (mode: LayoutMode, obstacle: 'hexagon' | 'chip') => {
+    let count = 0
     for (const current of currentsIn(mode)) {
       const result = layoutFor(mode, current)
-      const chips = result.contexts.map((c) => ({ id: c.id, box: chipBoxOf(c) }))
-      map.links.forEach((link) => {
+      const boxes = obstacle === 'chip' ? result.contexts.map((c) => chipBoxOf(c)) : null
+      for (const link of map.links) {
         const { points } = result.links.find((l) => l.id === link.id)!
         const ends = [link.from.hexagonId, link.to.hexagonId]
-        for (let i = 0; i < points.length - 1; i++) {
-          for (const hexagon of result.hexagons.filter((h) => !ends.includes(h.id))) expect(through(points[i], points[i + 1], hexagonBounds(hexagon)), `${current}: ${link.id} through ${hexagon.id}`).toBe(false)
-          for (const chip of chips) expect(through(points[i], points[i + 1], chip.box), `${current}: ${link.id} across chip ${chip.id}`).toBe(false)
-        }
-      })
+        const obstacles = boxes ?? result.hexagons.filter((h) => !ends.includes(h.id)).map(hexagonBounds)
+        for (let i = 0; i < points.length - 1; i++) count += obstacles.filter((box) => segmentHitsBox(points[i], points[i + 1], box)).length
+      }
     }
+    return count
+  }
+
+  it.each(MODES_UNDER_TEST)('has a route for every link and still crosses hexagons and chips in %s', (mode) => {
+    for (const current of currentsIn(mode)) {
+      const ids = layoutFor(mode, current).links.map((l) => l.id)
+      expect(ids.sort()).toEqual(map.links.map((l) => l.id).sort())
+    }
+    expect(crossings(mode, 'hexagon')).toBeGreaterThan(0)
+    expect(crossings(mode, 'chip')).toBeGreaterThan(0)
+  })
+  it.fails.each(MODES_UNDER_TEST)('routes no link through another hexagon in %s', (mode) => {
+    expect(crossings(mode, 'hexagon')).toBe(0)
+  })
+  it.fails.each(MODES_UNDER_TEST)('routes no link across a chip in %s', (mode) => {
+    expect(crossings(mode, 'chip')).toBe(0)
   })
 })
 
@@ -1003,13 +1034,7 @@ describe('layoutMap — a hull on a compact map never crosses a hexagon of anoth
     const contexts = ['c-current', 'c-band', 'c-band', 'c-west', 'c-east']
     return { ...base, contexts: [{ id: 'c-current' }, { id: 'c-band' }, { id: 'c-west' }, { id: 'c-east' }], hexagons: base.hexagons.map((h, i) => ({ ...h, cell: cells[i], contextId: contexts[i] })), links: [] }
   }
-  const crossesBox = (loops: { x: number; y: number }[][], box: Box) =>
-    loops.some((loop) =>
-      loop.some((a, i) => {
-        const b = loop[(i + 1) % loop.length]
-        return Array.from({ length: 101 }, (_, k) => ({ x: a.x + ((b.x - a.x) * k) / 100, y: a.y + ((b.y - a.y) * k) / 100 })).some((p) => p.x > box.x && p.x < box.x + box.width && p.y > box.y && p.y < box.y + box.height)
-      }),
-    )
+  const crossesBox = (loops: { x: number; y: number }[][], box: Box) => loops.some((loop) => loop.some((a, i) => segmentHitsBox(a, loop[(i + 1) % loop.length], box)))
 
   it('draws a context whose hexagons straddle the current one as separate loops around each', () => {
     const result = layoutMap(straddling(), { current: 'h1' })

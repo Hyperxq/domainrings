@@ -141,8 +141,8 @@ export function footprintRegions(hexagons: readonly { cell: Cell; contextId: str
     const foreign = hexagons.filter((h) => h.contextId !== contextId)
     const loops = adjacentGroups(hexagons.filter((h) => h.contextId === contextId)).flatMap((group) => {
       const hull = convexHull(group.flatMap((h) => h.outline))
-      const swallows = foreign.some((f) => convexOverlap(hull, convexHull(f.outline)))
-      return swallows ? group.map((h) => convexHull(h.outline)) : [hull]
+      const reachesForeign = foreign.some((f) => convexOverlap(hull, convexHull(f.outline)))
+      return reachesForeign ? group.map((h) => convexHull(h.outline)) : [hull]
     })
     result.set(contextId, loops)
   }
