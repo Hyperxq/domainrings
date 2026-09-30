@@ -333,8 +333,9 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
     )
     return { pitch, bounds }
   }
-  // Like the chips below: grown until the compact title reads at the whole-map fit, over a few passes since growing
-  // it grows the map and so lowers the fit scale it is sized against.
+  // Like the chips below, but only approaching the floor: growing the compact hexagon grows the lattice and so lowers
+  // the fit scale the title is sized against, which saturates near 8-9px on screen. More passes never reach
+  // CHIP_FLOOR_PX and on large maps keep inflating the silhouette, so the passes stay capped.
   let unit = 1
   if (compacting) {
     for (let pass = 0; pass < 4; pass++) {

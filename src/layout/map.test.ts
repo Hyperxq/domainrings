@@ -785,7 +785,9 @@ describe('layoutMap — compact neighbours from COMPACT_FROM hexagons up', () =>
     expect(after).toBeGreaterThan(before * 1.3)
   })
 
-  it('grows the compact title until it stays readable at the whole-map fit, without outgrowing the current hexagon', () => {
+  // Growing the silhouette grows the lattice and so lowers the fit scale the title is sized against: the on-screen
+  // size saturates near 8-9px (measured 8.2-8.8 on 4-30 hexagons), short of CHIP_FLOOR_PX, however many passes run.
+  it('grows the compact title to about 8px or more at the whole-map fit, without outgrowing the current hexagon', () => {
     const result = layoutMap(manyHexagonMap(12), { current: 'h6' })
     const scale = fitTo(result.bounds, STAGE.width, STAGE.height, undefined, 0).scale
     const compact = result.hexagons.find((h) => h.compact)!
