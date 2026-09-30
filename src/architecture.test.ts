@@ -88,6 +88,10 @@ describe('per-hexagon layout modules stay ignorant of the map', () => {
   // though its FILE lives in the model layer — a model→model import isn't caught by the general layering rules.
   const PER_HEXAGON_MODULES = ['./layout/layout.ts', './layout/insertion.ts', './model/links.ts', './layout/legend.ts']
 
+  it('lists only files that exist', () => {
+    expect([...PER_HEXAGON_MODULES, './layout/hull.ts'].filter((p) => !(p in files))).toEqual([])
+  })
+
   it('never import model/map', () => {
     const violations = edges.filter((e) => PER_HEXAGON_MODULES.includes(e.path) && e.resolved === './model/map.ts')
     expect(violations.map((v) => `${v.path} -> ${v.specifier}`)).toEqual([])
@@ -110,8 +114,13 @@ describe('dependency fences', () => {
     expect(violations).toEqual([])
   })
 
+  const allowed = new Set(['./model/store.ts', './model/onionStore.ts', './model/cleanStore.ts', './model/persistence.ts'])
+
+  it('allows zustand only in files that exist', () => {
+    expect([...allowed].filter((p) => !(p in files))).toEqual([])
+  })
+
   it('zustand is imported only from model/store.ts, model/onionStore.ts, model/cleanStore.ts, or model/persistence.ts', () => {
-    const allowed = new Set(['./model/store.ts', './model/onionStore.ts', './model/cleanStore.ts', './model/persistence.ts'])
     const violations = productionPaths.filter((p) => !allowed.has(p) && importsOf(files[p]).some((s) => s === 'zustand' || s.startsWith('zustand/')))
     expect(violations).toEqual([])
   })
@@ -121,6 +130,10 @@ describe('dependency fences', () => {
 // those keep reading `HexaMap` only, exactly as before Onion or Clean existed.
 describe('Hexagonal-only modules never import StoredFile/OnionFile/CleanFile (ADR-01)', () => {
   const HEXAGONAL_ONLY_MODULES = ['./model/map.ts', './model/store.ts', './layout/map.ts', './ui/Editor.tsx', './ui/Stage.tsx']
+
+  it('lists only files that exist', () => {
+    expect(HEXAGONAL_ONLY_MODULES.filter((p) => !(p in files))).toEqual([])
+  })
 
   it('never mention StoredFile, OnionFile, or CleanFile by name', () => {
     const violations = HEXAGONAL_ONLY_MODULES.filter((p) => /\bStoredFile\b|\bOnionFile\b|\bCleanFile\b/.test(files[p]))
