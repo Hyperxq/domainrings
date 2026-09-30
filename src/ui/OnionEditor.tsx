@@ -1,10 +1,10 @@
 import { flushSync } from 'react-dom'
 import { tidyOnionOrder } from '../layout/onion'
 import { outerRoleOf } from '../model/rings'
-import { ONION_KINDS } from '../model/ringedKinds'
+import { kindsFor, ONION_KINDS } from '../model/ringedKinds'
 import { elementName, UNTITLED } from '../model/ringedDocument'
 import type { OnionFile } from '../model/schema'
-import { renameRing as renamedRing } from '../model/onionRings'
+import { renameRing as withRingName } from '../model/onionRings'
 import { useOnionStore } from '../model/onionStore'
 import { Fold, revealInEditor } from './Editor'
 import { Icon } from './Icon'
@@ -89,7 +89,7 @@ function RingSection({
       <div className="ring-settings" data-item-id={role}>
         <label className="field">
           <span>Ring name</span>
-          <RenameField ariaLabel="Ring name" value={name} onChange={(next) => renameRing(role, next)} onCommit={(before) => onMutate(`Renamed ${before || 'the ring'} to ${name}.`, renamedRing(doc, role, before))} />
+          <RenameField ariaLabel="Ring name" value={name} onChange={(next) => renameRing(role, next)} onCommit={(before) => onMutate(`Renamed ${before || 'the ring'} to ${name}.`, withRingName(doc, role, before))} />
         </label>
         {middle && (
           <div className="ring-actions">
@@ -107,7 +107,7 @@ function RingSection({
       </div>
       <ElementList
         elements={elements}
-        kinds={ONION_KINDS[role] ?? []}
+        kinds={kindsFor(ONION_KINDS, role)}
         onRename={(id, newName) => updateElement(id, { name: newName })}
         onRenameCommit={(id, before) => onMutate(`Renamed ${before || 'the element'} to ${elementName(doc.elements, id)}.`, withElementName(doc, id, before))}
         onKind={(id, kind) => {

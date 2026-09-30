@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { isInwardOrSame, outerRoleOf } from './rings'
-import { CLEAN_KINDS, ONION_KINDS, RINGED_KIND_LABEL, RINGED_KINDS, type RingedKind } from './ringedKinds'
+import { CLEAN_KINDS, kindsFor, ONION_KINDS, RINGED_KIND_LABEL, RINGED_KINDS, type RingedKind } from './ringedKinds'
 
 const id = z.string().min(1)
 const note = z.string().optional()
@@ -108,12 +108,16 @@ function checkIntegrity(d: Pick<z.infer<typeof DiagramObject>, CollectionKey>, c
 export const DiagramSchema = DiagramObject.superRefine(checkIntegrity)
 export const APP = 'domainrings'
 /** The current, in-memory document version — the Hexagonal, Onion and Clean arms of `StoredFile` share it
- * (ADR-01/ADR-03: one version number per document, not a per-kind counter). */
+ * (ADR-01/ADR-03: one version number per document, not a per-kind counter). `toHexa` writes the oldest version
+ * that can hold a document, so only an Onion with edited rings is saved as 5.
+ * Additive optional fields on the current version (e.g. an element's `kind`) do not bump it: this is a single
+ * hosted deployment, so an older build only survives as a stale tab — which would strip the unknown field on its
+ * next save. A change an older schema cannot read (a new shape, a wider enum) needs a new version and a frozen arm. */
 export const VERSION = 5
 // Files saved before the rename still open; parseHexa drops the marker, so they re-export under the current name.
 // Frozen: the file format a v1 build wrote and still reads — including a Clean/Onion `kind` from the old kind
 // switcher (REQ-06 coerces it back to hexagonal in parseHexa, it does not touch what a v1 file is allowed to
-// contain). Never change this schema — a data-bearing addition belongs on the v3 map instead.
+// contain). Never change this schema.
 const LegacyDiagramObject = z.object({ version: z.literal(1), kind: KindSchema, ...DiagramFields })
 export const HexaFileV1Schema = LegacyDiagramObject.extend({ app: z.enum([APP, 'archviz']) }).superRefine(checkIntegrity)
 
@@ -223,14 +227,11 @@ const MapObjectV2 = z.object({ version: z.literal(2), kind: KindSchema, ...MapFi
 export const HexaFileV2Schema = MapObjectV2.extend({ app: z.literal(APP) }).superRefine(checkMap)
 
 // Frozen (v3): the Hexagonal arm a v3 build wrote (native-onion's own "current" before this change froze it,
-// ADR-03) — never change this schema, a data-bearing addition belongs on the v4 map instead.
-// Additive optional fields on the current version (e.g. an element's `kind`) do not bump VERSION: this is a single
-// hosted deployment, so an older build only survives as a stale tab — which would strip the unknown field on its next save.
+// ADR-03) — never change this schema.
 const HexagonalObjectV3 = z.object({ version: z.literal(3), kind: z.literal('hexagonal'), ...MapFields })
 export const HexagonalFileV3Schema = HexagonalObjectV3.superRefine(checkMap)
 
-// Frozen (v4): the Hexagonal arm a v4 build wrote — never change this schema, a data-bearing addition belongs on
-// the v5 map instead.
+// Frozen (v4): the Hexagonal arm a v4 build wrote — never change this schema.
 const HexagonalObjectV4 = z.object({ version: z.literal(4), kind: z.literal('hexagonal'), ...MapFields })
 
 // Current (v5): the Hexagonal arm of `StoredFile`. Same shape as v4's map — only the version literal moves, and
@@ -264,9 +265,9 @@ export const OnionRingRoleSchema = z.enum(['domain', 'domainServices', 'applicat
 const OnionRingSchemaV4 = z.object({ role: OnionRingRoleSchema, name: z.string() })
 const OnionElementV3Schema = z.object({ id, name: z.string(), ringRole: OnionRingRoleSchema, note })
 const OnionElementV4Schema = OnionElementV3Schema.extend({ kind: RingedKindSchema.optional() })
-// A ring's identity: a canonical role or an id minted for a user-added ring. It lands in a class name and an
-// attribute value, so it stays a bare token.
-const RingIdSchema = z.string().regex(/^[\w-]+$/)
+// A ring's identity: a canonical role or an id minted for a user-added ring (`ring-…`). It lands in a class name and
+// an attribute value, and keys the kind tables, so nothing else (`constructor`, a space) is a ring id.
+const RingIdSchema = z.union([OnionRingRoleSchema, z.string().regex(/^ring-[\w-]+$/, 'A ring id is a canonical role or "ring-" followed by letters, digits, "-" or "_"')])
 const OnionRingSchema = z.object({ role: RingIdSchema, name: z.string() })
 const OnionElementSchema = OnionElementV4Schema.extend({ ringRole: RingIdSchema })
 const OnionDependencySchema = z.object({ id, fromId: id, toId: id })
@@ -276,26 +277,26 @@ export type OnionElement = z.infer<typeof OnionElementSchema>
 export type OnionDependency = z.infer<typeof OnionDependencySchema>
 export type OnionEndpoint = z.infer<typeof OnionEndpointSchema>
 
-const OnionFieldsV4 = {
+// What every Onion version holds alike; each arm adds its own `rings` and `elements`.
+const OnionSharedFields = {
   title: z.string(),
-  // Innermost-first, fixed at creation (REQ-02) — never grown, reordered or re-typed after a file exists.
-  rings: z.tuple([OnionRingSchemaV4, OnionRingSchemaV4, OnionRingSchemaV4, OnionRingSchemaV4]),
-  elements: z.array(OnionElementV4Schema),
   dependencies: z.array(OnionDependencySchema),
   actors: z.array(OnionEndpointSchema),
   externals: z.array(OnionEndpointSchema),
 }
+// Innermost-first, fixed at creation (REQ-02) — never grown, reordered or re-typed after a v3/v4 file exists.
+const OnionRingsV4 = z.tuple([OnionRingSchemaV4, OnionRingSchemaV4, OnionRingSchemaV4, OnionRingSchemaV4])
 
 // Frozen (v3): the Onion arm a v3 build wrote — never change this schema, ADR-03.
-const OnionFileObjectV3 = z.object({ version: z.literal(3), kind: z.literal('onion'), ...OnionFieldsV4, elements: z.array(OnionElementV3Schema) })
+const OnionFileObjectV3 = z.object({ version: z.literal(3), kind: z.literal('onion'), ...OnionSharedFields, rings: OnionRingsV4, elements: z.array(OnionElementV3Schema) })
 // Frozen (v4): the fixed 4-ring Onion arm a v4 build wrote — never change this schema, ADR-03.
-const OnionFileObjectV4 = z.object({ version: z.literal(4), kind: z.literal('onion'), ...OnionFieldsV4 })
+const OnionFileObjectV4 = z.object({ version: z.literal(4), kind: z.literal('onion'), ...OnionSharedFields, rings: OnionRingsV4, elements: z.array(OnionElementV4Schema) })
 
 const OnionFileObject = z.object({
   version: z.literal(VERSION),
   kind: z.literal('onion'),
-  ...OnionFieldsV4,
-  // Innermost-first. Editing keeps the first ring `domain` and the last `outer` (the store never removes or moves them).
+  ...OnionSharedFields,
+  // Innermost-first, `domain` first and `outer` last (checkOnionIntegrity); the ones between are free.
   rings: z.array(OnionRingSchema).min(2),
   elements: z.array(OnionElementSchema),
 })
@@ -320,7 +321,7 @@ function checkRingedIntegrity(
     })
   }
   d.elements.forEach((e, i) => {
-    const allowed = kindsByRole[ringRoleOf(e.id) ?? ''] ?? []
+    const allowed = kindsFor(kindsByRole, ringRoleOf(e.id) ?? '')
     if (e.kind && !allowed.includes(e.kind)) {
       ctx.addIssue({ code: 'custom', message: `Element "${e.name}" has kind "${RINGED_KIND_LABEL[e.kind]}", which its ring does not allow (allowed: ${allowed.map((k) => RINGED_KIND_LABEL[k]).join(', ') || 'none'}).`, path: ['elements', i, 'kind'] })
     }
@@ -363,6 +364,8 @@ function checkOnionIntegrity(
     ['actors', d.actors],
     ['externals', d.externals],
   ] as const
+  if (d.rings[0].role !== 'domain') ctx.addIssue({ code: 'custom', message: 'The innermost ring must be "domain"', path: ['rings', 0, 'role'] })
+  if (d.rings[d.rings.length - 1].role !== 'outer') ctx.addIssue({ code: 'custom', message: 'The outermost ring must be "outer"', path: ['rings', d.rings.length - 1, 'role'] })
   const seenRings = new Set<string>()
   d.rings.forEach((r, i) => {
     if (seenRings.has(r.role)) ctx.addIssue({ code: 'custom', message: `Duplicate ring "${r.role}"`, path: ['rings', i, 'role'] })

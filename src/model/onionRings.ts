@@ -1,5 +1,5 @@
 import { isInwardOrSame } from './rings'
-import { ONION_KINDS } from './ringedKinds'
+import { kindsFor, ONION_KINDS } from './ringedKinds'
 import type { OnionFile } from './schema'
 
 /** The rings that can be removed or moved: everything between the innermost and the outermost. */
@@ -25,7 +25,7 @@ export function removeRing(doc: OnionFile, role: string): { doc: OnionFile; into
   if (!isMiddle(doc, role)) return undefined
   const index = doc.rings.findIndex((r) => r.role === role)
   const target = doc.rings[index - 1]
-  const allowed = ONION_KINDS[target.role] ?? []
+  const allowed = kindsFor(ONION_KINDS, target.role)
   let moved = 0
   let cleared = 0
   const elements = doc.elements.map((e) => {

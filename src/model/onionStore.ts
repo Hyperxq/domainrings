@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { newOnionMap } from './hexa'
 import * as onionRings from './onionRings'
 import * as ringedDocument from './ringedDocument'
-import { ONION_KINDS } from './ringedKinds'
+import { kindsFor, ONION_KINDS } from './ringedKinds'
 import { OnionFileSchema, type OnionElement, type OnionEndpoint, type OnionFile } from './schema'
 import { boot } from './store'
 
@@ -62,7 +62,7 @@ export const useOnionStore = create<OnionState>()((set, get) => ({
     return id
   },
   updateElement: (id, patch) => {
-    const next = ringedDocument.updateElement<OnionFile, OnionElement>(get().map, id, patch, OnionFileSchema, (doc, elementId) => ONION_KINDS[doc.elements.find((e) => e.id === elementId)?.ringRole ?? ''] ?? [])
+    const next = ringedDocument.updateElement<OnionFile, OnionElement>(get().map, id, patch, OnionFileSchema, (doc, elementId) => kindsFor(ONION_KINDS, doc.elements.find((e) => e.id === elementId)?.ringRole ?? ''))
     if (!next) return
     set({ map: next })
   },

@@ -63,3 +63,7 @@ export const CLEAN_KINDS: Record<string, readonly RingedKind[]> = {
   adapters: ['controller', 'presenter', 'gateway'],
   outer: ['framework', 'database', 'web', 'device'],
 }
+
+/** The kinds a ring role allows in `table`; a role the table does not name (a user-added ring) allows none. Own keys
+ * only — a plain lookup would answer `constructor` with an inherited function. */
+export const kindsFor = (table: Record<string, readonly RingedKind[]>, role: string): readonly RingedKind[] => (Object.hasOwn(table, role) ? table[role] : [])

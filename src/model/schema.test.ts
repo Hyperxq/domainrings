@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { kindsFor, ONION_KINDS } from './ringedKinds'
 import { APP, CleanFileSchema, DiagramSchema, HexaFileV3Schema, HexaFileV4Schema, linkEndProblem, MapSchema, OnionFileSchema, VERSION } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
 import { newCleanMap, newOnionMap, toMap } from './hexa'
@@ -414,5 +415,35 @@ describe('frozen v4 arm', () => {
     const file = { ...onion, version: 4, app: APP }
     expect(HexaFileV4Schema.safeParse(file).success).toBe(true)
     expect(HexaFileV4Schema.safeParse({ ...file, rings: file.rings.slice(0, 3) }).success).toBe(false)
+  })
+})
+
+describe('Onion edge rings', () => {
+  const ring = (role: string) => ({ role, name: role })
+  const withRings = (rings: unknown[]) => ({ ...newOnionMap('Rings'), rings })
+  const issueMessage = (result: { success: boolean; error?: { issues: { path: PropertyKey[]; message: string }[] } }, path: string) =>
+    result.error?.issues.find((i) => i.path.join('.') === path)?.message
+
+  it('requires the first ring to be domain', () => {
+    const result = OnionFileSchema.safeParse(withRings([ring('application'), ring('outer')]))
+    expect(result.success).toBe(false)
+    expect(issueMessage(result, 'rings.0.role')).toBe('The innermost ring must be "domain"')
+  })
+
+  it('requires the last ring to be outer', () => {
+    const result = OnionFileSchema.safeParse(withRings([ring('domain'), ring('application')]))
+    expect(result.success).toBe(false)
+    expect(issueMessage(result, 'rings.1.role')).toBe('The outermost ring must be "outer"')
+  })
+
+  it.each(['constructor', 'hasOwnProperty', 'ring has space', 'application2'])('rejects the ring id %s: only a canonical role or "ring-…" is one', (role) => {
+    expect(OnionFileSchema.safeParse(withRings([ring('domain'), ring(role), ring('outer')])).success).toBe(false)
+  })
+})
+
+describe('kindsFor', () => {
+  it('answers a role the table does not name, or one an object inherits, with no kinds', () => {
+    for (const role of ['ring-a1b2c3d4', 'constructor', 'hasOwnProperty', '']) expect(kindsFor(ONION_KINDS, role)).toEqual([])
+    expect(kindsFor(ONION_KINDS, 'outer')).toContain('ui')
   })
 })
