@@ -10,7 +10,7 @@ import { contextName, diagramOf, freeSides, neighbour, SIDE_ORDER } from '../mod
 import { useMapStore } from '../model/store'
 import type { HexaMap } from '../model/schema'
 import { parseHexa } from '../model/hexa'
-import { hexGroup, twoHexMap } from '../test/fixtures'
+import { hexGroup, manyHexagonMap, twoHexMap } from '../test/fixtures'
 import { contains, fitMap, fitTo, islandInset, MIN_FIT_SCALE, MIN_SCALE, pinch, visibleRect, zoomAt } from './viewport'
 import type { Box, Point } from '../layout/layout'
 import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
@@ -55,7 +55,7 @@ function Harness({
   const currentContextId = map.hexagons.find((h) => h.id === hexId)!.contextId
   return (
     <Stage
-      model={layoutMap(map, { mode })}
+      model={layoutMap(map, { mode, current: hexId })}
       map={map}
       hexId={hexId}
       diagram={diagram}
@@ -369,7 +369,7 @@ describe('Stage — the single fit control fits the whole map on 2+ hexagons (FI
       fireEvent.click(screen.getByRole('button', { name: 'Fit diagram to screen' }))
 
       const inset = islandInset({ width: 800, height: 600 }, false, false)
-      const model = layoutMap(useMapStore.getState().map)
+      const model = layoutMap(useMapStore.getState().map, { current: useMapStore.getState().focus })
       const viewport = viewportOf(container)
       expect(viewport.scale).toBeLessThan(MIN_FIT_SCALE)
       const visible = visibleRect(viewport, { width: 800, height: 600 }, inset)
@@ -841,7 +841,7 @@ describe('Stage — the honeycomb fixture stays disjoint with every hexagon curr
       for (const hexagon of map.hexagons) {
         act(() => useMapStore.getState().setFocus(hexagon.id))
 
-        const model = layoutMap(useMapStore.getState().map, { mode })
+        const model = layoutMap(useMapStore.getState().map, { mode, current: hexagon.id })
         for (let i = 0; i < model.hexagons.length; i++) {
           for (let j = i + 1; j < model.hexagons.length; j++) {
             expect(separation(hexagonBounds(model.hexagons[i]), hexagonBounds(model.hexagons[j]))).toBeGreaterThanOrEqual(60 - 1e-6)
@@ -1141,5 +1141,74 @@ describe('Stage — cross-hexagon link creation (REQ-LNK-01.1, 01.1b, ADR-02)', 
     fireEvent.click(target)
 
     expect(onLink).toHaveBeenCalledWith('p-repo', { kind: 'link', hexagonId: 'h2', portId: 'p-submit' })
+  })
+})
+
+describe('Stage — compact neighbours on a large map', () => {
+  it('expands a clicked compact hexagon and compacts the previous current one', () => {
+    useMapStore.getState().replace(manyHexagonMap(6))
+    const { container } = render(<Harness />)
+    expect(hexGroup(container, 'h3').querySelector('.compact-title')).not.toBeNull()
+
+    fireEvent.click(hexGroup(container, 'h3').querySelector('.compact-title')!)
+
+    expect(useMapStore.getState().focus).toBe('h3')
+    expect(hexGroup(container, 'h3').querySelector('.compact-title')).toBeNull()
+    expect(hexGroup(container, 'h3').querySelectorAll('.node').length).toBeGreaterThan(0)
+    expect(hexGroup(container, 'h1').querySelector('.compact-title')).not.toBeNull()
+  })
+
+  it.each([{ key: 'Enter' }, { key: ' ' }])('expands a compact hexagon on %o, focusing its first item', ({ key }) => {
+    useMapStore.getState().replace(manyHexagonMap(6))
+    const { container } = render(<Harness />)
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Make Slice 4 the current hexagon' }), { key })
+
+    expect(useMapStore.getState().focus).toBe('h4')
+    expect(document.activeElement).toBe(hexGroup(container, 'h4').querySelector('.node[tabindex]'))
+  })
+
+  it('offers the side "+" buttons for the current hexagon only', () => {
+    const map = manyHexagonMap(6)
+    useMapStore.getState().replace(map)
+    render(<Harness />)
+    const current = map.hexagons.find((h) => h.id === useMapStore.getState().focus)!
+    expect(screen.getAllByRole('button', { name: /^Add hexagon to the / })).toHaveLength(freeSides(map, current.cell).length)
+  })
+
+  it('drops a manual view for the new whole-map fit when a new current hexagon moves the lattice', () => {
+    const restore = stubFixedSize(1200, 900)
+    try {
+      useMapStore.getState().replace(manyHexagonMap(6))
+      const { container } = render(<Harness />)
+      const main = container.querySelector('main') as HTMLElement
+      main.setPointerCapture = () => {}
+      fireEvent.pointerDown(svg(container), { button: 0, buttons: 1, clientX: 0, clientY: 0 })
+      fireEvent.pointerMove(main, { buttons: 1, clientX: 100000, clientY: 100000 })
+      fireEvent.pointerUp(main)
+
+      act(() => useMapStore.getState().setFocus('h4'))
+
+      const model = layoutMap(useMapStore.getState().map, { current: 'h4' })
+      expectViewport(container, fitTo(model.bounds, 1200, 900, islandInset({ width: 1200, height: 900 }, false, false), 0))
+    } finally {
+      restore()
+    }
+  })
+
+  it('re-fits the whole map when the current hexagon changes on a large map', () => {
+    const restore = stubFixedSize(800, 600)
+    try {
+      useMapStore.getState().replace(manyHexagonMap(12))
+      const { container } = render(<Harness />)
+      const inset = islandInset({ width: 800, height: 600 }, false, false)
+      const scaleFor = (current: string) => fitTo(layoutMap(useMapStore.getState().map, { current }).bounds, 800, 600, inset, 0).scale
+
+      fireEvent.click(hexGroup(container, 'h9').querySelector('.compact-title')!)
+
+      expect(viewportOf(container).scale).toBeCloseTo(scaleFor('h9'), 6)
+    } finally {
+      restore()
+    }
   })
 })

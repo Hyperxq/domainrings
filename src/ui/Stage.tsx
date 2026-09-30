@@ -125,8 +125,9 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
   // Grow/import/delete/undo never bump `revision` (ADR-02/ADR-05), so the fitKey reset above can't see them — this
   // tracks the hexagon id set instead. A `Viewport` the author set stays iff every added/removed/shifted box is still fully
   // on screen (FIT-02.2); otherwise it falls back to 'auto', which recomputes against the new bounds every render
-  // and — on 2+ hexagons — always follows the whole map, never frozen (FIT-02.1).
-  const hexKey = model.hexagons.map((h) => h.id).join(',')
+  // and — on 2+ hexagons — always follows the whole map, never frozen (FIT-02.1). On a compact map the current
+  // hexagon is part of the key too: which one is full sizes the lattice, so switching it moves every hexagon.
+  const hexKey = model.hexagons.map((h) => h.id).join(',') + (model.hexagons.some((h) => h.compact) ? `@${hexId}` : '')
   const [seenHexagons, setSeenHexagons] = useState({ key: hexKey, hexagons: model.hexagons })
   if (hexKey !== seenHexagons.key) {
     const nextIds = new Set(model.hexagons.map((h) => h.id))
