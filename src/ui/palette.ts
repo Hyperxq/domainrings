@@ -13,6 +13,7 @@ const LIGHT = {
   slate: '#4E5964',
   'slate-soft': '#E6E9E5',
   card: '#FBFBF9',
+  'ring-custom': '#DFEAE7',
   'domain-ink': '#F7F8F6',
   'driving-fill': '#5B5FD6',
   'driving-line': '#7C80E4',
@@ -36,6 +37,7 @@ const DARK: Record<Token, string> = {
   slate: '#B5C2C4',
   'slate-soft': '#222B33',
   card: '#171F26',
+  'ring-custom': '#1E3336',
   'domain-ink': '#EEF1EE',
   'driving-fill': '#4B4BB5',
   'driving-line': '#6464CC',
@@ -68,6 +70,7 @@ export const PALETTES = {
       slate: '#5B544A',
       'slate-soft': '#EAE5DC',
       card: '#FCFAF6',
+      'ring-custom': '#E3E7E1',
       'domain-ink': '#F8F6F0',
       'driving-fill': '#2F4C8C',
       'driving-line': '#4D68A8',
@@ -88,6 +91,7 @@ export const PALETTES = {
       slate: '#C4BCAF',
       'slate-soft': '#26231E',
       card: '#1C1A16',
+      'ring-custom': '#2A2E27',
       'domain-ink': '#EFEBE3',
       'driving-fill': '#2E4682',
       'driving-line': '#4A63A3',
@@ -112,6 +116,7 @@ export const PALETTES = {
       slate: '#525B63',
       'slate-soft': '#E4E7E9',
       card: '#FAFBFB',
+      'ring-custom': '#E5E9E2',
       'domain-ink': '#F6F7F2',
       'driving-fill': '#6A3E6D',
       'driving-line': '#88598B',
@@ -132,6 +137,7 @@ export const PALETTES = {
       slate: '#B7C0C5',
       'slate-soft': '#20262A',
       card: '#191D20',
+      'ring-custom': '#2A312A',
       'domain-ink': '#ECEFF0',
       'driving-fill': '#6E4476',
       'driving-line': '#8B5E93',
@@ -153,6 +159,8 @@ export const TEXT_PAIRS: [Token, Token][] = [
   ['muted', 'card'],
   ['muted', 'bg'],
   ['muted', 'slate-soft'],
+  ['muted', 'ring-custom'],
+  ['ink', 'ring-custom'],
   ['ink', 'slate-soft'],
   ['ink', 'teal-soft'],
   ['driving-ink', 'driving-fill'],
@@ -201,7 +209,7 @@ function hoverTint(hex: string, theme: Theme) {
   return `#${[0, 1, 2].map((i) => mix(i).toString(16).padStart(2, '0')).join('')}`
 }
 
-const RING_FILLS = ['card', 'slate-soft', 'teal-soft', 'teal-deep'] as const
+const RING_FILLS = ['card', 'slate-soft', 'teal-soft', 'teal-deep', 'ring-custom'] as const
 
 function block(id: PaletteId, theme: Theme) {
   const table: Record<Token, string> = PALETTES[id][theme]

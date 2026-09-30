@@ -21,6 +21,17 @@ describe('palette', () => {
     expect(failing).toEqual([])
   })
 
+  it('draws a user-added ring from its own token, with a hover step and readable ring titles on it', () => {
+    expect(TEXT_PAIRS).toContainEqual(['muted', 'ring-custom'])
+    const css = paletteCss()
+    for (const id of Object.keys(PALETTES) as PaletteId[]) {
+      const block = id === 'default' ? ':root {' : `:root[data-palette='${id}'] {`
+      const light = css.slice(css.indexOf(block))
+      expect(light).toContain(`--ring-custom: ${PALETTES[id].light['ring-custom']};`)
+      expect(light).toMatch(/--ring-custom-hover: #[0-9a-f]{6};/)
+    }
+  })
+
   it('emits both themes: the system default and the explicit override', () => {
     const css = paletteCss()
     expect(css).toContain(`--driving-fill: ${PALETTES.default.light['driving-fill']};`)

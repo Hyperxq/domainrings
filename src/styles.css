@@ -27,7 +27,6 @@
   -webkit-user-select: none;
 }
 
-:root { --ring-custom: color-mix(in srgb, var(--teal) 12%, var(--card)); }
 .canvas text { fill: var(--ink); font-family: var(--font-sans); dominant-baseline: central; }
 
 .ring { stroke-width: 1.6; }
