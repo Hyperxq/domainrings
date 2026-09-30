@@ -1798,6 +1798,20 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     expect(screen.getByRole('alert').textContent).toContain('broken.hexa could not be opened')
   })
 
+  it('Undo of an import keeps a change made while its destination question was open', async () => {
+    render(<App />)
+    openEditor()
+    openImportMenu()
+    await pickFile(oneHexFile())
+    act(() => useMapStore.getState().setMapMeta({ title: 'Renamed meanwhile' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(useMapStore.getState().map.title).toBe('Renamed meanwhile')
+    expect(useMapStore.getState().map.hexagons).toHaveLength(1)
+  })
+
   it('asks the destination only after reading the file, and imports nothing when that question is dismissed', async () => {
     render(<App />)
     openEditor()

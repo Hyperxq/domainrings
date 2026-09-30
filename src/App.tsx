@@ -452,6 +452,8 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   }
 
   const completeImport = (file: HexaMap, context: Destination, fileName: string) => {
+    // Read at commit time: the map may have changed while the file was read or the destination question was open.
+    const { map: beforeMap, focus: beforeFocus } = useMapStore.getState()
     const newHexId = importHexagon(file, { context })
     const imported = useMapStore.getState().map.hexagons.find((h) => h.id === newHexId)!
     const contexts = file.contexts.length
@@ -459,7 +461,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       file.hexagons.length > 1
         ? `Added ${file.hexagons.length} hexagons and ${contexts} bounded ${contexts === 1 ? 'context' : 'contexts'} from ${fileName}.`
         : `Added ${imported.title || UNTITLED_HEXAGON} from ${fileName}.`
-    show({ tone: 'status', message, undo: before })
+    show({ tone: 'status', message, undo: { map: beforeMap, focus: beforeFocus } })
   }
 
   // "Add hexagon from file…" (IMP-01..07): only a Hexagonal source has hexagons to add; refuses an Onion source
