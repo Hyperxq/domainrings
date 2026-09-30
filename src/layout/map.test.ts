@@ -817,6 +817,15 @@ describe('layoutMap — compact neighbours from COMPACT_FROM hexagons up', () =>
     }
   })
 
+  it('still draws a link whose port on a compact hexagon has no marker, ending it on that hexagon', () => {
+    const map = manyHexagonMap(6)
+    map.links = [{ id: 'l1', from: { hexagonId: 'h4', portId: 'p-repo' }, to: { hexagonId: 'h2', portId: 'ghost' } }]
+    const result = layoutMap(map, { current: 'h4' })
+    const h2 = result.hexagons.find((h) => h.id === 'h2')!
+    const end = result.links[0].points.at(-1)!
+    expect(Math.hypot(end.x - h2.centre.x, end.y - h2.centre.y)).toBeCloseTo((h2.compact!.radius * Math.sqrt(3)) / 2, 6)
+  })
+
   it('ends two links on the same wall of a compact hexagon at different points', () => {
     const map = manyHexagonMap(6)
     map.hexagons[0].ports = map.hexagons[0].ports.map((p) => ({ ...p, wall: 'e' as const }))

@@ -243,8 +243,10 @@ function translatedNodeBox(node: LayoutNode, centre: Point): Box {
  * around (REQ-LNK-05.1) — never the node the anchor itself sits on. */
 function routeEnd(hexagon: MapHexagonLayout, portId: string, adapterId?: string) {
   if (hexagon.compact) {
-    // A compact hexagon draws no adapters: the link ends at its port's marker on the silhouette.
-    const marker = hexagon.compact.ports.find((m) => m.id === portId)!
+    // A compact hexagon draws no adapters: the link ends at its port's marker on the silhouette, or — for a port
+    // that has no walled node to place a marker from — at the east wall's midpoint.
+    const { radius, ports } = hexagon.compact
+    const marker = ports.find((m) => m.id === portId) ?? { wall: 'e' as const, at: { x: (radius * Math.sqrt(3)) / 2, y: 0 } }
     return { point: { x: hexagon.centre.x + marker.at.x, y: hexagon.centre.y + marker.at.y }, wall: marker.wall, box: hexagonBounds(hexagon), clear: [] }
   }
   const port = portNode(hexagon.model, portId)
