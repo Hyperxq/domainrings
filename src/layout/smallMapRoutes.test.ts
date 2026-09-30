@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { layoutMap } from './map'
+import { hexagonBounds, layoutMap } from './map'
 import type { LayoutMode } from './layout'
 import type { HexaMap, Link } from '../model/schema'
 import { linkedTwoHexMap, manyHexagonMap } from '../test/fixtures'
@@ -29,7 +29,7 @@ const SMALL_MAPS: Array<[string, HexaMap]> = [
   ['three hexagons in a row, the ends linked', threeHexagons([[0, 0], [1, 0], [2, 0]], LINKS.slice(4))],
 ]
 
-// Recorded before link routing learned about third hexagons and chips: maps below COMPACT_FROM hexagons keep these routes.
+// Recorded before link routing learned about third hexagons and chips: a route that was already clear keeps these points.
 describe('layoutMap — links on maps of one to three hexagons', () => {
   describe.each(['detailed', 'overview'] as LayoutMode[])('in %s', (mode) => {
     it.each(SMALL_MAPS)('routes %s as it always has', (_, map) => {
@@ -38,5 +38,19 @@ describe('layoutMap — links on maps of one to three hexagons', () => {
     it.each(SMALL_MAPS)('routes %s the same with a current hexagon', (_, map) => {
       expect(layoutMap(map, { mode, current: 'h1' }).links).toMatchSnapshot()
     })
+  })
+})
+
+describe('layoutMap — a link between the ends of a row of three hexagons', () => {
+  const row = SMALL_MAPS[3][1]
+  it.each(['detailed', 'overview'] as LayoutMode[])('does not cross the hexagon between them in %s', (mode) => {
+    const result = layoutMap(row, { mode })
+    const middle = hexagonBounds(result.hexagons.find((h) => h.id === 'h2')!)
+    const { points } = result.links[0]
+    const crosses = points.slice(1).some((p, i) => {
+      const q = points[i]
+      return Math.max(p.x, q.x) > middle.x && Math.min(p.x, q.x) < middle.x + middle.width && Math.max(p.y, q.y) > middle.y && Math.min(p.y, q.y) < middle.y + middle.height
+    })
+    expect(crosses).toBe(false)
   })
 })

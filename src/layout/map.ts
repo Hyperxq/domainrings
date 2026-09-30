@@ -468,15 +468,14 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
     bounds = boundsWith(size)
   }
 
-  // Routed once the chips are placed, so a route can keep off them. Below COMPACT_FROM hexagons the links keep the
-  // gap-midline routes they always had.
+  // Routed once the chips are placed, so a route can keep off them.
   const lanes = laneOffsets(map.links)
   const detours: Point[] = []
   const chips = contexts.map((c) => chipBox(c.chip, c.label, c.size))
   const links: MapLinkLayout[] = map.links.map((link: Link) => {
     const fromHexagon = hexagonOf.get(link.from.hexagonId)!
     const toHexagon = hexagonOf.get(link.to.hexagonId)!
-    const scene = canCompact(hexagons.length) ? { hexagons: boxes.filter((_, i) => hexagons[i] !== fromHexagon && hexagons[i] !== toHexagon), chips, within: bounds } : undefined
+    const scene = { hexagons: boxes.filter((_, i) => hexagons[i] !== fromHexagon && hexagons[i] !== toHexagon), chips, within: bounds }
     const { points, label, detoured } = routeLink(
       routeEnd(fromHexagon, link.from.portId, link.from.adapterId),
       routeEnd(toHexagon, link.to.portId, link.to.adapterId),
