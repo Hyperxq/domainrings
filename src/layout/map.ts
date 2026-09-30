@@ -89,7 +89,7 @@ export interface MapLayout {
 
 /** From this many hexagons up, every hexagon but the current and the expanded ones renders compact. */
 export const COMPACT_FROM = 4
-/** Whether a map of `count` hexagons draws any of them compact. */
+/** Whether a map of `count` hexagons is large enough to compact; `layoutMap` still draws every hexagon full without a current or expanded set. */
 export const canCompact = (count: number): boolean => count >= COMPACT_FROM
 /** A compact hexagon's silhouette radius and title size at unit scale; both grow together so a title always fits. */
 const COMPACT_RADIUS = 78
