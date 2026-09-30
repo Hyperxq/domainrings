@@ -1,14 +1,15 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
-import { cellCentre, growAnchor, hexagonBounds, layoutMap, MAP_GAP } from './map'
+import { cellCentre, COMPACT_FROM, growAnchor, hexagonBounds, layoutMap, MAP_GAP, type MapLayoutOptions } from './map'
 import { pointInRegion } from './hull'
 import { measure, TITLE } from './text'
 import { outwardEdgePoint, routeLink } from './links'
-import { layoutDiagram, type Box, type LayoutMode, type LayoutOptions } from './layout'
+import { layoutDiagram, type Box, type LayoutMode } from './layout'
 import { toMap } from '../model/hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM } from '../model/example'
 import { freeCell, removeHexagon, SIDE_ORDER } from '../model/map'
 import { MapSchema, VERSION, type Diagram, type HexaMap, type Hexagon, type Wall } from '../model/schema'
-import { twoHexagonMap } from '../test/fixtures'
+import { fitTo } from '../ui/viewport'
+import { manyHexagonMap, twoHexagonMap } from '../test/fixtures'
 
 const CORPUS: Array<[string, Diagram]> = [
   ['the seeded example', EXAMPLE_DIAGRAM],
@@ -525,9 +526,9 @@ const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8]
 const SIZES = [2, 5, 12, 30]
 
 describe('layoutMap — full no-overlap property (CANVAS-01.2–01.4)', () => {
-  it('has no `focus` parameter — position never depends on which hexagon is current', () => {
-    expectTypeOf<LayoutOptions>().not.toHaveProperty('focus')
-    expectTypeOf(layoutMap).parameter(1).toEqualTypeOf<LayoutOptions | undefined>()
+  it('has no `focus` parameter — the current hexagon only decides which hexagons compact, never where a cell sits', () => {
+    expectTypeOf<MapLayoutOptions>().not.toHaveProperty('focus')
+    expectTypeOf(layoutMap).parameter(1).toEqualTypeOf<MapLayoutOptions | undefined>()
   })
 
   it('is a pure function of (map, options): the same map lays out identically on repeated calls, regardless of anything focus-shaped', () => {
@@ -709,3 +710,109 @@ describe('layoutMap — the chip edge fallback', () => {
   })
 })
 
+
+describe('layoutMap — compact neighbours from COMPACT_FROM hexagons up', () => {
+  const STAGE = { width: 1100, height: 820 }
+  const fitScale = (map: HexaMap, current?: string) => fitTo(layoutMap(map, { current }).bounds, STAGE.width, STAGE.height, undefined, 0).scale
+
+  it('starts at four hexagons', () => {
+    expect(COMPACT_FROM).toBe(4)
+  })
+
+  it('lays out every hexagon in full below the threshold, whichever is current', () => {
+    const map = manyHexagonMap(COMPACT_FROM - 1)
+    const result = layoutMap(map, { current: 'h2' })
+    expect(result.hexagons.every((h) => h.compact === undefined)).toBe(true)
+    expect(result).toStrictEqual(layoutMap(map))
+  })
+
+  it('keeps the current hexagon full and compacts every other one from the threshold', () => {
+    const result = layoutMap(manyHexagonMap(COMPACT_FROM), { current: 'h3' })
+    const current = result.hexagons.find((h) => h.id === 'h3')!
+    expect(current.compact).toBeUndefined()
+    for (const other of result.hexagons.filter((h) => h.id !== 'h3')) {
+      expect(other.compact).toMatchObject({ elements: 16, label: 'Slice 1'.replace(/\d$/, other.id.slice(1)) })
+      expect(hexagonBounds(other).width).toBeLessThan(hexagonBounds(current).width)
+      expect(hexagonBounds(other).height).toBeLessThan(hexagonBounds(current).height)
+    }
+  })
+
+  it('shortens a title that does not fit the silhouette, ending it with an ellipsis', () => {
+    const map = manyHexagonMap(COMPACT_FROM)
+    map.hexagons[0].title = 'An extraordinarily long bounded context title'
+    const compact = layoutMap(map, { current: 'h2' }).hexagons[0].compact!
+    expect(compact.label.endsWith('…')).toBe(true)
+    expect(compact.label.length).toBeLessThan(map.hexagons[0].title.length)
+  })
+
+  it('never overlaps a compact hexagon with the full one or with another compact one, and keeps MAP_GAP between adjacent boxes', () => {
+    const result = layoutMap(manyHexagonMap(12), { current: 'h6' })
+    const boxes = result.hexagons.map((h) => ({ h, box: hexagonBounds(h) }))
+    for (const a of boxes) {
+      for (const b of boxes) {
+        if (a.h.id >= b.h.id) continue
+        const apartX = Math.max(a.box.x - (b.box.x + b.box.width), b.box.x - (a.box.x + a.box.width))
+        const apartY = Math.max(a.box.y - (b.box.y + b.box.height), b.box.y - (a.box.y + a.box.height))
+        expect(Math.max(apartX, apartY), `${a.h.id} vs ${b.h.id}`).toBeGreaterThanOrEqual(MAP_GAP)
+      }
+    }
+  })
+
+  it('sizes the lattice from the current hexagon and the compact footprint, not from two full hexagons', () => {
+    const map = manyHexagonMap(12)
+    const compact = layoutMap(map, { current: 'h6' })
+    const full = layoutMap(map)
+    expect(compact.pitch.x).toBeLessThan(full.pitch.x)
+    expect(compact.pitch.y).toBeLessThan(full.pitch.y)
+  })
+
+  it('re-lays out when another hexagon becomes current', () => {
+    const map = manyHexagonMap(6)
+    map.hexagons[1].externals.push({ id: 'ext-wide', name: 'A Very Long External System Name That Extends Far To The Right'.repeat(4) })
+    const first = layoutMap(map, { current: 'h1' })
+    const second = layoutMap(map, { current: 'h2' })
+    expect(first.hexagons[1].compact).toBeDefined()
+    expect(second.hexagons[1].compact).toBeUndefined()
+    expect(second.hexagons[0].compact).toBeDefined()
+    expect(second.pitch).not.toStrictEqual(first.pitch)
+  })
+
+  it('fits a 12-hexagon map at a larger scale than the same map with every hexagon full', () => {
+    const map = manyHexagonMap(12)
+    const before = fitScale(map)
+    const after = fitScale(map, 'h6')
+    console.info(`fit scale on 12 hexagons: ${before.toFixed(4)} full -> ${after.toFixed(4)} compact`)
+    expect(after).toBeGreaterThan(before * 1.3)
+  })
+
+  it('grows the compact title until it stays readable at the whole-map fit, without outgrowing the current hexagon', () => {
+    const result = layoutMap(manyHexagonMap(12), { current: 'h6' })
+    const scale = fitTo(result.bounds, STAGE.width, STAGE.height, undefined, 0).scale
+    const compact = result.hexagons.find((h) => h.compact)!
+    expect(compact.compact!.size * scale).toBeGreaterThanOrEqual(8)
+    expect(hexagonBounds(compact).height).toBeLessThan(hexagonBounds(result.hexagons.find((h) => h.id === 'h6')!).height / 2)
+  })
+
+  it('ends a link on a compact hexagon at the midpoint of one of its walls', () => {
+    const result = layoutMap(manyHexagonMap(6), { current: 'h4' })
+    const link = result.links[0]
+    for (const [end, id] of [[link.points[0], 'h1'], [link.points.at(-1)!, 'h2']] as const) {
+      const hex = result.hexagons.find((h) => h.id === id)!
+      const apothem = (hexagonBounds(hex).height / 2) * (Math.sqrt(3) / 2)
+      expect(Math.hypot(end.x - hex.centre.x, end.y - hex.centre.y)).toBeCloseTo(apothem, 6)
+    }
+  })
+
+  it('keeps every context chip out of every hexagon box, including the full current one', () => {
+    for (const current of ['h1', 'h6', 'h12']) {
+      const result = layoutMap(manyHexagonMap(12), { current })
+      for (const c of result.contexts) {
+        for (const h of result.hexagons) {
+          const box = hexagonBounds(h)
+          const inside = c.chip.x > box.x && c.chip.x < box.x + box.width && c.chip.y > box.y && c.chip.y < box.y + box.height
+          expect(inside, `chip ${c.id} inside ${h.id} with ${current} current`).toBe(false)
+        }
+      }
+    }
+  })
+})

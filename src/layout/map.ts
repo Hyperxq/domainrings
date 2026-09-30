@@ -1,7 +1,7 @@
 import { contextName, diagramOf, neighbour, occupiedContexts, UNTITLED_HEXAGON } from '../model/map'
-import type { HexaMap, Link, Wall } from '../model/schema'
+import type { HexaMap, Hexagon, Link, Wall } from '../model/schema'
 import { contextRegions, pointInRegion } from './hull'
-import { layoutDiagram, type Box, type LayoutModel, type LayoutNode, type LayoutOptions, type LayoutText, type NodeKind, type Point } from './layout'
+import { layoutDiagram, wallFrame, type Box, type LayoutModel, type LayoutNode, type LayoutOptions, type LayoutText, type NodeKind, type Point } from './layout'
 import { GAP_MARGIN, outwardEdgePoint, routeLink, type LinkLabel } from './links'
 import { CHIP_LABEL, measure, TITLE } from './text'
 
@@ -10,13 +10,32 @@ import { CHIP_LABEL, measure, TITLE } from './text'
  * wording. */
 const AVOIDED_KINDS: ReadonlySet<NodeKind> = new Set(['port', 'adapter', 'actor', 'external', 'useCase', 'domainItem'])
 
+/** A non-current hexagon drawn as its silhouette alone: a regular pointy-top hexagon of `radius` about its centre. */
+export interface CompactLayout {
+  radius: number
+  /** The title's font size; the element count is drawn a little smaller. Grows with `radius` so the title stays
+   * readable when the whole map is fitted. */
+  size: number
+  /** Every domain item, use case, port, adapter, actor and external the hexagon holds. */
+  elements: number
+  /** The hexagon's title, shortened with an ellipsis to fit inside the silhouette. */
+  label: string
+}
+
 export interface MapHexagonLayout {
   id: string
   contextId: string
   cell: { q: number; r: number }
   /** Offset applied to every point of `model` to place it on the map; `model` itself stays untranslated. */
   centre: Point
+  /** The full layout — for a compact hexagon it only supplies the walls its links leave through. */
   model: LayoutModel
+  compact?: CompactLayout
+}
+
+export interface MapLayoutOptions extends LayoutOptions {
+  /** The hexagon kept in full; without it (or below `COMPACT_FROM` hexagons) every hexagon is laid out in full. */
+  current?: string
 }
 
 export interface MapLinkLayout {
@@ -56,6 +75,15 @@ export interface MapLayout {
   contexts: MapContextLayout[]
 }
 
+/** From this many hexagons up, every hexagon but the current one renders compact. */
+export const COMPACT_FROM = 4
+/** A compact hexagon's silhouette radius and title size at unit scale; both grow together so a title always fits. */
+const COMPACT_RADIUS = 78
+const COMPACT_TITLE = { size: 14, em: 0.6 } as const
+/** Room kept clear of the silhouette's edge on each side of a compact title. */
+const COMPACT_TITLE_PAD = 14
+const ELLIPSIS = '…'
+
 /** Gap kept between two adjacent hexagons' outer edges, on top of their content width. */
 export const MAP_GAP = 60
 const MAP_TITLE_GAP = 16
@@ -76,11 +104,13 @@ const CHIP_FLOOR_PX = 10
  * scale the chip floor is judged at, since the layout cannot know the real viewport. */
 const REFERENCE_STAGE = { width: 1100, height: 820 }
 
-/** Above the region's highest vertex (min y, then min x) whose spot is clear of every context's region — the
- * plain topmost vertex can sit under a neighbouring context's tiles. When every such spot is taken, the highest
- * boundary-edge midpoint pushed off the region into clear space; the topmost vertex only if nothing is clear. */
-function chipAnchor(loops: Point[][], all: Point[][][]): Point {
-  const clear = (p: Point) => !all.some((region) => pointInRegion(p, region))
+/** Above the region's highest vertex (min y, then min x) whose spot is clear of every context's region and every
+ * hexagon's box — the plain topmost vertex can sit under a neighbouring context's tiles, and the full current
+ * hexagon can reach past its own tile. When every such spot is taken, the highest boundary-edge midpoint pushed off
+ * the region into clear space; the topmost vertex only if nothing is clear. */
+function chipAnchor(loops: Point[][], all: Point[][][], hexagons: Box[]): Point {
+  const inBox = (p: Point, b: Box) => p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y - CHIP_GAP && p.y <= b.y + b.height
+  const clear = (p: Point) => !all.some((region) => pointInRegion(p, region)) && !hexagons.some((b) => inBox(p, b))
   const byHeight = (a: Point, b: Point) => a.y - b.y || a.x - b.x
   const vertices = loops.flat().sort(byHeight)
   const above = vertices.map((v): Point => ({ x: v.x, y: v.y - CHIP_GAP })).find(clear)
@@ -115,12 +145,28 @@ function unionBox(boxes: Box[]): Box {
   return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
 }
 
-/** A hexagon's own (untranslated) bounds, shifted onto the map by its `centre` (ADR-04). */
-export const hexagonBounds = (hex: Pick<MapHexagonLayout, 'model' | 'centre'>): Box => ({
-  x: hex.model.bounds.x + hex.centre.x,
-  y: hex.model.bounds.y + hex.centre.y,
-  width: hex.model.bounds.width,
-  height: hex.model.bounds.height,
+const compactBounds = (radius: number): Box => ({ x: (-radius * Math.sqrt(3)) / 2, y: -radius, width: radius * Math.sqrt(3), height: radius * 2 })
+
+/** A hexagon's own (untranslated) bounds — its silhouette when compact — shifted onto the map by its `centre` (ADR-04). */
+export const hexagonBounds = (hex: Pick<MapHexagonLayout, 'model' | 'centre' | 'compact'>): Box => {
+  const own = hex.compact ? compactBounds(hex.compact.radius) : hex.model.bounds
+  return { x: own.x + hex.centre.x, y: own.y + hex.centre.y, width: own.width, height: own.height }
+}
+
+/** `title` cut to fit the widest part of a compact silhouette, ending in an ellipsis when it had to be shortened. */
+function compactLabel(title: string): string {
+  const room = COMPACT_RADIUS * Math.sqrt(3) - 2 * COMPACT_TITLE_PAD
+  if (measure(title, COMPACT_TITLE) <= room) return title
+  let label = title
+  while (label.length > 1 && measure(label + ELLIPSIS, COMPACT_TITLE) > room) label = label.slice(0, -1).trimEnd()
+  return label + ELLIPSIS
+}
+
+const compactOf = (hexagon: Hexagon, unit: number): CompactLayout => ({
+  radius: COMPACT_RADIUS * unit,
+  size: COMPACT_TITLE.size * unit,
+  elements: hexagon.domain.length + hexagon.useCases.length + hexagon.ports.length + hexagon.adapters.length + hexagon.actors.length + hexagon.externals.length,
+  label: compactLabel(hexagon.title || UNTITLED_HEXAGON),
 })
 
 /** Where a grow "+" toward `side` sits: the midpoint to the neighbouring cell, pushed along that line until a button
@@ -171,6 +217,12 @@ function translatedNodeBox(node: LayoutNode, centre: Point): Box {
  * around (REQ-LNK-05.1) — never the node the anchor itself sits on. */
 function routeEnd(hexagon: MapHexagonLayout, portId: string, adapterId?: string) {
   const port = portNode(hexagon.model, portId)
+  if (hexagon.compact) {
+    // A compact hexagon draws neither ports nor adapters: the link ends at the midpoint of the wall its port sits on.
+    const { n } = wallFrame(port.wall!)
+    const apothem = (hexagon.compact.radius * Math.sqrt(3)) / 2
+    return { point: { x: hexagon.centre.x + n.x * apothem, y: hexagon.centre.y + n.y * apothem }, wall: port.wall!, box: hexagonBounds(hexagon), clear: [] }
+  }
   const anchorNode = adapterId ? adapterNode(hexagon.model, adapterId) : port
   const point = adapterId ? outwardEdgePoint(translatedNodeBox(anchorNode, hexagon.centre), port.wall!) : { x: port.x + hexagon.centre.x, y: port.y + hexagon.centre.y }
   const clear = hexagon.model.nodes.filter((n) => AVOIDED_KINDS.has(n.kind) && n !== anchorNode).map((n) => translatedNodeBox(n, hexagon.centre))
@@ -221,25 +273,58 @@ export function cellCentre(cell: { q: number; r: number }, pitch: Point): Point 
  * external) while another's reaches unusually far left (e.g. a long-named actor): two cells one axial step apart
  * are then guaranteed at least `MAP_GAP` apart, for any N (ADR-01).
  */
-export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout {
-  const perHexagon = map.hexagons.map((hexagon) => ({ hexagon, model: layoutDiagram(diagramOf(map, hexagon.id), options) }))
+export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayout {
+  const compacting = options.current !== undefined && map.hexagons.length >= COMPACT_FROM
+  const perHexagon = map.hexagons.map((hexagon) => ({
+    hexagon,
+    model: layoutDiagram(diagramOf(map, hexagon.id), options),
+    compact: compacting && hexagon.id !== options.current,
+  }))
 
-  const left = Math.max(...perHexagon.map(({ model }) => -model.bounds.x))
-  const right = Math.max(...perHexagon.map(({ model }) => model.bounds.x + model.bounds.width))
-  const top = Math.max(...perHexagon.map(({ model }) => -model.bounds.y))
-  const bottom = Math.max(...perHexagon.map(({ model }) => model.bounds.y + model.bounds.height))
-  // Each axis keeps its box-derived minimum (no overlap), then the shorter one grows to the regular √3/2 ratio:
-  // hull tiles only trace regular hexagons on a regular lattice.
-  const boxX = left + right + MAP_GAP
-  const boxY = top + bottom + MAP_GAP
-  const pitch: Point = { x: Math.max(boxX, (boxY * 2) / Math.sqrt(3)), y: Math.max(boxY, (boxX * Math.sqrt(3)) / 2) }
+  // The lattice and the hexagons' union for compact hexagons drawn at `unit` scale.
+  const place = (unit: number) => {
+    const owns = perHexagon.map(({ model, compact }) => (compact ? compactBounds(COMPACT_RADIUS * unit) : model.bounds))
+    // Every pair of hexagons that can sit in adjacent cells must clear each other by MAP_GAP on the pitch's axis. With
+    // compact neighbours only one hexagon is full, so the full-full pair never occurs and the pitch shrinks to the
+    // current hexagon's reach plus a compact one's.
+    const extents = perHexagon.map(({ compact }, i) => ({ compact, left: -owns[i].x, right: owns[i].x + owns[i].width, top: -owns[i].y, bottom: owns[i].y + owns[i].height }))
+    const full = extents.filter((e) => !e.compact)
+    const small = extents.filter((e) => e.compact)
+    const pairs = compacting ? [[full, small], [small, full], [small, small]] : [[extents, extents]]
+    const span = (head: 'right' | 'bottom', tail: 'left' | 'top') =>
+      Math.max(...pairs.map(([a, b]) => Math.max(...a.map((e) => e[head])) + Math.max(...b.map((e) => e[tail])))) + MAP_GAP
+    // Each axis keeps its box-derived minimum (no overlap), then the shorter one grows to the regular √3/2 ratio:
+    // hull tiles only trace regular hexagons on a regular lattice.
+    const boxX = span('right', 'left')
+    const boxY = span('bottom', 'top')
+    const pitch: Point = { x: Math.max(boxX, (boxY * 2) / Math.sqrt(3)), y: Math.max(boxY, (boxX * Math.sqrt(3)) / 2) }
+    const bounds = unionBox(
+      perHexagon.map(({ hexagon }, i) => {
+        const centre = cellCentre(hexagon.cell, pitch)
+        return { ...owns[i], x: owns[i].x + centre.x, y: owns[i].y + centre.y }
+      }),
+    )
+    return { pitch, bounds }
+  }
+  // Like the chips below: grown until the compact title reads at the whole-map fit, over a few passes since growing
+  // it grows the map and so lowers the fit scale it is sized against.
+  let unit = 1
+  if (compacting) {
+    for (let pass = 0; pass < 4; pass++) {
+      const { bounds } = place(unit)
+      const scale = Math.min(REFERENCE_STAGE.width / bounds.width, REFERENCE_STAGE.height / bounds.height)
+      unit = Math.max(1, CHIP_FLOOR_PX / (COMPACT_TITLE.size * scale))
+    }
+  }
+  const { pitch } = place(unit)
 
-  const hexagons: MapHexagonLayout[] = perHexagon.map(({ hexagon, model }) => ({
+  const hexagons: MapHexagonLayout[] = perHexagon.map(({ hexagon, model, compact }) => ({
     id: hexagon.id,
     contextId: hexagon.contextId,
     cell: hexagon.cell,
     centre: cellCentre(hexagon.cell, pitch),
     model,
+    ...(compact ? { compact: compactOf(hexagon, unit) } : {}),
   }))
   const hexagonOf = new Map(hexagons.map((h) => [h.id, h]))
   const lanes = laneOffsets(map.links)
@@ -266,7 +351,7 @@ export function layoutMap(map: HexaMap, options: LayoutOptions = {}): MapLayout 
     for (const context of map.contexts) {
       const loops = regions.get(context.id) ?? []
       if (!loops.length) continue // a context declared with no hexagons (schema allows it, the store never creates one) draws nothing
-      const chip = chipAnchor(loops, [...regions.values()])
+      const chip = chipAnchor(loops, [...regions.values()], hexagons.map(hexagonBounds))
       contexts.push({ id: context.id, label: contextName(map, context.id), loops, chip, size: CHIP_LABEL.size })
     }
     const contentBounds = unionBox([bounds, ...contexts.flatMap((c) => c.loops.flat().map((p): Box => ({ x: p.x, y: p.y, width: 0, height: 0 })))])
