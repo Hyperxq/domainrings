@@ -6,7 +6,8 @@ import { minimizeCrossings, neighborLookup, type CrossingGroup } from './crossin
 import type { Box } from './geometry'
 import type { LayoutRing } from './layout'
 import { routeEdgesAroundLabels } from './edgeRouting'
-import { endpointLayout, ringedBounds, ringOutlines, ringSlotRadii, risksLabelAt, type RingedExtraLabel } from './ringed'
+import { endpointLayout } from './endpointRing'
+import { ringedBounds, ringOutlines, ringSlotRadii, risksLabelAt, type RingedExtraLabel } from './ringed'
 import { ringedElementHeight, ringedElementWidth, TITLE_ARC_PAD } from './ringedMetrics'
 import { measure, RING_SUBTITLE } from './text'
 
