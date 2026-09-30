@@ -2,16 +2,12 @@ import { diagramOf, neighbour, UNTITLED_HEXAGON } from '../model/map'
 import type { HexaMap, Link, Wall } from '../model/schema'
 import { canCompact, compactOf, type CompactLayout } from './compactHexagon'
 import { layContexts } from './contextChips'
-import { MAP_GAP } from './gap'
 import { unionBox, type Box, type Point } from './geometry'
 import { layoutDiagram, type LayoutModel, type LayoutOptions, type LayoutText } from './layout'
 import { cellCentre, hexagonBounds, layLattice } from './lattice'
 import { layLinks } from './linkEnds'
 import type { LinkLabel } from './links'
 import { CHIP_LABEL, measure, TITLE } from './text'
-
-export { MAP_GAP }
-export { canCompact, type CompactLayout } from './compactHexagon'
 
 export interface MapHexagonLayout {
   id: string
