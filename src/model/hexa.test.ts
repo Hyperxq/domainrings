@@ -575,3 +575,21 @@ describe('ringed element kinds round-trip through .hexa', () => {
     }
   })
 })
+
+describe('additive optional fields stay on the current version', () => {
+  it('a current-version Onion file with element kinds round-trips through parse and serialize with the kinds intact', () => {
+    const map = { ...newOnionMap('Kinds'), elements: [{ id: 'e1', name: 'Order', ringRole: 'domain' as const, kind: 'aggregate' as const }] }
+    const result = parseHexa(toHexa(map))
+    expect(result).toEqual({ ok: true, map })
+    expect(JSON.parse(toHexa(map)).version).toBe(VERSION)
+  })
+
+  it('the same holds for a Clean file', () => {
+    const map = {
+      ...newCleanMap('Kinds'),
+      sectors: [{ id: 's1', name: 'Web', ringRole: 'adapters' as const }],
+      elements: [{ id: 'e1', name: 'OrderController', sectorId: 's1', kind: 'controller' as const }],
+    }
+    expect(parseHexa(toHexa(map))).toEqual({ ok: true, map })
+  })
+})
