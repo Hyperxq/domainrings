@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { newOnionMap } from './hexa'
+import * as onionRings from './onionRings'
 import * as ringedDocument from './ringedDocument'
 import { ONION_KINDS } from './ringedKinds'
 import { OnionFileSchema, type OnionElement, type OnionEndpoint, type OnionFile } from './schema'
@@ -26,6 +27,16 @@ interface OnionState {
    * both would otherwise leave the document referencing an element that no longer exists. */
   removeElement: (id: string) => void
   setTitle: (title: string) => void
+  /** Renames a ring; its id, and so its elements and kinds, stay put. */
+  renameRing: (role: string, name: string) => void
+  /** Adds a kind-less ring just inside the outermost one and returns its id. */
+  addRing: (name: string) => string
+  /** Removes a middle ring, moving its elements to the next inner ring — undefined ⇒ no-op: the innermost and the
+   * outermost ring stay (and so does the 2-ring minimum). Reports what moved, lost a kind, or lost a dependency. */
+  removeRing: (role: string) => { into: string; moved: number; cleared: number; pruned: number } | undefined
+  /** Swaps a middle ring with its neighbour, pruning the dependencies that now point outward — undefined ⇒ no-op:
+   * the innermost and the outermost ring never move, nor does a ring past them. */
+  moveRing: (role: string, direction: 'in' | 'out') => { pruned: number } | undefined
   /** Creates a dependency from `fromId` to `toId` (ADR-02: validate-by-reparse, same idiom as useMapStore's
    * addLink) — undefined ⇒ no-op: the pair would point to a more outward ring (REQ-04). */
   addDependency: (fromId: string, toId: string) => string | undefined
@@ -51,11 +62,31 @@ export const useOnionStore = create<OnionState>()((set, get) => ({
     return id
   },
   updateElement: (id, patch) => {
-    const next = ringedDocument.updateElement<OnionFile, OnionElement>(get().map, id, patch, OnionFileSchema, (doc, elementId) => ONION_KINDS[doc.elements.find((e) => e.id === elementId)?.ringRole ?? ''])
+    const next = ringedDocument.updateElement<OnionFile, OnionElement>(get().map, id, patch, OnionFileSchema, (doc, elementId) => ONION_KINDS[doc.elements.find((e) => e.id === elementId)?.ringRole ?? ''] ?? [])
     if (!next) return
     set({ map: next })
   },
   setTitle: (title) => set((s) => ({ map: { ...s.map, title } })),
+  renameRing: (role, name) => set((s) => ({ map: onionRings.renameRing(s.map, role, name) })),
+  addRing: (name) => {
+    const role = `ring-${crypto.randomUUID().slice(0, 8)}`
+    set((s) => ({ map: onionRings.addRing(s.map, role, name) }))
+    return role
+  },
+  removeRing: (role) => {
+    const result = onionRings.removeRing(get().map, role)
+    if (!result) return undefined
+    const { doc, ...report } = result
+    set({ map: doc })
+    return report
+  },
+  moveRing: (role, direction) => {
+    const result = onionRings.moveRing(get().map, role, direction)
+    if (!result) return undefined
+    const { doc, ...report } = result
+    set({ map: doc })
+    return report
+  },
   removeElement: (id) => set({ map: ringedDocument.removeElement(get().map, id) }),
   addDependency: (fromId, toId) => {
     const result = ringedDocument.addDependency(get().map, fromId, toId, () => `dependency-${crypto.randomUUID().slice(0, 8)}`, OnionFileSchema)
