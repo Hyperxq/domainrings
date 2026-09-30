@@ -203,10 +203,12 @@ export interface LinkLabel {
 
 /**
  * Deterministic channel route between two ports (ADR-01, refined) — a pure function of the two endpoints (plus
- * the caller-supplied `laneOffset`, itself derived only from links sharing this same gap — `layout/map.ts`'s own
- * concern, never inspected here); without a `scene` it never inspects any hexagon but the two endpoints, so it is
- * O(1) per link regardless of map size (REQ-LNK-05.2). Crosses via the midline of the gap the two hexagons' own boxes are
- * guaranteed to have between them (`layout/map.ts` never places two boxes closer than `MAP_GAP`), reached from
+ * the caller-supplied `laneOffset` and `scene`, itself derived only from links sharing this same gap — `layout/map.ts`'s own
+ * concern, never inspected here); it never inspects any hexagon but the two endpoints, so the direct route is O(1)
+ * per link regardless of map size (REQ-LNK-05.2). With a `scene` of H third hexagons and C chips, checking that
+ * direct route against them costs O(H + C), and only a blocked route pays for a detour: a search bounded by the
+ * (2(H + C) + 4)² crossings of the lines it runs along, each expanded against the H + C + 2 boxes. Crosses via
+ * the midline of the gap the two hexagons' own boxes are guaranteed to have between them (`layout/map.ts` never places two boxes closer than `MAP_GAP`), reached from
  * each port via `exitPoints` — a bounded exit stub, plus a corner detour when the port's own wall faces away from
  * the gap — so the guarantee holds regardless of which wall either port sits on (REQ-LNK-05.1).
  *
