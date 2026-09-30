@@ -150,16 +150,20 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     const pending = pendingField.current
     pendingField.current = null
     if (!pending || sameDoc(pending.before.map, after)) return
-    record(pending.before)
+    pushStep(pending.before)
     trustedDoc.current = after
   }
   const beginField = (before: { map: HexaMap; focus: string }, field: Element) => {
     endField()
     pendingField.current = { before, field }
   }
-  // A step with no toast, for edits that never raised one (field sessions, adding an item).
+  // A step with no toast, for edits that never raised one (adding an item); a pending field session ends first.
   const record = (undo: UndoSnapshot) => {
-    endField(undo.map.kind === 'hexagonal' ? (undo.map as HexaMap) : undefined)
+    endField(undo.map.kind === 'hexagonal' ? undo.map : undefined)
+    pushStep(undo)
+  }
+  // The stack push alone: `endField` uses it directly so ending a session can never end one again.
+  const pushStep = (undo: UndoSnapshot) => {
     // A step that doesn't lead back from the document the last one left means an unrecorded edit sits between them.
     const contiguous = !trustedDoc.current || sameDoc(trustedDoc.current, undo.map)
     undoStack.current = [...(contiguous ? undoStack.current : []), undo].slice(-UNDO_LIMIT)
@@ -184,8 +188,14 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     }
     const entry = undoStack.current.pop()
     if (!entry) return
+    const live = pendingField.current
     pendingField.current = null
     restoreUndo(entry)
+    // A field still focused keeps recording: its next edit starts a session from the restored document.
+    if (live?.field.isConnected && document.activeElement === live.field) {
+      const { map, focus } = useMapStore.getState()
+      pendingField.current = { before: { map, focus }, field: live.field }
+    }
     recordedStep.current = true
     // The restored document's own kind IS the view to bring back (REQ-09) — a same-kind edit's undo
     // just re-sets the kind already on screen, a no-op render.
@@ -590,7 +600,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
             onToggle={() => setEditorOpen(!editorOpen)}
             onPrune={pruneToast}
             onRecord={record}
-            onField={{ begin: beginField, end: () => endField() }}
+            fieldSession={{ begin: beginField, end: () => endField() }}
             onAddHexagon={() => completeGrow(undefined, 'same')}
             onDeleteHexagon={handleDelete}
             onMoveToContext={handleMoveToContext}

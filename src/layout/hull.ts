@@ -92,3 +92,59 @@ export function pointInRegion(point: Point, loops: readonly Point[][]): boolean 
   }
   return inside
 }
+
+function convexHull(points: readonly Point[]): Point[] {
+  const cross = (o: Point, a: Point, b: Point) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+  const chain = (sorted: Point[]) => {
+    const half: Point[] = []
+    for (const p of sorted) {
+      while (half.length >= 2 && cross(half[half.length - 2], half[half.length - 1], p) <= 0) half.pop()
+      half.push(p)
+    }
+    return half.slice(0, -1)
+  }
+  const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y)
+  return [...chain(sorted), ...chain([...sorted].reverse())]
+}
+
+/** Whether two convex polygons overlap (separating-axis test over both sets of edge normals). */
+function convexOverlap(a: readonly Point[], b: readonly Point[]): boolean {
+  const separated = (from: readonly Point[]) =>
+    from.some((p, i) => {
+      const q = from[(i + 1) % from.length]
+      const [nx, ny] = [q.y - p.y, p.x - q.x]
+      const range = (poly: readonly Point[]) => poly.map((v) => nx * v.x + ny * v.y)
+      return Math.max(...range(a)) < Math.min(...range(b)) || Math.max(...range(b)) < Math.min(...range(a))
+    })
+  return !separated(a) && !separated(b)
+}
+
+/** `items` grouped into runs of lattice-adjacent cells. */
+function adjacentGroups<T extends { cell: Cell }>(items: readonly T[]): T[][] {
+  let groups: T[][] = []
+  for (const item of items) {
+    const touching = groups.filter((group) => group.some((m) => EDGE_WALL.some((wall) => cellKey(neighbour(m.cell, wall)) === cellKey(item.cell))))
+    groups = [...groups.filter((group) => !touching.includes(group)), [item, ...touching.flat()]]
+  }
+  return groups
+}
+
+/**
+ * Per-context boundary loops hugging each hexagon's own `outline` rather than its lattice tile, for a map whose
+ * hexagons no longer sit on the lattice. A run of adjacent same-context hexagons shares one convex loop, unless
+ * that loop would reach another context's hexagon — then each keeps its own; outlines of different hexagons
+ * never overlap, so the loops never punch holes in each other under an evenodd fill.
+ */
+export function footprintRegions(hexagons: readonly { cell: Cell; contextId: string; outline: Point[] }[]): Map<string, Point[][]> {
+  const result = new Map<string, Point[][]>()
+  for (const contextId of new Set(hexagons.map((h) => h.contextId))) {
+    const foreign = hexagons.filter((h) => h.contextId !== contextId)
+    const loops = adjacentGroups(hexagons.filter((h) => h.contextId === contextId)).flatMap((group) => {
+      const hull = convexHull(group.flatMap((h) => h.outline))
+      const reachesForeign = foreign.some((f) => convexOverlap(hull, convexHull(f.outline)))
+      return reachesForeign ? group.map((h) => convexHull(h.outline)) : [hull]
+    })
+    result.set(contextId, loops)
+  }
+  return result
+}

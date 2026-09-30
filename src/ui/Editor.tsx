@@ -39,12 +39,12 @@ interface FieldSession {
   end: () => void
 }
 
-const sessionOf = (field: FieldSession) => ({
+const sessionOf = (fieldSession: FieldSession) => ({
   onFocus: (e: FocusEvent<HTMLElement>) => {
     const { map, focus } = useMapStore.getState()
-    field.begin({ map, focus }, e.currentTarget)
+    fieldSession.begin({ map, focus }, e.currentTarget)
   },
-  onBlur: field.end,
+  onBlur: fieldSession.end,
 })
 
 const WALL_LABEL: Record<Wall, string> = { nw: 'North-west', w: 'West', sw: 'South-west', ne: 'North-east', e: 'East', se: 'South-east' }
@@ -177,7 +177,7 @@ interface SectionProps<K extends CollectionKey> {
   map: HexaMap
   onPrune: OnPrune
   onRecord: OnRecord
-  field: FieldSession
+  fieldSession: FieldSession
   collection: K
   items: Item<K>[]
   title: string
@@ -190,8 +190,8 @@ interface SectionProps<K extends CollectionKey> {
   groups?: { key: string; title: string; items: Item<K>[] }[]
 }
 
-function Section<K extends CollectionKey>({ hexId, map, onPrune, onRecord, field, collection, items, title, noun, empty, fields, actions, groups }: SectionProps<K>) {
-  const session = sessionOf(field)
+function Section<K extends CollectionKey>({ hexId, map, onPrune, onRecord, fieldSession, collection, items, title, noun, empty, fields, actions, groups }: SectionProps<K>) {
+  const session = sessionOf(fieldSession)
   const before = { map, focus: hexId }
   // A discrete edit is its own step: the prune toast when it broke links, a silent step otherwise.
   const report = (pruned: Link[]) => (pruned.length ? onPrune(pruned, before) : onRecord(before))
@@ -389,7 +389,7 @@ export function Editor({
   onToggle,
   onPrune,
   onRecord,
-  onField,
+  fieldSession,
   onAddHexagon,
   onDeleteHexagon,
   onMoveToContext,
@@ -404,7 +404,7 @@ export function Editor({
   onToggle: () => void
   onPrune: OnPrune
   onRecord: OnRecord
-  onField: FieldSession
+  fieldSession: FieldSession
   onAddHexagon: () => void
   onDeleteHexagon: () => void
   /** Moves the current hexagon into the given context, or a new one when `undefined`. */
@@ -444,7 +444,7 @@ export function Editor({
   // Keyed by contextId, so renaming two contexts in the same session (unlikely, but never concurrent within one
   // input) each keeps its own pre-edit snapshot from focus to blur.
   const contextRenameBefore = useRef(new Map<string, HexaMap>())
-  const session = sessionOf(onField)
+  const session = sessionOf(fieldSession)
 
   return (
     <aside className={`island editor${open ? '' : ' is-collapsed'}`} aria-label="Diagram editor">
@@ -599,7 +599,7 @@ export function Editor({
           map={map}
           onPrune={onPrune}
           onRecord={onRecord}
-          field={onField}
+          fieldSession={fieldSession}
           collection="domain"
           items={d.domain}
           title="Domain"
@@ -623,7 +623,7 @@ export function Editor({
           map={map}
           onPrune={onPrune}
           onRecord={onRecord}
-          field={onField}
+          fieldSession={fieldSession}
           collection="useCases"
           items={d.useCases}
           title="Use cases"
@@ -645,7 +645,7 @@ export function Editor({
           map={map}
           onPrune={onPrune}
           onRecord={onRecord}
-          field={onField}
+          fieldSession={fieldSession}
           collection="ports"
           items={d.ports}
           title="Ports"
@@ -694,7 +694,7 @@ export function Editor({
           map={map}
           onPrune={onPrune}
           onRecord={onRecord}
-          field={onField}
+          fieldSession={fieldSession}
           collection="adapters"
           items={d.adapters}
           title="Adapters"
@@ -710,7 +710,7 @@ export function Editor({
           map={map}
           onPrune={onPrune}
           onRecord={onRecord}
-          field={onField}
+          fieldSession={fieldSession}
           collection="actors"
           items={d.actors}
           title="Actors"
@@ -726,7 +726,7 @@ export function Editor({
           map={map}
           onPrune={onPrune}
           onRecord={onRecord}
-          field={onField}
+          fieldSession={fieldSession}
           collection="externals"
           items={d.externals}
           title="External systems"

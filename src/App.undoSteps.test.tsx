@@ -100,6 +100,41 @@ describe('Hexagonal editor field sessions', () => {
     expect(doc()).toBe(toHexa(toMap(EXAMPLE_DIAGRAM)))
   })
 
+  it('keeps recording a field that is still focused when an Undo lands', () => {
+    const { container } = render(<App />)
+    recordOlderStep(container)
+    expandEditor()
+    const title = screen.getByLabelText('Map title') as HTMLInputElement
+    title.focus()
+    undoKey()
+    const afterUndo = doc()
+
+    fireEvent.change(title, { target: { value: 'Kept' } })
+    title.blur()
+    expect(doc()).not.toBe(afterUndo)
+    undoKey()
+
+    expect(toast()?.textContent ?? '').not.toContain("Undo isn't available")
+    expect(doc()).toBe(afterUndo)
+  })
+
+  it('does not re-arm a field that was blurred before the Undo', () => {
+    const { container } = render(<App />)
+    const older = recordOlderStep(container)
+    expandEditor()
+    const title = screen.getByLabelText('Map title') as HTMLInputElement
+    title.focus()
+    title.blur()
+    undoKey()
+    expect(doc()).toBe(toHexa(toMap(EXAMPLE_DIAGRAM)))
+    expect(doc()).not.toBe(older)
+
+    title.blur()
+    undoKey()
+    expect(toast()?.textContent ?? '').not.toContain("Undo isn't available")
+    expect(doc()).toBe(toHexa(toMap(EXAMPLE_DIAGRAM)))
+  })
+
   const discrete: [string, () => void][] = [
     ['adding an item', () => fireEvent.click(screen.getByRole('button', { name: 'Add domain item' }))],
     ['adding a port', () => fireEvent.click(screen.getByRole('button', { name: 'Add a driving port' }))],
