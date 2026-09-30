@@ -20,10 +20,8 @@ import { useMapStore } from './model/store'
 import { ArchitectureChoiceDialog, CHOICES } from './ui/ArchitectureChoiceDialog'
 import { Editor } from './ui/Editor'
 import { revealInEditor } from './ui/revealInEditor'
-import { download } from './ui/exporters'
 import { useExport } from './ui/useExport'
 import { useOpenDocument } from './ui/useOpenDocument'
-import { Icon } from './ui/Icon'
 import { Legend } from './ui/Legend'
 import type { PaletteId } from './ui/palette'
 import { readPref, setRootPref, writePref } from './ui/prefs'
@@ -32,6 +30,7 @@ import { useShareLinkOnMount } from './ui/useShareLinkOnMount'
 import { Stage } from './ui/Stage'
 import { typing } from './ui/keys'
 import type { Notice, UndoSnapshot } from './ui/notice'
+import { NoticeColumn } from './ui/NoticeColumn'
 import { Toast } from './ui/Toast'
 import { Toolbar, type ExportScope, type ThemeChoice } from './ui/Toolbar'
 import { CleanEditor } from './ui/CleanEditor'
@@ -44,8 +43,6 @@ const RECOVERY_MESSAGE: Record<'kept' | 'not-kept', string> = {
   kept: "Your last session couldn't be restored, so the example is open. Your saved work is kept in this browser; nothing was deleted.",
   'not-kept': "Your last session couldn't be restored and a copy couldn't be kept, so autosave is off.",
 }
-
-const SAVE_FAILED_MESSAGE = "Your latest changes couldn't be saved in this browser and may be lost if you reload. This notice clears after the next successful save."
 
 /** Only Onion/Clean ever reach this (Hexagonal is excluded before the caller needs it) — genuinely closed to those
  * two labels, not a general-purpose English article rule. */
@@ -627,44 +624,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           onClose={() => setNotice(null)}
         />
       )}
-      {/* One positioned column for both — two independently fixed-position notices could sit at the same spot. */}
-      <div className="notices">
-        {notice?.tone === 'error' && (
-          <section className="island notice notice-error" role="alert">
-            <p>{notice.message}</p>
-            {notice.details && (
-              <ul>
-                {notice.details.map((d) => <li key={d}>{d}</li>)}
-              </ul>
-            )}
-            <div className="notice-actions">
-              <button type="button" className="icon-button small" aria-label="Dismiss" onClick={() => setNotice(null)}>
-                <Icon name="close" />
-              </button>
-            </div>
-          </section>
-        )}
-        {saveFailed && (
-          <section className="island notice" role="status" aria-live="polite">
-            <p>{SAVE_FAILED_MESSAGE}</p>
-          </section>
-        )}
-        {recoveryNotice && (
-          <section className="island notice" role="status" aria-live="polite">
-            <p>{recoveryNotice.message}</p>
-            <div className="notice-actions">
-              {recoveryNotice.download !== undefined && (
-                <button type="button" className="text-button" onClick={() => download(recoveryNotice.download!, 'unreadable-session.hexa', 'application/json')}>
-                  Download saved copy
-                </button>
-              )}
-              <button type="button" className="icon-button small" aria-label="Dismiss" onClick={() => setRecoveryNotice(null)}>
-                <Icon name="close" />
-              </button>
-            </div>
-          </section>
-        )}
-      </div>
+      <NoticeColumn notice={notice} saveFailed={saveFailed} recoveryNotice={recoveryNotice} onDismiss={() => setNotice(null)} onDismissRecovery={() => setRecoveryNotice(null)} />
     </>
   )
 }
