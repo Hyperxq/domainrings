@@ -786,8 +786,17 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
       const items = here
         .map((i) => {
           const f = useCaseFrames[i]
-          const want = sockets.find((s) => s.port.useCaseId === d.useCases[i].id)?.u ?? 0
-          return { i, wall, frame: f, want, along: reach(f.width, f.height, dir), across: reach(f.width, f.height, n) }
+          const own = sockets.find((s) => s.port.useCaseId === d.useCases[i].id)?.u
+          const along = reach(f.width, f.height, dir)
+          // Another use case's run to a socket on this wall passes through any seat level with that socket, at every
+          // ring size, so a seat with no socket of its own here steps past them along the wall.
+          let want = own ?? 0
+          if (own === undefined) {
+            const foreign = sockets.map((s) => s.u).sort((a, b) => a - b)
+            const hit = () => foreign.find((u) => Math.abs(u - want) < along + GAP)
+            for (let u = hit(); u !== undefined; u = hit()) want = u + along + GAP
+          }
+          return { i, wall, frame: f, want, along, across: reach(f.width, f.height, n) }
         })
         .sort((a, b) => a.want - b.want)
       let end = -Infinity

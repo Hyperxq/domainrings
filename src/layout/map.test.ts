@@ -6,7 +6,7 @@ import { outwardEdgePoint, routeLink } from './links'
 import { layoutDiagram, type Box, type LayoutMode } from './layout'
 import { parseHexa, toMap } from '../model/hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM } from '../model/example'
-import { freeCell, freeSides, neighbour, removeHexagon, SIDE_ORDER } from '../model/map'
+import { diagramOf, freeCell, freeSides, neighbour, removeHexagon, SIDE_ORDER } from '../model/map'
 import { MapSchema, VERSION, type Diagram, type HexaMap, type Hexagon, type Wall } from '../model/schema'
 import { fitTo, islandInset } from '../ui/viewport'
 import projectBuilder from '../model/fixtures/project-builder.hexa?raw'
@@ -921,8 +921,16 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
   }
   const distanceToLoops = (box: Box, loops: { x: number; y: number }[][]) =>
     Math.min(...loops.flat().map((p) => Math.hypot(Math.max(box.x - p.x, 0, p.x - (box.x + box.width)), Math.max(box.y - p.y, 0, p.y - (box.y + box.height)))))
-  // layoutDiagram itself lays Authoring out at ~87000x100000 in Detailed, which no map layout can make readable.
-  const currentsIn = (mode: LayoutMode) => map.hexagons.map((h) => h.id).filter((id) => mode === 'overview' || id !== 'h-auth')
+  const currents = map.hexagons.map((h) => h.id)
+
+  it('lays every hexagon out in Detailed within twice the median hexagon, whatever its seated use cases', () => {
+    const sizes = map.hexagons.map((h) => {
+      const { width, height } = layoutDiagram(diagramOf(map, h.id), { mode: 'detailed' }).bounds
+      return { id: h.id, extent: Math.max(width, height) }
+    })
+    const median = sizes.map((s) => s.extent).sort((a, b) => a - b)[Math.floor(sizes.length / 2)]
+    for (const s of sizes) expect(s.extent, s.id).toBeLessThanOrEqual(median * 2)
+  })
 
   it.each(MODES_UNDER_TEST)('fits %s at least twice as large as the full-pitch baseline, with Execution current', (mode) => {
     const scale = fit(mode, 'h-exec')
@@ -930,22 +938,22 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
   })
 
   it.each(MODES_UNDER_TEST)('keeps MAP_GAP between every pair of hexagon boxes in %s, whichever hexagon is current', (mode) => {
-    for (const current of currentsIn(mode)) {
+    for (const current of currents) {
       const boxes = layoutFor(mode, current).hexagons.map((h) => ({ id: h.id, box: hexagonBounds(h) }))
       for (const a of boxes) for (const b of boxes) if (a.id < b.id) expect(overlap(a.box, b.box), `${current}: ${a.id} vs ${b.id}`).toBeGreaterThanOrEqual(MAP_GAP - 1e-6)
     }
   })
 
-  // #22: layoutDiagram itself makes Authoring ~87000x100000 in Detailed. The map layout must still stay finite and overlap-free.
-  it('keeps a finite, overlap-free layout when Authoring, whose Detailed size is runaway, is current', () => {
-    const result = layoutFor('detailed', 'h-auth')
-    expect(Object.values(result.bounds).every(Number.isFinite)).toBe(true)
-    const boxes = result.hexagons.map((h) => ({ id: h.id, box: hexagonBounds(h) }))
-    for (const a of boxes) for (const b of boxes) if (a.id < b.id) expect(overlap(a.box, b.box), `${a.id} vs ${b.id}`).toBeGreaterThanOrEqual(MAP_GAP - 1e-6)
+  it('fits Detailed with any hexagon current at a scale comparable to Execution current', () => {
+    const reference = fit('detailed', 'h-exec')
+    for (const current of currents) {
+      console.log('FIT', current, fit('detailed', current))
+      expect(fit('detailed', current), current).toBeGreaterThanOrEqual(reference * 0.75)
+    }
   })
 
   it.each(MODES_UNDER_TEST)('draws each hull around its own hexagon alone, not around a lattice cell, in %s', (mode) => {
-    for (const current of currentsIn(mode)) {
+    for (const current of currents) {
       const result = layoutFor(mode, current)
       for (const hexagon of result.hexagons) {
         const hull = result.contexts.find((c) => c.id === hexagon.contextId)!
@@ -962,7 +970,7 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
   })
 
   it.each(MODES_UNDER_TEST)('puts every chip beside its own hull and clear of every hexagon in %s', (mode) => {
-    for (const current of currentsIn(mode)) {
+    for (const current of currents) {
       const result = layoutFor(mode, current)
       const boxes = result.hexagons.map(hexagonBounds)
       for (const context of result.contexts) {
@@ -979,7 +987,7 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
   // plain test above them then goes red too, as the cue to turn them into plain `it`s.
   const crossings = (mode: LayoutMode, obstacle: 'hexagon' | 'chip') => {
     let count = 0
-    for (const current of currentsIn(mode)) {
+    for (const current of currents) {
       const result = layoutFor(mode, current)
       const boxes = obstacle === 'chip' ? result.contexts.map((c) => chipBoxOf(c)) : null
       for (const link of map.links) {
@@ -993,7 +1001,7 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
   }
 
   it.each(MODES_UNDER_TEST)('has a route for every link and still crosses hexagons and chips in %s', (mode) => {
-    for (const current of currentsIn(mode)) {
+    for (const current of currents) {
       const ids = layoutFor(mode, current).links.map((l) => l.id)
       expect(ids.sort()).toEqual(map.links.map((l) => l.id).sort())
     }
