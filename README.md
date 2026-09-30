@@ -123,7 +123,7 @@ Hovering a ring or an element, or tabbing to it, brightens that layer and dims t
 
 ### File format
 
-A `.hexa` file is plain JSON, now on version 4 — versions 1 through 3 still open and are upgraded automatically. A Hexagonal file holds a map with one or more bounded contexts and hexagons; a single diagram is a map with one of each. The JSON Schema for this shape lives in `src/model/fixtures/v2.schema.json` (the map shape hasn't changed since v2, only the version number has). A minimal file:
+A `.hexa` file is plain JSON, now on version 5 — versions 1 through 4 still open and are upgraded automatically. A file is saved as version 4 unless it needs 5, which only an Onion whose rings were added, removed or reordered does, so an older build still opens everything else. A Hexagonal file holds a map with one or more bounded contexts and hexagons; a single diagram is a map with one of each. The JSON Schema for this shape lives in `src/model/fixtures/v2.schema.json` (the map shape hasn't changed since v2, only the version number has). A minimal file:
 
 ```json
 {
@@ -156,7 +156,7 @@ A `.hexa` file is plain JSON, now on version 4 — versions 1 through 3 still op
 }
 ```
 
-Ids must be unique, and every reference (`parentId`, `useCaseId`, `portId`, `adapterId`) must point at something that exists; import tells you exactly what is wrong when they do not. Version 1 and 2 files still open, including those marked `"app": "archviz"` from before the project was renamed — and if one carries a Clean or Onion `kind` from the old skin-switcher era, it opens as Hexagonal, since that switcher no longer exists. Version 3 files, saved after native Onion first shipped, keep their own kind (Hexagonal or Onion) as they were. The current version is 5: it lets an Onion file hold any number of rings (two or more, innermost first, each with a `role` id that is one of the four original roles or an id made for a ring you added), and version 4 files still open unchanged.
+Ids must be unique, and every reference (`parentId`, `useCaseId`, `portId`, `adapterId`) must point at something that exists; import tells you exactly what is wrong when they do not. Version 1 and 2 files still open, including those marked `"app": "archviz"` from before the project was renamed — and if one carries a Clean or Onion `kind` from the old skin-switcher era, it opens as Hexagonal, since that switcher no longer exists. Version 3 files, saved after native Onion first shipped, keep their own kind (Hexagonal or Onion) as they were. Version 5 lets an Onion file hold any number of rings: two or more, innermost first, the first with role `domain` and the last `outer`. Each ring's `role` id is one of the four original roles or `ring-` followed by letters, digits, `-` or `_` for a ring you added. Version 4 files still open unchanged.
 
 ### Fonts
 

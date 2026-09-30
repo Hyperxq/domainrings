@@ -3,8 +3,14 @@ import type { z } from 'zod'
 
 export type HexaParseResult = { ok: true; map: StoredFile; v1?: LegacyDiagram } | { ok: false; reason: 'invalid' | 'newer'; errors: string[] }
 
+const CANONICAL_ONION_ROLES = ['domain', 'domainServices', 'application', 'outer']
+
+/** The oldest version that can hold `file`: only an Onion whose rings are no longer the four canonical ones in
+ * canonical order needs the current version, so a rollback or a stale tab still opens everything else. */
+const versionFor = (file: StoredFile) => (file.kind === 'onion' && file.rings.map((r) => r.role).join() !== CANONICAL_ONION_ROLES.join() ? VERSION : 4)
+
 export function toHexa(file: StoredFile): string {
-  return JSON.stringify({ app: APP, ...file }, null, 2)
+  return JSON.stringify({ app: APP, ...file, version: versionFor(file) }, null, 2)
 }
 
 /** Deterministic: a migrated v1 file always becomes context "c1" holding hexagon "h1" at the origin cell. Always

@@ -2075,7 +2075,7 @@ describe('journey', () => {
     // Save and reopen: every link's ends, adapter, and pattern survive exactly (REQ-LNK-08.2, 08.3).
     const beforeSave = useMapStore.getState().map
     const savedText = await saveHexa()
-    expect(JSON.parse(savedText).version).toBe(VERSION)
+    expect(JSON.parse(savedText).version).toBe(4)
 
     await reopen(savedText)
 
@@ -2364,9 +2364,11 @@ describe('link failures leave the map untouched, with a matching notice and a cl
     {
       name: 'newer-version file (embedded)',
       setup: async () => {
-        // Bypasses the HexaMap type on purpose: encodeSharePayload only needs a JSON-serialisable value, and
-        // this is the simplest way to produce a payload parseHexa recognises as a future version.
-        location.hash = `${SHARE_HASH_PREFIX}${await encodeSharePayload({ version: 99 } as unknown as HexaMap)}`
+        // toHexa always writes a version this build knows, so a future-version payload is deflated by hand.
+        const bytes = new TextEncoder().encode(JSON.stringify({ app: 'domainrings', version: 99 }))
+        const stream = new ReadableStream({ start: (c) => (c.enqueue(bytes), c.close()) }).pipeThrough(new CompressionStream('deflate-raw'))
+        const deflated = new Uint8Array(await new Response(stream).arrayBuffer())
+        location.hash = `${SHARE_HASH_PREFIX}${btoa(String.fromCharCode(...deflated)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`
       },
       message: 'This link was made by a newer version of domainrings.',
     },
