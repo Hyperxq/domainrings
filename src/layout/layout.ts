@@ -2,6 +2,7 @@ import { HEXAGONAL_KIND, type RingRole } from '../model/kinds'
 import { defaultWall, type Adapter, type Diagram, type DomainItem, type Endpoint, type Port, type Side, type UseCase, type Wall } from '../model/schema'
 import { dot, hairline, quadsOverlap, reach, rectCorners, type Box, type Point } from './geometry'
 import { layoutBounds } from './hexagon/bounds'
+import { assignLayers, placeNodes } from './hexagon/nodes'
 import { routeEdges } from './hexagon/routes'
 import { COLUMN_GAP, GAP, LANE, OUTSIDE_GAP } from './hexagon/spacing'
 import { SLANTED_WALLS, sectorApothem, VERTEX, WALLS, wallAngle, wallFrame } from './hexagon/walls'
@@ -744,7 +745,6 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   // inner ring (use cases, then the title) is absolute here; titles move up under the top vertex afterwards.
   const outlines: Outline[] = []
   const appIndex = config.rings.findIndex((r) => r.role === 'application')
-  const leafX = (side: Side) => outlines[0].halfWidth + OUTSIDE_GAP + widths[side].leaf / 2
 
   for (let i = last; i >= 0; i--) {
     const role = config.rings[i].role
@@ -866,11 +866,6 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   const domain = outlines[last]
 
   // 5. Nodes and edges.
-  const nodes: LayoutNode[] = []
-  const add = (n: LayoutNode) => (nodes.push(n), n)
-  const place = (key: string, ref: string, kind: NodeKind, tone: Tone, f: Frame, x: number, y: number, side?: Side) =>
-    add({ key, ref, kind, tone, lines: f.lines, side, x, y, width: f.width, height: f.height })
-
   const rings: LayoutRing[] = config.rings.map((spec, i) => ({
     key: `ring:${spec.role}`,
     role: spec.role,
@@ -880,96 +875,27 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     titleBox: { x: -titleWidth(i) / 2, y: -outlines[i].apex + TITLE_DEPTH, width: titleWidth(i), height: titleHeight(i) },
   }))
 
-  const blockTop = -domain.apex + TITLE_DEPTH
-  // Outlines first so they draw under the lines they enclose.
-  for (const r of coreBoxes) {
-    const node = place(r.key, r.ref, r.kind, 'domain', r.frame, r.x, blockTop + domainShift + r.top + r.frame.height / 2)
-    if (r.kind !== 'aggregate') node.align = 'center'
-  }
-  let y = 0
-  y = -(domain.apex + GAP + servicesBlock.height)
-  serviceItems.forEach((item, i) => {
-    const f = serviceFrames[i]
-    place(`domainItem:${item.id}`, item.id, 'domainItem', 'domain', f, 0, y + f.height / 2)
-    y += f.height
+  const compositionFrame = d.composition && !overview ? frame([...styled('mono', d.composition.name), ...noteLines(d.composition.note)], 120) : undefined
+  const nodes = placeNodes({
+    d,
+    app,
+    outer,
+    domain,
+    titleDepth: TITLE_DEPTH,
+    domainShift,
+    centre: { boxes: coreBoxes, serviceItems, serviceFrames, servicesHeight: servicesBlock.height },
+    columns: { planned, widths, portOf },
+    wallBoxes,
+    useCases: { stack, frames: useCaseFrames, stackCentres: useCaseCentres(app, insideApp), seated: seatsAt(app) },
+    portLabels: portLabels(app),
+    compositionFrame,
   })
-  // Use cases hang right under the application title, lowered only where the ring is too narrow for a box or
-  // for its bus corners; the solver guaranteed the stacked position fits, so this never goes below it.
-  const ucCentres = useCaseCentres(app, insideApp)
-  stack.forEach((i, j) => {
-    const u = d.useCases[i]
-    place(`useCase:${u.id}`, u.id, 'useCase', 'teal', useCaseFrames[i], 0, ucCentres[j]).align = 'center'
-  })
-  for (const s of seatsAt(app)) {
-    const u = d.useCases[s.i]
-    Object.assign(place(`useCase:${u.id}`, u.id, 'useCase', 'teal', s.frame, s.x, s.y), { align: 'center', wall: s.wall })
-  }
-
-  // Column items of a hexagon sit on the w or e wall when they belong to a port (unassigned ones have no wall).
-  const endpointAdapter = new Map([...d.actors, ...d.externals].map((e) => [e.id, e.adapterId]))
-  const columnWall = (p: Planned): Wall | undefined => {
-    const adapterId = p.kind === 'adapter' ? p.ref : p.kind === 'port' ? undefined : endpointAdapter.get(p.ref)
-    const linked = p.kind === 'port' || !!(adapterId && portOf(d.adapters.find((a) => a.id === adapterId)!))
-    return linked ? defaultWall(p.side) : undefined
-  }
-  for (const p of planned) {
-    const sign = p.side === 'driving' ? -1 : 1
-    const w = widths[p.side]
-    const edge = halfWidthAt(app, p.y)
-    const x =
-      p.kind === 'port'
-        ? sign * edge
-        : p.kind === 'adapter'
-          ? sign * (edge + w.socketHalf + GAP + w.adapter / 2)
-          : sign * leafX(p.side)
-    const width = p.kind === 'port' ? w.socketHalf * 2 : p.kind === 'adapter' ? w.adapter : w.leaf
-    const tone: Tone = p.kind === 'port' ? 'teal' : p.kind === 'external' ? 'slate' : p.side
-    add({ key: p.key, ref: p.ref, kind: p.kind, tone, lines: p.frame.lines, align: 'center', side: p.side, wall: columnWall(p), x, y: p.y, width, height: p.height })
-  }
-  for (const b of wallBoxes) {
-    const { n, dir } = wallFrame(b.wall)
-    const depth = (b.outer ? outer.halfWidth : app.halfWidth) + b.v
-    const tone: Tone = b.kind === 'port' ? 'teal' : b.kind === 'external' ? 'slate' : b.side
-    add({
-      key: b.key,
-      ref: b.ref,
-      kind: b.kind,
-      tone,
-      lines: b.frame.lines,
-      align: 'center',
-      side: b.side,
-      wall: b.wall,
-      rotation: b.kind === 'port' ? wallAngle(b.wall) : undefined,
-      x: n.x * depth + dir.x * b.u,
-      y: n.y * depth + dir.y * b.u,
-      width: b.width,
-      height: b.height,
-    })
-  }
-  for (const l of portLabels(app)) {
-    add({ key: `portLabel:${l.ref}`, ref: l.ref, kind: 'portLabel', tone: 'teal', lines: l.frame.lines, align: l.align, side: l.side, rotation: l.rotation, x: l.x, y: l.y, width: l.frame.width, height: l.frame.height })
-  }
-
-  if (d.composition && !overview) {
-    const f = frame([...styled('mono', d.composition.name), ...noteLines(d.composition.note)], 120)
-    place('composition', 'composition', 'composition', 'muted', f, 0, outer.apex + GAP + f.height / 2).align = 'center'
-  }
 
   const edges = routeEdges({ d, overview, nodes, edgePlan, app, insideApp, domain, outer, seating: { stack, blockWidth: useCaseBlock.width, laneX, toLane, laneFoot } })
 
   const { texts, bounds } = layoutBounds(d, outer, nodes, edges)
 
-  // Layer membership: use cases in application, ports and adapters in the adapter ring, the domain block in the
-  // domain (onion's services in their own ring), endpoints only where they sit inside the outermost ring.
-  const serviceIds = new Set(serviceItems.map((i) => i.id))
-  const layerOf = (n: LayoutNode): RingRole | undefined => {
-    if (n.kind === 'useCase') return 'application'
-    if (n.kind === 'port' || n.kind === 'portLabel' || n.kind === 'adapter') return 'adapters'
-    if (n.kind === 'actor' || n.kind === 'external') return undefined
-    if (n.kind === 'composition') return undefined
-    return serviceIds.has(n.ref) ? 'domainServices' : 'domain'
-  }
-  for (const n of nodes) n.layer = layerOf(n)
+  assignLayers(nodes, serviceItems)
 
   // Spokes run along the centre-to-vertex lines, from each outer vertex in to the domain's, never over its fill.
   const guides = VERTEX.map((v) => ({ from: { x: v.x * outer.apex, y: v.y * outer.apex }, to: { x: v.x * domain.apex, y: v.y * domain.apex } }))
