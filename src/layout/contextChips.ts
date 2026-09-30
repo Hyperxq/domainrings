@@ -1,5 +1,6 @@
 import { contextName, occupiedContexts } from '../model/map'
 import type { HexaMap } from '../model/schema'
+import { CHIP_FLOOR_PX, CHIP_GAP, CHIP_LINE, REFERENCE_STAGE } from './chipFit'
 import { hexagonBounds } from './compactHexagon'
 import { MAP_GAP } from './gap'
 import { unionBox, type Box, type Point } from './geometry'
@@ -9,19 +10,10 @@ import { CHIP_LABEL, measure } from './text'
 
 /** How far a context's hull stands off the footprints of the hexagons it outlines when the lattice tiles don't. */
 const HULL_PAD = MAP_GAP / 3
-/** Vertical clearance between a region's topmost vertex and its chip. */
-export const CHIP_GAP = 12
-/** A chip's line height over its font size. */
-export const CHIP_LINE = 1.25
 /** How far from its region a chip on a crowded map may sit, nearest first. */
 const CHIP_REACHES = [1, 2, 3, 4, 5, 6, 7].map((k) => k * CHIP_GAP)
 /** How far a chip on a crowded map may slide sideways along its region, as fractions of its text width. */
 const CHIP_SLIDES = [0, -0.25, 0.25, -0.5, 0.5]
-/** The on-screen chip text size a fitted map must not fall below, in px. */
-export const CHIP_FLOOR_PX = 10
-/** The stage area a 1440x900 window leaves for the map once the editor and toolbar islands are reserved — the
- * scale the chip floor is judged at, since the layout cannot know the real viewport. */
-export const REFERENCE_STAGE = { width: 1100, height: 820 }
 
 /** Above the region's highest vertex (min y, then min x) whose spot is clear of every context's region and every
  * hexagon's box — the plain topmost vertex can sit under a neighbouring context's tiles, and the full current

@@ -1,6 +1,6 @@
 import type { Hexagon } from '../model/schema'
+import { CHIP_FLOOR_PX, CHIP_GAP, CHIP_LINE, REFERENCE_STAGE } from './chipFit'
 import { COMPACT_MAX_SHARE, COMPACT_RADIUS, COMPACT_TITLE, compactBounds } from './compactHexagon'
-import { CHIP_FLOOR_PX, CHIP_GAP, CHIP_LINE, REFERENCE_STAGE } from './contextChips'
 import { MAP_GAP } from './gap'
 import { unionBox, type Box, type Point } from './geometry'
 import type { LayoutModel } from './layout'
