@@ -116,6 +116,21 @@ describe('layoutOnion (endpoints, REQ-05)', () => {
     expect(edge).toMatchObject({ fromRef: 'a1', toRef: 'e3' })
   })
 
+  it('a lone actor sits at the angle of the element it targets, whichever element that is', () => {
+    for (const targetId of ['e3', 'e4']) {
+      const model = layoutOnion({ ...withElements(), actors: [{ id: 'a1', name: 'Customer', targetId }] })
+      const target = model.elements.find((e) => e.ref === targetId)!
+      const { x, y } = model.endpoints[0]
+      expect(Math.atan2(y, x)).toBeCloseTo(Math.atan2(target.y, target.x), 5)
+    }
+  })
+
+  it('several endpoints keep their even spread rather than piling onto their targets', () => {
+    const doc: OnionFile = { ...withElements(), actors: [{ id: 'a1', name: 'Customer', targetId: 'e3' }, { id: 'a2', name: 'Admin', targetId: 'e3' }] }
+    const [a, b] = layoutOnion(doc).endpoints
+    expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(Math.hypot(a.x, a.y))
+  })
+
   it('an endpoint with no target draws no edge', () => {
     const doc: OnionFile = { ...withElements(), externals: [{ id: 'x1', name: 'Payments API' }] }
     const model = layoutOnion(doc)
