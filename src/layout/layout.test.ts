@@ -1441,3 +1441,52 @@ describe('layoutDiagram placement rules', () => {
     expect(m.rings.every((r) => r.halfWidth > 0 && r.apex > 0)).toBe(true)
   })
 })
+
+describe('stacked use cases with ports on the upper slanted walls', () => {
+  const base: Diagram = {
+    version: 1,
+    kind: 'hexagonal',
+    title: '',
+    domain: [{ id: 'd', name: 'Order', type: 'entity' }],
+    useCases: [
+      { id: 'u1', name: 'PlaceOrder' },
+      { id: 'u2', name: 'CancelOrder' },
+    ],
+    ports: [
+      { id: 'p1', name: 'place', side: 'driving', wall: 'nw', useCaseId: 'u1' },
+      { id: 'p2', name: 'Notify', side: 'driven', wall: 'ne', useCaseId: 'u2' },
+    ],
+    adapters: [],
+    actors: [],
+    externals: [],
+  }
+  const model = layoutDiagram(base)
+  const runOf = (portId: string) => {
+    const edge = model.edges.find((e) => e.key.includes(`port:${portId}`) && e.key.includes('useCase:'))
+    expect(edge).toBeDefined()
+    return edge!.key.startsWith('port:') ? [...edge!.points].reverse() : edge!.points
+  }
+
+  it.each(['p1', 'p2'])('never doubles back on the run from its use case to %s', (portId) => {
+    const run = runOf(portId)
+    const climbs = run.slice(1).map((p, i) => Math.sign(p.y - run[i].y)).filter(Boolean)
+    expect(new Set(climbs).size).toBeLessThanOrEqual(1)
+  })
+
+  it('keeps the stack in order and spaced as it is without the ports', () => {
+    const gap = (m: LayoutModel) => top(find(m, 'useCase', 'u2')) - bottom(find(m, 'useCase', 'u1'))
+    expect(gap(model)).toBeGreaterThan(0)
+    expect(gap(model)).toBeCloseTo(gap(layoutDiagram({ ...base, ports: [] })), 6)
+  })
+
+  it('leaves the Overview stack where it is without the ports', () => {
+    const centres = (d: Diagram) => ['u1', 'u2'].map((id) => find(layoutDiagram(d, { mode: 'overview' }), 'useCase', id).y)
+    expect(centres(base)).toEqual(centres({ ...base, ports: base.ports.map(({ useCaseId: _, ...p }) => p) }))
+  })
+
+  it('keeps the stack where it would sit without the feet when they lie below the room above the domain', () => {
+    const m = layoutDiagram(STRESS_DIAGRAM)
+    expect(['uc-place', 'uc-cancel'].map((id) => find(m, 'useCase', id).y)).toEqual([expect.closeTo(-1014.4, 1), expect.closeTo(-913.4, 1)])
+    expect(Math.max(m.bounds.width, m.bounds.height)).toBeLessThan(3500)
+  })
+})
