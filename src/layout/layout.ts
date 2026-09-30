@@ -128,8 +128,8 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   const outer = outlines[0]
   const domain = outlines[config.rings.length - 1]
 
-  const nodes = placeNodes({ d, overview, app, insideApp, outer, domain, titles, domainShift, centre, plan, frames, useCaseFrames, seating })
-  const edges = routeEdges({ d, overview, nodes, plan, app, insideApp, domain, outer, seating })
+  const { nodes, composition } = placeNodes({ d, overview, app, insideApp, outer, domain, titles, domainShift, centre, plan, frames, useCaseFrames, seating })
+  const edges = routeEdges({ d, overview, nodes, composition, plan, app, insideApp, domain, outer, seating })
   const { texts, bounds } = layoutBounds(d, outer, nodes, edges)
   assignLayers(nodes, centre.serviceItems)
 
