@@ -818,12 +818,17 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   /**
    * From a use case to its bus lane. A stacked one leaves sideways. A seated one may sit beside the domain, so it
    * first steps (vertically) to just past the domain's top or bottom, in the free band under the stack, then across.
+   * A port lying past that band picks the band on its own side, so the run never turns back; any other keeps to the
+   * use case's side. One already beyond the band crosses at its own row: stepping back to the band would only double back.
    */
-  const toLane = (box: { x: number; y: number; width: number; height: number; seated: boolean }, lane: number, insideApex: number): Point[] => {
+  const toLane = (box: { x: number; y: number; width: number; height: number; seated: boolean }, lane: number, insideApex: number, portY: number): Point[] => {
     const toward = Math.sign(lane - box.x)
     if (!box.seated) return [{ x: box.x + (toward * box.width) / 2, y: box.y }, { x: lane, y: box.y }]
-    const clearY = (Math.sign(box.y) || -1) * (insideApex + LANE)
-    if (Math.abs(clearY - box.y) <= box.height / 2) return [{ x: box.x + (toward * box.width) / 2, y: clearY }, { x: lane, y: clearY }]
+    const band = insideApex + LANE
+    const clearY = (Math.sign(Math.abs(portY) > band ? portY : box.y) || -1) * band
+    const past = Math.sign(box.y) === Math.sign(clearY) && Math.abs(box.y) - box.height / 2 >= band
+    const rowY = past ? box.y : clearY
+    if (past || Math.abs(clearY - box.y) <= box.height / 2) return [{ x: box.x + (toward * box.width) / 2, y: rowY }, { x: lane, y: rowY }]
     return [{ x: box.x, y: box.y + (Math.sign(clearY - box.y) * box.height) / 2 }, { x: box.x, y: clearY }, { x: lane, y: clearY }]
   }
 
@@ -861,22 +866,23 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
       const from = seat ?? stacked[stack.indexOf(k)]
       const sign = port.side === 'driving' ? -1 : 1
       const lane = sign * busX(port.side, k, insideO.halfWidth)
-      const head = toLane({ x: from.x, y: from.y, width: from.frame.width, height: from.frame.height, seated: !!seat }, lane, insideO.apex)
+      const slanted = slantedSocket.find((s) => s.ref === port.id)
+      const socket = planned.find((p) => p.key === `port:${port.id}`)
+      const portY = slanted?.face.y ?? socket?.y
+      if (portY === undefined) continue
+      const head = toLane({ x: from.x, y: from.y, width: from.frame.width, height: from.frame.height, seated: !!seat }, lane, insideO.apex, portY)
       head.slice(1).forEach((q, j) => runs.push({ ref: port.id, useCase: k, quad: hairline(head[j], q) }))
       const laneTop = head.at(-1)!.y
-      const slanted = slantedSocket.find((s) => s.ref === port.id)
       if (slanted) {
         const { n } = wallFrame(slanted.wall)
         const reach = (slanted.face.x - lane) / n.x
         const foot = { x: lane, y: slanted.face.y - n.y * reach }
         runs.push({ ref: port.id, useCase: k, quad: hairline({ x: lane, y: laneTop }, foot) }, { ref: port.id, useCase: k, quad: hairline(foot, slanted.face) })
       } else {
-        const socket = planned.find((p) => p.key === `port:${port.id}`)
-        if (!socket) continue
         const inner = sign * (appO.halfWidth - widths[port.side].socketHalf)
         runs.push(
-          { ref: port.id, useCase: k, quad: hairline({ x: lane, y: laneTop }, { x: lane, y: socket.y }) },
-          { ref: port.id, useCase: k, quad: hairline({ x: lane, y: socket.y }, { x: inner, y: socket.y }) },
+          { ref: port.id, useCase: k, quad: hairline({ x: lane, y: laneTop }, { x: lane, y: portY }) },
+          { ref: port.id, useCase: k, quad: hairline({ x: lane, y: portY }, { x: inner, y: portY }) },
         )
       }
     }
@@ -1117,7 +1123,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   const laneHead = (useCase: LayoutNode, socket: LayoutNode) => {
     const side = socket.side ?? 'driven'
     const lane = (side === 'driving' ? -1 : 1) * busX(side, d.useCases.findIndex((u) => `useCase:${u.id}` === useCase.key), insideApp.halfWidth)
-    return toLane({ ...useCase, seated: !!useCase.wall }, lane, insideApp.apex)
+    return toLane({ ...useCase, seated: !!useCase.wall }, lane, insideApp.apex, socket.y)
   }
   const busRoute = (useCase: LayoutNode, socket: LayoutNode): Point[] => {
     const head = laneHead(useCase, socket)

@@ -932,6 +932,57 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
     for (const s of sizes) expect(s.extent, s.id).toBeLessThanOrEqual(median * 2)
   })
 
+  // A run meets an upper slanted wall square, travelling up and outward, so it can only avoid doubling back when its
+  // use case's row is below the face. These two sit above their ports; moving the use cases is issue #29.
+  const DOUBLING_BACK = {
+    'h-run: port:p-run-spawn->useCase:uc-run-spawn': 'use case above its nw port',
+    'h-run: useCase:uc-run-spawn->port:p-run-entry': 'use case above its ne port',
+  }
+  it('keeps every use-case run out of the domain and clear of every box it does not connect, in Detailed', () => {
+    const SQRT3 = Math.sqrt(3)
+    const crossings: string[] = []
+    for (const h of map.hexagons) {
+      const m = layoutDiagram(diagramOf(map, h.id), { mode: 'detailed' })
+      const domain = m.rings.at(-1)!
+      const inDomain = (p: { x: number; y: number }) => Math.abs(p.y) < domain.apex && Math.abs(p.x) < (Math.abs(p.y) <= domain.straight ? domain.halfWidth : domain.halfWidth - (Math.abs(p.y) - domain.straight) * SQRT3)
+      const inBox = (n: (typeof m.nodes)[number], p: { x: number; y: number }) => {
+        const a = (-(n.rotation ?? 0) * Math.PI) / 180
+        const [dx, dy] = [p.x - n.x, p.y - n.y]
+        return Math.abs(dx * Math.cos(a) - dy * Math.sin(a)) < n.width / 2 - 1 && Math.abs(dx * Math.sin(a) + dy * Math.cos(a)) < n.height / 2 - 1
+      }
+      for (const e of m.edges) {
+        const ends = e.key.split('->')
+        if (!ends.some((k) => k.startsWith('useCase:')) || !ends.some((k) => k.startsWith('port:'))) continue
+        const others = m.nodes.filter((n) => !ends.includes(n.key))
+        for (let i = 1; i < e.points.length; i++) {
+          const [a, b] = [e.points[i - 1], e.points[i]]
+          for (let t = 0; t <= 100; t++) {
+            const q = { x: a.x + ((b.x - a.x) * t) / 100, y: a.y + ((b.y - a.y) * t) / 100 }
+            const hit = inDomain(q) ? 'the domain' : others.find((n) => inBox(n, q))?.key
+            if (hit) crossings.push(`${h.id}: ${e.key} crosses ${hit}`)
+          }
+        }
+      }
+    }
+    expect([...new Set(crossings)]).toEqual([])
+  })
+
+  it('never doubles back on a run to a slanted-wall port in Detailed, bar the known ones', () => {
+    const doubling: string[] = []
+    for (const h of map.hexagons) {
+      const m = layoutDiagram(diagramOf(map, h.id), { mode: 'detailed' })
+      for (const edge of m.edges) {
+        const [from, to] = edge.key.split('->').map((k) => m.nodes.find((n) => n.key === k))
+        const [useCase, socket] = from?.kind === 'useCase' ? [from, to] : [to, from]
+        if (useCase?.kind !== 'useCase' || socket?.kind !== 'port' || !['nw', 'sw', 'ne', 'se'].includes(socket.wall ?? '')) continue
+        const run = from === useCase ? edge.points : [...edge.points].reverse()
+        const climbs = run.slice(1).map((p, i) => Math.sign(p.y - run[i].y)).filter(Boolean)
+        if (new Set(climbs).size > 1) doubling.push(`${h.id}: ${edge.key}`)
+      }
+    }
+    expect(doubling.toSorted()).toEqual(Object.keys(DOUBLING_BACK).toSorted())
+  })
+
   it.each(MODES_UNDER_TEST)('fits %s at least twice as large as the full-pitch baseline, with Execution current', (mode) => {
     const scale = fit(mode, 'h-exec')
     expect(scale).toBeGreaterThanOrEqual(FULL_PITCH_BASELINE[mode] * 2)
