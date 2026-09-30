@@ -1176,6 +1176,61 @@ describe('Stage — compact neighbours on a large map', () => {
     expect(screen.getAllByRole('button', { name: /^Add hexagon to the / })).toHaveLength(freeSides(map, current.cell).length)
   })
 
+  describe('linking onto a compact hexagon\'s port marker', () => {
+    const marker = (container: HTMLElement, hexId: string, ref: string) => hexGroup(container, hexId).querySelector<SVGGElement>(`.node-port[data-ref="${ref}"]`)!
+    const startLinking = (container: HTMLElement) => {
+      fireEvent.click(hexGroup(container, 'h1').querySelector('[data-ref="p-repo"]')!)
+      fireEvent.keyDown(document.body, { key: 'l' })
+    }
+
+    it('completes the link when the marker is clicked in link mode', () => {
+      useMapStore.getState().replace(manyHexagonMap(6))
+      const onLink = vi.fn()
+      const { container } = render(<Harness onLink={onLink} />)
+      startLinking(container)
+
+      fireEvent.click(marker(container, 'h2', 'p-submit'))
+
+      expect(onLink).toHaveBeenCalledWith('p-repo', { kind: 'link', hexagonId: 'h2', portId: 'p-submit' })
+      expect(useMapStore.getState().focus).toBe('h1')
+    })
+
+    it.each([{ key: 'Enter' }, { key: ' ' }])('completes the link when the focused marker is activated with %o', ({ key }) => {
+      useMapStore.getState().replace(manyHexagonMap(6))
+      const onLink = vi.fn()
+      const { container } = render(<Harness onLink={onLink} />)
+      startLinking(container)
+
+      fireEvent.keyDown(screen.getByRole('button', { name: 'submitChatFeedback on Slice 3' }), { key })
+
+      expect(onLink).toHaveBeenCalledWith('p-repo', { kind: 'link', hexagonId: 'h3', portId: 'p-submit' })
+      expect(useMapStore.getState().focus).toBe('h1')
+    })
+
+    it('makes the hexagon current when the marker is clicked outside link mode', () => {
+      useMapStore.getState().replace(manyHexagonMap(6))
+      const onLink = vi.fn()
+      const { container } = render(<Harness onLink={onLink} />)
+
+      fireEvent.click(marker(container, 'h2', 'p-submit'))
+
+      expect(onLink).not.toHaveBeenCalled()
+      expect(useMapStore.getState().focus).toBe('h2')
+    })
+
+    it('makes the hexagon current when a marker that is not a link target is clicked in link mode', () => {
+      useMapStore.getState().replace(manyHexagonMap(6))
+      const onLink = vi.fn()
+      const { container } = render(<Harness onLink={onLink} />)
+      startLinking(container)
+
+      fireEvent.click(marker(container, 'h2', 'p-repo'))
+
+      expect(onLink).not.toHaveBeenCalled()
+      expect(useMapStore.getState().focus).toBe('h2')
+    })
+  })
+
   it('drops a manual view for the new whole-map fit when a new current hexagon moves the lattice', () => {
     const restore = stubFixedSize(1200, 900)
     try {

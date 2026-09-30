@@ -234,6 +234,8 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
     if (set) set.add(t.portId)
     else crossLinkTargets.set(t.hexagonId, new Set([t.portId]))
   }
+  const isCrossTarget = (clickedHexId: string | null | undefined, ref: string | null) =>
+    !!ref && !!clickedHexId && clickedHexId !== hexId && crossTargets.some((p) => p.hexagonId === clickedHexId && p.portId === ref)
   const nameOf = (ref: string) => {
     const collection = collectionOf(diagram, ref)
     const items: { id: string; name: string }[] = collection ? diagram[collection] : []
@@ -318,9 +320,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
           const ref = target.closest('.node')?.getAttribute('data-ref') ?? null
           // ADR-02: a click on another hexagon's port while linking, when that port is a valid cross-hexagon
           // target, creates the link instead of switching focus — checked before the ordinary focus-switch below.
-          if (linking && clickedHexId && clickedHexId !== hexId && ref && crossTargets.some((p) => p.hexagonId === clickedHexId && p.portId === ref)) {
-            return onLink(linking, { kind: 'link', hexagonId: clickedHexId, portId: ref })
-          }
+          if (linking && isCrossTarget(clickedHexId, ref)) return onLink(linking, { kind: 'link', hexagonId: clickedHexId!, portId: ref! })
           if (clickedHexId && clickedHexId !== hexId) return focusHexagon(clickedHexId)
           if (!linking) return setSelected(ref)
           const hit = targets.find((t) => t.targetRef === ref)
@@ -342,7 +342,13 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
         onKeyDown={(e) => {
           const target = e.target as Element
           const groupId = target.closest('[data-hex]')?.getAttribute('data-hex')
-          if ((e.key === 'Enter' || e.key === ' ') && groupId && groupId !== hexId) {
+          const activation = e.key === 'Enter' || e.key === ' '
+          const ref = target.closest('.node')?.getAttribute('data-ref') ?? null
+          if (activation && linking && isCrossTarget(groupId, ref)) {
+            e.preventDefault()
+            return onLink(linking, { kind: 'link', hexagonId: groupId!, portId: ref! })
+          }
+          if (activation && groupId && groupId !== hexId) {
             e.preventDefault()
             return focusHexagon(groupId, { moveKeyboardFocus: true })
           }
