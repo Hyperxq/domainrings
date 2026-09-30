@@ -1,7 +1,7 @@
 import type { LayoutMode, Point } from '../layout/layout'
 import { edgeControl } from '../layout/edgeRouting'
 import type { RingedKind } from '../model/ringedKinds'
-import { endpointLabelHeight, endpointLines, KIND_LINE_STEP, KIND_METRICS, RINGED_ELEMENT_METRICS, RINGED_ENDPOINT_DIAMETER, ringedElementHeight, ringedElementLines, ringedElementWidth, ringedKindHeight, ringedKindLines } from '../layout/ringed'
+import { endpointLabelHeight, endpointLines, KIND_LINE_STEP, KIND_METRICS, RINGED_ELEMENT_METRICS, RINGED_ENDPOINT_DIAMETER, ringedElementHeight, ringedElementLines, ringedElementWidth, ringedKindHeight, ringedKindLines } from '../layout/ringedMetrics'
 
 const ENDPOINT_RADIUS = RINGED_ENDPOINT_DIAMETER / 2
 

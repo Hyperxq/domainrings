@@ -1,5 +1,6 @@
 import type { LayoutRing } from '../layout/layout'
-import { ringElementRadius, titleHalfSpan, TITLE_ARC_PAD } from '../layout/ringed'
+import { ringElementRadius } from '../layout/ringOutlines'
+import { titleHalfSpan, TITLE_ARC_PAD } from '../layout/ringedMetrics'
 import { DOMAIN_TITLE, measure, RING_LABEL, RING_SUBTITLE } from '../layout/text'
 import { bandPath, type Shape } from './band'
 
@@ -24,7 +25,7 @@ export function ringedArcPath(radius: number, centerAngle: number, halfSpan: num
 /** A ringed (Onion/Clean) ring's own title, curved along its band's own mid-radius arc (ADR-01: the ringed-only
  * path `Ring` below branches to) — never straight text near the pole, which the next ring's own fill paints over
  * once it pokes past this ring's own curve (the reported "Domain Mod", "MAIN SERVIC" clipping). Sized so its arc
- * length always fits within `TITLE_MAX_SPAN` (`ringOutlines`, layout/ringed.ts, grows the ring to guarantee it). */
+ * length always fits within `TITLE_MAX_SPAN` (`ringOutlines`, layout/ringOutlines.ts, grows the ring to guarantee it). */
 function RingedTitle({ ring, inner }: { ring: LayoutRing; inner?: LayoutRing }) {
   const innermost = !inner
   const ref = `layer:${ring.role}`

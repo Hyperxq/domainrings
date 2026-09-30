@@ -18,7 +18,7 @@ export function outerRoleOf<Role extends string>(rings: readonly { role: Role }[
 
 /** `count` angles spread evenly across the arc from `startAngle` to `endAngle` (radians), offset half a gap past
  * `startAngle` so the first (and last) angle never lands on the arc's own boundary — the angle half of
- * `arcPositions`, split out so a ring's radius can be sized (`fitCircumference`, layout/ringed.ts) against each
+ * `arcPositions`, split out so a ring's radius can be sized (`fitCircumference`, layout/ringOutlines.ts) against each
  * element's real angle before that radius is known, using the exact same spacing rule its final placement uses. */
 export function arcAngles(count: number, startAngle: number, endAngle: number): number[] {
   if (count <= 0) return []

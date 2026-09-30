@@ -134,7 +134,7 @@ function buildCleanModel(doc: CleanFile, sectors: CleanSectorWedge[], orderedEle
   // full list — Decision 7's lane assignment is relative to a slot's own position among ALL of its ring's slots,
   // the same order `slotsOf` above sized that ring against), then sliced back out per sector below. `risksLabel`
   // (parallel to `angles`) flags an element within 90° of ITS OWN sector's own label centre — the same "which half
-  // can the label actually reach" heuristic a ring's own top title uses (`risksTitle`, `ringed.ts`), generalised
+  // can the label actually reach" heuristic a ring's own top title uses (`risksTitle`, `ringOutlines.ts`), generalised
   // from always-the-top to whichever mid-angle that element's own sector's name centres on — the one Decision 7
   // gives another radial lane to instead of sitting where that curved name could read (REQ-08).
   const anglesByRole = new Map<CleanRingRole, number[]>()
