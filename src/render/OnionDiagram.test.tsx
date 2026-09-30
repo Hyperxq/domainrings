@@ -24,7 +24,7 @@ const renderDiagram = (doc: OnionFile, opts: { selected?: string | null; mode?: 
 }
 
 // Decision 1: the Overview/Detailed toolbar switch controls which dependency arrows are drawn — Overview shows
-// only the hovered/selected element's own edges (as straight chords), Detailed shows every edge, curved.
+// only the hovered/selected element's own edges, Detailed shows every edge.
 describe('OnionDiagram — arrow visibility follows Overview/Detailed (Decision 1)', () => {
   const docWithDependency = (): OnionFile => ({
     ...newOnionMap('Fresh'),

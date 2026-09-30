@@ -176,7 +176,7 @@ function buildCleanModel(doc: CleanFile, sectors: CleanSectorWedge[], orderedEle
 
   const outer = rings[rings.length - 1]
   const outerElements = elements.filter((e) => e.ringRole === outer.role).map((e) => ({ x: e.x, y: e.y, width: ringedElementWidth(e.name, e.kind), height: ringedElementHeight(e.name, e.kind) }))
-  const { endpoints, extraReach } = endpointLayout(doc.actors, doc.externals, outer, outerElements)
+  const { endpoints, extraReach } = endpointLayout(doc.actors, doc.externals, outer, outerElements, elementAt)
 
   const dependencyEdges: Omit<CleanEdgeLayout, 'control'>[] = doc.dependencies.flatMap((dep) => {
     const from = elementAt.get(dep.fromId)

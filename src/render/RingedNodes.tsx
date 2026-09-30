@@ -44,20 +44,19 @@ export function ringedVisibleEdges<E extends { fromRef: string; toRef: string }>
   return edges.filter((e) => activeRefs.has(e.fromRef) || activeRefs.has(e.toRef))
 }
 
-/** Detailed view bows each arrow's chord instead of drawing it straight: all at once, straight chords through the
- * centre overlap into an unreadable knot, and curving each one spreads them into distinguishable arcs. The layout
- * picks the control point (`routeEdgesAroundLabels`) so the bow also stays off every curved label. */
-function edgePath(from: Point, to: Point, curved: boolean, control: Point | undefined): string {
-  if (!curved) return `M${from.x} ${from.y}L${to.x} ${to.y}`
+/** Every arrow is bowed off its chord, in Overview and Detailed alike: straight chords through the centre overlap
+ * into an unreadable knot, and curving each one spreads them into distinguishable arcs. The layout picks the
+ * control point (`routeEdgesAroundLabels`) so the bow also stays off every curved label, which a straight chord
+ * can't do. */
+function edgePath(from: Point, to: Point, control: Point | undefined): string {
   const c = control ?? edgeControl(from, to)
   return `M${from.x} ${from.y}Q${c.x} ${c.y} ${to.x} ${to.y}`
 }
 
 /** The marker id is the caller's own `<defs>` concern, since Onion's and Clean's own diagrams each declare their
- * own arrow marker. `curved` follows the Overview/Detailed toolbar switch (Decision 1): straight chords for the
- * few edges Overview ever shows at once, curved for Detailed's every-edge view. */
-export function RingedEdge({ edge, markerId, curved = false }: { edge: RingedEdgeLayout; markerId: string; curved?: boolean }) {
-  return <path className="edge edge-import" markerEnd={`url(#${markerId})`} d={edgePath(edge.from, edge.to, curved, edge.control)} />
+ * own arrow marker. */
+export function RingedEdge({ edge, markerId }: { edge: RingedEdgeLayout; markerId: string }) {
+  return <path className="edge edge-import" markerEnd={`url(#${markerId})`} d={edgePath(edge.from, edge.to, edge.control)} />
 }
 
 /** A (possibly wrapped, Decision 8) name's own lines, stacked as `<tspan>`s evenly sharing `height` and vertically

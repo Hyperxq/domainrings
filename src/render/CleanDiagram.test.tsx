@@ -128,7 +128,7 @@ describe('CleanDiagram — elements, endpoints and edges', () => {
 })
 
 // Decision 1: the Overview/Detailed toolbar switch controls which dependency arrows are drawn — Overview shows
-// only the hovered/selected element's own edges (as straight chords), Detailed shows every edge, curved.
+// only the hovered/selected element's own edges, Detailed shows every edge.
 describe('CleanDiagram — arrow visibility follows Overview/Detailed (Decision 1)', () => {
   const docWithDependency = (): CleanFile => ({
     ...newCleanMap('Fresh'),

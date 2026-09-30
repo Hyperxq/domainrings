@@ -441,19 +441,23 @@ const ENDPOINT_GAP = 16
  * their real radius): an endpoint whose angle happens to land close to one, at the default `ENDPOINT_GAP`, can
  * still clip a wide element's box, so the same `growUntilFits` that sizes a ring against its own elements also
  * grows the endpoint radius against both the outer elements and every other endpoint. Returns the extra reach the
- * endpoint ring needs added to `ringedBounds`, so a fresh document with none pays no bounds cost. */
+ * endpoint ring needs added to `ringedBounds`, so a fresh document with none pays no bounds cost. `elementAt` finds a
+ * lone endpoint's target by id. */
 export function endpointLayout(
   actors: readonly RingedEndpointSpec[],
   externals: readonly RingedEndpointSpec[],
   outer: LayoutRing,
   outerElements: readonly RingedBox[] = [],
+  elementAt: ReadonlyMap<string, { x: number; y: number }> = new Map(),
 ): { endpoints: RingedEndpointPlacement[]; extraReach: number } {
   const specs: { item: RingedEndpointSpec; kind: 'actor' | 'external' }[] = [
     ...actors.map((item) => ({ item, kind: 'actor' as const })),
     ...externals.map((item) => ({ item, kind: 'external' as const })),
   ]
   if (!specs.length) return { endpoints: [], extraReach: 0 }
-  const angles = arcAngles(specs.length, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI)
+  // A lone endpoint has nothing to spread away from, so it sits on its target's side rather than at a fixed spot.
+  const target = specs.length === 1 && specs[0].item.targetId ? elementAt.get(specs[0].item.targetId) : undefined
+  const angles = target ? [Math.atan2(target.y, target.x)] : arcAngles(specs.length, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI)
   const radius = growUntilFits(outer.apex + ENDPOINT_GAP, (r) =>
     noOverlap([
       ...angles.map((angle) => ({ ...polarPoint(r, angle), width: RINGED_ENDPOINT_DIAMETER, height: RINGED_ENDPOINT_DIAMETER })),
