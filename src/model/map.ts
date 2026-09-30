@@ -119,6 +119,19 @@ export function removeHexagon(map: HexaMap, hexId: string): { map: HexaMap; prun
   return { map: { ...map, hexagons, links, contexts }, pruned }
 }
 
+/** Reassigns `hexId` to the existing `contextId` or — when omitted — a new context appended in the same transition,
+ * dropping its old context if that leaves it with no hexagon (like `removeHexagon`). Links, content and cell are
+ * untouched; the hexagon's own context, an unknown hexagon or an unknown context return `map` itself. */
+export function moveToContext(map: HexaMap, hexId: string, contextId?: string): HexaMap {
+  const moved = map.hexagons.find((h) => h.id === hexId)
+  if (!moved || moved.contextId === contextId || (contextId !== undefined && !map.contexts.some((c) => c.id === contextId))) return map
+  const appended = contextId === undefined ? [...map.contexts, { id: nextContextId(map) }] : map.contexts
+  const destination = contextId ?? appended[appended.length - 1].id
+  const hexagons = map.hexagons.map((h) => (h === moved ? { ...h, contextId: destination } : h))
+  const contexts = hexagons.some((h) => h.contextId === moved.contextId) ? appended : appended.filter((c) => c.id !== moved.contextId)
+  return { ...map, contexts, hexagons }
+}
+
 /** The v1-shaped view of one hexagon, for every consumer still typed on `Diagram` (layout, insertion, links, legend). */
 export function diagramOf(map: HexaMap, hexId: string): Diagram {
   const hexagon = map.hexagons.find((h) => h.id === hexId)

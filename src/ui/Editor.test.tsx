@@ -26,6 +26,7 @@ const renderEditor = (
   onCreateLink: (from: LinkEnd, to: LinkEnd) => void = () => {},
   onUpdateLink: (id: string, patch: import('../model/map').LinkPatch) => void = () => {},
   onDeleteLink: (id: string) => void = () => {},
+  onMoveToContext: (contextId: string | undefined) => void = () => {},
 ) =>
   render(
     <Editor
@@ -40,6 +41,7 @@ const renderEditor = (
       onCreateLink={onCreateLink}
       onUpdateLink={onUpdateLink}
       onDeleteLink={onDeleteLink}
+      onMoveToContext={onMoveToContext}
     />,
   )
 const section = (container: HTMLElement, title: string) =>
@@ -579,5 +581,49 @@ describe('use case placement', () => {
     expect(placementOf()).toBe('nw')
     fireEvent.change(select, { target: { value: 'top' } })
     expect(placementOf()).toBeUndefined()
+  })
+})
+
+describe('"Move to context…" in the Hexagon section', () => {
+  const twoContexts = () => {
+    const base = twoHexMap()
+    useMapStore.getState().replace({ ...base, contexts: [{ id: 'c1', name: 'Billing' }, { id: 'c2' }], hexagons: [base.hexagons[0], { ...base.hexagons[1], contextId: 'c2' }] })
+  }
+  const menu = (container: HTMLElement) => {
+    fireEvent.click(within(section(container, 'Hexagon')).getByRole('button', { name: 'Move to context…' }))
+    return screen.getAllByRole('menuitem').map((i) => i.textContent)
+  }
+
+  it('lists the other contexts by display name, without the hexagon’s own and without "new" when it is alone in its context', () => {
+    twoContexts()
+    const { container } = renderEditor()
+    expect(menu(container)).toEqual(['Context 2'])
+  })
+
+  it('offers "New bounded context" when the hexagon shares its context', () => {
+    twoContexts()
+    useMapStore.getState().replace({ ...useMapStore.getState().map, contexts: [{ id: 'c1' }, { id: 'c2' }], hexagons: [...useMapStore.getState().map.hexagons, { ...useMapStore.getState().map.hexagons[0], id: 'h3', cell: { q: 2, r: 0 } }] })
+    const { container } = renderEditor()
+    expect(menu(container)).toEqual(['Context 2', 'New bounded context'])
+  })
+
+  it('reports the chosen context id, and undefined for a new one', () => {
+    twoContexts()
+    useMapStore.getState().replace({ ...useMapStore.getState().map, hexagons: [...useMapStore.getState().map.hexagons, { ...useMapStore.getState().map.hexagons[0], id: 'h3', cell: { q: 2, r: 0 } }] })
+    const onMove = vi.fn()
+    const { container } = renderEditor(undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, onMove)
+    menu(container)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Context 2' }))
+    expect(onMove).toHaveBeenLastCalledWith('c2')
+    menu(container)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'New bounded context' }))
+    expect(onMove).toHaveBeenLastCalledWith(undefined)
+  })
+
+  it('is aria-disabled and hinted when there is nowhere to move the hexagon', () => {
+    const { container } = renderEditor()
+    const button = within(section(container, 'Hexagon')).getByRole('button', { name: 'Move to context…' })
+    expect(button.getAttribute('aria-disabled')).toBe('true')
+    expect(document.getElementById(button.getAttribute('aria-describedby')!)?.textContent).toBe('This hexagon is alone in the only bounded context.')
   })
 })

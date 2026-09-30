@@ -393,6 +393,39 @@ describe('map store', () => {
     })
   })
 
+  describe('moveToContext', () => {
+    const threeHexMap = (): HexaMap => {
+      const base = twoHexMap()
+      return { ...base, contexts: [{ id: 'c1' }, { id: 'c2' }], hexagons: [base.hexagons[0], { ...base.hexagons[1], contextId: 'c2' }] }
+    }
+
+    it('moves the hexagon, drops its emptied context, and leaves focus and revision untouched', () => {
+      state().replace(threeHexMap())
+      state().setFocus('h2')
+      const revisionBefore = state().revision
+      state().moveToContext('h1', 'c2')
+      expect(state().map.hexagons.map((h) => h.contextId)).toEqual(['c2', 'c2'])
+      expect(state().map.contexts).toEqual([{ id: 'c2' }])
+      expect(state().focus).toBe('h2')
+      expect(state().revision).toBe(revisionBefore)
+      expect(MapSchema.safeParse(state().map).success).toBe(true)
+    })
+
+    it('moves into a new context when no contextId is given', () => {
+      state().replace(twoHexMap())
+      state().moveToContext('h2')
+      expect(state().map.contexts.map((c) => c.id)).toEqual(['c1', 'c2'])
+      expect(state().map.hexagons[1].contextId).toBe('c2')
+    })
+
+    it('keeps the map by reference on a no-op move', () => {
+      state().replace(twoHexMap())
+      const map = state().map
+      state().moveToContext('h1', 'c1')
+      expect(state().map).toBe(map)
+    })
+  })
+
   describe('addLink (ADR-02)', () => {
     it('creates a link for a valid driven/driving pair, returns its id, parses MapSchema, and leaves the revision untouched', () => {
       state().replace(twoHexMap())
