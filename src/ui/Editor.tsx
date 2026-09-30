@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { HEXAGONAL_KIND } from '../model/kinds'
 import {
@@ -16,18 +16,19 @@ import {
   type Wall,
 } from '../model/schema'
 import { parentCandidates } from '../model/links'
-import { contextName, contextOrdinal, diagramOf, freeSides, occupiedContexts, UNTITLED_HEXAGON, type Destination, type LinkPatch } from '../model/map'
+import { contextName, diagramOf, freeSides, occupiedContexts, UNTITLED_HEXAGON, type Destination, type LinkPatch } from '../model/map'
 import { useMapStore, type Item } from '../model/store'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Fold } from './Fold'
 import { Icon } from './Icon'
 import { sessionOf, type FieldSession, type OnPrune, type OnRecord } from './editor/fieldSession'
+import { ContextsSection } from './editor/ContextsSection'
 import { LinkSelect } from './editor/LinkSelect'
 import { LinksSection } from './editor/LinksSection'
 import { MapSection } from './editor/MapSection'
 import { revealInEditor } from './revealInEditor'
 
-const { addItem, updateItem, removeItem, setMeta, setContextName } = useMapStore.getState()
+const { addItem, updateItem, removeItem, setMeta } = useMapStore.getState()
 
 type Patch<K extends CollectionKey> = Partial<Omit<Item<K>, 'id'>>
 
@@ -222,9 +223,6 @@ export function Editor({
     ...occupiedContexts(map).filter((c) => c.id !== ownContext).map((c) => ({ id: c.id, label: contextName(map, c.id) })),
     ...(map.hexagons.filter((h) => h.contextId === ownContext).length > 1 ? [{ id: NEW_CONTEXT, label: 'New bounded context' }] : []),
   ]
-  // Keyed by contextId, so renaming two contexts in the same session (unlikely, but never concurrent within one
-  // input) each keeps its own pre-edit snapshot from focus to blur.
-  const contextRenameBefore = useRef(new Map<string, HexaMap>())
   const session = sessionOf(fieldSession)
 
   return (
@@ -239,36 +237,7 @@ export function Editor({
       <div id="editor-body" className="editor-body" hidden={!open}>
         <MapSection title={map.title} contextLabel={contextLabel} onAddFromFile={onAddFromFile} session={session} />
 
-        <Fold id="contexts" title="Bounded contexts" count={occupiedContexts(map).length}>
-          <ul className="items">
-            {occupiedContexts(map).map((ctx) => {
-              const ordinal = contextOrdinal(map, ctx.id)
-              return (
-                <li key={ctx.id} className="item">
-                  <input
-                    className="name"
-                    aria-label={`Name for ${ordinal}`}
-                    placeholder={ordinal}
-                    value={ctx.name ?? ''}
-                    onFocus={() => contextRenameBefore.current.set(ctx.id, map)}
-                    onChange={(e) => setContextName(ctx.id, e.target.value)}
-                    onBlur={(e) => {
-                      // Trimmed on commit, not on every keystroke: the input is controlled by the stored name, so
-                      // trimming live would eat a trailing space before the author can type the next word.
-                      const trimmed = e.target.value.trim()
-                      if (trimmed !== (ctx.name ?? '')) setContextName(ctx.id, trimmed)
-                      const before = contextRenameBefore.current.get(ctx.id)
-                      contextRenameBefore.current.delete(ctx.id)
-                      // Stored names, not display labels: typing the placeholder's own text changes the data but not the label.
-                      const storedName = (m: HexaMap) => m.contexts.find((c) => c.id === ctx.id)?.name || ''
-                      if (before && storedName(before) !== storedName(useMapStore.getState().map)) onRenameContext(before, ctx.id)
-                    }}
-                  />
-                </li>
-              )
-            })}
-          </ul>
-        </Fold>
+        <ContextsSection map={map} onRenameContext={onRenameContext} />
 
         <LinksSection map={map} onCreateLink={onCreateLink} onUpdateLink={onUpdateLink} onDeleteLink={onDeleteLink} />
 
