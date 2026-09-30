@@ -210,7 +210,7 @@ svg[data-emphasis='dependents'] .compact-port[data-chain] circle { stroke-dashar
 }
 .plus-menu .text-button { justify-content: start; font-family: var(--font-mono); font-weight: 500; }
 
-/* Onion/Clean's own ring/sector/endpoint "+" (RingedCanvas.tsx's `PlusGlyph`) and "Depend on…" chip
+/* Onion/Clean's own ring/sector/endpoint "+" (ringed/RingedAffordances.tsx's `PlusGlyph`) and "Depend on…" chip
    (`DependChip`) are plain SVG glyphs, not HTML buttons like `.plus` above — same look (a teal circle with a
    card-coloured centre), drawn with fill/stroke rather than background/border. Without these rules the circle's
    default SVG fill (black) and unstyled lines were the reported solid black dots. */

@@ -1,5 +1,5 @@
 import { toHexa } from '../model/hexa'
-import type { StoredFile } from '../model/schema'
+import type { StoredFile } from '../model/fileFormat'
 
 // REQ-01/07: the codec for a share link's payload — deflate-raw + base64url over the unchanged `.hexa` JSON
 // text. No model knowledge here: parseHexa remains the single validation gateway for the decoded text.

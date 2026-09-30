@@ -4,7 +4,8 @@ import type { LegendModel } from '../layout/legend'
 import { ringElementRadius, titleHalfSpan, TITLE_ARC_PAD } from '../layout/ringed'
 import { measure, RING_SUBTITLE } from '../layout/text'
 import { sectorDividers } from './band'
-import { Ring, ringedArcPath, SvgLegend } from './Diagram'
+import { Ring, ringedArcPath } from './Ring'
+import { SvgLegend } from './SvgLegend'
 import { RingedEdge, ringedVisibleEdges, RingedElementNode, RingedEndpointNode } from './RingedNodes'
 
 interface CleanDiagramProps {

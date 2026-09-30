@@ -1,28 +1,22 @@
-import { useEffect, useRef, useState, type Ref } from 'react'
-import { flushSync } from 'react-dom'
+import { useRef, useState, type Ref } from 'react'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
 import type { LayoutMode, LayoutNode, Point } from '../layout/layout'
 import type { LegendModel } from '../layout/legend'
-import { canCompact, currentHexagon, growAnchor, hexagonBounds, hexagonTitle, type MapLayout } from '../layout/map'
+import { currentHexagon, type MapLayout } from '../layout/map'
 import { dependencyChain } from '../model/chain'
 import { collectionOf, linkTargets, type LinkChoice } from '../model/links'
-import { crossHexagonPorts, freeSides, UNTITLED_HEXAGON, type Destination } from '../model/map'
+import { canLink, crossPortTargets, isCrossTarget, targetsByHexagon } from '../model/linkTargeting'
+import type { Destination } from '../model/map'
 import type { CollectionKey, Diagram as DiagramModel, DomainType, HexaMap, Wall } from '../model/schema'
 import { useMapStore } from '../model/store'
 import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
-import { ChoiceMenu } from './ChoiceMenu'
-import { Icon } from './Icon'
-import { keyOnCanvas } from './keys'
-import { contains, fitMap, fitTo, islandInset, visibleRect } from './viewport'
-import { gridBackgroundStyle, useElementSize, useViewportInteractions, ZoomControls } from './viewportChrome'
-
-/** Half the side "+" button's 24px circle. */
-const SIDE_PLUS_RADIUS = 12
-/** Half the Expand / Collapse toggle's 24px circle. */
-const EXPAND_TOGGLE_RADIUS = 12
-/** Lowercase, hyphenated compass names for the grow "+" aria-label ("Add hexagon to the {…} of {title}"). */
-const SIDE_NAME: Record<Wall, string> = { e: 'east', se: 'south-east', sw: 'south-west', w: 'west', nw: 'north-west', ne: 'north-east' }
+import { hexIdOf, layerOf, refOf } from './canvasTarget'
+import { ExpandToggles, GrowButtons, LinkChip } from './stage/overlays'
+import { useCanvasShortcuts } from './stage/useCanvasShortcuts'
+import { useHexagonFocus } from './stage/useHexagonFocus'
+import { useStageViewport } from './stage/useStageViewport'
+import { gridBackgroundStyle, ZoomControls } from './viewportChrome'
 
 interface StageProps {
   model: MapLayout
@@ -67,7 +61,7 @@ interface StageProps {
   onToggleExpanded: (id: string) => void
 }
 
-const { addItem, updateItem, removeItem, setFocus } = useMapStore.getState()
+const { addItem, updateItem, removeItem } = useMapStore.getState()
 const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
   domain: 'domainItem',
   useCases: 'useCase',
@@ -76,10 +70,6 @@ const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
   actors: 'actor',
   externals: 'external',
 }
-/** The layer an element belongs to: its band, or the ring it is drawn in. */
-const layerOf = (target: Element) =>
-  target.closest('[data-band]')?.getAttribute('data-band') ?? target.closest('[data-layer]')?.getAttribute('data-layer') ?? null
-
 export function Stage({ model, map, hexId, diagram, mode, highlight, dependents, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete, onRecord, linking, onLinking, onLink, contextLabel, onGrow, naming, onNamed, onNamingCancel, onToggleExpanded }: StageProps) {
   const hex = currentHexagon(model, hexId)
   const hexModel = hex.model
@@ -93,132 +83,25 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
   // That focus must not reveal "+" buttons (they would sit under the next press and steal its click/dblclick) —
   // only a real keyboard focus should. `pointerdown`/`pointerup` on the stage bracket every such press.
   const pointerPressed = useRef(false)
-  const size = useElementSize(mainRef)
   // The layer under the pointer (or keyboard focus); CSS does the highlighting from data-hover on the current [data-hex] group.
   const [hovered, setHovered] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   // hexId records which hexagon the edit started on, so a commit that lands after the current hexagon switches still targets it (ADR-05).
   const [editing, setEditing] = useState<{ id: string; collection: CollectionKey; name: string; at: Point; hexId: string; before: { map: HexaMap; focus: string } } | null>(null)
-  const [announcement, setAnnouncement] = useState('')
 
-  // Whatever moves the store's focus — a click/keyboard switch (also handled in focusHexagon) or an Undo outside
-  // Stage's own handlers — leaves no stale selection or link mode pointing at a hexagon that is no longer current.
-  // An effect, not a render-phase update like fitKey below: onLinking sets App's own state, and React disallows
-  // updating a different component's state while this one renders.
-  useEffect(() => {
-    setSelected(null)
-    onLinking(null)
-    // Deliberately keyed on hexId alone — onLinking is a fresh closure every App render and must not re-fire this.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hexId])
-
-  const inset = islandInset(size, panelOpen, legendOpen)
-  const effectiveSize = { width: size.width || model.bounds.width, height: size.height || model.bounds.height }
-  const wholeFit = fitTo(model.bounds, effectiveSize.width, effectiveSize.height, inset, 0)
-  const singleFit = fitMap(model.bounds, hexagonBounds(hex), effectiveSize.width, effectiveSize.height, inset)
-  // On 2+ hexagons 'auto' IS the whole-map fit — it never falls back to the current hexagon alone, even
-  // when that fit would read as illegible clutter (MIN_FIT_SCALE only still applies on a single-hexagon map).
-  const autoFit = model.hexagons.length >= 2 ? wholeFit : singleFit
-  // A new diagram, or the legend opening or closing, refits (unfreezes a manual viewport back to 'auto') — unlike
-  // grow/import/delete, these bump `revision`, so this key alone can never see the map-shape changes FIT-02 covers.
-  const fitKey = `${revision}:${legendOpen}`
-  const { view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useViewportInteractions({
+  const { size, centre, view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useStageViewport({
+    model,
+    hex,
     mainRef,
-    autoFit,
-    wholeFitScale: wholeFit.scale,
-    fitKey,
+    revision,
+    legendOpen,
+    panelOpen,
     onPanStart: () => setHovered(null),
   })
-  const centre = { x: size.width / 2, y: size.height / 2 }
 
-  // Grow/import/delete/undo never bump `revision` (ADR-02/ADR-05), so the fitKey reset above can't see them — this
-  // tracks the hexagon id set instead. A `Viewport` the author set stays iff every added/removed/shifted box is still fully
-  // on screen (FIT-02.2); otherwise it falls back to 'auto', which recomputes against the new bounds every render
-  // and — on 2+ hexagons — always follows the whole map, never frozen (FIT-02.1). On a compact map the full hexagons
-  // are part of the key too: which ones are full sizes the lattice, so switching one moves every hexagon.
-  const hexKey = model.hexagons.map((h) => h.id).join(',') + (model.hexagons.some((h) => h.compact) ? `@${model.hexagons.filter((h) => !h.compact).map((h) => h.id).join(',')}` : '')
-  const [seenHexagons, setSeenHexagons] = useState({ key: hexKey, hexagons: model.hexagons })
-  if (hexKey !== seenHexagons.key) {
-    const nextIds = new Set(model.hexagons.map((h) => h.id))
-    const prevIds = new Set(seenHexagons.hexagons.map((h) => h.id))
-    const prev = new Map(seenHexagons.hexagons.map((h) => [h.id, h]))
-    // A pitch change (the largest hexagon came or went) also shifts every surviving hexagon's lattice slot, and a
-    // hexagon that expands or compacts in place changes size without moving.
-    const moved = model.hexagons.filter((h) => {
-      const before = prev.get(h.id)
-      return before && (before.centre.x !== h.centre.x || before.centre.y !== h.centre.y || !before.compact !== !h.compact)
-    })
-    const changed = [...model.hexagons.filter((h) => !prevIds.has(h.id)), ...seenHexagons.hexagons.filter((h) => !nextIds.has(h.id)), ...moved]
-    setSeenHexagons({ key: hexKey, hexagons: model.hexagons })
-    if (typeof view !== 'string' && !changed.every((h) => contains(visibleRect(view, effectiveSize, inset), hexagonBounds(h)))) setView('auto')
-  }
+  useCanvasShortcuts({ selected, linking, hexId, map, diagram, onDelete, onLinking, setSelected, setHovered })
 
-  // ADR-02: a port's cross-hexagon targets — every port of the opposite side on another hexagon. Non-ports (and
-  // an unselected ref) have none; only ports carry map-level links.
-  const crossPortTargets = (ref: string | null) => {
-    const port = ref ? diagram.ports.find((p) => p.id === ref) : undefined
-    return port ? crossHexagonPorts(map, port.side === 'driven' ? 'driving' : 'driven', hexId) : []
-  }
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      // Esc first leaves link mode, keeping the selection; a second Esc clears it.
-      if (e.key === 'Escape' && linking) onLinking(null)
-      else if (e.key === 'Escape') {
-        setHovered(null)
-        setSelected(null)
-      }
-      if (!selected || linking || !keyOnCanvas(e.target)) return
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault()
-        if (onDelete(selected)) setSelected(null)
-      }
-      if (e.key.toLowerCase() === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && (linkTargets(diagram, selected).length || crossPortTargets(selected).length)) {
-        e.preventDefault()
-        onLinking(selected)
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, onDelete, linking, onLinking, diagram, map])
-
-  useEffect(() => {
-    if (!linking) return
-    // Link mode ends on any press outside the canvas (the hint's own close button ends it too).
-    const away = (e: PointerEvent) => !(e.target as Element).closest?.('svg.canvas, .toast') && onLinking(null)
-    document.addEventListener('pointerdown', away)
-    return () => document.removeEventListener('pointerdown', away)
-  }, [linking, onLinking])
-
-  /** Clears selection, ends link mode, and commits any inline name being typed — the settle-on-switch contract (FOCUS-04). */
-  const settleFocusSwitch = () => {
-    setSelected(null)
-    onLinking(null)
-    // InlineName commits on blur with whatever the user has typed so far; forcing it here (rather than waiting for
-    // native focus-follows-click) makes the commit deterministic instead of depending on browser/jsdom focus timing.
-    const active = document.activeElement
-    if (active instanceof HTMLInputElement && active.classList.contains('inline-name')) active.blur()
-  }
-
-  /** Makes `id` the current hexagon: settles in-progress work, freezes the view on a single-hexagon map so its
-   * current-hexagon fallback (CANVAS-04) can't jump to frame the new current hexagon, then — for a keyboard-driven
-   * switch — moves focus to the new current hexagon's first tabbable element and announces the change (FOCUS-05).
-   * On 2+ hexagons 'auto' IS the whole-map fit (FIT-01), which never depends on which hexagon is current, so
-   * freezing there would only turn a following view into a stuck one (FIT-02.1). */
-  const focusHexagon = (id: string, opts: { moveKeyboardFocus?: boolean } = {}) => {
-    settleFocusSwitch()
-    if (view === 'auto' && model.hexagons.length < 2) setView(viewport)
-    flushSync(() => setFocus(id))
-    if (opts.moveKeyboardFocus) {
-      setAnnouncement(`${hexagonTitle(currentHexagon(model, id).model)} is now the current hexagon`)
-      const group = mainRef.current?.querySelector<SVGGElement>(`[data-hex="${CSS.escape(id)}"]`)
-      // The outer ring is also tabbable and comes first in DOM order; REQ-05.1 wants the first ITEM instead,
-      // falling back to whatever is tabbable when the hexagon has no items at all.
-      const target = group?.querySelector<HTMLElement | SVGElement>('.node[tabindex]') ?? group?.querySelector<HTMLElement | SVGElement>('[tabindex]')
-      target?.focus()
-    }
-  }
+  const { announcement, focusHexagon } = useHexagonFocus({ hexId, model, mainRef, view, viewport, setView, setSelected, onLinking })
 
   // Insertion points, selection and editing all work in the current hexagon's own (untranslated) coordinates;
   // toScreen adds its centre once, so every overlay lands at the hexagon's place on the map (ADR-04).
@@ -228,24 +111,10 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
   })
   // The grow-menu anchors are already in map space (cell centres), unlike hexagon-local insertion points.
   const mapToScreen = (p: Point) => ({ x: (p.x - viewport.x) * viewport.scale, y: (p.y - viewport.y) * viewport.scale })
-  const growSides = freeSides(model, hex.cell).map((side) => ({ side, at: mapToScreen(growAnchor(hex, side, model.pitch, SIDE_PLUS_RADIUS / viewport.scale)) }))
-  const growChoices = (context: string) => [
-    { id: 'same' as const, label: `Hexagon in ${context}` },
-    { id: 'new' as const, label: 'Hexagon in a new bounded context' },
-  ]
   const targets = linking ? linkTargets(diagram, linking) : []
   // ADR-02: the ports of another hexagon a link-mode selection can connect to — empty unless `linking` is a port.
-  const crossTargets = linking ? crossPortTargets(linking) : []
-  // Decision 7387: the same targets, grouped by hexagon id, for MapDiagram to mark on the hexagons that own them —
-  // a bare portId is not enough, since ids collide across hexagons by construction (see the decoy-port test).
-  const crossLinkTargets = new Map<string, Set<string>>()
-  for (const t of crossTargets) {
-    const set = crossLinkTargets.get(t.hexagonId)
-    if (set) set.add(t.portId)
-    else crossLinkTargets.set(t.hexagonId, new Set([t.portId]))
-  }
-  const isCrossTarget = (clickedHexId: string | null | undefined, ref: string | null) =>
-    !!ref && !!clickedHexId && clickedHexId !== hexId && crossTargets.some((p) => p.hexagonId === clickedHexId && p.portId === ref)
+  const crossTargets = linking ? crossPortTargets(map, diagram, hexId, linking) : []
+  const crossLinkTargets = targetsByHexagon(crossTargets)
   // Only what is drawn can be followed, so the chain ends at the ports of a compact hexagon.
   const chain =
     highlight && !linking && selected ? dependencyChain(map, hexId, selected, new Set(model.hexagons.filter((h) => !h.compact).map((h) => h.id)), dependents ? 'dependents' : 'dependencies') : undefined
@@ -258,15 +127,9 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
   // — either a same-hexagon field target or a cross-hexagon port (ADR-02). A port is laid out twice under one ref
   // (its declaration in the domain and the box on the wall): anchor to the box.
   const linkable =
-    selected && !linking && (linkTargets(diagram, selected).length || crossPortTargets(selected).length)
+    selected && !linking && canLink(map, diagram, hexId, selected)
       ? hexModel.nodes.find((n) => n.ref === selected && n.kind === NODE_KIND[collectionOf(diagram, selected)!])
       : undefined
-  const chipAt = (n: LayoutNode) => {
-    const a = ((n.rotation ?? 0) * Math.PI) / 180
-    const [c, s] = [Math.abs(Math.cos(a)), Math.abs(Math.sin(a))]
-    const corner = toScreen({ x: n.x + (n.width / 2) * c + (n.height / 2) * s, y: n.y - (n.width / 2) * s - (n.height / 2) * c })
-    return { left: corner.x, top: corner.y }
-  }
   const visiblePoints = hovered ? insertionPoints(hexModel, diagram, mode).filter((p) => p.layer === hovered) : []
   const pick = (point: InsertionPoint, choice?: DomainType) => {
     const { collection, patch } = insertionItem(point.action, choice)
@@ -275,7 +138,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
     setEditing({ id, collection, name: patch.name, at: point.at, hexId, before })
   }
   const revealFrom = (target: Element) => {
-    const ref = target.closest('[data-ref]')?.getAttribute('data-ref')
+    const ref = refOf(target)
     if (ref) onReveal(ref, true)
   }
   // The inline name field sits over the new element once it is laid out, over its "+" until then.
@@ -311,7 +174,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
         onPointerOver={(e) => {
           if (dragging) return
           const target = e.target as Element
-          if (target.closest('[data-hex]')?.getAttribute('data-hex') !== hexId) return setHovered(null)
+          if (hexIdOf(target) !== hexId) return setHovered(null)
           setHovered(layerOf(target))
         }}
         onPointerLeave={(e) => !(e.relatedTarget as Element | null)?.closest?.('[data-plus]') && setHovered(null)}
@@ -331,11 +194,11 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
             return onLinking(null)
           }
           if (e.detail === 1) gestureAnchorHexId.current = hexId
-          const clickedHexId = target.closest('[data-hex]')?.getAttribute('data-hex') ?? null
+          const clickedHexId = hexIdOf(target)
           const ref = target.closest('.node')?.getAttribute('data-ref') ?? null
           // ADR-02: a click on another hexagon's port while linking, when that port is a valid cross-hexagon
           // target, creates the link instead of switching focus — checked before the ordinary focus-switch below.
-          if (linking && isCrossTarget(clickedHexId, ref)) return onLink(linking, { kind: 'link', hexagonId: clickedHexId!, portId: ref! })
+          if (linking && isCrossTarget(crossTargets, hexId, clickedHexId, ref)) return onLink(linking, { kind: 'link', hexagonId: clickedHexId!, portId: ref! })
           if (clickedHexId && clickedHexId !== hexId) return focusHexagon(clickedHexId)
           if (!linking) return setSelected(ref)
           const hit = targets.find((t) => t.targetRef === ref)
@@ -346,7 +209,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
           e.preventDefault()
           const target = e.target as Element
           if (target.closest('[data-map-link], [data-hull], [data-chip]')) return
-          const clickedHexId = target.closest('[data-hex]')?.getAttribute('data-hex') ?? null
+          const clickedHexId = hexIdOf(target)
           if (clickedHexId && clickedHexId !== gestureAnchorHexId.current) {
             focusHexagon(clickedHexId)
             onReveal('hexagon', true)
@@ -356,10 +219,10 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
         }}
         onKeyDown={(e) => {
           const target = e.target as Element
-          const groupId = target.closest('[data-hex]')?.getAttribute('data-hex')
+          const groupId = hexIdOf(target)
           const activation = e.key === 'Enter' || e.key === ' '
           const ref = target.closest('.node')?.getAttribute('data-ref') ?? null
-          if (activation && linking && isCrossTarget(groupId, ref)) {
+          if (activation && linking && isCrossTarget(crossTargets, hexId, groupId, ref)) {
             e.preventDefault()
             return onLink(linking, { kind: 'link', hexagonId: groupId!, portId: ref! })
           }
@@ -391,47 +254,9 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
       </p>
 
       <Affordances points={visiblePoints} toScreen={toScreen} onPick={pick} onLayer={setHovered} />
-      {growSides.map(({ side, at }) => (
-        // No `transform` here (e.g. translate to centre): ChoiceMenu's own menu is `position: fixed` under the
-        // trigger, whose containing block a transformed ancestor would hijack — the half-button-size offset is
-        // baked into left/top instead, matching .plus's own 24px circle.
-        <span key={side} className="side-plus" style={{ left: at.x - SIDE_PLUS_RADIUS, top: at.y - SIDE_PLUS_RADIUS }}>
-          <ChoiceMenu
-            label={<Icon name="plus" />}
-            ariaLabel={`Add hexagon to the ${SIDE_NAME[side]} of ${title || UNTITLED_HEXAGON}`}
-            choices={growChoices(contextLabel)}
-            onChoose={(context) => onGrow(side, context)}
-          />
-        </span>
-      ))}
-      {canCompact(model.hexagons.length) &&
-        model.hexagons.map((h) => {
-          const box = hexagonBounds(h)
-          const corner = mapToScreen({ x: box.x + box.width, y: box.y })
-          const name = hexagonTitle(h.model)
-          const current = h.id === hexId
-          return (
-            <button
-              key={h.id}
-              type="button"
-              className="expand-toggle"
-              // Like every canvas overlay control: a press on it neither pans nor drops the hover, and exports leave it out.
-              data-plus=""
-              style={{ left: corner.x - EXPAND_TOGGLE_RADIUS, top: corner.y - EXPAND_TOGGLE_RADIUS }}
-              aria-label={`${h.compact ? 'Expand' : 'Collapse'} ${name}`}
-              title={current ? 'The current hexagon is always expanded' : h.compact ? 'Expand' : 'Collapse'}
-              disabled={current}
-              onClick={() => onToggleExpanded(h.id)}
-            >
-              <Icon name={h.compact ? 'expand' : 'shrink'} />
-            </button>
-          )
-        })}
-      {linkable && (
-        <button type="button" className="link-chip" data-plus="" style={chipAt(linkable)} aria-label={`Link ${nameOf(linkable.ref)} to…`} onClick={() => onLinking(linkable.ref)}>
-          Link to…
-        </button>
-      )}
+      <GrowButtons model={model} hex={hex} scale={viewport.scale} mapToScreen={mapToScreen} title={title} contextLabel={contextLabel} onGrow={onGrow} />
+      <ExpandToggles model={model} currentId={hexId} mapToScreen={mapToScreen} onToggle={onToggleExpanded} />
+      {linkable && <LinkChip node={linkable} name={nameOf(linkable.ref)} toScreen={toScreen} onLink={() => onLinking(linkable.ref)} />}
       {editing && (
         <InlineName
           key={editing.id}

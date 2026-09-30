@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { isInwardOrSame } from '../model/rings'
 import { RINGED_KIND_LABEL, type RingedKind } from '../model/ringedKinds'
-import { Fold } from './Editor'
+import { Fold } from './Fold'
 import { Icon } from './Icon'
 
 interface RingedElement {

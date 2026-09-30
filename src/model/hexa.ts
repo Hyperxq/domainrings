@@ -1,4 +1,5 @@
-import { APP, HexaFileV1Schema, HexaFileV2Schema, HexaFileV3Schema, HexaFileV4Schema, HexaFileV5Schema, VERSION, type CleanFile, type HexaMap, type LegacyDiagram, type OnionFile, type StoredFile } from './schema'
+import { HexaFileV1Schema, HexaFileV2Schema, HexaFileV3Schema, HexaFileV4Schema, HexaFileV5Schema, type LegacyDiagram, type StoredFile } from './fileFormat'
+import { APP, VERSION, type CleanFile, type HexaMap, type OnionFile } from './schema'
 import type { z } from 'zod'
 
 export type HexaParseResult = { ok: true; map: StoredFile; v1?: LegacyDiagram } | { ok: false; reason: 'invalid' | 'newer'; errors: string[] }
