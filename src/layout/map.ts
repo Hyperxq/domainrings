@@ -89,6 +89,8 @@ export interface MapLayout {
 
 /** From this many hexagons up, every hexagon but the current and the expanded ones renders compact. */
 export const COMPACT_FROM = 4
+/** Whether a map of `count` hexagons draws any of them compact. */
+export const canCompact = (count: number): boolean => count >= COMPACT_FROM
 /** A compact hexagon's silhouette radius and title size at unit scale; both grow together so a title always fits. */
 const COMPACT_RADIUS = 78
 const COMPACT_TITLE = { size: 14, em: 0.6 } as const
@@ -170,7 +172,7 @@ function chipAnchor(loops: Point[][], all: Point[][][], hexagons: Box[], text?: 
   // A region hemmed in between tall full hexagons has no clear spot above it, but its underside can be free.
   if (text) {
     for (const gap of CHIP_REACHES) {
-      const spot = vertices.toReversed().map((v): Point => ({ x: v.x, y: v.y + gap + text.size })).find(clear)
+      const spot = [...vertices].reverse().map((v): Point => ({ x: v.x, y: v.y + gap + text.size })).find(clear)
       if (spot) return spot
     }
   }
@@ -372,7 +374,7 @@ export function cellCentre(cell: { q: number; r: number }, pitch: Point): Point 
  */
 export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayout {
   const full = (id: string) => id === options.current || !!options.expanded?.has(id)
-  const compacting = (options.current !== undefined || options.expanded !== undefined) && map.hexagons.length >= COMPACT_FROM && !map.hexagons.every((h) => full(h.id))
+  const compacting = (options.current !== undefined || options.expanded !== undefined) && canCompact(map.hexagons.length) && !map.hexagons.every((h) => full(h.id))
   const perHexagon = map.hexagons.map((hexagon) => ({
     hexagon,
     model: layoutDiagram(diagramOf(map, hexagon.id), options),

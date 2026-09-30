@@ -1111,6 +1111,12 @@ describe('layoutMap — several expanded hexagons', () => {
     })
   })
 
+  it('compacts every hexagon but the expanded ones when no current hexagon is given', () => {
+    const result = layoutMap(map, { expanded: new Set(['h-cat']) })
+    expect(result.hexagons.filter((h) => !h.compact).map((h) => h.id)).toEqual(['h-cat'])
+    expect(layoutMap(map, { expanded: new Set() }).hexagons.every((h) => h.compact)).toBe(true)
+  })
+
   it('never lets a compact hexagon outgrow the smallest expanded one', () => {
     const large = manyHexagonMap(30)
     large.hexagons[5].externals.push({ id: 'ext-wide', name: 'A Very Long External System Name That Extends Far To The Right'.repeat(4) })

@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
 import type { LayoutMode, LayoutNode, Point } from '../layout/layout'
 import type { LegendModel } from '../layout/legend'
-import { COMPACT_FROM, currentHexagon, growAnchor, hexagonBounds, hexagonTitle, type MapLayout } from '../layout/map'
+import { canCompact, currentHexagon, growAnchor, hexagonBounds, hexagonTitle, type MapLayout } from '../layout/map'
 import { dependencyChain } from '../model/chain'
 import { collectionOf, linkTargets, type LinkChoice } from '../model/links'
 import { crossHexagonPorts, freeSides, UNTITLED_HEXAGON, type Destination } from '../model/map'
@@ -19,6 +19,8 @@ import { gridBackgroundStyle, useElementSize, useViewportInteractions, ZoomContr
 
 /** Half the side "+" button's 24px circle. */
 const SIDE_PLUS_RADIUS = 12
+/** Half the Expand / Collapse toggle's 24px circle. */
+const EXPAND_TOGGLE_RADIUS = 12
 /** Lowercase, hyphenated compass names for the grow "+" aria-label ("Add hexagon to the {…} of {title}"). */
 const SIDE_NAME: Record<Wall, string> = { e: 'east', se: 'south-east', sw: 'south-west', w: 'west', nw: 'north-west', ne: 'north-east' }
 
@@ -132,7 +134,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
   // on screen (FIT-02.2); otherwise it falls back to 'auto', which recomputes against the new bounds every render
   // and — on 2+ hexagons — always follows the whole map, never frozen (FIT-02.1). On a compact map the full hexagons
   // are part of the key too: which ones are full sizes the lattice, so switching one moves every hexagon.
-  const hexKey = model.hexagons.map((h) => h.id).join(',') + (model.hexagons.some((h) => h.compact) ? `@${model.hexagons.filter((h) => !h.compact).map((h) => h.id)}` : '')
+  const hexKey = model.hexagons.map((h) => h.id).join(',') + (model.hexagons.some((h) => h.compact) ? `@${model.hexagons.filter((h) => !h.compact).map((h) => h.id).join(',')}` : '')
   const [seenHexagons, setSeenHexagons] = useState({ key: hexKey, hexagons: model.hexagons })
   if (hexKey !== seenHexagons.key) {
     const nextIds = new Set(model.hexagons.map((h) => h.id))
@@ -400,7 +402,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
           />
         </span>
       ))}
-      {model.hexagons.length >= COMPACT_FROM &&
+      {canCompact(model.hexagons.length) &&
         model.hexagons.map((h) => {
           const box = hexagonBounds(h)
           const corner = mapToScreen({ x: box.x + box.width, y: box.y })
@@ -411,8 +413,9 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
               key={h.id}
               type="button"
               className="expand-toggle"
+              // Like every canvas overlay control: a press on it neither pans nor drops the hover, and exports leave it out.
               data-plus=""
-              style={{ left: corner.x - SIDE_PLUS_RADIUS, top: corner.y - SIDE_PLUS_RADIUS }}
+              style={{ left: corner.x - EXPAND_TOGGLE_RADIUS, top: corner.y - EXPAND_TOGGLE_RADIUS }}
               aria-label={`${h.compact ? 'Expand' : 'Collapse'} ${name}`}
               title={current ? 'The current hexagon is always expanded' : h.compact ? 'Expand' : 'Collapse'}
               disabled={current}

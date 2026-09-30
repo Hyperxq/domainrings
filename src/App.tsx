@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import type { LayoutMode } from './layout/layout'
-import { COMPACT_FROM, currentHexagon, hexagonBounds, layoutMap } from './layout/map'
+import { canCompact, currentHexagon, hexagonBounds, layoutMap } from './layout/map'
 import { legendFor, legendForClean, legendForOnion, legendSize } from './layout/legend'
 import { layoutClean } from './layout/clean'
 import { layoutOnion } from './layout/onion'
@@ -596,7 +596,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           writePref(HIGHLIGHT_KEY, on)
           setHighlight(on)
         }}
-        onExpandAll={activeKind === 'hexagonal' && map.hexagons.length >= COMPACT_FROM ? (expand) => setViewed({ revision, expanded: new Set(expand ? map.hexagons.map((h) => h.id) : []) }) : undefined}
+        onExpandAll={activeKind === 'hexagonal' && canCompact(map.hexagons.length) ? (expand) => setViewed({ revision, expanded: new Set(expand ? map.hexagons.map((h) => h.id) : []) }) : undefined}
       />
       {activeKind === 'hexagonal' && (
         <>

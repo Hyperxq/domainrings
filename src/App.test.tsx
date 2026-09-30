@@ -1207,6 +1207,26 @@ describe('expanding hexagons on a large map', () => {
     expect(fullIds(container)).toEqual(['h1'])
   })
 
+  it('keeps the expanded hexagons through ordinary edits, growing the map and undo', () => {
+    const { container } = render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Slice 3' }))
+    const revision = useMapStore.getState().revision
+
+    act(() => {
+      useMapStore.getState().updateItem('h1', 'useCases', EXAMPLE_DIAGRAM.useCases[0].id, { name: 'Renamed use case' })
+      useMapStore.getState().addItem('h1', 'useCases', { name: 'Another use case' })
+    })
+    expect(fullIds(container)).toEqual(['h1', 'h3'])
+
+    const before = { map: useMapStore.getState().map, focus: 'h1' }
+    act(() => void useMapStore.getState().addHexagon('h1', { context: 'same' }))
+    expect(fullIds(container)).toContain('h3')
+    act(() => useMapStore.getState().restore(before))
+
+    expect(useMapStore.getState().revision).toBe(revision)
+    expect(fullIds(container)).toEqual(['h1', 'h3'])
+  })
+
   it('is view state: the map, its undo trail and the saved .hexa are untouched', async () => {
     render(<App />)
     const before = useMapStore.getState().map
