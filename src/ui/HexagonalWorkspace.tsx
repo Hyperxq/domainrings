@@ -1,56 +1,56 @@
 import type { ComponentProps } from 'react'
+import { contextName } from '../model/map'
 import { Editor } from './Editor'
+import type { FieldSession } from './editor/fieldSession'
 import { Legend, type LegendProps } from './Legend'
 import { Stage } from './Stage'
+import { useHexagonalCommands } from './useHexagonalCommands'
 
-type EditorProps = ComponentProps<typeof Editor>
+type CommandsContext = Parameters<typeof useHexagonalCommands>[0]
 type StageProps = ComponentProps<typeof Stage>
 
-type HexagonalWorkspaceProps = Omit<EditorProps, 'open' | 'onToggle'> &
-  Omit<StageProps, 'legend' | 'legendOpen' | 'panelOpen'> & {
+type HexagonalWorkspaceProps = Omit<StageProps, 'legend' | 'legendOpen' | 'panelOpen' | 'contextLabel' | 'onDelete' | 'onLink' | 'onGrow'> &
+  CommandsContext & {
     editorOpen: boolean
     onToggleEditor: () => void
     legendPanel: LegendProps
+    fieldSession: FieldSession
   }
 
-export function HexagonalWorkspace({
-  editorOpen,
-  onToggleEditor,
-  legendPanel,
-  onPrune,
-  onRecord,
-  fieldSession,
-  onAddHexagon,
-  onDeleteHexagon,
-  onMoveToContext,
-  onAddFromFile,
-  contextLabel,
-  onRenameContext,
-  onCreateLink,
-  onUpdateLink,
-  onDeleteLink,
-  ...stage
-}: HexagonalWorkspaceProps) {
+/** Editor, legend and stage for a Hexagonal map, wired to the edit commands that toast an undoable step. */
+export function HexagonalWorkspace({ editorOpen, onToggleEditor, legendPanel, fieldSession, show, nameOf, setGrowing, setLinking, parseFile, ...stage }: HexagonalWorkspaceProps) {
+  const { map, hexId, diagram, onRecord } = stage
+  const commands = useHexagonalCommands({ map, hexId, diagram, show, nameOf, setGrowing, setLinking, parseFile })
+  const contextLabel = contextName(map, map.hexagons.find((h) => h.id === hexId)!.contextId)
   return (
     <>
       <Editor
         open={editorOpen}
         onToggle={onToggleEditor}
-        onPrune={onPrune}
+        onPrune={commands.pruneToast}
         onRecord={onRecord}
         fieldSession={fieldSession}
-        onAddHexagon={onAddHexagon}
-        onDeleteHexagon={onDeleteHexagon}
-        onMoveToContext={onMoveToContext}
-        onAddFromFile={onAddFromFile}
+        onAddHexagon={() => commands.completeGrow(undefined, 'same')}
+        onDeleteHexagon={commands.handleDelete}
+        onMoveToContext={commands.handleMoveToContext}
+        onAddFromFile={commands.handleAddFromFile}
         contextLabel={contextLabel}
-        onRenameContext={onRenameContext}
-        onCreateLink={onCreateLink}
-        onUpdateLink={onUpdateLink}
-        onDeleteLink={onDeleteLink}
+        onRenameContext={commands.handleRenameContext}
+        onCreateLink={commands.createLink}
+        onUpdateLink={commands.editLink}
+        onDeleteLink={commands.deleteLink}
       />
       <Legend {...legendPanel} />
-      <Stage {...stage} onRecord={onRecord} contextLabel={contextLabel} legend={legendPanel.legend} panelOpen={editorOpen} legendOpen={legendPanel.open} />
+      <Stage
+        {...stage}
+        legend={legendPanel.legend}
+        panelOpen={editorOpen}
+        legendOpen={legendPanel.open}
+        contextLabel={contextLabel}
+        onDelete={commands.deleteItem}
+        onLink={commands.link}
+        onGrow={commands.completeGrow}
+      />
     </>
   )
 }
