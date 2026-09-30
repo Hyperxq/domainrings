@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
 import type { LayoutMode, LayoutNode, Point } from '../layout/layout'
 import type { LegendModel } from '../layout/legend'
-import { currentHexagon, growAnchor, hexagonBounds, hexagonTitle, type MapLayout } from '../layout/map'
+import { COMPACT_FROM, currentHexagon, growAnchor, hexagonBounds, hexagonTitle, type MapLayout } from '../layout/map'
 import { collectionOf, linkTargets, type LinkChoice } from '../model/links'
 import { crossHexagonPorts, freeSides, UNTITLED_HEXAGON, type Destination } from '../model/map'
 import type { CollectionKey, Diagram as DiagramModel, DomainType, HexaMap, Wall } from '../model/schema'
@@ -58,6 +58,8 @@ interface StageProps {
   naming: boolean
   onNamed: (title: string) => void
   onNamingCancel: () => void
+  /** Expands a compact hexagon in full, or compacts an expanded one back; never asked for the current hexagon. */
+  onToggleExpanded: (id: string) => void
 }
 
 const { addItem, updateItem, removeItem, setFocus } = useMapStore.getState()
@@ -73,7 +75,7 @@ const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
 const layerOf = (target: Element) =>
   target.closest('[data-band]')?.getAttribute('data-band') ?? target.closest('[data-layer]')?.getAttribute('data-layer') ?? null
 
-export function Stage({ model, map, hexId, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete, onRecord, linking, onLinking, onLink, contextLabel, onGrow, naming, onNamed, onNamingCancel }: StageProps) {
+export function Stage({ model, map, hexId, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete, onRecord, linking, onLinking, onLink, contextLabel, onGrow, naming, onNamed, onNamingCancel, onToggleExpanded }: StageProps) {
   const hex = currentHexagon(model, hexId)
   const hexModel = hex.model
   const mainRef = useRef<HTMLElement>(null)
@@ -127,18 +129,19 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
   // Grow/import/delete/undo never bump `revision` (ADR-02/ADR-05), so the fitKey reset above can't see them — this
   // tracks the hexagon id set instead. A `Viewport` the author set stays iff every added/removed/shifted box is still fully
   // on screen (FIT-02.2); otherwise it falls back to 'auto', which recomputes against the new bounds every render
-  // and — on 2+ hexagons — always follows the whole map, never frozen (FIT-02.1). On a compact map the current
-  // hexagon is part of the key too: which one is full sizes the lattice, so switching it moves every hexagon.
-  const hexKey = model.hexagons.map((h) => h.id).join(',') + (model.hexagons.some((h) => h.compact) ? `@${hexId}` : '')
+  // and — on 2+ hexagons — always follows the whole map, never frozen (FIT-02.1). On a compact map the full hexagons
+  // are part of the key too: which ones are full sizes the lattice, so switching one moves every hexagon.
+  const hexKey = model.hexagons.map((h) => h.id).join(',') + (model.hexagons.some((h) => h.compact) ? `@${model.hexagons.filter((h) => !h.compact).map((h) => h.id)}` : '')
   const [seenHexagons, setSeenHexagons] = useState({ key: hexKey, hexagons: model.hexagons })
   if (hexKey !== seenHexagons.key) {
     const nextIds = new Set(model.hexagons.map((h) => h.id))
     const prevIds = new Set(seenHexagons.hexagons.map((h) => h.id))
-    const prevCentres = new Map(seenHexagons.hexagons.map((h) => [h.id, h.centre]))
-    // A pitch change (the largest hexagon came or went) also shifts every surviving hexagon's lattice slot.
+    const prev = new Map(seenHexagons.hexagons.map((h) => [h.id, h]))
+    // A pitch change (the largest hexagon came or went) also shifts every surviving hexagon's lattice slot, and a
+    // hexagon that expands or compacts in place changes size without moving.
     const moved = model.hexagons.filter((h) => {
-      const before = prevCentres.get(h.id)
-      return before && (before.x !== h.centre.x || before.y !== h.centre.y)
+      const before = prev.get(h.id)
+      return before && (before.centre.x !== h.centre.x || before.centre.y !== h.centre.y || !before.compact !== !h.compact)
     })
     const changed = [...model.hexagons.filter((h) => !prevIds.has(h.id)), ...seenHexagons.hexagons.filter((h) => !nextIds.has(h.id)), ...moved]
     setSeenHexagons({ key: hexKey, hexagons: model.hexagons })
@@ -391,6 +394,28 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
           />
         </span>
       ))}
+      {model.hexagons.length >= COMPACT_FROM &&
+        model.hexagons.map((h) => {
+          const box = hexagonBounds(h)
+          const corner = mapToScreen({ x: box.x + box.width, y: box.y })
+          const name = hexagonTitle(h.model)
+          const current = h.id === hexId
+          return (
+            <button
+              key={h.id}
+              type="button"
+              className="expand-toggle"
+              data-plus=""
+              style={{ left: corner.x - SIDE_PLUS_RADIUS, top: corner.y - SIDE_PLUS_RADIUS }}
+              aria-label={`${h.compact ? 'Expand' : 'Collapse'} ${name}`}
+              title={current ? 'The current hexagon is always expanded' : h.compact ? 'Expand' : 'Collapse'}
+              disabled={current}
+              onClick={() => onToggleExpanded(h.id)}
+            >
+              <Icon name={h.compact ? 'expand' : 'shrink'} />
+            </button>
+          )
+        })}
       {linkable && (
         <button type="button" className="link-chip" data-plus="" style={chipAt(linkable)} aria-label={`Link ${nameOf(linkable.ref)} to…`} onClick={() => onLinking(linkable.ref)}>
           Link to…

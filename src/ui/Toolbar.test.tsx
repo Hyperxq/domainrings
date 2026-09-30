@@ -34,6 +34,7 @@ function renderToolbar(
     exportScope?: 'map' | 'hexagon'
     themeChoice?: 'light' | 'dark' | 'system'
     palette?: 'default' | 'ink' | 'moss'
+    onExpandAll?: (expand: boolean) => void
   } = {},
 ) {
   const props = {
@@ -115,6 +116,36 @@ describe('Toolbar below the full-width breakpoint', () => {
     act(() => listeners.forEach((l) => l()))
 
     expect(screen.getByRole('button', { name: 'Export as SVG' })).toBeTruthy()
+  })
+})
+
+describe('Toolbar expand and collapse all', () => {
+  it('shows Expand all and Collapse all beside the view toggles, each reporting its own direction', () => {
+    const onExpandAll = vi.fn()
+    renderToolbar({ onExpandAll })
+    fireEvent.click(screen.getByRole('button', { name: 'Expand all' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse all' }))
+    expect(onExpandAll.mock.calls).toEqual([[true], [false]])
+  })
+
+  it('shows neither when the map has nothing to expand', () => {
+    renderToolbar()
+    expect(screen.queryByRole('button', { name: 'Expand all' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Collapse all' })).toBeNull()
+  })
+
+  it('folds both into the View menu below the roomy breakpoint', () => {
+    viewport = ROOMY - 1
+    const onExpandAll = vi.fn()
+    renderToolbar({ onExpandAll })
+    expect(screen.queryByRole('button', { name: 'Expand all' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'View' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Expand all' }))
+    fireEvent.click(screen.getByRole('button', { name: 'View' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Collapse all' }))
+
+    expect(onExpandAll.mock.calls).toEqual([[true], [false]])
   })
 })
 

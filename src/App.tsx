@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import type { LayoutMode } from './layout/layout'
-import { currentHexagon, hexagonBounds, layoutMap } from './layout/map'
+import { COMPACT_FROM, currentHexagon, hexagonBounds, layoutMap } from './layout/map'
 import { legendFor, legendForClean, legendForOnion, legendSize } from './layout/legend'
 import { layoutClean } from './layout/clean'
 import { layoutOnion } from './layout/onion'
@@ -72,6 +72,7 @@ const OVERVIEW_KEY = 'domainrings:overview'
 const GUIDES_KEY = 'domainrings:guides'
 const HIGHLIGHT_KEY = 'domainrings:highlight'
 const LEGEND_OPEN_KEY = 'domainrings:legend-open'
+const NONE_EXPANDED: ReadonlySet<string> = new Set()
 const { replace, restore, removeItem, updateItem, addHexagon, importHexagon, removeHexagon, moveToContext, setMeta, addLink, updateLink: updateLinkAction, removeLink: removeLinkAction } = useMapStore.getState()
 const { replace: replaceOnion, restore: restoreOnion } = useOnionStore.getState()
 const { replace: replaceClean, restore: restoreClean } = useCleanStore.getState()
@@ -112,7 +113,10 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const [mode, setMode] = useState<LayoutMode>(() => (readPref(OVERVIEW_KEY, false) ? 'overview' : 'detailed'))
   const [guides, setGuides] = useState(() => readPref(GUIDES_KEY, true))
   const [highlight, setHighlight] = useState(() => readPref(HIGHLIGHT_KEY, true))
-  const model = layoutMap(map, { mode, current: hexId })
+  // View state, not part of the document: which hexagons the author expanded, kept for the document they were chosen in.
+  const [viewed, setViewed] = useState<{ revision: number; expanded: ReadonlySet<string> }>({ revision, expanded: new Set() })
+  const expanded = viewed.revision === revision ? viewed.expanded : NONE_EXPANDED
+  const model = layoutMap(map, { mode, current: hexId, expanded })
   const svgRef = useRef<SVGSVGElement>(null)
   const [editorOpen, setEditorOpen] = useState(() => !matchMedia('(max-width: 720px)').matches)
   const reveal = (ref: string, focus: boolean) => {
@@ -592,6 +596,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           writePref(HIGHLIGHT_KEY, on)
           setHighlight(on)
         }}
+        onExpandAll={activeKind === 'hexagonal' && map.hexagons.length >= COMPACT_FROM ? (expand) => setViewed({ revision, expanded: new Set(expand ? map.hexagons.map((h) => h.id) : []) }) : undefined}
       />
       {activeKind === 'hexagonal' && (
         <>
@@ -658,6 +663,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
               setGrowing(null)
               setNotice(null)
             }}
+            onToggleExpanded={(id) => setViewed({ revision, expanded: new Set(expanded.has(id) ? [...expanded].filter((x) => x !== id) : [...expanded, id]) })}
           />
         </>
       )}
