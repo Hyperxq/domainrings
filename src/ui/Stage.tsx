@@ -13,6 +13,7 @@ import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
+import { hexIdOf, layerOf, refOf } from './canvasTarget'
 import { keyOnCanvas } from './keys'
 import { contains, fitMap, fitTo, islandInset, visibleRect } from './viewport'
 import { gridBackgroundStyle, useElementSize, useViewportInteractions, ZoomControls } from './viewportChrome'
@@ -76,10 +77,6 @@ const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
   actors: 'actor',
   externals: 'external',
 }
-/** The layer an element belongs to: its band, or the ring it is drawn in. */
-const layerOf = (target: Element) =>
-  target.closest('[data-band]')?.getAttribute('data-band') ?? target.closest('[data-layer]')?.getAttribute('data-layer') ?? null
-
 export function Stage({ model, map, hexId, diagram, mode, highlight, dependents, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete, onRecord, linking, onLinking, onLink, contextLabel, onGrow, naming, onNamed, onNamingCancel, onToggleExpanded }: StageProps) {
   const hex = currentHexagon(model, hexId)
   const hexModel = hex.model
@@ -275,7 +272,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
     setEditing({ id, collection, name: patch.name, at: point.at, hexId, before })
   }
   const revealFrom = (target: Element) => {
-    const ref = target.closest('[data-ref]')?.getAttribute('data-ref')
+    const ref = refOf(target)
     if (ref) onReveal(ref, true)
   }
   // The inline name field sits over the new element once it is laid out, over its "+" until then.
@@ -311,7 +308,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
         onPointerOver={(e) => {
           if (dragging) return
           const target = e.target as Element
-          if (target.closest('[data-hex]')?.getAttribute('data-hex') !== hexId) return setHovered(null)
+          if (hexIdOf(target) !== hexId) return setHovered(null)
           setHovered(layerOf(target))
         }}
         onPointerLeave={(e) => !(e.relatedTarget as Element | null)?.closest?.('[data-plus]') && setHovered(null)}
@@ -331,7 +328,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
             return onLinking(null)
           }
           if (e.detail === 1) gestureAnchorHexId.current = hexId
-          const clickedHexId = target.closest('[data-hex]')?.getAttribute('data-hex') ?? null
+          const clickedHexId = hexIdOf(target)
           const ref = target.closest('.node')?.getAttribute('data-ref') ?? null
           // ADR-02: a click on another hexagon's port while linking, when that port is a valid cross-hexagon
           // target, creates the link instead of switching focus — checked before the ordinary focus-switch below.
@@ -346,7 +343,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
           e.preventDefault()
           const target = e.target as Element
           if (target.closest('[data-map-link], [data-hull], [data-chip]')) return
-          const clickedHexId = target.closest('[data-hex]')?.getAttribute('data-hex') ?? null
+          const clickedHexId = hexIdOf(target)
           if (clickedHexId && clickedHexId !== gestureAnchorHexId.current) {
             focusHexagon(clickedHexId)
             onReveal('hexagon', true)
@@ -356,7 +353,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
         }}
         onKeyDown={(e) => {
           const target = e.target as Element
-          const groupId = target.closest('[data-hex]')?.getAttribute('data-hex')
+          const groupId = hexIdOf(target)
           const activation = e.key === 'Enter' || e.key === ' '
           const ref = target.closest('.node')?.getAttribute('data-ref') ?? null
           if (activation && linking && isCrossTarget(groupId, ref)) {

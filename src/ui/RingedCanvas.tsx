@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type Ref } from 'react'
 import type { Box } from '../layout/layout'
 import { isInwardOrSame } from '../model/rings'
+import { layerOf, refOf } from './canvasTarget'
 import { keyOnCanvas } from './keys'
 import { fitTo, islandInset } from './viewport'
 import { gridBackgroundStyle, useElementSize, useViewportInteractions, ZoomControls } from './viewportChrome'
@@ -260,11 +261,6 @@ export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, selec
   const width = size.width / viewport.scale
   const height = size.height / viewport.scale
 
-  // The ring a target belongs to (its own `data-band`/`data-layer`, e.g. the band itself or one of its own
-  // elements) and the specific element/endpoint it is (`data-ref`) — same convention as Hexagonal's own
-  // `layerOf` (Stage.tsx), generalised with a ref lookup for the per-element endpoint "+"s.
-  const layerOf = (target: Element) => target.closest('[data-band]')?.getAttribute('data-band') ?? target.closest('[data-layer]')?.getAttribute('data-layer') ?? null
-  const refOf = (target: Element) => target.closest('[data-ref]')?.getAttribute('data-ref') ?? null
   const reveal = (target: Element | null) => setHover(target ? { layer: layerOf(target), ref: refOf(target) } : NO_HOVER)
 
   return (
