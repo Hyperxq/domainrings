@@ -1,12 +1,12 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
-import { cellCentre, COMPACT_FROM, growAnchor, hexagonBounds, layoutMap, MAP_GAP, type MapLayoutOptions } from './map'
+import { cellCentre, COMPACT_FROM, currentHexagon, growAnchor, hexagonBounds, layoutMap, MAP_GAP, type MapLayoutOptions } from './map'
 import { pointInRegion } from './hull'
 import { CHIP_LABEL, measure, TITLE } from './text'
 import { outwardEdgePoint, routeLink } from './links'
 import { layoutDiagram, type Box, type LayoutMode } from './layout'
 import { parseHexa, toMap } from '../model/hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM } from '../model/example'
-import { freeCell, removeHexagon, SIDE_ORDER } from '../model/map'
+import { freeCell, freeSides, neighbour, removeHexagon, SIDE_ORDER } from '../model/map'
 import { MapSchema, VERSION, type Diagram, type HexaMap, type Hexagon, type Wall } from '../model/schema'
 import { fitTo, islandInset } from '../ui/viewport'
 import projectBuilder from '../model/fixtures/project-builder.hexa?raw'
@@ -18,6 +18,11 @@ const CORPUS: Array<[string, Diagram]> = [
   ...RETIRED_SEEDS.map((seed, i): [string, Diagram] => [`retired seed v${i + 1}`, seed]),
 ]
 const MODES: LayoutMode[] = ['detailed', 'overview']
+const projectBuilderMap = (): HexaMap => {
+  const parsed = parseHexa(projectBuilder)
+  if (!parsed.ok || parsed.map.kind !== 'hexagonal') throw new Error('project-builder fixture must parse')
+  return parsed.map
+}
 
 describe('layoutMap — one-hexagon equivalence (MIG-05)', () => {
   for (const mode of MODES) {
@@ -606,6 +611,32 @@ describe('growAnchor', () => {
     }
   }
 
+  it('clears the current hexagon and every neighbour on every free side of a compact map', () => {
+    for (const map of [manyHexagonMap(12), projectBuilderMap()]) {
+      for (const current of map.hexagons) {
+        const layout = layoutMap(map, { current: current.id })
+        const hex = currentHexagon(layout, current.id)
+        for (const side of freeSides(map, hex.cell)) {
+          const at = growAnchor(hex, side, layout.pitch, MARGIN)
+          for (const other of layout.hexagons) expect(clearOf(at, hexagonBounds(other)), `${current.id} ${side} vs ${other.id}`).toBe(true)
+        }
+      }
+    }
+  })
+
+  it('leaves every hexagon of a compact map along the lattice step to that neighbour, however far it was pushed off its cell', () => {
+    const layout = layoutMap(projectBuilderMap(), { current: 'h-exec' })
+    for (const hex of layout.hexagons) {
+      for (const side of SIDE_ORDER) {
+        const step = { x: cellCentre(neighbour(hex.cell, side), layout.pitch).x - cellCentre(hex.cell, layout.pitch).x, y: cellCentre(neighbour(hex.cell, side), layout.pitch).y - cellCentre(hex.cell, layout.pitch).y }
+        const at = growAnchor(hex, side, layout.pitch, MARGIN)
+        const along = { x: at.x - hex.centre.x, y: at.y - hex.centre.y }
+        expect(Math.abs(along.x * step.y - along.y * step.x), `${hex.id} ${side}`).toBeLessThan(1e-6 * Math.hypot(along.x, along.y) * Math.hypot(step.x, step.y))
+        expect(along.x * step.x + along.y * step.y).toBeGreaterThan(0)
+      }
+    }
+  })
+
   it('stays on the lattice line toward the neighbour, never past the neighbour itself', () => {
     const layout = layoutMap(toMap(STRESS_DIAGRAM))
     const hex = layout.hexagons[0]
@@ -857,9 +888,7 @@ describe('layoutMap — compact neighbours from COMPACT_FROM hexagons up', () =>
 // A real map: 6 contexts of one hexagon each, 11-25 elements a hexagon, 9 links between hexagons. Fit is judged the
 // way the app does it (1440x900, editor open), against the scales the shared full-hexagon pitch produced.
 describe('layoutMap — a real map with one hexagon per context (project-builder)', () => {
-  const parsed = parseHexa(projectBuilder)
-  if (!parsed.ok || parsed.map.kind !== 'hexagonal') throw new Error('project-builder fixture must parse')
-  const map = parsed.map
+  const map = projectBuilderMap()
   const STAGE = { width: 1440, height: 900 }
   const INSET = islandInset(STAGE, true, false)
   const TODAY_FIT = { detailed: 0.13989, overview: 0.26322 }

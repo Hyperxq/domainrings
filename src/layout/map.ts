@@ -250,10 +250,13 @@ const compactOf = (hexagon: Hexagon, model: LayoutModel, unit: number): CompactL
 
 /** Where a grow "+" toward `side` sits: the midpoint to the neighbouring cell, pushed along that line until a button
  * of half-size `margin` clears the hexagon's own bounds — one-sided content can reach past the midpoint, and a full
- * hexagon among compact ones reaches past the neighbouring cell's centre. */
+ * hexagon among compact ones reaches past the neighbouring cell's centre. The push ends where the button leaves the
+ * bounds, so it is finite for any non-zero step. */
 export function growAnchor(hex: Pick<MapHexagonLayout, 'centre' | 'cell' | 'model'>, side: Wall, pitch: Point, margin: number): Point {
+  // The lattice step, not the neighbour's cell centre: a hexagon pushed off its own cell still leaves along the line to its neighbour.
+  const from = cellCentre(hex.cell, pitch)
   const to = cellCentre(neighbour(hex.cell, side), pitch)
-  const d = { x: to.x - hex.centre.x, y: to.y - hex.centre.y }
+  const d = { x: to.x - from.x, y: to.y - from.y }
   const box = hexagonBounds(hex)
   const leaves = (delta: number, min: number, size: number, from: number) =>
     delta > 0 ? (min + size + margin - from) / delta : delta < 0 ? (min - margin - from) / delta : Infinity
