@@ -144,7 +144,7 @@ describe('dependency fences', () => {
 // Regression guard (ADR-01): a document-root union (`StoredFile`) must never reach a Hexagonal-only module —
 // those keep reading `HexaMap` only, exactly as before Onion or Clean existed.
 describe('Hexagonal-only modules never import StoredFile/OnionFile/CleanFile (ADR-01)', () => {
-  const HEXAGONAL_ONLY_MODULES = ['./model/map.ts', './model/store.ts', './layout/map.ts', './ui/Editor.tsx', './ui/Stage.tsx', './layout/compactHexagon.ts', './layout/contextChips.ts']
+  const HEXAGONAL_ONLY_MODULES = ['./model/map.ts', './model/store.ts', './layout/map.ts', './ui/Editor.tsx', './ui/Stage.tsx', './layout/compactHexagon.ts', './layout/contextChips.ts', './layout/linkEnds.ts']
 
   it('lists only files that exist', () => {
     expect(HEXAGONAL_ONLY_MODULES.filter((p) => !(p in files))).toEqual([])
