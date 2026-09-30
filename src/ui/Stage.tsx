@@ -3,28 +3,20 @@ import { flushSync } from 'react-dom'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
 import type { LayoutMode, LayoutNode, Point } from '../layout/layout'
 import type { LegendModel } from '../layout/legend'
-import { canCompact, currentHexagon, growAnchor, hexagonBounds, hexagonTitle, type MapLayout } from '../layout/map'
+import { currentHexagon, hexagonBounds, hexagonTitle, type MapLayout } from '../layout/map'
 import { dependencyChain } from '../model/chain'
 import { collectionOf, linkTargets, type LinkChoice } from '../model/links'
 import { canLink, crossPortTargets, isCrossTarget, targetsByHexagon } from '../model/linkTargeting'
-import { freeSides, UNTITLED_HEXAGON, type Destination } from '../model/map'
+import type { Destination } from '../model/map'
 import type { CollectionKey, Diagram as DiagramModel, DomainType, HexaMap, Wall } from '../model/schema'
 import { useMapStore } from '../model/store'
 import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
-import { ChoiceMenu } from './ChoiceMenu'
-import { Icon } from './Icon'
 import { hexIdOf, layerOf, refOf } from './canvasTarget'
 import { keyOnCanvas } from './keys'
 import { contains, fitMap, fitTo, islandInset, visibleRect } from './viewport'
+import { ExpandToggles, GrowButtons, LinkChip } from './stage/overlays'
 import { gridBackgroundStyle, useElementSize, useViewportInteractions, ZoomControls } from './viewportChrome'
-
-/** Half the side "+" button's 24px circle. */
-const SIDE_PLUS_RADIUS = 12
-/** Half the Expand / Collapse toggle's 24px circle. */
-const EXPAND_TOGGLE_RADIUS = 12
-/** Lowercase, hyphenated compass names for the grow "+" aria-label ("Add hexagon to the {…} of {title}"). */
-const SIDE_NAME: Record<Wall, string> = { e: 'east', se: 'south-east', sw: 'south-west', w: 'west', nw: 'north-west', ne: 'north-east' }
 
 interface StageProps {
   model: MapLayout
@@ -219,11 +211,6 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
   })
   // The grow-menu anchors are already in map space (cell centres), unlike hexagon-local insertion points.
   const mapToScreen = (p: Point) => ({ x: (p.x - viewport.x) * viewport.scale, y: (p.y - viewport.y) * viewport.scale })
-  const growSides = freeSides(model, hex.cell).map((side) => ({ side, at: mapToScreen(growAnchor(hex, side, model.pitch, SIDE_PLUS_RADIUS / viewport.scale)) }))
-  const growChoices = (context: string) => [
-    { id: 'same' as const, label: `Hexagon in ${context}` },
-    { id: 'new' as const, label: 'Hexagon in a new bounded context' },
-  ]
   const targets = linking ? linkTargets(diagram, linking) : []
   // ADR-02: the ports of another hexagon a link-mode selection can connect to — empty unless `linking` is a port.
   const crossTargets = linking ? crossPortTargets(map, diagram, hexId, linking) : []
@@ -243,12 +230,6 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
     selected && !linking && canLink(map, diagram, hexId, selected)
       ? hexModel.nodes.find((n) => n.ref === selected && n.kind === NODE_KIND[collectionOf(diagram, selected)!])
       : undefined
-  const chipAt = (n: LayoutNode) => {
-    const a = ((n.rotation ?? 0) * Math.PI) / 180
-    const [c, s] = [Math.abs(Math.cos(a)), Math.abs(Math.sin(a))]
-    const corner = toScreen({ x: n.x + (n.width / 2) * c + (n.height / 2) * s, y: n.y - (n.width / 2) * s - (n.height / 2) * c })
-    return { left: corner.x, top: corner.y }
-  }
   const visiblePoints = hovered ? insertionPoints(hexModel, diagram, mode).filter((p) => p.layer === hovered) : []
   const pick = (point: InsertionPoint, choice?: DomainType) => {
     const { collection, patch } = insertionItem(point.action, choice)
@@ -373,47 +354,9 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
       </p>
 
       <Affordances points={visiblePoints} toScreen={toScreen} onPick={pick} onLayer={setHovered} />
-      {growSides.map(({ side, at }) => (
-        // No `transform` here (e.g. translate to centre): ChoiceMenu's own menu is `position: fixed` under the
-        // trigger, whose containing block a transformed ancestor would hijack — the half-button-size offset is
-        // baked into left/top instead, matching .plus's own 24px circle.
-        <span key={side} className="side-plus" style={{ left: at.x - SIDE_PLUS_RADIUS, top: at.y - SIDE_PLUS_RADIUS }}>
-          <ChoiceMenu
-            label={<Icon name="plus" />}
-            ariaLabel={`Add hexagon to the ${SIDE_NAME[side]} of ${title || UNTITLED_HEXAGON}`}
-            choices={growChoices(contextLabel)}
-            onChoose={(context) => onGrow(side, context)}
-          />
-        </span>
-      ))}
-      {canCompact(model.hexagons.length) &&
-        model.hexagons.map((h) => {
-          const box = hexagonBounds(h)
-          const corner = mapToScreen({ x: box.x + box.width, y: box.y })
-          const name = hexagonTitle(h.model)
-          const current = h.id === hexId
-          return (
-            <button
-              key={h.id}
-              type="button"
-              className="expand-toggle"
-              // Like every canvas overlay control: a press on it neither pans nor drops the hover, and exports leave it out.
-              data-plus=""
-              style={{ left: corner.x - EXPAND_TOGGLE_RADIUS, top: corner.y - EXPAND_TOGGLE_RADIUS }}
-              aria-label={`${h.compact ? 'Expand' : 'Collapse'} ${name}`}
-              title={current ? 'The current hexagon is always expanded' : h.compact ? 'Expand' : 'Collapse'}
-              disabled={current}
-              onClick={() => onToggleExpanded(h.id)}
-            >
-              <Icon name={h.compact ? 'expand' : 'shrink'} />
-            </button>
-          )
-        })}
-      {linkable && (
-        <button type="button" className="link-chip" data-plus="" style={chipAt(linkable)} aria-label={`Link ${nameOf(linkable.ref)} to…`} onClick={() => onLinking(linkable.ref)}>
-          Link to…
-        </button>
-      )}
+      <GrowButtons model={model} hex={hex} scale={viewport.scale} mapToScreen={mapToScreen} title={title} contextLabel={contextLabel} onGrow={onGrow} />
+      <ExpandToggles model={model} currentId={hexId} mapToScreen={mapToScreen} onToggle={onToggleExpanded} />
+      {linkable && <LinkChip node={linkable} name={nameOf(linkable.ref)} toScreen={toScreen} onLink={() => onLinking(linkable.ref)} />}
       {editing && (
         <InlineName
           key={editing.id}
