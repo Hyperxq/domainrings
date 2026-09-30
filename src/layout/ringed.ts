@@ -1,4 +1,3 @@
-import type { RingRole } from '../model/kinds'
 import { arcAngles, polarPoint } from '../model/rings'
 import { RINGED_KIND_LABEL, type RingedKind } from '../model/ringedKinds'
 import { circle, type LayoutRing, type Outline } from './layout'
@@ -308,7 +307,7 @@ export interface RingedExtraLabel {
   maxHalfSpan?: number
 }
 
-export function ringOutlines<Role extends RingRole>(
+export function ringOutlines<Role extends string>(
   rings: readonly { role: Role; name: string }[],
   slotsOf: (role: Role) => readonly RingedSlot[] = () => [],
   extraLabelsOf: (role: Role) => readonly RingedExtraLabel[] = () => [],

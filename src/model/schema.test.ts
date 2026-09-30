@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { APP, CleanFileSchema, DiagramSchema, HexaFileV3Schema, linkEndProblem, MapSchema, OnionFileSchema, VERSION } from './schema'
+import { kindsFor, ONION_KINDS } from './ringedKinds'
+import { APP, CleanFileSchema, DiagramSchema, HexaFileV3Schema, HexaFileV4Schema, linkEndProblem, MapSchema, OnionFileSchema, VERSION } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
 import { newCleanMap, newOnionMap, toMap } from './hexa'
 
@@ -348,5 +349,101 @@ describe('frozen v3 Onion arm', () => {
     const result = HexaFileV3Schema.safeParse(file)
     expect(result.success).toBe(true)
     if (result.success && result.data.kind === 'onion') expect(result.data.elements[0]).toEqual({ id: 'e1', name: 'Order', ringRole: 'domain' })
+  })
+})
+
+describe('editable Onion rings', () => {
+  const ring = (role: string, name = role) => ({ role, name })
+  const withRings = (rings: unknown[], elements: unknown[] = []) => ({ ...newOnionMap('Rings'), rings, elements })
+  const outerTwo = [ring('domain'), ring('outer')]
+  const issueMessage = (result: { success: boolean; error?: { issues: { path: PropertyKey[]; message: string }[] } }, path: string) =>
+    result.error?.issues.find((i) => i.path.join('.') === path)?.message
+
+  it.each([
+    ['two rings', outerTwo],
+    ['three rings with a user-added one', [ring('domain'), ring('ring-a1b2c3d4', 'Events'), ring('outer')]],
+    ['five rings', [ring('domain'), ring('domainServices'), ring('ring-a1b2c3d4'), ring('application'), ring('outer')]],
+  ])('accepts %s', (_name, rings) => {
+    expect(OnionFileSchema.safeParse(withRings(rings)).success).toBe(true)
+  })
+
+  it('rejects a single ring', () => {
+    expect(OnionFileSchema.safeParse(withRings([ring('domain')])).success).toBe(false)
+  })
+
+  it('rejects a duplicate ring id', () => {
+    const result = OnionFileSchema.safeParse(withRings([ring('domain'), ring('domain'), ring('outer')]))
+    expect(result.success).toBe(false)
+    expect(issueMessage(result, 'rings.1.role')).toBe('Duplicate ring "domain"')
+  })
+
+  it('rejects a ring id that cannot be used as a class or attribute value', () => {
+    expect(OnionFileSchema.safeParse(withRings([ring('domain'), ring('has space'), ring('outer')])).success).toBe(false)
+  })
+
+  it('rejects an element that names a ring the file does not have', () => {
+    const result = OnionFileSchema.safeParse(withRings(outerTwo, [{ id: 'a', name: 'Order', ringRole: 'application' }]))
+    expect(result.success).toBe(false)
+    expect(issueMessage(result, 'elements.0.ringRole')).toBe('Unknown ring "application"')
+  })
+
+  it('offers no kind in a user-added ring', () => {
+    const rings = [ring('domain'), ring('ring-a1b2c3d4'), ring('outer')]
+    expect(OnionFileSchema.safeParse(withRings(rings, [{ id: 'a', name: 'Order', ringRole: 'ring-a1b2c3d4' }])).success).toBe(true)
+    expect(OnionFileSchema.safeParse(withRings(rings, [{ id: 'a', name: 'Order', ringRole: 'ring-a1b2c3d4', kind: 'entity' }])).success).toBe(false)
+  })
+
+  it('keeps a canonical role bound to its kinds wherever the ring sits', () => {
+    const rings = [ring('domain'), ring('application'), ring('domainServices'), ring('outer')]
+    expect(OnionFileSchema.safeParse(withRings(rings, [{ id: 'a', name: 'Pricing', ringRole: 'domainServices', kind: 'domainService' }])).success).toBe(true)
+  })
+
+  it('still enforces the inward rule against the ring order the file declares', () => {
+    const rings = [ring('domain'), ring('application'), ring('domainServices'), ring('outer')]
+    const elements = [
+      { id: 'svc', name: 'Svc', ringRole: 'domainServices' },
+      { id: 'app', name: 'App', ringRole: 'application' },
+    ]
+    const dependencies = [{ id: 'd', fromId: 'app', toId: 'svc' }]
+    expect(OnionFileSchema.safeParse({ ...withRings(rings, elements), dependencies }).success).toBe(false)
+  })
+})
+
+describe('frozen v4 arm', () => {
+  it('keeps the fixed 4-ring tuple of the version-4 format', () => {
+    const { version: _v, ...onion } = newOnionMap('Old')
+    const file = { ...onion, version: 4, app: APP }
+    expect(HexaFileV4Schema.safeParse(file).success).toBe(true)
+    expect(HexaFileV4Schema.safeParse({ ...file, rings: file.rings.slice(0, 3) }).success).toBe(false)
+  })
+})
+
+describe('Onion edge rings', () => {
+  const ring = (role: string) => ({ role, name: role })
+  const withRings = (rings: unknown[]) => ({ ...newOnionMap('Rings'), rings })
+  const issueMessage = (result: { success: boolean; error?: { issues: { path: PropertyKey[]; message: string }[] } }, path: string) =>
+    result.error?.issues.find((i) => i.path.join('.') === path)?.message
+
+  it('requires the first ring to be domain', () => {
+    const result = OnionFileSchema.safeParse(withRings([ring('application'), ring('outer')]))
+    expect(result.success).toBe(false)
+    expect(issueMessage(result, 'rings.0.role')).toBe('The innermost ring must be "domain"')
+  })
+
+  it('requires the last ring to be outer', () => {
+    const result = OnionFileSchema.safeParse(withRings([ring('domain'), ring('application')]))
+    expect(result.success).toBe(false)
+    expect(issueMessage(result, 'rings.1.role')).toBe('The outermost ring must be "outer"')
+  })
+
+  it.each(['constructor', 'hasOwnProperty', 'ring has space', 'application2'])('rejects the ring id %s: only a canonical role or "ring-…" is one', (role) => {
+    expect(OnionFileSchema.safeParse(withRings([ring('domain'), ring(role), ring('outer')])).success).toBe(false)
+  })
+})
+
+describe('kindsFor', () => {
+  it('answers a role the table does not name, or one an object inherits, with no kinds', () => {
+    for (const role of ['ring-a1b2c3d4', 'constructor', 'hasOwnProperty', '']) expect(kindsFor(ONION_KINDS, role)).toEqual([])
+    expect(kindsFor(ONION_KINDS, 'outer')).toContain('ui')
   })
 })

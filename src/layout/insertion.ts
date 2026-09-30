@@ -51,7 +51,7 @@ export function insertionPoints(model: LayoutModel, d: Diagram, mode: 'detailed'
   const config = HEXAGONAL_KIND
   const app = model.rings.find((r) => r.role === 'application')!
   const domainRing = model.rings[model.rings.length - 1]
-  const outermost = model.rings[0].role
+  const outermost = model.rings[0].role as RingRole
   const points: InsertionPoint[] = []
   const nodesOf = (kind: LayoutNode['kind']) => model.nodes.filter((n) => n.kind === kind)
   const name = (id: string, list: { id: string; name: string }[]) => list.find((x) => x.id === id)?.name ?? ''

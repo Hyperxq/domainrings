@@ -30,6 +30,9 @@
 .canvas text { fill: var(--ink); font-family: var(--font-sans); dominant-baseline: central; }
 
 .ring { stroke-width: 1.6; }
+/* A user-added Onion ring has no role class of its own: it wears this neutral teal wash, and the canonical
+   roles below override it. */
+.ring { fill: var(--ring-custom); stroke: var(--teal); }
 .ring-outer { fill: var(--card); stroke: var(--line); }
 .ring-adapters { fill: var(--slate-soft); stroke: var(--slate); }
 .ring-application { fill: var(--teal-soft); stroke: var(--teal); }
@@ -53,6 +56,7 @@
   /* Thinner than `.link-pattern-label`'s own 4px: that label is a straight, larger run of text with room between
      letters, while a curved ring/sector label packs small (12-13px) glyphs tightly along an arc — 4px puffed
      adjacent letters into each other, turning the whole word into an illegible blob. */
+  stroke: var(--ring-custom);
   stroke-width: 2px;
   stroke-linejoin: round;
 }
@@ -242,6 +246,7 @@
 .canvas .legend-heading { font-weight: 600; fill: var(--ink); }
 .canvas .legend-label { fill: var(--muted); }
 .canvas .legend-tag { font-family: var(--font-mono); fill: var(--muted); }
+.legend-swatch { fill: var(--ring-custom); stroke: var(--teal); }
 .swatch-outer { fill: var(--card); stroke: var(--line); }
 .swatch-adapters, .swatch-external { fill: var(--slate-soft); stroke: var(--slate); }
 .swatch-driven { fill: var(--driven-fill); stroke: var(--driven-line); }
@@ -568,6 +573,9 @@ label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
 .section-head .icon { width: 14px; height: 14px; color: var(--muted); transition: transform var(--motion-base) var(--motion-ease); }
 .fold[open] > .section-head .icon { transform: rotate(90deg); }
 .section-head .count { color: var(--muted); font-size: 12px; }
+.ring-settings { display: grid; gap: 8px; margin-bottom: 8px; }
+.ring-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.add-ring { justify-self: start; margin: 4px 0; }
 .section-actions { position: absolute; top: 12px; right: 2px; display: flex; gap: 2px; }
 .section-actions .text-button.small { height: 26px; padding: 0 8px; font-size: 12px; }
 .port-group { display: grid; gap: 6px; }
@@ -700,7 +708,7 @@ textarea { width: 100%; resize: vertical; margin-top: 4px; }
   animation: enter var(--motion-base) var(--motion-ease);
   transition: opacity var(--motion-base) var(--motion-ease), translate var(--motion-base) var(--motion-ease);
 }
-.toast p { flex: 1; min-width: 0; margin: 0 8px 0 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.toast p { flex: 1; min-width: 0; margin: 0 8px 0 0; overflow-wrap: anywhere; }
 .toast .text-button { font-size: 13px; color: var(--teal); }
 .toast.is-leaving { opacity: 0; translate: 0 8px; }
 
@@ -745,6 +753,7 @@ textarea { width: 100%; resize: vertical; margin-top: 4px; }
 .legend ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 12px; }
 .legend li { display: flex; align-items: center; gap: 8px; }
 .legend-swatch { display: inline-block; width: 16px; height: 10px; border: 1px solid; border-radius: 2px; }
+span.legend-swatch { background: var(--ring-custom); border-color: var(--teal); }
 span.swatch-outer { background: var(--card); border-color: var(--line); }
 span.swatch-adapters { background: var(--slate-soft); border-color: var(--slate); }
 span.swatch-application { background: var(--teal-soft); border-color: var(--teal); }

@@ -43,7 +43,7 @@ Hints:
 ```jsonc
 {
   "app": "domainrings",          // always this
-  "version": 4,                  // 2, 3, or 4 all work; write 4, the current version
+  "version": 5,                  // 2 to 5 all work; write 5, the current version
   "kind": "hexagonal",           // "onion" and "clean" are valid kinds too, but with a different body; this format is hexagonal
   "title": "Shop",               // the map's title
   "contexts": [{ "id": "c1", "name": "Sales" }],   // at least one; name optional

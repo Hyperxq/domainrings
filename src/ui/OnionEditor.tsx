@@ -1,9 +1,10 @@
 import { flushSync } from 'react-dom'
 import { tidyOnionOrder } from '../layout/onion'
 import { outerRoleOf } from '../model/rings'
-import { ONION_KINDS } from '../model/ringedKinds'
+import { kindsFor, ONION_KINDS } from '../model/ringedKinds'
 import { elementName, UNTITLED } from '../model/ringedDocument'
-import type { OnionFile, OnionRingRole } from '../model/schema'
+import type { OnionFile } from '../model/schema'
+import { renameRing as withRingName } from '../model/onionRings'
 import { useOnionStore } from '../model/onionStore'
 import { Fold, revealInEditor } from './Editor'
 import { Icon } from './Icon'
@@ -11,13 +12,21 @@ import { DependenciesSection, ElementList, EndpointsSection, kindMessage, Rename
 
 type EndpointCollection = 'actors' | 'externals'
 
-const { setTitle, addElement, updateElement, removeElement, addDependency, removeDependency, addEndpoint, removeEndpoint, restore } = useOnionStore.getState()
+const { setTitle, renameRing, addRing, removeRing, moveRing, addElement, updateElement, removeElement, addDependency, removeDependency, addEndpoint, removeEndpoint, restore } = useOnionStore.getState()
 
 // A rename only ever touches the one element's `name` — everything else in `doc` is exactly what it was before
 // the edit started, so replaying the pre-edit name back onto the CURRENT doc reconstructs the pre-edit snapshot
 // without a separate focus-time capture (Editor.tsx's context rename needs one only because renaming there can
 // run concurrently with other edits across a whole map; a single input's own focus→blur session cannot).
 const withElementName = (doc: OnionFile, id: string, name: string): OnionFile => ({ ...doc, elements: doc.elements.map((e) => (e.id === id ? { ...e, name } : e)) })
+
+const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+const dependencies = (n: number) => count(n, 'dependency', 'dependencies')
+
+const removedRingMessage = (name: string, r: NonNullable<ReturnType<typeof removeRing>>) =>
+  `Removed ${name}.` +
+  (r.moved ? ` Moved ${count(r.moved, 'element')} to ${r.into}${r.cleared ? `, clearing ${count(r.cleared, 'kind')}` : ''}.` : '') +
+  (r.pruned ? ` Removed ${dependencies(r.pruned)} that pointed outward.` : '')
 
 interface OnionEditorProps {
   open: boolean
@@ -29,21 +38,33 @@ interface OnionEditorProps {
   onMutate?: (message: string, before: OnionFile) => void
 }
 
-/** A ring's own elements (REQ-07): its name, an "add element to this ring" +, and each element's inline-renamable
- * name plus a remove button — the same card idiom Editor.tsx's Section uses for a single flat collection. */
+/** A ring: its renamable name, the controls that reshape it (only a middle ring can move or go — the innermost
+ * and outermost stay), an "add element to this ring" +, and each element's inline-renamable name plus a remove
+ * button — the same card idiom Editor.tsx's Section uses for a single flat collection. */
 function RingSection({
-  role,
-  name,
+  index,
   elements,
   doc,
   onMutate,
 }: {
-  role: OnionRingRole
-  name: string
+  index: number
   elements: OnionFile['elements']
   doc: OnionFile
   onMutate: (message: string, before: OnionFile) => void
 }) {
+  const { role, name } = doc.rings[index]
+  const middle = index > 0 && index < doc.rings.length - 1
+  const move = (direction: 'in' | 'out') => {
+    const before = doc
+    const result = moveRing(role, direction)
+    if (!result) return
+    onMutate(`Moved ${name} ${direction === 'in' ? 'inward' : 'outward'}.${result.pruned ? ` Removed ${dependencies(result.pruned)} that pointed outward.` : ''}`, before)
+  }
+  const remove = () => {
+    const before = doc
+    const result = removeRing(role)
+    if (result) onMutate(removedRingMessage(name, result), before)
+  }
   const add = () => {
     let id = ''
     const before = doc
@@ -65,9 +86,28 @@ function RingSection({
         </button>
       }
     >
+      <div className="ring-settings" data-item-id={role}>
+        <label className="field">
+          <span>Ring name</span>
+          <RenameField ariaLabel="Ring name" value={name} onChange={(next) => renameRing(role, next)} onCommit={(before) => onMutate(`Renamed ${before || 'the ring'} to ${name}.`, withRingName(doc, role, before))} />
+        </label>
+        {middle && (
+          <div className="ring-actions">
+            <button type="button" className="text-button small" disabled={index === 1} onClick={() => move('in')} aria-label={`Move ${name} inward`}>
+              Move in
+            </button>
+            <button type="button" className="text-button small" disabled={index === doc.rings.length - 2} onClick={() => move('out')} aria-label={`Move ${name} outward`}>
+              Move out
+            </button>
+            <button type="button" className="text-button small" onClick={remove} aria-label={`Remove ring ${name}`}>
+              Remove ring
+            </button>
+          </div>
+        )}
+      </div>
       <ElementList
         elements={elements}
-        kinds={ONION_KINDS[role]}
+        kinds={kindsFor(ONION_KINDS, role)}
         onRename={(id, newName) => updateElement(id, { name: newName })}
         onRenameCommit={(id, before) => onMutate(`Renamed ${before || 'the element'} to ${elementName(doc.elements, id)}.`, withElementName(doc, id, before))}
         onKind={(id, kind) => {
@@ -107,6 +147,16 @@ export function OnionEditor({ open, onToggle, onMutate = () => {} }: OnionEditor
     onMutate(`Removed ${item.name}.`, before)
   }
 
+  const handleAddRing = () => {
+    const before = doc
+    let role = ''
+    flushSync(() => {
+      role = addRing('New ring')
+    })
+    onMutate('Added the ring New ring.', before)
+    revealInEditor(role, true)
+  }
+
   // Decision 3, now explicit rather than automatic (ADR-XX): the author's own ring order is otherwise always
   // respected (`layoutOnion`) — this is the one place it can still be rewritten, and only on request. A no-op
   // (`tidyOnionOrder` returns `undefined`) when the current order already has no crossings left to reduce, so
@@ -136,9 +186,12 @@ export function OnionEditor({ open, onToggle, onMutate = () => {} }: OnionEditor
             <RenameField ariaLabel="Diagram title" value={doc.title} onChange={setTitle} onCommit={(before) => onMutate(`Renamed ${before || UNTITLED} to ${title}.`, { ...doc, title: before })} />
           </label>
         </Fold>
-        {doc.rings.map((ring) => (
-          <RingSection key={ring.role} role={ring.role} name={ring.name} elements={doc.elements.filter((e) => e.ringRole === ring.role)} doc={doc} onMutate={onMutate} />
+        {doc.rings.map((ring, i) => (
+          <RingSection key={ring.role} index={i} elements={doc.elements.filter((e) => e.ringRole === ring.role)} doc={doc} onMutate={onMutate} />
         ))}
+        <button type="button" className="text-button small add-ring" onClick={handleAddRing}>
+          Add ring
+        </button>
         <DependenciesSection
           elements={doc.elements}
           dependencies={doc.dependencies}

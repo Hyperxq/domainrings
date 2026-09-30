@@ -1,10 +1,16 @@
-import { APP, HexaFileV1Schema, HexaFileV2Schema, HexaFileV3Schema, HexaFileV4Schema, VERSION, type CleanFile, type HexaMap, type LegacyDiagram, type OnionFile, type StoredFile } from './schema'
+import { APP, HexaFileV1Schema, HexaFileV2Schema, HexaFileV3Schema, HexaFileV4Schema, HexaFileV5Schema, VERSION, type CleanFile, type HexaMap, type LegacyDiagram, type OnionFile, type StoredFile } from './schema'
 import type { z } from 'zod'
 
 export type HexaParseResult = { ok: true; map: StoredFile; v1?: LegacyDiagram } | { ok: false; reason: 'invalid' | 'newer'; errors: string[] }
 
+const CANONICAL_ONION_ROLES = ['domain', 'domainServices', 'application', 'outer']
+
+/** The oldest version that can hold `file`: only an Onion whose rings are no longer the four canonical ones in
+ * canonical order needs the current version, so a rollback or a stale tab still opens everything else. */
+const versionFor = (file: StoredFile) => (file.kind === 'onion' && file.rings.map((r) => r.role).join() !== CANONICAL_ONION_ROLES.join() ? VERSION : 4)
+
 export function toHexa(file: StoredFile): string {
-  return JSON.stringify({ app: APP, ...file }, null, 2)
+  return JSON.stringify({ app: APP, ...file, version: versionFor(file) }, null, 2)
 }
 
 /** Deterministic: a migrated v1 file always becomes context "c1" holding hexagon "h1" at the origin cell. Always
@@ -21,7 +27,7 @@ export function toMap(diagram: LegacyDiagram): HexaMap {
   }
 }
 
-// Innermost-first (REQ-02) — fixed at creation, never grown/reordered/re-typed once a file exists.
+// Innermost-first (REQ-02): the canonical starting set, edited freely afterwards.
 const ONION_RINGS: OnionFile['rings'] = [
   { role: 'domain', name: 'Domain Model' },
   { role: 'domainServices', name: 'Domain Services' },
@@ -96,8 +102,15 @@ export function parseHexa(text: string): HexaParseResult {
     const { app: _app, version: _version, ...map } = result.data
     return { ok: true, map: { ...map, version: VERSION } as StoredFile }
   }
-  if (version === VERSION) {
+  if (version === 4) {
     const result = HexaFileV4Schema.safeParse(json)
+    if (!result.success) return { ok: false, reason: 'invalid', errors: issuesOf(result.error, 4) }
+    // ADR-03: v4 is frozen (a fixed 4-ring Onion) — only the version number moves on open.
+    const { app: _app, version: _version, ...map } = result.data
+    return { ok: true, map: { ...map, version: VERSION } as StoredFile }
+  }
+  if (version === VERSION) {
+    const result = HexaFileV5Schema.safeParse(json)
     if (!result.success) return { ok: false, reason: 'invalid', errors: issuesOf(result.error, VERSION) }
     const { app: _app, ...file } = result.data
     return { ok: true, map: file }

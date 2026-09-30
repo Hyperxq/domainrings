@@ -122,3 +122,11 @@ describe('onionInsertionItem', () => {
     expect(item).toEqual({ kind: 'endpoint', collection: 'externals', patch: { name: 'New system', targetId: 'e-outer' } })
   })
 })
+
+describe('onionInsertionPoints (user-added rings)', () => {
+  it('offers a "+" on a user-added ring that adds an element to it', () => {
+    const doc: OnionFile = { ...newOnionMap('Rings'), rings: [{ role: 'domain', name: 'Core' }, { role: 'ring-a1b2c3d4', name: 'Events' }, { role: 'outer', name: 'Edge' }] }
+    const points = onionInsertionPoints(layoutOnion(doc), doc)
+    expect(points.filter((p) => p.action.kind === 'element' && p.action.ringRole === 'ring-a1b2c3d4')).not.toHaveLength(0)
+  })
+})

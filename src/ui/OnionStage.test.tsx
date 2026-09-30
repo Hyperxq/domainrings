@@ -50,6 +50,15 @@ describe('OnionStage "+" affordances only show for the hovered/focused ring or e
     expect(screen.queryByRole('button', { name: 'Add an element to Infrastructure' })).toBeNull()
   })
 
+  it('hovering a user-added ring reveals its own "+" and no other ring\'s, like a canonical one', () => {
+    const role = state().addRing('Events')
+    const { container } = renderStage()
+    hoverRing(container, role)
+    expect(screen.getByRole('button', { name: 'Add an element to Events' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Add an element to Domain Model' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Add an element to Infrastructure' })).toBeNull()
+  })
+
   it('a pointer-driven focus does not reveal "+" buttons, only a real keyboard focus does', () => {
     const { container } = renderStage()
     const band = container.querySelector('[data-band="domain"]')!

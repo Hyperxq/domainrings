@@ -3,7 +3,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parseHexa } from '../model/hexa'
 import type { CleanFile, OnionFile } from '../model/schema'
-import { layoutClean } from '../layout/clean'
+import { layoutClean, type CleanLayoutModel } from '../layout/clean'
 import { layoutOnion } from '../layout/onion'
 import { ringedElementHeight, ringedElementWidth, ringElementRadius, titleHalfSpan, TITLE_ARC_PAD, TITLE_LINE } from '../layout/ringed'
 import { measure, RING_LABEL, RING_SUBTITLE } from '../layout/text'
@@ -37,7 +37,7 @@ function footprints(model: ReturnType<typeof load>): Footprint[] {
     const radius = ringElementRadius(r, model.rings[i - 1])
     return [{ name: `ring title "${r.title}"`, radius, centerAngle: -Math.PI / 2, halfSpan: Math.min(titleHalfSpan(measure(r.title, RING_LABEL) + 2 * TITLE_ARC_PAD, radius), measure(r.title, RING_LABEL) / 2 / radius) }]
   })
-  const sectors = 'sectors' in model ? model.sectors : []
+  const sectors = 'sectors' in model ? (model as CleanLayoutModel).sectors : []
   const sector = sectors.map((s) => {
     const i = model.rings.findIndex((r) => r.role === s.ringRole)
     const radius = ringElementRadius(model.rings[i], model.rings[i - 1])

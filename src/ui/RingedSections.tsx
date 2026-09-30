@@ -88,12 +88,14 @@ export function ElementList({
             onChange={(name) => onRename(element.id, name)}
             onCommit={(before) => onRenameCommit(element.id, before)}
           />
-          <select className="item-kind" aria-label={`${element.name} kind`} value={element.kind ?? ''} onChange={(e) => onKind(element.id, kinds.find((k) => k === e.target.value))}>
-            <option value="">No kind</option>
-            {kinds.map((k) => (
-              <option key={k} value={k}>{RINGED_KIND_LABEL[k]}</option>
-            ))}
-          </select>
+          {kinds.length > 0 && (
+            <select className="item-kind" aria-label={`${element.name} kind`} value={element.kind ?? ''} onChange={(e) => onKind(element.id, kinds.find((k) => k === e.target.value))}>
+              <option value="">No kind</option>
+              {kinds.map((k) => (
+                <option key={k} value={k}>{RINGED_KIND_LABEL[k]}</option>
+              ))}
+            </select>
+          )}
           <button type="button" className="icon-button small remove" aria-label={`Remove element ${element.name}`} title="Remove element" onClick={() => onRemove(element.id)}>
             <Icon name="close" />
           </button>

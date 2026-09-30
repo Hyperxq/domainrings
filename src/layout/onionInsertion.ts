@@ -1,5 +1,5 @@
 import { arcAngles, outerRoleOf, polarPoint, ringedArcAngles } from '../model/rings'
-import type { OnionFile, OnionRingRole } from '../model/schema'
+import type { OnionFile } from '../model/schema'
 import type { Point } from './layout'
 import type { OnionLayoutModel } from './onion'
 import { elementGapPoints, endpointInsertionPoints } from './ringedInsertion'
@@ -20,12 +20,12 @@ const boxesOverlap = (a: { x: number; y: number; width: number; height: number }
  * the new one should land before (REQ: insert-at-position, `ringedDocument.addElement`) — absent, it appends,
  * exactly like the single "+" an empty ring still offers. Onion has no port/adapter concept, so this never grows
  * the Hexagonal `InsertionAction` union. */
-export type OnionInsertionAction = { kind: 'element'; ringRole: OnionRingRole; beforeId?: string } | { kind: 'endpoint'; collection: 'actors' | 'externals'; targetId: string }
+export type OnionInsertionAction = { kind: 'element'; ringRole: string; beforeId?: string } | { kind: 'endpoint'; collection: 'actors' | 'externals'; targetId: string }
 
 export interface OnionInsertionPoint {
   key: string
   /** The ring whose hover reveals this "+" — always the outer ring for an endpoint action. */
-  ringRole: OnionRingRole
+  ringRole: string
   at: Point
   action: OnionInsertionAction
   label: string
@@ -99,7 +99,7 @@ export function onionInsertionPoints(model: OnionLayoutModel, doc: OnionFile): O
 export function onionInsertionItem(
   action: OnionInsertionAction,
 ):
-  | { kind: 'element'; patch: { name: string; ringRole: OnionRingRole }; beforeId?: string }
+  | { kind: 'element'; patch: { name: string; ringRole: string }; beforeId?: string }
   | { kind: 'endpoint'; collection: 'actors' | 'externals'; patch: { name: string; targetId: string } } {
   if (action.kind === 'element') return { kind: 'element', patch: { name: 'NewElement', ringRole: action.ringRole }, beforeId: action.beforeId }
   return { kind: 'endpoint', collection: action.collection, patch: { name: action.collection === 'actors' ? 'New actor' : 'New system', targetId: action.targetId } }

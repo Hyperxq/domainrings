@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { newOnionMap } from './hexa'
 import { useOnionStore } from './onionStore'
+import { OnionFileSchema } from './schema'
 
 const state = () => useOnionStore.getState()
 
@@ -183,5 +184,129 @@ describe('onion store — element kinds', () => {
     const id = state().addElement({ name: 'Order', ringRole: 'domain', kind: 'entity' })
     state().updateElement(id, { ringRole: 'domain' })
     expect(state().map.elements[0].kind).toBe('entity')
+  })
+})
+
+describe('onion store — editable rings', () => {
+  const roles = () => state().map.rings.map((r) => r.role)
+  const seed = () => {
+    state().replace(newOnionMap('Rings'))
+    const order = state().addElement({ name: 'Order', ringRole: 'domain', kind: 'entity' })
+    const pricing = state().addElement({ name: 'Pricing', ringRole: 'domainServices', kind: 'domainService' })
+    const plain = state().addElement({ name: 'Rules', ringRole: 'domainServices' })
+    const place = state().addElement({ name: 'PlaceOrder', ringRole: 'application', kind: 'applicationService' })
+    const web = state().addElement({ name: 'Web', ringRole: 'outer', kind: 'ui' })
+    return { order, pricing, plain, place, web }
+  }
+
+  it('renames a ring without touching its id or its elements', () => {
+    seed()
+    state().renameRing('application', 'Use cases')
+    expect(state().map.rings[2]).toEqual({ role: 'application', name: 'Use cases' })
+    expect(state().map.elements.filter((e) => e.ringRole === 'application')).toHaveLength(1)
+  })
+
+  it('renames the innermost and the outermost ring', () => {
+    seed()
+    state().renameRing('domain', 'Core')
+    state().renameRing('outer', 'Edge')
+    expect(state().map.rings.map((r) => r.name)).toEqual(['Core', 'Domain Services', 'Application Services', 'Edge'])
+  })
+
+  it('adds a ring just inside the outermost one, with a fresh id and no kinds', () => {
+    seed()
+    const role = state().addRing('Events')
+    expect(roles()).toEqual(['domain', 'domainServices', 'application', role, 'outer'])
+    expect(state().map.rings[3].name).toBe('Events')
+    expect(role).not.toBe('outer')
+    expect(OnionFileSchema.safeParse(state().map).success).toBe(true)
+  })
+
+  it('never removes the innermost or the outermost ring', () => {
+    seed()
+    const before = state().map
+    expect(state().removeRing('domain')).toBeUndefined()
+    expect(state().removeRing('outer')).toBeUndefined()
+    expect(state().map).toBe(before)
+  })
+
+  it('never removes a ring that is not there', () => {
+    seed()
+    const before = state().map
+    expect(state().removeRing('nope')).toBeUndefined()
+    expect(state().map).toBe(before)
+  })
+
+  it('removing a ring moves its elements to the next inner ring and clears the kinds that ring does not allow', () => {
+    const { order, pricing, plain } = seed()
+    const result = state().removeRing('domainServices')
+    expect(result).toEqual({ into: 'Domain Model', moved: 2, cleared: 1, pruned: 0 })
+    expect(roles()).toEqual(['domain', 'application', 'outer'])
+    const byId = new Map(state().map.elements.map((e) => [e.id, e]))
+    expect(byId.get(pricing)).toMatchObject({ ringRole: 'domain', kind: undefined })
+    expect(byId.get(plain)).toMatchObject({ ringRole: 'domain' })
+    expect(byId.get(order)).toMatchObject({ ringRole: 'domain', kind: 'entity' })
+    expect(OnionFileSchema.safeParse(state().map).success).toBe(true)
+  })
+
+  it('removing a ring keeps the dependencies and the actor targets that stay valid', () => {
+    const { pricing, place, web } = seed()
+    const dep = state().addDependency(place, pricing)!
+    state().addEndpoint('actors', { name: 'Customer', targetId: web })
+    state().removeRing('domainServices')
+    expect(state().map.dependencies.map((d) => d.id)).toEqual([dep])
+    expect(state().map.actors[0].targetId).toBe(web)
+  })
+
+  it('removing an empty user-added ring changes nothing else', () => {
+    seed()
+    const role = state().addRing('Events')
+    const elements = state().map.elements
+    expect(state().removeRing(role)).toEqual({ into: 'Application Services', moved: 0, cleared: 0, pruned: 0 })
+    expect(state().map.elements).toEqual(elements)
+    expect(roles()).toEqual(['domain', 'domainServices', 'application', 'outer'])
+  })
+
+  it('moves a middle ring outward, prunes the dependencies that now point outward and keeps every kind', () => {
+    const { pricing, place, order } = seed()
+    state().addDependency(place, pricing)
+    const keep = state().addDependency(place, order)!
+    const result = state().moveRing('domainServices', 'out')
+    expect(result).toEqual({ pruned: 1 })
+    expect(roles()).toEqual(['domain', 'application', 'domainServices', 'outer'])
+    expect(state().map.dependencies.map((d) => d.id)).toEqual([keep])
+    expect(state().map.elements.find((e) => e.id === pricing)?.kind).toBe('domainService')
+    expect(OnionFileSchema.safeParse(state().map).success).toBe(true)
+  })
+
+  it('moves a middle ring inward', () => {
+    seed()
+    expect(state().moveRing('application', 'in')).toEqual({ pruned: 0 })
+    expect(roles()).toEqual(['domain', 'application', 'domainServices', 'outer'])
+  })
+
+  it('keeps the innermost and the outermost ring in place', () => {
+    seed()
+    const before = state().map
+    expect(state().moveRing('domain', 'out')).toBeUndefined()
+    expect(state().moveRing('outer', 'in')).toBeUndefined()
+    expect(state().moveRing('domainServices', 'in')).toBeUndefined()
+    expect(state().moveRing('application', 'out')).toBeUndefined()
+    expect(state().map).toBe(before)
+  })
+
+  it('moves a user-added ring between the middle rings', () => {
+    seed()
+    const role = state().addRing('Events')
+    state().moveRing(role, 'in')
+    expect(roles()).toEqual(['domain', 'domainServices', role, 'application', 'outer'])
+  })
+
+  it('places an element in a user-added ring, where a kind is refused', () => {
+    seed()
+    const role = state().addRing('Events')
+    const id = state().addElement({ name: 'OrderPlaced', ringRole: role })
+    state().updateElement(id, { kind: 'domainEvent' })
+    expect(state().map.elements.find((e) => e.id === id)?.kind).toBeUndefined()
   })
 })

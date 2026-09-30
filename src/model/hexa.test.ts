@@ -14,6 +14,7 @@ import v2EmptyContext from './fixtures/v2-empty-context.hexa?raw'
 import v2SchemaSnapshot from './fixtures/v2.schema.json?raw'
 import v3OnionExample from './fixtures/v3-onion-example.hexa?raw'
 import v4CleanExample from './fixtures/v4-clean-example.hexa?raw'
+import v4OnionExample from './fixtures/v4-onion-example.hexa?raw'
 
 const errorsOf = (text: string) => {
   const result = parseHexa(text)
@@ -167,8 +168,8 @@ describe('committed v2 corpus (MIG-03.2)', () => {
     expect(JSON.parse(v2SchemaSnapshot)).toEqual(z.toJSONSchema(HexaFileV2Schema))
   })
 
-  it('VERSION is the current (v4) format — v1, v2 and v3 stay frozen at their own literals', () => {
-    expect(VERSION).toBe(4)
+  it('VERSION is the current (v5) format — v1 to v4 stay frozen at their own literals', () => {
+    expect(VERSION).toBe(5)
   })
 })
 
@@ -336,8 +337,8 @@ describe('.hexa v3 serialization', () => {
     expect(parseHexa(toHexa(map))).toEqual({ ok: true, map })
   })
 
-  it('tags the file with the app marker and the current version', () => {
-    expect(JSON.parse(toHexa(toMap(EXAMPLE_DIAGRAM)))).toMatchObject({ app: 'domainrings', version: VERSION })
+  it('tags the file with the app marker and the oldest version that holds it', () => {
+    expect(JSON.parse(toHexa(toMap(EXAMPLE_DIAGRAM)))).toMatchObject({ app: 'domainrings', version: 4 })
   })
 
   it.each([
@@ -374,7 +375,29 @@ describe('committed (frozen) v3 onion fixture (REQ-02, REQ-04, REQ-05 shape)', (
   })
 })
 
-describe('current (v4) clean fixture (REQ-02, REQ-03, REQ-04, REQ-06, REQ-07, REQ-08 shape)', () => {
+describe('committed (frozen) v4 fixtures',  () => {
+  it('opens the v4 onion file with its 4 rings intact, upgraded to the current version', () => {
+    const result = parseHexa(v4OnionExample)
+    expect(result.ok).toBe(true)
+    if (!result.ok || result.map.kind !== 'onion') throw new Error('fixture failed to parse as onion')
+    expect(result.map.version).toBe(VERSION)
+    expect(result.map.rings.map((r) => r.role)).toEqual(['domain', 'domainServices', 'application', 'outer'])
+  })
+
+  it('opens the v4 clean file upgraded to the current version', () => {
+    const result = parseHexa(v4CleanExample)
+    expect(result.ok && result.map.version).toBe(VERSION)
+  })
+
+  it('does not read a 5-ring Onion as version 4', () => {
+    const file = JSON.parse(v4OnionExample)
+    file.rings.splice(3, 0, { role: 'ring-a1b2c3d4', name: 'Extra' })
+    expect(parseHexa(JSON.stringify(file)).ok).toBe(false)
+    expect(parseHexa(JSON.stringify({ ...file, version: VERSION })).ok).toBe(true)
+  })
+})
+
+describe('current clean fixture (REQ-02, REQ-03, REQ-04, REQ-06, REQ-07, REQ-08 shape)', () => {
   it('parses as kind clean with its 4 rings, 3 sectors (one empty), 2 elements, 1 dependency, an actor and an external', () => {
     const result = parseHexa(v4CleanExample)
     expect(result.ok).toBe(true)
@@ -581,7 +604,7 @@ describe('additive optional fields stay on the current version', () => {
     const map = { ...newOnionMap('Kinds'), elements: [{ id: 'e1', name: 'Order', ringRole: 'domain' as const, kind: 'aggregate' as const }] }
     const result = parseHexa(toHexa(map))
     expect(result).toEqual({ ok: true, map })
-    expect(JSON.parse(toHexa(map)).version).toBe(VERSION)
+    expect(JSON.parse(toHexa(map)).version).toBe(4)
   })
 
   it('the same holds for a Clean file', () => {
@@ -591,5 +614,55 @@ describe('additive optional fields stay on the current version', () => {
       elements: [{ id: 'e1', name: 'OrderController', sectorId: 's1', kind: 'controller' as const }],
     }
     expect(parseHexa(toHexa(map))).toEqual({ ok: true, map })
+  })
+})
+
+describe('the version a file is written with', () => {
+  const written = (file: Parameters<typeof toHexa>[0]) => JSON.parse(toHexa(file)).version
+  const ring = (role: string, name = role) => ({ role, name })
+
+  it('stays 4 for a document a version-4 build can still read', () => {
+    expect(written(toMap(EXAMPLE_DIAGRAM))).toBe(4)
+    expect(written(newCleanMap('Clean'))).toBe(4)
+    expect(written(newOnionMap('Onion'))).toBe(4)
+  })
+
+  it('stays 4 for an Onion whose four canonical rings were only renamed', () => {
+    const onion = newOnionMap('Onion')
+    expect(written({ ...onion, rings: onion.rings.map((r) => ({ ...r, name: `${r.name}!` })) })).toBe(4)
+  })
+
+  it('becomes 5 once an Onion needs it: a ring added, removed or reordered', () => {
+    const onion = newOnionMap('Onion')
+    const [domain, services, application, outer] = onion.rings
+    expect(written({ ...onion, rings: [domain, services, ring('ring-a1b2c3d4'), application, outer] })).toBe(5)
+    expect(written({ ...onion, rings: [domain, application, outer] })).toBe(5)
+    expect(written({ ...onion, rings: [domain, application, services, outer] })).toBe(5)
+  })
+
+  it('reopens a version-4 write of a canonical Onion unchanged, and a version-5 write of an edited one', () => {
+    const onion = newOnionMap('Onion')
+    expect(parseHexa(toHexa(onion))).toEqual({ ok: true, map: onion })
+    const edited = { ...onion, rings: [onion.rings[0], ring('ring-a1b2c3d4', 'Events'), onion.rings[3]] }
+    expect(parseHexa(toHexa(edited))).toEqual({ ok: true, map: edited })
+  })
+})
+
+describe('ring ids that name inherited object members', () => {
+  it.each(['constructor', 'hasOwnProperty', 'toString', '__proto__'])('parseHexa returns an invalid result for a ring called %s, never throws', (role) => {
+    const file = {
+      app: 'domainrings',
+      version: 5,
+      kind: 'onion',
+      title: 'Proto',
+      rings: [{ role: 'domain', name: 'Core' }, { role, name: 'Odd' }, { role: 'outer', name: 'Edge' }],
+      elements: [{ id: 'e', name: 'Thing', ringRole: role, kind: 'entity' }],
+      dependencies: [],
+      actors: [],
+      externals: [],
+    }
+    const result = parseHexa(JSON.stringify(file))
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.errors.join('\n')).toMatch(/rings\.1\.role/)
   })
 })
