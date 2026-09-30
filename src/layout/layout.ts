@@ -5,13 +5,14 @@ import { boxFrames, frame, type Frame } from './hexagon/boxFrames'
 import { layoutBounds } from './hexagon/bounds'
 import { assignLayers, placeNodes } from './hexagon/nodes'
 import { solveRings } from './hexagon/ringSolver'
+import { ringTitles } from './hexagon/ringTitles'
 import { routeEdges } from './hexagon/routes'
-import { COLUMN_GAP, DOMAIN_PAD, GAP, LABEL_GAP, LABEL_PAD_X, OUTSIDE_GAP } from './hexagon/spacing'
+import { COLUMN_GAP, DOMAIN_PAD, GAP, LABEL_GAP, OUTSIDE_GAP } from './hexagon/spacing'
 import { seatUseCases } from './hexagon/useCaseSeating'
 import { SLANTED_WALLS, VERTEX, wallAngle, wallFrame } from './hexagon/walls'
-import { depthAt, halfWidthAt, SQRT3, type Outline } from './outline'
+import { depthAt, halfWidthAt, type Outline } from './outline'
 import { DOMAIN_TAGS } from './tags'
-import { DOMAIN_TITLE, measure, RING_LABEL, RING_SUBTITLE, styled, type TextLine } from './text'
+import { styled, type TextLine } from './text'
 
 export type { Box, Point } from './geometry'
 
@@ -114,8 +115,6 @@ export interface LayoutModel {
 }
 
 const ROW_GAP = 18
-const LABEL_INSET = 8
-const SUBTITLE_GAP = 4
 /** Past these rendered line counts the domain tree, then the declared-port list, flow into two columns. */
 const DOMAIN_MAX_LINES = 8
 const PORTS_MAX_LINES = 4
@@ -396,24 +395,9 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     rows: [{ key: `portDecl:${p.id}`, ref: p.id, kind: 'portDecl', frame: frame(styled('mono', p.name), 0, 2, 0) }],
   }))
 
-  // Layer titles: the kind's defaults, overridden per diagram; an empty override falls back to the default. Layer
-  // titles are uppercase and tracked; the domain's is the one big sentence-case heading.
+  const titles = ringTitles(d)
+  const { titleWidth, titleHeight, titleDepth: TITLE_DEPTH } = titles
   const last = config.rings.length - 1
-  const titleMetrics = (i: number) => (i === last ? DOMAIN_TITLE : RING_LABEL)
-  const titleLine = (i: number) => titleMetrics(i).size + 4
-  const ringTitle = (i: number) => {
-    const spec = config.rings[i]
-    const override = d.layers?.[spec.role]
-    const title = override?.title?.trim() || spec.name
-    return { title: i === last ? title : title.toUpperCase(), subtitle: override?.subtitle?.trim() || spec.subtitle }
-  }
-  const titleWidth = (i: number) => {
-    const { title, subtitle } = ringTitle(i)
-    return Math.max(measure(title, titleMetrics(i)), subtitle ? measure(subtitle, RING_SUBTITLE) : 0)
-  }
-  const titleHeight = (i: number) => titleLine(i) + (ringTitle(i).subtitle ? SUBTITLE_GAP + RING_SUBTITLE.size + 4 : 0)
-  // One title depth for every ring: the depth under a hexagon's vertex where the widest title fits the slope.
-  const TITLE_DEPTH = Math.max(LABEL_INSET, ...config.rings.map((_, i) => (titleWidth(i) / 2 + LABEL_PAD_X) / SQRT3))
 
   // The domain block hangs from its title: `top` is measured from the title's top, `x` is a column centre.
   interface Placed extends Row {
@@ -542,14 +526,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   const domain = outlines[last]
 
   // 5. Nodes and edges.
-  const rings: LayoutRing[] = config.rings.map((spec, i) => ({
-    key: `ring:${spec.role}`,
-    role: spec.role,
-    ...ringTitle(i),
-    ...outlines[i],
-    labelAt: { x: 0, y: -outlines[i].apex + TITLE_DEPTH + titleLine(i) / 2 },
-    titleBox: { x: -titleWidth(i) / 2, y: -outlines[i].apex + TITLE_DEPTH, width: titleWidth(i), height: titleHeight(i) },
-  }))
+  const rings = titles.rings(outlines)
 
   const compositionFrame = d.composition && !overview ? frames.compositionFrame(d.composition) : undefined
   const nodes = placeNodes({
