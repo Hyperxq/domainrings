@@ -1,7 +1,6 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useRef, useState, type FocusEvent, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { HEXAGONAL_KIND } from '../model/kinds'
-import { toHexa } from '../model/hexa'
 import {
   defaultWall,
   DomainTypeSchema,
@@ -34,22 +33,19 @@ type OnPrune = (pruned: Link[], before: { map: HexaMap; focus: string }) => void
 /** Records a silent undo step: the map/focus from just before an edit that raises no toast of its own. */
 type OnRecord = (before: { map: HexaMap; focus: string }) => void
 
-/** Focus/blur handlers that make one edit session (focus → blur) of a text field a single undo step, the same
- * boundary a context rename uses. A session that ends where it began records nothing. */
-function useFieldSession(onRecord: OnRecord) {
-  const start = useRef<{ map: HexaMap; focus: string } | null>(null)
-  return {
-    onFocus: () => {
-      const { map, focus } = useMapStore.getState()
-      start.current = { map, focus }
-    },
-    onBlur: () => {
-      const before = start.current
-      start.current = null
-      if (before && toHexa(before.map) !== toHexa(useMapStore.getState().map)) onRecord(before)
-    },
-  }
+/** Tracks the one text field being edited, so its whole session (focus → blur) becomes a single undo step. */
+interface FieldSession {
+  begin: (before: { map: HexaMap; focus: string }, field: Element) => void
+  end: () => void
 }
+
+const sessionOf = (field: FieldSession) => ({
+  onFocus: (e: FocusEvent<HTMLElement>) => {
+    const { map, focus } = useMapStore.getState()
+    field.begin({ map, focus }, e.currentTarget)
+  },
+  onBlur: field.end,
+})
 
 const WALL_LABEL: Record<Wall, string> = { nw: 'North-west', w: 'West', sw: 'South-west', ne: 'North-east', e: 'East', se: 'South-east' }
 
@@ -181,6 +177,7 @@ interface SectionProps<K extends CollectionKey> {
   map: HexaMap
   onPrune: OnPrune
   onRecord: OnRecord
+  field: FieldSession
   collection: K
   items: Item<K>[]
   title: string
@@ -193,8 +190,8 @@ interface SectionProps<K extends CollectionKey> {
   groups?: { key: string; title: string; items: Item<K>[] }[]
 }
 
-function Section<K extends CollectionKey>({ hexId, map, onPrune, onRecord, collection, items, title, noun, empty, fields, actions, groups }: SectionProps<K>) {
-  const session = useFieldSession(onRecord)
+function Section<K extends CollectionKey>({ hexId, map, onPrune, onRecord, field, collection, items, title, noun, empty, fields, actions, groups }: SectionProps<K>) {
+  const session = sessionOf(field)
   const before = { map, focus: hexId }
   // A discrete edit is its own step: the prune toast when it broke links, a silent step otherwise.
   const report = (pruned: Link[]) => (pruned.length ? onPrune(pruned, before) : onRecord(before))
@@ -392,6 +389,7 @@ export function Editor({
   onToggle,
   onPrune,
   onRecord,
+  onField,
   onAddHexagon,
   onDeleteHexagon,
   onMoveToContext,
@@ -406,6 +404,7 @@ export function Editor({
   onToggle: () => void
   onPrune: OnPrune
   onRecord: OnRecord
+  onField: FieldSession
   onAddHexagon: () => void
   onDeleteHexagon: () => void
   /** Moves the current hexagon into the given context, or a new one when `undefined`. */
@@ -445,7 +444,7 @@ export function Editor({
   // Keyed by contextId, so renaming two contexts in the same session (unlikely, but never concurrent within one
   // input) each keeps its own pre-edit snapshot from focus to blur.
   const contextRenameBefore = useRef(new Map<string, HexaMap>())
-  const session = useFieldSession(onRecord)
+  const session = sessionOf(onField)
 
   return (
     <aside className={`island editor${open ? '' : ' is-collapsed'}`} aria-label="Diagram editor">
@@ -600,6 +599,7 @@ export function Editor({
           map={map}
           onPrune={onPrune}
           onRecord={onRecord}
+          field={onField}
           collection="domain"
           items={d.domain}
           title="Domain"
@@ -623,6 +623,7 @@ export function Editor({
           map={map}
           onPrune={onPrune}
           onRecord={onRecord}
+          field={onField}
           collection="useCases"
           items={d.useCases}
           title="Use cases"
@@ -644,6 +645,7 @@ export function Editor({
           map={map}
           onPrune={onPrune}
           onRecord={onRecord}
+          field={onField}
           collection="ports"
           items={d.ports}
           title="Ports"
@@ -692,6 +694,7 @@ export function Editor({
           map={map}
           onPrune={onPrune}
           onRecord={onRecord}
+          field={onField}
           collection="adapters"
           items={d.adapters}
           title="Adapters"
@@ -707,6 +710,7 @@ export function Editor({
           map={map}
           onPrune={onPrune}
           onRecord={onRecord}
+          field={onField}
           collection="actors"
           items={d.actors}
           title="Actors"
@@ -722,6 +726,7 @@ export function Editor({
           map={map}
           onPrune={onPrune}
           onRecord={onRecord}
+          field={onField}
           collection="externals"
           items={d.externals}
           title="External systems"

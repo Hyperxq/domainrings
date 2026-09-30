@@ -143,13 +143,28 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const recordedStep = useRef(false)
   const [, rerender] = useReducer((n: number) => n + 1, 0)
   const sameDoc = (a: StoredFile, b: StoredFile) => a === b || toHexa(a) === toHexa(b)
+  // The text field being edited, if any: its session ends on blur, or when the field leaves the page without one.
+  const pendingField = useRef<{ before: { map: HexaMap; focus: string }; field: Element } | null>(null)
+  // `after` is the document the session left: a discrete edit flushing it has already changed the store since.
+  const endField = (after: HexaMap = useMapStore.getState().map) => {
+    const pending = pendingField.current
+    pendingField.current = null
+    if (!pending || sameDoc(pending.before.map, after)) return
+    record(pending.before)
+    trustedDoc.current = after
+  }
+  const beginField = (before: { map: HexaMap; focus: string }, field: Element) => {
+    endField()
+    pendingField.current = { before, field }
+  }
   // A step with no toast, for edits that never raised one (field sessions, adding an item).
   const record = (undo: UndoSnapshot) => {
+    endField(undo.map.kind === 'hexagonal' ? (undo.map as HexaMap) : undefined)
     // A step that doesn't lead back from the document the last one left means an unrecorded edit sits between them.
     const contiguous = !trustedDoc.current || sameDoc(trustedDoc.current, undo.map)
     undoStack.current = [...(contiguous ? undoStack.current : []), undo].slice(-UNDO_LIMIT)
     recordedStep.current = true
-    // A step recorded once its edit is done (a field session ends on blur) has no render coming to refresh trustedDoc.
+    // The flag is only consumed by a render, and a step recorded once its edit is done (a field session ends on blur) has none coming.
     rerender()
   }
   const show = (next: Omit<Notice, 'id'>) => {
@@ -169,6 +184,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     }
     const entry = undoStack.current.pop()
     if (!entry) return
+    pendingField.current = null
     restoreUndo(entry)
     recordedStep.current = true
     // The restored document's own kind IS the view to bring back (REQ-09) — a same-kind edit's undo
@@ -198,6 +214,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // Naming a just-added element completes the add step Undo already covers, so the document it leaves is trusted.
   const absorbEdit = () => {
     recordedStep.current = true
+    rerender()
   }
   // Retracts the toast for an add that was immediately cancelled (naming Esc'd out) without offering it as an
   // undo step — the add already unwound itself; mirrors onNamingCancel's own setNotice(null) below.
@@ -505,6 +522,8 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         : { file: map, bounds: scoped ? hexagonBounds(currentHexagon(model, hexId)) : model.bounds, title: scoped ? diagram.title || UNTITLED_HEXAGON : map.title, scoped, legend: legendInExport }
 
   useEffect(() => {
+    // A browser does not reliably blur a field that is removed, and a still-mounted one can outlive its hexagon.
+    if (pendingField.current && (!pendingField.current.field.isConnected || pendingField.current.before.focus !== hexId)) endField()
     if (!recordedStep.current) return
     trustedDoc.current = active.file
     recordedStep.current = false
@@ -571,6 +590,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
             onToggle={() => setEditorOpen(!editorOpen)}
             onPrune={pruneToast}
             onRecord={record}
+            onField={{ begin: beginField, end: () => endField() }}
             onAddHexagon={() => completeGrow(undefined, 'same')}
             onDeleteHexagon={handleDelete}
             onMoveToContext={handleMoveToContext}

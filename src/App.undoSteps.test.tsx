@@ -149,6 +149,55 @@ describe('Hexagonal editor field controls', () => {
   })
 })
 
+describe('a field session cut short by unmounting', () => {
+  it('is recorded when its item is removed without a blur', () => {
+    render(<App />)
+    expandEditor()
+    const name = screen.getAllByLabelText('use case name')[0] as HTMLInputElement
+        fireEvent.focus(name)
+    fireEvent.change(name, { target: { value: 'Typed' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Remove use case Typed' }))
+
+    undoKey()
+    expect(screen.queryByText(/Undo isn't available/)).toBeNull()
+    expect(doc()).toContain('Typed')
+    undoKey()
+    expect(doc()).toBe(toHexa(toMap(EXAMPLE_DIAGRAM)))
+  })
+
+  it('is recorded when the current hexagon changes without a blur', () => {
+    useMapStore.getState().replace(twoHexMap())
+    render(<App />)
+    const pristine = doc()
+    expandEditor()
+    const name = screen.getAllByLabelText('use case name')[0]
+    fireEvent.focus(name)
+    fireEvent.change(name, { target: { value: 'Typed' } })
+    act(() => useMapStore.getState().setFocus('h2'))
+
+    undoKey()
+    expect(screen.queryByText(/Undo isn't available/)).toBeNull()
+    expect(doc()).toBe(pristine)
+  })
+})
+
+describe('an add step absorbing its name', () => {
+  it('trusts nothing beyond the name: a later untracked change still refuses Undo', () => {
+    const { container } = render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
+    fireEvent.pointerOver(container.querySelector('[data-band="domain"]')!)
+    fireEvent.click(screen.getByRole('button', { name: 'Add an element to Domain Model' }))
+    const input = container.querySelector<HTMLInputElement>('.ringed-inline-name')!
+    fireEvent.blur(input)
+    fireEvent.change(screen.getByLabelText('Diagram title'), { target: { value: 'Untracked' } })
+
+    undoKey()
+    expect(screen.getByText(/Undo isn't available/)).toBeTruthy()
+    expect(useOnionStore.getState().map.title).toBe('Untracked')
+  })
+})
+
 describe('Hexagonal stage edits', () => {
   const hover = (container: HTMLElement, layer: string) => fireEvent.pointerOver(container.querySelector(`[data-band="${layer}"]`)!)
   const addUseCase = (container: HTMLElement) => {
