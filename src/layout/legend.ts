@@ -43,7 +43,7 @@ export function legendFor(d: Diagram): LegendModel {
 /** Onion and Clean have no ports or adapters (ADR-01): their legend only ever describes their own rings, their
  * elements, actors, external systems, and the dependency arrow — plus, for Clean alone, its sector wedges. Shared
  * by both kinds rather than forked, since the two only ever differ in whether sectors exist at all. */
-function legendForRinged(rings: readonly { role: LayerRole; name: string }[], hasSectors: boolean): LegendModel {
+function legendForRinged(rings: readonly { role: string; name: string }[], hasSectors: boolean): LegendModel {
   return {
     colours: [
       ...rings.map((r) => ({ label: r.name, swatch: r.role as Swatch })),

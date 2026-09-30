@@ -8,7 +8,7 @@ import { layoutClean } from '../layout/clean'
 import { countCrossings } from '../layout/crossings'
 import { boxWithinBand, RING_TITLE_PAD, ringedElementHeight, ringedElementWidth, TITLE_LINE } from '../layout/ringed'
 import { fitTo, islandInset } from '../ui/viewport'
-import type { CleanFile, HexaMap, OnionFile, StoredFile } from '../model/schema'
+import { VERSION, type CleanFile, type HexaMap, type OnionFile, type StoredFile } from '../model/schema'
 
 const EXAMPLES_DIR = __dirname
 
@@ -152,11 +152,11 @@ describe('example .hexa files', () => {
     describe(file, () => {
       const text = readExample(file)
 
-      it('parses as a valid version-4 document of the kind its filename names', () => {
+      it('parses as a valid current-version document of the kind its filename names', () => {
         const result = parseHexa(text)
         expect(result.ok).toBe(true)
         if (!result.ok) return
-        expect(result.map.version).toBe(4)
+        expect(result.map.version).toBe(VERSION)
         expect(result.map.kind).toBe(kindOfFilename(file))
       })
 

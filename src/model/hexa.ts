@@ -1,4 +1,4 @@
-import { APP, HexaFileV1Schema, HexaFileV2Schema, HexaFileV3Schema, HexaFileV4Schema, VERSION, type CleanFile, type HexaMap, type LegacyDiagram, type OnionFile, type StoredFile } from './schema'
+import { APP, HexaFileV1Schema, HexaFileV2Schema, HexaFileV3Schema, HexaFileV4Schema, HexaFileV5Schema, VERSION, type CleanFile, type HexaMap, type LegacyDiagram, type OnionFile, type StoredFile } from './schema'
 import type { z } from 'zod'
 
 export type HexaParseResult = { ok: true; map: StoredFile; v1?: LegacyDiagram } | { ok: false; reason: 'invalid' | 'newer'; errors: string[] }
@@ -96,8 +96,15 @@ export function parseHexa(text: string): HexaParseResult {
     const { app: _app, version: _version, ...map } = result.data
     return { ok: true, map: { ...map, version: VERSION } as StoredFile }
   }
-  if (version === VERSION) {
+  if (version === 4) {
     const result = HexaFileV4Schema.safeParse(json)
+    if (!result.success) return { ok: false, reason: 'invalid', errors: issuesOf(result.error, 4) }
+    // ADR-03: v4 is frozen (a fixed 4-ring Onion) — only the version number moves on open.
+    const { app: _app, version: _version, ...map } = result.data
+    return { ok: true, map: { ...map, version: VERSION } as StoredFile }
+  }
+  if (version === VERSION) {
+    const result = HexaFileV5Schema.safeParse(json)
     if (!result.success) return { ok: false, reason: 'invalid', errors: issuesOf(result.error, VERSION) }
     const { app: _app, ...file } = result.data
     return { ok: true, map: file }

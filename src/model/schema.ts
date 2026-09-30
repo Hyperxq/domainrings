@@ -109,7 +109,7 @@ export const DiagramSchema = DiagramObject.superRefine(checkIntegrity)
 export const APP = 'domainrings'
 /** The current, in-memory document version — the Hexagonal, Onion and Clean arms of `StoredFile` share it
  * (ADR-01/ADR-03: one version number per document, not a per-kind counter). */
-export const VERSION = 4
+export const VERSION = 5
 // Files saved before the rename still open; parseHexa drops the marker, so they re-export under the current name.
 // Frozen: the file format a v1 build wrote and still reads — including a Clean/Onion `kind` from the old kind
 // switcher (REQ-06 coerces it back to hexagonal in parseHexa, it does not touch what a v1 file is allowed to
@@ -229,16 +229,20 @@ export const HexaFileV2Schema = MapObjectV2.extend({ app: z.literal(APP) }).supe
 const HexagonalObjectV3 = z.object({ version: z.literal(3), kind: z.literal('hexagonal'), ...MapFields })
 export const HexagonalFileV3Schema = HexagonalObjectV3.superRefine(checkMap)
 
-// Current (v4): the Hexagonal arm of `StoredFile`. Same shape as v3's map — only the version literal moves, and
+// Frozen (v4): the Hexagonal arm a v4 build wrote — never change this schema, a data-bearing addition belongs on
+// the v5 map instead.
+const HexagonalObjectV4 = z.object({ version: z.literal(4), kind: z.literal('hexagonal'), ...MapFields })
+
+// Current (v5): the Hexagonal arm of `StoredFile`. Same shape as v4's map — only the version literal moves, and
 // `kind` narrows to `'hexagonal'` only: Onion and Clean are wholly separate document shapes below, never a
 // `kind` of this one (ADR-01). A document-root union is what keeps every existing Hexagonal-only consumer
 // (`model/map.ts`, `layout/map.ts`, `App.tsx`'s old render path) untouched — they read `HexaMap`, never `StoredFile`.
-const HexagonalObjectV4 = z.object({ version: z.literal(VERSION), kind: z.literal('hexagonal'), ...MapFields })
-export const HexagonalFileV4Schema = HexagonalObjectV4.superRefine(checkMap)
+const HexagonalObjectV5 = z.object({ version: z.literal(VERSION), kind: z.literal('hexagonal'), ...MapFields })
+export const HexagonalFileV5Schema = HexagonalObjectV5.superRefine(checkMap)
 /** Alias kept for the many call sites (`model/store.ts`'s validate-by-reparse, tests) that already know this
  * name as "the current map's schema" — it always means the live `HexaMap` shape, whichever version that is. */
-export const MapSchema = HexagonalFileV4Schema
-export type HexaMap = z.infer<typeof HexagonalFileV4Schema>
+export const MapSchema = HexagonalFileV5Schema
+export type HexaMap = z.infer<typeof HexagonalFileV5Schema>
 export type ArchitectureKind = z.infer<typeof KindSchema>
 export type DomainType = z.infer<typeof DomainTypeSchema>
 export type Side = z.infer<typeof SideSchema>
@@ -255,32 +259,46 @@ export type CollectionKey = (typeof COLLECTIONS)[number]
 
 // --- Onion: a wholly separate document shape (ADR-01) — flat, no hexagons/ports/adapters, always one diagram. ---
 
+// The four canonical roles: what the frozen v3/v4 arms allow, and the ones that carry element kinds (`ONION_KINDS`).
 export const OnionRingRoleSchema = z.enum(['domain', 'domainServices', 'application', 'outer'])
-const OnionRingSchema = z.object({ role: OnionRingRoleSchema, name: z.string() })
+const OnionRingSchemaV4 = z.object({ role: OnionRingRoleSchema, name: z.string() })
 const OnionElementV3Schema = z.object({ id, name: z.string(), ringRole: OnionRingRoleSchema, note })
-const OnionElementSchema = OnionElementV3Schema.extend({ kind: RingedKindSchema.optional() })
+const OnionElementV4Schema = OnionElementV3Schema.extend({ kind: RingedKindSchema.optional() })
+// A ring's identity: a canonical role or an id minted for a user-added ring. It lands in a class name and an
+// attribute value, so it stays a bare token.
+const RingIdSchema = z.string().regex(/^[\w-]+$/)
+const OnionRingSchema = z.object({ role: RingIdSchema, name: z.string() })
+const OnionElementSchema = OnionElementV4Schema.extend({ ringRole: RingIdSchema })
 const OnionDependencySchema = z.object({ id, fromId: id, toId: id })
 const OnionEndpointSchema = z.object({ id, name: z.string(), targetId: id.optional(), note })
 
-export type OnionRingRole = z.infer<typeof OnionRingRoleSchema>
 export type OnionElement = z.infer<typeof OnionElementSchema>
 export type OnionDependency = z.infer<typeof OnionDependencySchema>
 export type OnionEndpoint = z.infer<typeof OnionEndpointSchema>
 
-const OnionFields = {
+const OnionFieldsV4 = {
   title: z.string(),
   // Innermost-first, fixed at creation (REQ-02) — never grown, reordered or re-typed after a file exists.
-  rings: z.tuple([OnionRingSchema, OnionRingSchema, OnionRingSchema, OnionRingSchema]),
-  elements: z.array(OnionElementSchema),
+  rings: z.tuple([OnionRingSchemaV4, OnionRingSchemaV4, OnionRingSchemaV4, OnionRingSchemaV4]),
+  elements: z.array(OnionElementV4Schema),
   dependencies: z.array(OnionDependencySchema),
   actors: z.array(OnionEndpointSchema),
   externals: z.array(OnionEndpointSchema),
 }
 
 // Frozen (v3): the Onion arm a v3 build wrote — never change this schema, ADR-03.
-const OnionFileObjectV3 = z.object({ version: z.literal(3), kind: z.literal('onion'), ...OnionFields, elements: z.array(OnionElementV3Schema) })
+const OnionFileObjectV3 = z.object({ version: z.literal(3), kind: z.literal('onion'), ...OnionFieldsV4, elements: z.array(OnionElementV3Schema) })
+// Frozen (v4): the fixed 4-ring Onion arm a v4 build wrote — never change this schema, ADR-03.
+const OnionFileObjectV4 = z.object({ version: z.literal(4), kind: z.literal('onion'), ...OnionFieldsV4 })
 
-const OnionFileObject = z.object({ version: z.literal(VERSION), kind: z.literal('onion'), ...OnionFields })
+const OnionFileObject = z.object({
+  version: z.literal(VERSION),
+  kind: z.literal('onion'),
+  ...OnionFieldsV4,
+  // Innermost-first. Editing keeps the first ring `domain` and the last `outer` (the store never removes or moves them).
+  rings: z.array(OnionRingSchema).min(2),
+  elements: z.array(OnionElementSchema),
+})
 
 /** Shared by Onion and Clean (ADR-01): the duplicate-id check, the inward-dependency rule and the outer-ring
  * endpoint rule — the only difference between the two kinds is how an element's ring role is looked up (Onion:
@@ -302,9 +320,9 @@ function checkRingedIntegrity(
     })
   }
   d.elements.forEach((e, i) => {
-    const allowed = kindsByRole[ringRoleOf(e.id) ?? '']
-    if (e.kind && allowed && !allowed.includes(e.kind)) {
-      ctx.addIssue({ code: 'custom', message: `Element "${e.name}" has kind "${RINGED_KIND_LABEL[e.kind]}", which its ring does not allow (allowed: ${allowed.map((k) => RINGED_KIND_LABEL[k]).join(', ')}).`, path: ['elements', i, 'kind'] })
+    const allowed = kindsByRole[ringRoleOf(e.id) ?? ''] ?? []
+    if (e.kind && !allowed.includes(e.kind)) {
+      ctx.addIssue({ code: 'custom', message: `Element "${e.name}" has kind "${RINGED_KIND_LABEL[e.kind]}", which its ring does not allow (allowed: ${allowed.map((k) => RINGED_KIND_LABEL[k]).join(', ') || 'none'}).`, path: ['elements', i, 'kind'] })
     }
   })
   const elementById = new Map(d.elements.map((e) => [e.id, e]))
@@ -345,6 +363,14 @@ function checkOnionIntegrity(
     ['actors', d.actors],
     ['externals', d.externals],
   ] as const
+  const seenRings = new Set<string>()
+  d.rings.forEach((r, i) => {
+    if (seenRings.has(r.role)) ctx.addIssue({ code: 'custom', message: `Duplicate ring "${r.role}"`, path: ['rings', i, 'role'] })
+    seenRings.add(r.role)
+  })
+  d.elements.forEach((e, i) => {
+    if (!seenRings.has(e.ringRole)) ctx.addIssue({ code: 'custom', message: `Unknown ring "${e.ringRole}"`, path: ['elements', i, 'ringRole'] })
+  })
   const elementById = new Map(d.elements.map((e) => [e.id, e]))
   checkRingedIntegrity(d, idCollections, (elementId) => elementById.get(elementId)?.ringRole, ONION_KINDS, ctx)
 }
@@ -368,8 +394,7 @@ export type CleanElement = z.infer<typeof CleanElementSchema>
 export type CleanDependency = z.infer<typeof CleanDependencySchema>
 export type CleanEndpoint = z.infer<typeof CleanEndpointSchema>
 
-const CleanFileObject = z.object({
-  version: z.literal(VERSION),
+const CleanFileFields = {
   kind: z.literal('clean'),
   title: z.string(),
   // Innermost-first, fixed at creation (REQ-02) — never grown, reordered or re-typed after a file exists.
@@ -380,7 +405,10 @@ const CleanFileObject = z.object({
   dependencies: z.array(CleanDependencySchema),
   actors: z.array(CleanEndpointSchema),
   externals: z.array(CleanEndpointSchema),
-})
+}
+// Frozen (v4): the Clean arm a v4 build wrote — Clean's shape did not change in v5, only the version literal moves.
+const CleanFileObjectV4 = z.object({ version: z.literal(4), ...CleanFileFields })
+const CleanFileObject = z.object({ version: z.literal(VERSION), ...CleanFileFields })
 
 function checkCleanIntegrity(
   d: Pick<z.infer<typeof CleanFileObject>, 'rings' | 'sectors' | 'elements' | 'dependencies' | 'actors' | 'externals'>,
@@ -422,9 +450,17 @@ export const HexaFileV3Schema = z.discriminatedUnion('kind', [
   OnionFileObjectV3.extend({ app: z.literal(APP) }).superRefine(checkOnionIntegrity),
 ])
 
-// Current (v4): the 3-way union — Hexagonal, Onion, and Clean.
+// Frozen (v4): the 3-way union a v4 build wrote (fixed 4-ring Onion) — only parseHexa's version===4 branch reads
+// this, to upgrade a v4 file to the current version on open.
 export const HexaFileV4Schema = z.discriminatedUnion('kind', [
   HexagonalObjectV4.extend({ app: z.literal(APP) }).superRefine(checkMap),
+  OnionFileObjectV4.extend({ app: z.literal(APP) }).superRefine(checkOnionIntegrity),
+  CleanFileObjectV4.extend({ app: z.literal(APP) }).superRefine(checkCleanIntegrity),
+])
+
+// Current (v5): the 3-way union — Hexagonal, Onion (variable-length rings), and Clean.
+export const HexaFileV5Schema = z.discriminatedUnion('kind', [
+  HexagonalObjectV5.extend({ app: z.literal(APP) }).superRefine(checkMap),
   OnionFileObject.extend({ app: z.literal(APP) }).superRefine(checkOnionIntegrity),
   CleanFileObject.extend({ app: z.literal(APP) }).superRefine(checkCleanIntegrity),
 ])

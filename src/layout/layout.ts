@@ -58,7 +58,7 @@ export interface LayoutNode {
  */
 export interface LayoutRing {
   key: string
-  role: RingRole
+  role: string
   /** Uppercase layer title, with an optional sentence-case subtitle line under it. */
   title: string
   subtitle?: string

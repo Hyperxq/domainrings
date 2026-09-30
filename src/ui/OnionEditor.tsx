@@ -3,7 +3,7 @@ import { tidyOnionOrder } from '../layout/onion'
 import { outerRoleOf } from '../model/rings'
 import { ONION_KINDS } from '../model/ringedKinds'
 import { elementName, UNTITLED } from '../model/ringedDocument'
-import type { OnionFile, OnionRingRole } from '../model/schema'
+import type { OnionFile } from '../model/schema'
 import { useOnionStore } from '../model/onionStore'
 import { Fold, revealInEditor } from './Editor'
 import { Icon } from './Icon'
@@ -38,7 +38,7 @@ function RingSection({
   doc,
   onMutate,
 }: {
-  role: OnionRingRole
+  role: string
   name: string
   elements: OnionFile['elements']
   doc: OnionFile

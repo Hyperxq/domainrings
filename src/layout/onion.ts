@@ -1,5 +1,5 @@
 import { polarPoint, ringedArcAngles } from '../model/rings'
-import type { OnionDependency, OnionElement, OnionFile, OnionRingRole } from '../model/schema'
+import type { OnionDependency, OnionElement, OnionFile } from '../model/schema'
 import type { RingedKind } from '../model/ringedKinds'
 import { countCrossings } from './crossings'
 import { minimizeCrossings, neighborLookup, type CrossingGroup } from './crossingMinimization'
@@ -11,7 +11,7 @@ import { endpointLayout, ringedBounds, ringedElementHeight, ringedElementWidth, 
 export interface OnionElementLayout {
   key: string
   ref: string
-  ringRole: OnionRingRole
+  ringRole: string
   name: string
   kind?: RingedKind
   x: number
@@ -58,7 +58,7 @@ export interface OnionLayoutModel {
 function buildOnionModel(doc: OnionFile, orderedElementsOn: (role: string) => readonly OnionElement[]): OnionLayoutModel {
   // Each ring's elements, by angle (REQ-07's spacing rule) and rendered box width, so a ring can grow to fit them
   // (`ringOutlines`) before its own radius — and thus their final positions — is known.
-  const slotsOf = (role: OnionRingRole) => {
+  const slotsOf = (role: string) => {
     const onRing = orderedElementsOn(role)
     const ringIndex = doc.rings.findIndex((r) => r.role === role)
     const angles = ringedArcAngles(onRing.length, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI, ringIndex)

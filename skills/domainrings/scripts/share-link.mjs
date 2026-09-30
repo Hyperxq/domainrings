@@ -24,9 +24,9 @@ try {
 // The skill is copied out of this repo, so it cannot import the app's parser: this mirrors the app's accepted
 // versions and kinds, and src/skill.test.ts fails if the app opens a kind this rejects. v2 predates the kind split.
 const KINDS = ['hexagonal', 'onion', 'clean']
-const isSupported = map?.version === 2 || ((map?.version === 3 || map?.version === 4) && KINDS.includes(map?.kind))
+const isSupported = map?.version === 2 || ((map?.version === 3 || map?.version === 4 || map?.version === 5) && KINDS.includes(map?.kind))
 if (map?.app !== 'domainrings' || !isSupported) {
-  console.error(`Not a domainrings map: expected "app": "domainrings" and "version": 2, or "version": 3 or 4 with "kind" one of ${KINDS.map((k) => `"${k}"`).join(', ')}.`)
+  console.error(`Not a domainrings map: expected "app": "domainrings" and "version": 2, or "version": 3, 4 or 5 with "kind" one of ${KINDS.map((k) => `"${k}"`).join(', ')}.`)
   process.exit(1)
 }
 

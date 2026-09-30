@@ -14,6 +14,7 @@ import v2EmptyContext from './fixtures/v2-empty-context.hexa?raw'
 import v2SchemaSnapshot from './fixtures/v2.schema.json?raw'
 import v3OnionExample from './fixtures/v3-onion-example.hexa?raw'
 import v4CleanExample from './fixtures/v4-clean-example.hexa?raw'
+import v4OnionExample from './fixtures/v4-onion-example.hexa?raw'
 
 const errorsOf = (text: string) => {
   const result = parseHexa(text)
@@ -167,8 +168,8 @@ describe('committed v2 corpus (MIG-03.2)', () => {
     expect(JSON.parse(v2SchemaSnapshot)).toEqual(z.toJSONSchema(HexaFileV2Schema))
   })
 
-  it('VERSION is the current (v4) format — v1, v2 and v3 stay frozen at their own literals', () => {
-    expect(VERSION).toBe(4)
+  it('VERSION is the current (v5) format — v1 to v4 stay frozen at their own literals', () => {
+    expect(VERSION).toBe(5)
   })
 })
 
@@ -374,7 +375,29 @@ describe('committed (frozen) v3 onion fixture (REQ-02, REQ-04, REQ-05 shape)', (
   })
 })
 
-describe('current (v4) clean fixture (REQ-02, REQ-03, REQ-04, REQ-06, REQ-07, REQ-08 shape)', () => {
+describe('committed (frozen) v4 fixtures',  () => {
+  it('opens the v4 onion file with its 4 rings intact, upgraded to the current version', () => {
+    const result = parseHexa(v4OnionExample)
+    expect(result.ok).toBe(true)
+    if (!result.ok || result.map.kind !== 'onion') throw new Error('fixture failed to parse as onion')
+    expect(result.map.version).toBe(VERSION)
+    expect(result.map.rings.map((r) => r.role)).toEqual(['domain', 'domainServices', 'application', 'outer'])
+  })
+
+  it('opens the v4 clean file upgraded to the current version', () => {
+    const result = parseHexa(v4CleanExample)
+    expect(result.ok && result.map.version).toBe(VERSION)
+  })
+
+  it('does not read a 5-ring Onion as version 4', () => {
+    const file = JSON.parse(v4OnionExample)
+    file.rings.splice(3, 0, { role: 'ring-a1b2c3d4', name: 'Extra' })
+    expect(parseHexa(JSON.stringify(file)).ok).toBe(false)
+    expect(parseHexa(JSON.stringify({ ...file, version: VERSION })).ok).toBe(true)
+  })
+})
+
+describe('current clean fixture (REQ-02, REQ-03, REQ-04, REQ-06, REQ-07, REQ-08 shape)', () => {
   it('parses as kind clean with its 4 rings, 3 sectors (one empty), 2 elements, 1 dependency, an actor and an external', () => {
     const result = parseHexa(v4CleanExample)
     expect(result.ok).toBe(true)

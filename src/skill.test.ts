@@ -71,6 +71,16 @@ describe('share-link script', () => {
     expect(run.stdout.trim().startsWith('https://diagrams.pbuilder.dev/#m=')).toBe(true)
   })
 
+  it('accepts a version 5 Onion file with user-added rings and links back to the same map', async () => {
+    const rings = [{ role: 'domain', name: 'Core' }, { role: 'ring-a1b2c3d4', name: 'Events' }, { role: 'outer', name: 'Edge' }]
+    const onion = { app: 'domainrings', version: 5, kind: 'onion', title: 'V5', rings, elements: [{ id: 'e1', name: 'Order', ringRole: 'ring-a1b2c3d4' }], dependencies: [], actors: [], externals: [] }
+    const run = shareLink(tempHexa(onion))
+    expect(run.status).toBe(0)
+    const link = run.stdout.trim()
+    const decoded = parseHexa((await decodeSharePayload(link.slice(link.indexOf(SHARE_HASH_PREFIX) + SHARE_HASH_PREFIX.length)))!)
+    expect(decoded.ok && decoded.map.kind === 'onion' && decoded.map.rings).toEqual(rings)
+  })
+
   // The script cannot import the app's parser (the skill is copied out of the repo), so this pins its accepted
   // kinds to the app's: every example the app opens, of every kind, must yield a link that decodes to the same map.
   it.each(Object.keys(appExamples))('shares the app example %s as the same map', async (path) => {
@@ -93,7 +103,7 @@ describe('share-link script', () => {
   it.each([
     ['a version 4 file of an unknown kind', { app: 'domainrings', version: 4, kind: 'layered' }],
     ['a version 4 file with no kind', { app: 'domainrings', version: 4 }],
-    ['a version 5 file', { app: 'domainrings', version: 5, kind: 'onion' }],
+    ['a version 6 file', { app: 'domainrings', version: 6, kind: 'onion' }],
   ])('refuses %s, naming every supported kind', (_name, json) => {
     const run = shareLink(tempHexa(json))
     expect(run.status).not.toBe(0)
