@@ -44,6 +44,8 @@ interface StageProps {
   onReveal: (ref: string, focus: boolean) => void
   /** Removes the element `ref` names; false when it is not a model item (a note, the composition root). */
   onDelete: (ref: string) => boolean
+  /** Records the map/focus from before an edit that raises no toast: a canvas "+" and the name typed into it. */
+  onRecord: (before: { map: HexaMap; focus: string }) => void
   /** The element being linked while in link mode, null otherwise. */
   linking: string | null
   onLinking: (ref: string | null) => void
@@ -71,7 +73,7 @@ const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
 const layerOf = (target: Element) =>
   target.closest('[data-band]')?.getAttribute('data-band') ?? target.closest('[data-layer]')?.getAttribute('data-layer') ?? null
 
-export function Stage({ model, map, hexId, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete, linking, onLinking, onLink, contextLabel, onGrow, naming, onNamed, onNamingCancel }: StageProps) {
+export function Stage({ model, map, hexId, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete, onRecord, linking, onLinking, onLink, contextLabel, onGrow, naming, onNamed, onNamingCancel }: StageProps) {
   const hex = currentHexagon(model, hexId)
   const hexModel = hex.model
   const mainRef = useRef<HTMLElement>(null)
@@ -89,7 +91,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
   const [hovered, setHovered] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   // hexId records which hexagon the edit started on, so a commit that lands after the current hexagon switches still targets it (ADR-05).
-  const [editing, setEditing] = useState<{ id: string; collection: CollectionKey; name: string; at: Point; hexId: string } | null>(null)
+  const [editing, setEditing] = useState<{ id: string; collection: CollectionKey; name: string; at: Point; hexId: string; before: { map: HexaMap; focus: string } } | null>(null)
   const [announcement, setAnnouncement] = useState('')
 
   // Whatever moves the store's focus — a click/keyboard switch (also handled in focusHexagon) or an Undo outside
@@ -257,8 +259,9 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
   const visiblePoints = hovered ? insertionPoints(hexModel, diagram, mode).filter((p) => p.layer === hovered) : []
   const pick = (point: InsertionPoint, choice?: DomainType) => {
     const { collection, patch } = insertionItem(point.action, choice)
+    const before = { map, focus: hexId }
     const id = addItem(hexId, collection, patch)
-    setEditing({ id, collection, name: patch.name, at: point.at, hexId })
+    setEditing({ id, collection, name: patch.name, at: point.at, hexId, before })
   }
   const revealFrom = (target: Element) => {
     const ref = target.closest('[data-ref]')?.getAttribute('data-ref')
@@ -400,6 +403,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
           initial={editing.name}
           onCommit={(name) => {
             updateItem(editing.hexId, editing.collection, editing.id, { name })
+            onRecord(editing.before)
             setEditing(null)
             onReveal(editing.id, false)
           }}

@@ -168,6 +168,12 @@ describe('map store', () => {
       expect(state().map.links).toHaveLength(1)
     })
 
+    it.each([{ name: 'Renamed' }, { note: 'A note' }])('a text patch %o on a linked port never prunes a link', (patch) => {
+      state().replace(linkedTwoHex())
+      expect(state().updateItem('h1', 'ports', 'p-repo', patch)).toEqual([])
+      expect(state().map.links).toHaveLength(1)
+    })
+
     it('flipping a linked port’s side back after a prune does not restore the link — only undo does (LINK-01.6)', () => {
       state().replace(linkedTwoHex())
       const flipped = state().updateItem('h1', 'ports', 'p-repo', { side: 'driving', wall: undefined })

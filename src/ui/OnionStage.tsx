@@ -30,6 +30,8 @@ interface OnionStageProps {
    * unwound (via `removeElement` below), so the toast that announced it must go too, not linger on a state that
    * no longer exists. */
   onCancelMutate?: () => void
+  /** Fires once a new element's name is committed: the name belongs to the add step already reported, not a step of its own. */
+  onNamed?: () => void
   /** Whether the OnionEditor/Legend islands are open — reserves their own screen space so a fit never tucks the
    * diagram under them (`RingedStage`/`viewport.ts`'s `islandInset`). */
   panelOpen?: boolean
@@ -43,7 +45,7 @@ const REJECT_MESSAGE = 'A dependency can only point to the same ring or a more i
  * another in the same or a more inward ring; a valid target is marked with `data-link-target` while linking
  * (same convention Hexagonal's own link mode uses), and choosing one that is not valid cancels the gesture and
  * reports why via `onReject`, leaving the document unchanged either way. */
-export function OnionStage({ model, doc, mode, svgRef, onReject, onMutate = () => {}, onCancelMutate = () => {}, panelOpen = false, legendOpen = false }: OnionStageProps) {
+export function OnionStage({ model, doc, mode, svgRef, onReject, onMutate = () => {}, onCancelMutate = () => {}, onNamed = () => {}, panelOpen = false, legendOpen = false }: OnionStageProps) {
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
   const legend = legendForOnion(doc)
   const { selected, linking, setLinking, selectedElement, validTargets, linkTargetRefs, clickTarget } = useDependGesture({
@@ -106,6 +108,7 @@ export function OnionStage({ model, doc, mode, svgRef, onReject, onMutate = () =
             defaultValue={editing.name}
             onCommit={(name) => {
               updateElement(editing.id, { name })
+              onNamed()
               setEditing(null)
             }}
             onCancel={() => {

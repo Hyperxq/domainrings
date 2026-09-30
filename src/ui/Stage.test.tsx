@@ -68,6 +68,7 @@ function Harness({
       legendOpen={false}
       onReveal={onReveal}
       onDelete={() => false}
+      onRecord={() => {}}
       linking={linking}
       onLinking={setLinking}
       onLink={onLink}
