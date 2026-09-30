@@ -7,7 +7,8 @@ import { classifyRef, elementName } from '../model/ringedDocument'
 import { useOnionStore } from '../model/onionStore'
 import type { OnionFile } from '../model/schema'
 import { OnionDiagram } from '../render/OnionDiagram'
-import { affordanceVisible, DependChip, InlineNameField, PlusGlyph, RingedStage, useDependGesture } from './RingedCanvas'
+import { affordanceVisible, DependChip, InlineNameField, PlusGlyph } from './ringed/RingedAffordances'
+import { RingedStage, useDependGesture } from './RingedCanvas'
 
 const { addElement, updateElement, removeElement, removeEndpoint, addDependency, addEndpoint } = useOnionStore.getState()
 

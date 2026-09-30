@@ -7,7 +7,8 @@ import { classifyRef, elementName } from '../model/ringedDocument'
 import { useCleanStore } from '../model/cleanStore'
 import type { CleanFile } from '../model/schema'
 import { CleanDiagram } from '../render/CleanDiagram'
-import { affordanceVisible, DependChip, InlineNameField, PlusGlyph, RingedStage, useDependGesture } from './RingedCanvas'
+import { affordanceVisible, DependChip, InlineNameField, PlusGlyph } from './ringed/RingedAffordances'
+import { RingedStage, useDependGesture } from './RingedCanvas'
 
 const { addSector, addElement, updateElement, removeElement, removeEndpoint, addDependency, addEndpoint } = useCleanStore.getState()
 
