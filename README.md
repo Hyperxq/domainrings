@@ -61,7 +61,7 @@ In Onion and Clean, an element can optionally carry a kind, chosen in its card i
 | Clean: Interface Adapters | controller, presenter, gateway |
 | Clean: Frameworks & Drivers | framework, database, web, device |
 
-In a `.hexa` file the kind is an optional `kind` field on the element (`entity`, `valueObject`, `aggregate`, `domainEvent`, `domainService`, `repositoryInterface`, `applicationService`, `ui`, `infrastructure`, `test`, `repositoryImplementation`, `interactor`, `inputPort`, `outputPort`, `controller`, `presenter`, `gateway`, `framework`, `database`, `web`, `device`). A file with a kind its ring doesn't allow is refused with a message naming the element. Moving an element to a ring or sector that doesn't allow its kind clears the kind, and Undo brings it back.
+In a `.hexa` file the kind is an optional `kind` field on the element (`entity`, `valueObject`, `aggregate`, `domainEvent`, `domainService`, `repositoryInterface`, `applicationService`, `ui`, `infrastructure`, `test`, `repositoryImplementation`, `interactor`, `inputPort`, `outputPort`, `controller`, `presenter`, `gateway`, `framework`, `database`, `web`, `device`). A file with a kind its ring doesn't allow is refused with a message naming the element.
 
 ## Draw your own system
 

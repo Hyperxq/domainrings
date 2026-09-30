@@ -6,6 +6,8 @@ import { useMapStore } from './store'
 // Only the store whose map actually changes ever writes (its subscribe callback is a no-op otherwise) — safe to
 // wire every document store to the same slot, since only the active view's store ever mutates (ADR-02).
 // Without storage nothing can ever be saved, so the author gets the save-failed notice up front instead of silence.
+// A throwing storage is only detected by a failed write, and probing with one would clobber the saved slot — so
+// re-wiring it (main.tsx wires once at module load; only tests dispose) shows the notice from the next failed save.
 export function wireAutosave(storage: Storage | undefined, recovery: Recovery): () => void {
   if (!storage) {
     useSaveFailed.setState({ failed: true })

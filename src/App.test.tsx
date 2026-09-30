@@ -1068,6 +1068,13 @@ describe('autosave failure notice', () => {
       expect(useSaveFailed.getState().failed).toBe(false)
     })
 
+    it('shows the notice again when re-wired without storage after a dispose', () => {
+      wireAutosave(undefined, 'none')()
+      expect(useSaveFailed.getState().failed).toBe(false)
+      onTestFinished(wireAutosave(undefined, 'none'))
+      expect(useSaveFailed.getState().failed).toBe(true)
+    })
+
     it('shows the notice from the start when the browser gives no storage at all', () => {
       onTestFinished(wireAutosave(undefined, 'none'))
       render(<App />)

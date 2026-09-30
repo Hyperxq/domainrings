@@ -224,6 +224,8 @@ export const HexaFileV2Schema = MapObjectV2.extend({ app: z.literal(APP) }).supe
 
 // Frozen (v3): the Hexagonal arm a v3 build wrote (native-onion's own "current" before this change froze it,
 // ADR-03) — never change this schema, a data-bearing addition belongs on the v4 map instead.
+// Additive optional fields on the current version (e.g. an element's `kind`) do not bump VERSION: this is a single
+// hosted deployment, so an older build only survives as a stale tab — which would strip the unknown field on its next save.
 const HexagonalObjectV3 = z.object({ version: z.literal(3), kind: z.literal('hexagonal'), ...MapFields })
 export const HexagonalFileV3Schema = HexagonalObjectV3.superRefine(checkMap)
 
