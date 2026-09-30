@@ -1,6 +1,7 @@
 import type { LayoutMode, Point } from '../layout/layout'
 import { edgeControl } from '../layout/edgeRouting'
-import { endpointLabelHeight, endpointLines, RINGED_ELEMENT_METRICS, RINGED_ENDPOINT_DIAMETER, ringedElementHeight, ringedElementLines, ringedElementWidth } from '../layout/ringed'
+import type { RingedKind } from '../model/ringedKinds'
+import { endpointLabelHeight, endpointLines, KIND_LINE_STEP, KIND_METRICS, RINGED_ELEMENT_METRICS, RINGED_ENDPOINT_DIAMETER, ringedElementHeight, ringedElementLines, ringedElementWidth, ringedKindHeight, ringedKindLines } from '../layout/ringed'
 
 const ENDPOINT_RADIUS = RINGED_ENDPOINT_DIAMETER / 2
 
@@ -12,6 +13,7 @@ export interface RingedElementLayout {
   ref: string
   ringRole: string
   name: string
+  kind?: RingedKind
   x: number
   y: number
 }
@@ -75,12 +77,15 @@ function WrappedLines({ lines, x, centerY, height }: { lines: string[]; x: numbe
 }
 
 export function RingedElementNode({ element, selected, target, interactive }: { element: RingedElementLayout; selected: boolean; target: boolean; interactive: boolean }) {
-  const width = ringedElementWidth(element.name)
-  const height = ringedElementHeight(element.name)
+  const width = ringedElementWidth(element.name, element.kind)
+  const height = ringedElementHeight(element.name, element.kind)
   // A long name wraps onto more than one line (Decision 8) rather than growing its own ring around one unbroken
   // line — each row gets an even share of the box's own (possibly grown) height, so a single-line name renders
   // exactly as before (one row = the whole box, vertically centred, unchanged from before Decision 8).
   const lines = ringedElementLines(element.name)
+  const kindLines = ringedKindLines(element.kind)
+  const kindHeight = ringedKindHeight(element.kind)
+  const top = element.y - height / 2
   return (
     <g
       className="node node-ringedElement tone-teal"
@@ -93,8 +98,17 @@ export function RingedElementNode({ element, selected, target, interactive }: { 
       aria-label={interactive ? `${element.name} (${element.ringRole})` : undefined}
     >
       <rect className="box" x={element.x - width / 2} y={element.y - height / 2} width={width} height={height} rx={8} />
+      {kindLines.length > 0 && (
+        <text className="line-tag centered" x={element.x} fontSize={KIND_METRICS.size}>
+          {kindLines.map((line, i) => (
+            <tspan key={i} x={element.x} y={top + (i + 0.5) * KIND_LINE_STEP + 2} dominantBaseline="middle">
+              {line}
+            </tspan>
+          ))}
+        </text>
+      )}
       <text className="centered" x={element.x} fontSize={RINGED_ELEMENT_METRICS.size}>
-        <WrappedLines lines={lines} x={element.x} centerY={element.y} height={height} />
+        <WrappedLines lines={lines} x={element.x} centerY={top + kindHeight + (height - kindHeight) / 2} height={height - kindHeight} />
       </text>
     </g>
   )

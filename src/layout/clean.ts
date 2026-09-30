@@ -1,4 +1,5 @@
 import { polarPoint, ringedArcAngles } from '../model/rings'
+import type { RingedKind } from '../model/ringedKinds'
 import type { CleanElement, CleanFile, CleanRingRole } from '../model/schema'
 import { countCrossings } from './crossings'
 import { minimizeCrossings, neighborLookup, type CrossingGroup } from './crossingMinimization'
@@ -25,6 +26,7 @@ export interface CleanElementLayout {
   ref: string
   ringRole: CleanRingRole
   name: string
+  kind?: RingedKind
   x: number
   y: number
 }
@@ -107,7 +109,7 @@ function buildCleanModel(doc: CleanFile, sectors: CleanSectorWedge[], orderedEle
         const onSector = orderedElementsIn(sector.ref)
         const ringIndex = doc.rings.findIndex((r) => r.role === sector.ringRole)
         const angles = ringedArcAngles(onSector.length, sector.startAngle, sector.endAngle, ringIndex)
-        return onSector.map((e, k) => ({ angle: angles[k], width: ringedElementWidth(e.name), height: ringedElementHeight(e.name), labelIndex: labelIndex.get(sector.ref) }))
+        return onSector.map((e, k) => ({ angle: angles[k], width: ringedElementWidth(e.name, e.kind), height: ringedElementHeight(e.name, e.kind), labelIndex: labelIndex.get(sector.ref) }))
       })
   }
   // Decision 5's ring-title clearance, generalized to Clean's own per-sector name (`render/CleanDiagram.tsx`'s
@@ -167,13 +169,13 @@ function buildCleanModel(doc: CleanFile, sectors: CleanSectorWedge[], orderedEle
     const radii = radiiByRole.get(sector.ringRole)!
     return onSector.map((e, k) => {
       const radius = radii[offset + k]
-      return { key: `element:${e.id}`, ref: e.id, ringRole: sector.ringRole, name: e.name, ...polarPoint(radius, angles[k]) }
+      return { key: `element:${e.id}`, ref: e.id, ringRole: sector.ringRole, name: e.name, kind: e.kind, ...polarPoint(radius, angles[k]) }
     })
   })
   const elementAt = new Map(elements.map((e) => [e.ref, e]))
 
   const outer = rings[rings.length - 1]
-  const outerElements = elements.filter((e) => e.ringRole === outer.role).map((e) => ({ x: e.x, y: e.y, width: ringedElementWidth(e.name), height: ringedElementHeight(e.name) }))
+  const outerElements = elements.filter((e) => e.ringRole === outer.role).map((e) => ({ x: e.x, y: e.y, width: ringedElementWidth(e.name, e.kind), height: ringedElementHeight(e.name, e.kind) }))
   const { endpoints, extraReach } = endpointLayout(doc.actors, doc.externals, outer, outerElements)
 
   const dependencyEdges: Omit<CleanEdgeLayout, 'control'>[] = doc.dependencies.flatMap((dep) => {

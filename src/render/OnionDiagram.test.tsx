@@ -63,3 +63,18 @@ describe('OnionDiagram — arrow visibility follows Overview/Detailed (Decision 
     expect(edges[0].getAttribute('d')).toContain('Q')
   })
 })
+
+describe('OnionDiagram — element kind tag', () => {
+  const doc = (kind?: 'aggregate'): OnionFile => ({ ...newOnionMap('Fresh'), elements: [{ id: 'e1', name: 'Order', ringRole: 'domain', kind }] })
+
+  it('draws the kind as a tag inside the element box, and nothing when there is no kind', () => {
+    const { container } = renderDiagram(doc('aggregate'))
+    expect(container.querySelector('[data-ref="e1"] .line-tag')?.textContent).toBe('aggregate')
+    expect(renderDiagram(doc()).container.querySelectorAll('[data-ref="e1"] .line-tag')).toHaveLength(0)
+  })
+
+  it('grows the element box to hold the tag', () => {
+    const height = (d: OnionFile) => Number(renderDiagram(d).container.querySelector('[data-ref="e1"] rect')!.getAttribute('height'))
+    expect(height(doc('aggregate'))).toBeGreaterThan(height(doc()))
+  })
+})

@@ -70,7 +70,7 @@ export function onionInsertionPoints(model: OnionLayoutModel, doc: OnionFile): O
       const plusBox = { x: at.x, y: at.y, width: PLUS_DIAMETER, height: PLUS_DIAMETER }
       return neighborIds.every((id) => {
         const el = id && model.elements.find((e) => e.ref === id)
-        return !el || !boxesOverlap(plusBox, { x: el.x, y: el.y, width: ringedElementWidth(el.name), height: ringedElementHeight(el.name) })
+        return !el || !boxesOverlap(plusBox, { x: el.x, y: el.y, width: ringedElementWidth(el.name, el.kind), height: ringedElementHeight(el.name, el.kind) })
       })
     }
     for (const gap of elementGapPoints(angles, FULL_CIRCLE.start, FULL_CIRCLE.end, true)) {

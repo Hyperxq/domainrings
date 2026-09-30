@@ -151,3 +151,37 @@ describe('onion store — title', () => {
     expect(state().map).toEqual({ ...before, title: 'Payments' })
   })
 })
+
+describe('onion store — element kinds', () => {
+  it('updateElement sets and clears a kind allowed in the element\'s ring', () => {
+    state().replace(newOnionMap('Fresh'))
+    const id = state().addElement({ name: 'Order', ringRole: 'domain' })
+    state().updateElement(id, { kind: 'aggregate' })
+    expect(state().map.elements[0].kind).toBe('aggregate')
+    state().updateElement(id, { kind: undefined })
+    expect(state().map.elements[0].kind).toBeUndefined()
+  })
+
+  it('updateElement rejects (no-ops) a kind the element\'s ring does not allow', () => {
+    state().replace(newOnionMap('Fresh'))
+    const id = state().addElement({ name: 'Order', ringRole: 'domain' })
+    const before = state().map
+    state().updateElement(id, { kind: 'controller' as never })
+    expect(state().map).toBe(before)
+  })
+
+  it('moving an element to a ring that does not allow its kind clears the kind in the same edit', () => {
+    state().replace(newOnionMap('Fresh'))
+    const id = state().addElement({ name: 'Order', ringRole: 'domain', kind: 'entity' })
+    state().updateElement(id, { ringRole: 'application' })
+    expect(state().map.elements[0]).toMatchObject({ ringRole: 'application' })
+    expect(state().map.elements[0].kind).toBeUndefined()
+  })
+
+  it('moving an element to a ring that still allows its kind keeps it', () => {
+    state().replace(newOnionMap('Fresh'))
+    const id = state().addElement({ name: 'Order', ringRole: 'domain', kind: 'entity' })
+    state().updateElement(id, { ringRole: 'domain' })
+    expect(state().map.elements[0].kind).toBe('entity')
+  })
+})

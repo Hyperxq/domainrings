@@ -1,12 +1,13 @@
 import { flushSync } from 'react-dom'
 import { tidyOnionOrder } from '../layout/onion'
 import { outerRoleOf } from '../model/rings'
+import { ONION_KINDS } from '../model/ringedKinds'
 import { elementName, UNTITLED } from '../model/ringedDocument'
 import type { OnionFile, OnionRingRole } from '../model/schema'
 import { useOnionStore } from '../model/onionStore'
 import { Fold, revealInEditor } from './Editor'
 import { Icon } from './Icon'
-import { DependenciesSection, ElementList, EndpointsSection, RenameField } from './RingedSections'
+import { DependenciesSection, ElementList, EndpointsSection, kindMessage, RenameField } from './RingedSections'
 
 type EndpointCollection = 'actors' | 'externals'
 
@@ -66,8 +67,14 @@ function RingSection({
     >
       <ElementList
         elements={elements}
+        kinds={ONION_KINDS[role]}
         onRename={(id, newName) => updateElement(id, { name: newName })}
         onRenameCommit={(id, before) => onMutate(`Renamed ${before || 'the element'} to ${elementName(doc.elements, id)}.`, withElementName(doc, id, before))}
+        onKind={(id, kind) => {
+          const before = doc
+          updateElement(id, { kind })
+          onMutate(kindMessage(elementName(doc.elements, id), kind), before)
+        }}
         onRemove={(id) => {
           const removedName = elementName(doc.elements, id)
           const before = doc

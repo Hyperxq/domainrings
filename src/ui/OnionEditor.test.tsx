@@ -128,3 +128,33 @@ describe('OnionEditor — document title', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Untitled architecture' })).toBeTruthy()
   })
 })
+
+describe('OnionEditor — element kind', () => {
+  const kindSelect = (container: HTMLElement) => within(container).getByLabelText('Order kind') as HTMLSelectElement
+
+  it('offers only its own ring\'s kinds, plus no kind', () => {
+    state().addElement({ name: 'Order', ringRole: 'domain' })
+    const { container } = renderEditor()
+    const options = within(kindSelect(container)).getAllByRole('option').map((o) => o.textContent)
+    expect(options).toEqual(['No kind', 'entity', 'value object', 'aggregate', 'domain event'])
+  })
+
+  it('setting a kind is one undoable step reporting the document as it stood before', () => {
+    const id = state().addElement({ name: 'Order', ringRole: 'domain' })
+    const onMutate = vi.fn()
+    const { container } = renderEditor({ onMutate })
+    fireEvent.change(kindSelect(container), { target: { value: 'aggregate' } })
+
+    expect(state().map.elements.find((e) => e.id === id)?.kind).toBe('aggregate')
+    expect(onMutate).toHaveBeenCalledTimes(1)
+    expect(onMutate.mock.calls[0][0]).toBe('Set Order to aggregate.')
+    expect(onMutate.mock.calls[0][1].elements[0].kind).toBeUndefined()
+  })
+
+  it('choosing no kind clears it', () => {
+    state().addElement({ name: 'Order', ringRole: 'domain', kind: 'entity' })
+    const { container } = renderEditor()
+    fireEvent.change(kindSelect(container), { target: { value: '' } })
+    expect(state().map.elements[0].kind).toBeUndefined()
+  })
+})

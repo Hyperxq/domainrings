@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { describe, expect, it } from 'vitest'
-import { parseHexa, toHexa, toMap } from './hexa'
+import { newCleanMap, newOnionMap, parseHexa, toHexa, toMap } from './hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM, TWO_SLICES_MAP } from './example'
 import { diagramOf, freeCell, placeHexagon } from './map'
 import { HexaFileV2Schema, MapSchema, VERSION, type Diagram, type HexaMap } from './schema'
@@ -560,3 +560,18 @@ describe('the 18-cell refusal matrix (MIG-02, MIG-03)', () => {
 
 // Invariant: each guard in `parseHexa`'s pre-Zod dispatch, `checkMap`'s structural refinements and `linkEndProblem`
 // is exercised by a dedicated matrix cell, so a weakened guard fails a named case rather than passing incidentally.
+
+describe('ringed element kinds round-trip through .hexa', () => {
+  it('keeps an Onion and a Clean element kind across toHexa/parseHexa', () => {
+    const onion = { ...newOnionMap('Kinds'), elements: [{ id: 'e1', name: 'Order', ringRole: 'domain' as const, kind: 'aggregate' as const }] }
+    const clean = {
+      ...newCleanMap('Kinds'),
+      sectors: [{ id: 's1', name: 'Web', ringRole: 'adapters' as const }],
+      elements: [{ id: 'e1', name: 'OrderController', sectorId: 's1', kind: 'controller' as const }],
+    }
+    for (const doc of [onion, clean]) {
+      const reopened = parseHexa(toHexa(doc))
+      expect(reopened).toEqual({ ok: true, map: doc })
+    }
+  })
+})

@@ -1,8 +1,11 @@
 import { z } from 'zod'
 import { isInwardOrSame, outerRoleOf } from './rings'
+import { CLEAN_KINDS, ONION_KINDS, RINGED_KIND_LABEL, RINGED_KINDS, type RingedKind } from './ringedKinds'
 
 const id = z.string().min(1)
 const note = z.string().optional()
+/** Optional on every ringed element; which values a given ring accepts is checked in `checkRingedIntegrity`. */
+const RingedKindSchema = z.enum(RINGED_KINDS)
 
 export const KindSchema = z.enum(['hexagonal', 'clean', 'onion'])
 export const DomainTypeSchema = z.enum(['entity', 'valueObject', 'aggregate', 'domainService'])
@@ -252,7 +255,8 @@ export type CollectionKey = (typeof COLLECTIONS)[number]
 
 export const OnionRingRoleSchema = z.enum(['domain', 'domainServices', 'application', 'outer'])
 const OnionRingSchema = z.object({ role: OnionRingRoleSchema, name: z.string() })
-const OnionElementSchema = z.object({ id, name: z.string(), ringRole: OnionRingRoleSchema, note })
+const OnionElementV3Schema = z.object({ id, name: z.string(), ringRole: OnionRingRoleSchema, note })
+const OnionElementSchema = OnionElementV3Schema.extend({ kind: RingedKindSchema.optional() })
 const OnionDependencySchema = z.object({ id, fromId: id, toId: id })
 const OnionEndpointSchema = z.object({ id, name: z.string(), targetId: id.optional(), note })
 
@@ -272,7 +276,7 @@ const OnionFields = {
 }
 
 // Frozen (v3): the Onion arm a v3 build wrote — never change this schema, ADR-03.
-const OnionFileObjectV3 = z.object({ version: z.literal(3), kind: z.literal('onion'), ...OnionFields })
+const OnionFileObjectV3 = z.object({ version: z.literal(3), kind: z.literal('onion'), ...OnionFields, elements: z.array(OnionElementV3Schema) })
 
 const OnionFileObject = z.object({ version: z.literal(VERSION), kind: z.literal('onion'), ...OnionFields })
 
@@ -282,9 +286,10 @@ const OnionFileObject = z.object({ version: z.literal(VERSION), kind: z.literal(
  * the same indirection RingedSections.tsx/RingedNodes.tsx already take as a prop. `idCollections` varies too —
  * Clean's includes `sectors`, Onion's doesn't — so it stays a caller-supplied list rather than a fixed key set. */
 function checkRingedIntegrity(
-  d: { rings: readonly { role: string }[]; elements: readonly { id: string }[]; dependencies: readonly { id: string; fromId: string; toId: string }[]; actors: readonly { id: string; targetId?: string }[]; externals: readonly { id: string; targetId?: string }[] },
+  d: { rings: readonly { role: string }[]; elements: readonly { id: string; name: string; kind?: RingedKind }[]; dependencies: readonly { id: string; fromId: string; toId: string }[]; actors: readonly { id: string; targetId?: string }[]; externals: readonly { id: string; targetId?: string }[] },
   idCollections: readonly (readonly [string, readonly { id: string }[]])[],
   ringRoleOf: (elementId: string) => string | undefined,
+  kindsByRole: Record<string, readonly RingedKind[]>,
   ctx: z.RefinementCtx,
 ) {
   for (const [key, items] of idCollections) {
@@ -294,6 +299,12 @@ function checkRingedIntegrity(
       seen.add(item.id)
     })
   }
+  d.elements.forEach((e, i) => {
+    const allowed = kindsByRole[ringRoleOf(e.id) ?? '']
+    if (e.kind && allowed && !allowed.includes(e.kind)) {
+      ctx.addIssue({ code: 'custom', message: `Element "${e.name}" has kind "${RINGED_KIND_LABEL[e.kind]}", which its ring does not allow (allowed: ${allowed.map((k) => RINGED_KIND_LABEL[k]).join(', ')}).`, path: ['elements', i, 'kind'] })
+    }
+  })
   const elementById = new Map(d.elements.map((e) => [e.id, e]))
   const outerRole = outerRoleOf(d.rings)
   // Inward-dependency rule: a dependency may only point to the same ring or a more inward one.
@@ -333,7 +344,7 @@ function checkOnionIntegrity(
     ['externals', d.externals],
   ] as const
   const elementById = new Map(d.elements.map((e) => [e.id, e]))
-  checkRingedIntegrity(d, idCollections, (elementId) => elementById.get(elementId)?.ringRole, ctx)
+  checkRingedIntegrity(d, idCollections, (elementId) => elementById.get(elementId)?.ringRole, ONION_KINDS, ctx)
 }
 
 export const OnionFileSchema = OnionFileObject.superRefine(checkOnionIntegrity)
@@ -345,7 +356,7 @@ export type OnionFile = z.infer<typeof OnionFileSchema>
 export const CleanRingRoleSchema = z.enum(['domain', 'application', 'adapters', 'outer'])
 const CleanRingSchema = z.object({ role: CleanRingRoleSchema, name: z.string() })
 const CleanSectorSchema = z.object({ id, name: z.string(), ringRole: CleanRingRoleSchema })
-const CleanElementSchema = z.object({ id, name: z.string(), sectorId: id, note })
+const CleanElementSchema = z.object({ id, name: z.string(), sectorId: id, kind: RingedKindSchema.optional(), note })
 const CleanDependencySchema = z.object({ id, fromId: id, toId: id })
 const CleanEndpointSchema = z.object({ id, name: z.string(), targetId: id.optional(), note })
 
@@ -389,7 +400,7 @@ function checkCleanIntegrity(
   })
   const elementById = new Map(d.elements.map((e) => [e.id, e]))
   const ringRoleOf = (elementId: string) => sectorById.get(elementById.get(elementId)?.sectorId ?? '')?.ringRole
-  checkRingedIntegrity(d, idCollections, ringRoleOf, ctx)
+  checkRingedIntegrity(d, idCollections, ringRoleOf, CLEAN_KINDS, ctx)
 }
 
 export const CleanFileSchema = CleanFileObject.superRefine(checkCleanIntegrity)

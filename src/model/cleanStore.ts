@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { newCleanMap } from './hexa'
 import * as ringedDocument from './ringedDocument'
+import { CLEAN_KINDS } from './ringedKinds'
 import { CleanFileSchema, type CleanElement, type CleanEndpoint, type CleanFile, type CleanSector } from './schema'
 import { boot } from './store'
 
@@ -72,7 +73,10 @@ export const useCleanStore = create<CleanState>()((set, get) => ({
     return id
   },
   updateElement: (id, patch) => {
-    const next = ringedDocument.updateElement<CleanFile, CleanElement>(get().map, id, patch, CleanFileSchema)
+    const next = ringedDocument.updateElement<CleanFile, CleanElement>(get().map, id, patch, CleanFileSchema, (doc, elementId) => {
+      const sectorId = doc.elements.find((e) => e.id === elementId)?.sectorId
+      return CLEAN_KINDS[doc.sectors.find((sector) => sector.id === sectorId)?.ringRole ?? ''] ?? []
+    })
     if (!next) return
     set({ map: next })
   },
