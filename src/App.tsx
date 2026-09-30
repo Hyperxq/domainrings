@@ -4,7 +4,7 @@ import type { LayoutMode } from './layout/layout'
 import { canCompact } from './layout/compactHexagon'
 import { hexagonBounds } from './layout/lattice'
 import { currentHexagon, layoutMap } from './layout/map'
-import { legendFor, legendForClean, legendForOnion, legendSize } from './layout/legend'
+import { legendFor, legendForClean, legendForOnion } from './layout/legend'
 import { layoutClean } from './layout/clean'
 import { layoutOnion } from './layout/onion'
 import { EXAMPLES } from './model/example'
@@ -21,7 +21,8 @@ import type { ArchitectureChoice } from './ui/ArchitectureChoiceDialog'
 import { ArchitectureChoiceDialog, CHOICES } from './ui/ArchitectureChoiceDialog'
 import { Editor } from './ui/Editor'
 import { revealInEditor } from './ui/revealInEditor'
-import { download, exportBounds, fileSlug, legendDrawn, pngBlob, svgMarkup } from './ui/exporters'
+import { download } from './ui/exporters'
+import { useExport } from './ui/useExport'
 import { Icon } from './ui/Icon'
 import { Legend } from './ui/Legend'
 import type { PaletteId } from './ui/palette'
@@ -124,7 +125,6 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const [viewed, setViewed] = useState<{ revision: number; expanded: ReadonlySet<string> }>({ revision, expanded: new Set() })
   const expanded = viewed.revision === revision ? viewed.expanded : NONE_EXPANDED
   const model = layoutMap(map, { mode, current: hexId, expanded })
-  const svgRef = useRef<SVGSVGElement>(null)
   const [editorOpen, setEditorOpen] = useState(() => !matchMedia('(max-width: 720px)').matches)
   const reveal = (ref: string, focus: boolean) => {
     // The card only exists to scroll to once the collapsed editor has rendered open.
@@ -509,24 +509,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     recordedStep.current = false
   })
 
-  const exportAs = async (format: 'hexa' | 'svg' | 'png') => {
-    try {
-      if (format === 'hexa') return download(toHexa(active.file), `${fileSlug(active.file.title)}.hexa`, 'application/json')
-      if (!svgRef.current) return
-      const name = fileSlug(active.title)
-      const options = { legend: active.legend, legendHeight: legendSize(legend).height, only: active.scoped ? hexId : undefined }
-      const markup = await svgMarkup(svgRef.current, active.bounds, active.title, options)
-      if (format === 'svg') download(markup, `${name}.svg`, 'image/svg+xml')
-      else {
-        const requested = 2
-        const { blob, pixelRatio } = await pngBlob(markup, exportBounds(active.bounds, { ...options, legend: legendDrawn(svgRef.current, options) }), requested)
-        download(blob, `${name}.png`)
-        if (pixelRatio < requested) show({ tone: 'status', message: `Exported at ${Math.round((pixelRatio / requested) * 100)}% resolution. Use SVG for full resolution.` })
-      }
-    } catch (error) {
-      show({ tone: 'error', message: `Export failed: ${(error as Error).message}` })
-    }
-  }
+  const { svgRef, exportAs } = useExport(active, legend, hexId, show)
 
   return (
     <>
