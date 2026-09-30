@@ -4,7 +4,7 @@ import type { CleanFile, OnionFile } from '../model/schema'
 import { layoutClean } from './clean'
 import { layoutOnion } from './onion'
 import { ringedElementHeight, ringedElementWidth, titleHalfSpan, TITLE_ARC_PAD, TITLE_LINE } from './ringedMetrics'
-import { ringElementRadius } from './ringed'
+import { ringElementRadius } from './ringOutlines'
 import { measure, RING_LABEL, RING_SUBTITLE } from './text'
 
 // Decision 5 regression: a ring's own title (and, for Clean, a sector's own curved name) must never sit under a

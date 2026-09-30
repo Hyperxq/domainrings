@@ -3,7 +3,7 @@ import { newOnionMap } from '../model/hexa'
 import type { OnionFile } from '../model/schema'
 import { countCrossings } from './crossings'
 import { layoutOnion, tidyOnionOrder } from './onion'
-import { ringElementRadius } from './ringed'
+import { ringElementRadius } from './ringOutlines'
 
 const withElements = (): OnionFile => ({
   ...newOnionMap('Fresh'),

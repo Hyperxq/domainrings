@@ -4,7 +4,7 @@ import type { CleanFile } from '../model/schema'
 import { layoutClean, tidyCleanOrder } from './clean'
 import { countCrossings } from './crossings'
 import { arcLabelFootprintBox, ringedElementHeight, ringedElementWidth, titleHalfSpan, TITLE_ARC_PAD } from './ringedMetrics'
-import { ringElementRadius } from './ringed'
+import { ringElementRadius } from './ringOutlines'
 import { measure, RING_SUBTITLE } from './text'
 
 describe('layoutClean — sector wedges (REQ-08)', () => {

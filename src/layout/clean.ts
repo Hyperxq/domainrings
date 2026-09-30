@@ -7,7 +7,7 @@ import type { Box } from './geometry'
 import type { LayoutRing } from './layout'
 import { routeEdgesAroundLabels } from './edgeRouting'
 import { endpointLayout } from './endpointRing'
-import { ringedBounds, ringOutlines, ringSlotRadii, risksLabelAt, type RingedExtraLabel } from './ringed'
+import { ringedBounds, ringOutlines, ringSlotRadii, risksLabelAt, type RingedExtraLabel } from './ringOutlines'
 import { ringedElementHeight, ringedElementWidth, TITLE_ARC_PAD } from './ringedMetrics'
 import { measure, RING_SUBTITLE } from './text'
 

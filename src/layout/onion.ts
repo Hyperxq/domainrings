@@ -7,7 +7,7 @@ import type { Box, Point } from './geometry'
 import type { LayoutRing } from './layout'
 import { routeEdgesAroundLabels } from './edgeRouting'
 import { endpointLayout } from './endpointRing'
-import { ringedBounds, ringOutlines, ringSlotRadii } from './ringed'
+import { ringedBounds, ringOutlines, ringSlotRadii } from './ringOutlines'
 import { ringedElementHeight, ringedElementWidth } from './ringedMetrics'
 
 /** An element placed on its ring's circumference (REQ-07). */

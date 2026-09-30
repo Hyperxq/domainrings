@@ -1,5 +1,5 @@
 import type { Point } from './geometry'
-import { ringElementRadius } from './ringed'
+import { ringElementRadius } from './ringOutlines'
 import { titleHalfSpan, TITLE_ARC_PAD, TITLE_LINE } from './ringedMetrics'
 import { measure, RING_LABEL, RING_SUBTITLE } from './text'
 

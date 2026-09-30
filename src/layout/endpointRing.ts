@@ -1,6 +1,6 @@
 import { arcAngles, polarPoint } from '../model/rings'
 import type { LayoutRing } from './layout'
-import { growUntilFits, noOverlap } from './ringed'
+import { growUntilFits, noOverlap } from './ringOutlines'
 import { endpointLabelHeight, endpointLabelWidth, RINGED_ENDPOINT_DIAMETER, type RingedBox } from './ringedMetrics'
 
 interface RingedEndpointSpec {
