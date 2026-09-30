@@ -1,7 +1,7 @@
 import { legendSections, type LegendModel } from '../layout/legend'
 import { Icon } from './Icon'
 
-interface LegendProps {
+export interface LegendProps {
   legend: LegendModel
   open: boolean
   onOpen: (open: boolean) => void

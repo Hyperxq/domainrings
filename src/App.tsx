@@ -18,25 +18,21 @@ import type { StoredFile } from './model/fileFormat'
 import type { CleanFile, HexaMap, Link, LinkEnd, OnionFile, Wall } from './model/schema'
 import { useMapStore } from './model/store'
 import { ArchitectureChoiceDialog, CHOICES } from './ui/ArchitectureChoiceDialog'
-import { Editor } from './ui/Editor'
 import { revealInEditor } from './ui/revealInEditor'
 import { useExport } from './ui/useExport'
 import { useOpenDocument } from './ui/useOpenDocument'
-import { Legend } from './ui/Legend'
 import type { PaletteId } from './ui/palette'
 import { readPref, setRootPref, writePref } from './ui/prefs'
 import { encodeSharePayload, isOversizedShareLink, shareLinkURL } from './ui/shareLink'
 import { useShareLinkOnMount } from './ui/useShareLinkOnMount'
-import { Stage } from './ui/Stage'
 import { typing } from './ui/keys'
 import type { Notice, UndoSnapshot } from './ui/notice'
+import { CleanWorkspace } from './ui/CleanWorkspace'
+import { HexagonalWorkspace } from './ui/HexagonalWorkspace'
 import { NoticeColumn } from './ui/NoticeColumn'
+import { OnionWorkspace } from './ui/OnionWorkspace'
 import { Toast } from './ui/Toast'
 import { Toolbar, type ExportScope, type ThemeChoice } from './ui/Toolbar'
-import { CleanEditor } from './ui/CleanEditor'
-import { CleanStage } from './ui/CleanStage'
-import { OnionEditor } from './ui/OnionEditor'
-import { OnionStage } from './ui/OnionStage'
 
 
 const RECOVERY_MESSAGE: Record<'kept' | 'not-kept', string> = {
@@ -225,6 +221,20 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // Onion and Clean have no ports or adapters — each kind builds the legend it actually draws (ADR-01), all
   // three sharing the one open/close and "include in export" state above.
   const legend = activeKind === 'onion' ? legendForOnion(onionMap) : activeKind === 'clean' ? legendForClean(cleanMap) : legendFor(diagram)
+  // One panel description for all three kinds: the open/close and "include in export" state is shared.
+  const legendPanel = {
+    legend,
+    open: legendOpen,
+    onOpen: (open: boolean) => {
+      writePref(LEGEND_OPEN_KEY, open)
+      setLegendOpen(open)
+    },
+    includeInExport: legendInExport,
+    onIncludeInExport: (include: boolean) => {
+      writePref(LEGEND_EXPORT_KEY, include)
+      setLegendInExport(include)
+    },
+  }
   const [exportScope, setExportScope] = useState<ExportScope>('map')
 
   // The document being replaced (REQ-09), captured before any store mutation whatever kind is currently active —
@@ -484,134 +494,83 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         onExpandAll={activeKind === 'hexagonal' && canCompact(map.hexagons.length) ? (expand) => setViewed({ revision, expanded: new Set(expand ? map.hexagons.map((h) => h.id) : []) }) : undefined}
       />
       {activeKind === 'hexagonal' && (
-        <>
-          <Editor
-            open={editorOpen}
-            onToggle={() => setEditorOpen(!editorOpen)}
-            onPrune={pruneToast}
-            onRecord={record}
-            fieldSession={{ begin: beginField, end: () => endField() }}
-            onAddHexagon={() => completeGrow(undefined, 'same')}
-            onDeleteHexagon={handleDelete}
-            onMoveToContext={handleMoveToContext}
-            onAddFromFile={handleAddFromFile}
-            contextLabel={contextLabel}
-            onRenameContext={handleRenameContext}
-            onCreateLink={createLink}
-            onUpdateLink={editLink}
-            onDeleteLink={deleteLink}
-          />
-          <Legend
-            legend={legend}
-            open={legendOpen}
-            onOpen={(open) => {
-              writePref(LEGEND_OPEN_KEY, open)
-              setLegendOpen(open)
-            }}
-            includeInExport={legendInExport}
-            onIncludeInExport={(include) => {
-              writePref(LEGEND_EXPORT_KEY, include)
-              setLegendInExport(include)
-            }}
-          />
-          <Stage
-            model={model}
-            map={map}
-            hexId={hexId}
-            diagram={diagram}
-            mode={mode}
-            highlight={highlight}
-            dependents={dependents}
-            legend={legend}
-            revision={revision}
-            title={diagram.title}
-            svgRef={svgRef}
-            panelOpen={editorOpen}
-            legendOpen={legendOpen}
-            showGuides={guides}
-            onReveal={reveal}
-            onDelete={deleteItem}
-            onRecord={record}
-            linking={linking}
-            onLinking={startLinking}
-            onLink={link}
-            contextLabel={contextLabel}
-            onGrow={completeGrow}
-            naming={!!growing}
-            onNamed={(title) => {
-              absorbEdit()
-              setMeta(growing!.hexId, { title })
-              setGrowing(null)
-            }}
-            onNamingCancel={() => {
-              dropUndo(growing!.before)
-              restore(growing!.before)
-              setGrowing(null)
-              setNotice(null)
-            }}
-            onToggleExpanded={(id) => setViewed({ revision, expanded: new Set(expanded.has(id) ? [...expanded].filter((x) => x !== id) : [...expanded, id]) })}
-          />
-        </>
+        <HexagonalWorkspace
+          editorOpen={editorOpen}
+          onToggleEditor={() => setEditorOpen(!editorOpen)}
+          legendPanel={legendPanel}
+          onPrune={pruneToast}
+          onRecord={record}
+          fieldSession={{ begin: beginField, end: () => endField() }}
+          onAddHexagon={() => completeGrow(undefined, 'same')}
+          onDeleteHexagon={handleDelete}
+          onMoveToContext={handleMoveToContext}
+          onAddFromFile={handleAddFromFile}
+          contextLabel={contextLabel}
+          onRenameContext={handleRenameContext}
+          onCreateLink={createLink}
+          onUpdateLink={editLink}
+          onDeleteLink={deleteLink}
+          model={model}
+          map={map}
+          hexId={hexId}
+          diagram={diagram}
+          mode={mode}
+          highlight={highlight}
+          dependents={dependents}
+          revision={revision}
+          title={diagram.title}
+          svgRef={svgRef}
+          showGuides={guides}
+          onReveal={reveal}
+          onDelete={deleteItem}
+          linking={linking}
+          onLinking={startLinking}
+          onLink={link}
+          onGrow={completeGrow}
+          naming={!!growing}
+          onNamed={(title) => {
+            absorbEdit()
+            setMeta(growing!.hexId, { title })
+            setGrowing(null)
+          }}
+          onNamingCancel={() => {
+            dropUndo(growing!.before)
+            restore(growing!.before)
+            setGrowing(null)
+            setNotice(null)
+          }}
+          onToggleExpanded={(id) => setViewed({ revision, expanded: new Set(expanded.has(id) ? [...expanded].filter((x) => x !== id) : [...expanded, id]) })}
+        />
       )}
       {activeKind === 'onion' && (
-        <>
-          <OnionEditor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} onMutate={mutateOnion} />
-          <Legend
-            legend={legend}
-            open={legendOpen}
-            onOpen={(open) => {
-              writePref(LEGEND_OPEN_KEY, open)
-              setLegendOpen(open)
-            }}
-            includeInExport={legendInExport}
-            onIncludeInExport={(include) => {
-              writePref(LEGEND_EXPORT_KEY, include)
-              setLegendInExport(include)
-            }}
-          />
-          <OnionStage
-            model={onionModel!}
-            doc={onionMap}
-            mode={mode}
-            svgRef={svgRef}
-            onReject={(message) => show({ tone: 'error', message })}
-            onMutate={mutateOnion}
-            onNamed={absorbEdit}
-            onCancelMutate={clearNotice}
-            panelOpen={editorOpen}
-            legendOpen={legendOpen}
-          />
-        </>
+        <OnionWorkspace
+          editorOpen={editorOpen}
+          onToggleEditor={() => setEditorOpen(!editorOpen)}
+          legendPanel={legendPanel}
+          model={onionModel!}
+          doc={onionMap}
+          mode={mode}
+          svgRef={svgRef}
+          onReject={(message) => show({ tone: 'error', message })}
+          onMutate={mutateOnion}
+          onNamed={absorbEdit}
+          onCancelMutate={clearNotice}
+        />
       )}
       {activeKind === 'clean' && (
-        <>
-          <CleanEditor open={editorOpen} onToggle={() => setEditorOpen(!editorOpen)} onMutate={mutateClean} />
-          <Legend
-            legend={legend}
-            open={legendOpen}
-            onOpen={(open) => {
-              writePref(LEGEND_OPEN_KEY, open)
-              setLegendOpen(open)
-            }}
-            includeInExport={legendInExport}
-            onIncludeInExport={(include) => {
-              writePref(LEGEND_EXPORT_KEY, include)
-              setLegendInExport(include)
-            }}
-          />
-          <CleanStage
-            model={cleanModel!}
-            doc={cleanMap}
-            mode={mode}
-            svgRef={svgRef}
-            onReject={(message) => show({ tone: 'error', message })}
-            onMutate={mutateClean}
-            onNamed={absorbEdit}
-            onCancelMutate={clearNotice}
-            panelOpen={editorOpen}
-            legendOpen={legendOpen}
-          />
-        </>
+        <CleanWorkspace
+          editorOpen={editorOpen}
+          onToggleEditor={() => setEditorOpen(!editorOpen)}
+          legendPanel={legendPanel}
+          model={cleanModel!}
+          doc={cleanMap}
+          mode={mode}
+          svgRef={svgRef}
+          onReject={(message) => show({ tone: 'error', message })}
+          onMutate={mutateClean}
+          onNamed={absorbEdit}
+          onCancelMutate={clearNotice}
+        />
       )}
       {choosingArchitecture && <ArchitectureChoiceDialog onChoose={completeNew} onCancel={() => setChoosingArchitecture(false)} />}
       {linking && <Toast key={`link:${linking}`} sticky message={`Choose a target for ${nameOf(linking)} · Esc to cancel`} onClose={() => setLinking(null)} />}
