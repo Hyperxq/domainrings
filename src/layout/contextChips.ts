@@ -1,10 +1,10 @@
 import { contextName, occupiedContexts } from '../model/map'
 import type { HexaMap } from '../model/schema'
 import { CHIP_FLOOR_PX, CHIP_GAP, CHIP_LINE, REFERENCE_STAGE } from './chipFit'
-import { hexagonBounds } from './compactHexagon'
 import { MAP_GAP } from './gap'
 import { unionBox, type Box, type Point } from './geometry'
 import { contextRegions, footprintRegions, pointInRegion } from './hull'
+import { hexagonBounds } from './lattice'
 import type { MapContextLayout, MapHexagonLayout } from './map'
 import { CHIP_LABEL, measure } from './text'
 

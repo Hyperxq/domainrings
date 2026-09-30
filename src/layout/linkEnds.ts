@@ -1,5 +1,5 @@
 import type { HexaMap, Link } from '../model/schema'
-import { hexagonBounds } from './compactHexagon'
+import { hexagonBounds } from './lattice'
 import { chipBox } from './contextChips'
 import { MAP_GAP } from './gap'
 import { unionBox, type Box, type Point } from './geometry'

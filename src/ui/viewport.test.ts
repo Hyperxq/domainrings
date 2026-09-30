@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { contains, EDITOR_CHIP_BOTTOM, fitMap, fitTo, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, MIN_FIT_SCALE, MIN_SCALE, panBy, pinch, toDiagram, visibleRect, zoomAt } from './viewport'
-import { currentHexagon, hexagonBounds, layoutMap } from '../layout/map'
+import { hexagonBounds } from '../layout/lattice'
+import { currentHexagon, layoutMap } from '../layout/map'
 import { TWO_SLICES_MAP } from '../model/example'
 import type { Point } from '../layout/layout'
 

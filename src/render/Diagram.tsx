@@ -1,5 +1,6 @@
 import type { Chain } from '../model/chain'
-import { currentHexagon, hexagonBounds, hexagonTitle, type MapContextLayout, type MapLayout } from '../layout/map'
+import { hexagonBounds } from '../layout/lattice'
+import { currentHexagon, hexagonTitle, type MapContextLayout, type MapLayout } from '../layout/map'
 import type { LayoutRing, Point } from '../layout/layout'
 import type { LegendModel } from '../layout/legend'
 import { EDGE_LABEL, TITLE } from '../layout/text'

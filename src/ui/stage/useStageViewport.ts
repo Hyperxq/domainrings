@@ -1,5 +1,6 @@
 import { useState, type RefObject } from 'react'
-import { hexagonBounds, type MapHexagonLayout, type MapLayout } from '../../layout/map'
+import { hexagonBounds } from '../../layout/lattice'
+import { type MapHexagonLayout, type MapLayout } from '../../layout/map'
 import { contains, fitMap, fitTo, islandInset, visibleRect } from '../viewport'
 import { useElementSize, useViewportInteractions } from '../viewportChrome'
 

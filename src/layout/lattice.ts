@@ -4,6 +4,7 @@ import { COMPACT_MAX_SHARE, COMPACT_RADIUS, COMPACT_TITLE, compactBounds } from 
 import { MAP_GAP } from './gap'
 import { unionBox, type Box, type Point } from './geometry'
 import type { LayoutModel } from './layout'
+import type { MapHexagonLayout } from './map'
 
 export interface LaidOutHexagon {
   hexagon: Hexagon
@@ -24,6 +25,12 @@ function clearFull(centres: Point[], owns: Box[], full: number): Point[] {
     Math.max(0, ...centres.flatMap((_, i) => (i === full || !level(i) || east(i) !== isEast ? [] : [isEast ? box.x + box.width + MAP_GAP - at(i).x : at(i).x + at(i).width - (box.x - MAP_GAP)])))
   const [eastward, westward] = [push(true), push(false)]
   return centres.map((p, i) => (i === full ? p : { x: p.x + (east(i) ? eastward : -westward), y: p.y }))
+}
+
+/** A hexagon's own (untranslated) bounds — its silhouette when compact — shifted onto the map by its `centre` (ADR-04). */
+export const hexagonBounds = (hex: Pick<MapHexagonLayout, 'model' | 'centre' | 'compact'>): Box => {
+  const own = hex.compact ? compactBounds(hex.compact.radius) : hex.model.bounds
+  return { x: own.x + hex.centre.x, y: own.y + hex.centre.y, width: own.width, height: own.height }
 }
 
 /** A hexagon's position on the affine pointy-top lattice: {0,0} sits at the origin, `e` steps by `pitch.x`,

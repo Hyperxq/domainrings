@@ -1,5 +1,6 @@
 import type { LayoutNode, Point } from '../../layout/layout'
-import { canCompact, growAnchor, hexagonBounds, hexagonTitle, type MapHexagonLayout, type MapLayout } from '../../layout/map'
+import { hexagonBounds } from '../../layout/lattice'
+import { canCompact, growAnchor, hexagonTitle, type MapHexagonLayout, type MapLayout } from '../../layout/map'
 import { freeSides, UNTITLED_HEXAGON, type Destination } from '../../model/map'
 import type { Wall } from '../../model/schema'
 import { ChoiceMenu } from '../ChoiceMenu'

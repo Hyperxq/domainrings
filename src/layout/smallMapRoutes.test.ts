@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hexagonBounds } from './compactHexagon'
+import { hexagonBounds } from './lattice'
 import { layoutMap } from './map'
 import { crossesBox } from './obstacleRoute'
 import type { LayoutMode } from './layout'

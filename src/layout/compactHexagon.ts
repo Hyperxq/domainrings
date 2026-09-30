@@ -3,7 +3,6 @@ import type { Hexagon, Wall } from '../model/schema'
 import type { Box, Point } from './geometry'
 import { wallFrame } from './hexagon/walls'
 import type { LayoutModel } from './layout'
-import type { MapHexagonLayout } from './map'
 import { measure } from './text'
 
 /** A port's marker on a compact hexagon's silhouette; `at` is relative to the hexagon's centre. */
@@ -42,12 +41,6 @@ export const COMPACT_MAX_SHARE = 1 / 3
 const ELLIPSIS = '…'
 
 export const compactBounds = (radius: number): Box => ({ x: (-radius * Math.sqrt(3)) / 2, y: -radius, width: radius * Math.sqrt(3), height: radius * 2 })
-
-/** A hexagon's own (untranslated) bounds — its silhouette when compact — shifted onto the map by its `centre` (ADR-04). */
-export const hexagonBounds = (hex: Pick<MapHexagonLayout, 'model' | 'centre' | 'compact'>): Box => {
-  const own = hex.compact ? compactBounds(hex.compact.radius) : hex.model.bounds
-  return { x: own.x + hex.centre.x, y: own.y + hex.centre.y, width: own.width, height: own.height }
-}
 
 /** `title` cut to fit the widest part of a compact silhouette, ending in an ellipsis when it had to be shortened. */
 function compactLabel(title: string): string {
