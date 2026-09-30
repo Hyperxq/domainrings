@@ -29,7 +29,7 @@ import { useOnionStore } from './model/onionStore'
 import { useCleanStore } from './model/cleanStore'
 import { fileSlug } from './ui/exporters'
 import { decodeSharePayload, encodeSharePayload, SHARE_HASH_PREFIX } from './ui/shareLink'
-import { card, currentDiagram, hexGroup, installCompressionStreamPolyfill, installDialogPolyfill, linkedTwoHexMap, twoHexMap } from './test/fixtures'
+import { card, currentDiagram, hexGroup, installCompressionStreamPolyfill, installDialogPolyfill, linkedTwoHexMap, twoHexagonMap, twoHexMap } from './test/fixtures'
 import v1Minimal from './model/fixtures/v1-minimal.hexa?raw'
 import v1Maximal from './model/fixtures/v1-maximal.hexa?raw'
 import v2EmptyContext from './model/fixtures/v2-empty-context.hexa?raw'
@@ -1765,17 +1765,25 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     expect(useMapStore.getState().focus).toBe(imported.id)
   })
 
-  it('refuses a file with more than one hexagon before any conversion question, leaving the map untouched (IMP-04)', async () => {
+  it('merges a multi-hexagon file into the map as new contexts, in one undoable step, and toasts the counts', async () => {
     render(<App />)
     openEditor()
-    const before = useMapStore.getState().map
+    const before = useMapStore.getState()
     openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
-    await pickFile(toHexa(twoHexMap()), 'two.hexa')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
+    await pickFile(toHexa(twoHexagonMap()), 'two.hexa')
 
-    expect(useMapStore.getState().map).toBe(before)
+    const { map, focus } = useMapStore.getState()
+    expect(map.hexagons).toHaveLength(before.map.hexagons.length + 2)
+    expect(map.contexts).toHaveLength(before.map.contexts.length + 1)
+    expect(map.links).toHaveLength(1)
+    expect(focus).toBe(map.hexagons[before.map.hexagons.length].id)
     expect(screen.queryByRole('dialog')).toBeNull()
-    expect(screen.getByRole('alert').textContent).toBe('This file has 2 hexagons. Add hexagon from file… takes one; use Open to replace the map.')
+    expect(toastEl()!.querySelector('p')!.textContent).toBe('Added 2 hexagons and 1 bounded context from two.hexa.')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(useMapStore.getState().map).toStrictEqual(before.map)
+    expect(useMapStore.getState().focus).toBe(before.focus)
   })
 
   it('an invalid file is refused the same way Open refuses one, without opening any dialog (IMP-07)', async () => {

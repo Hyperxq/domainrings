@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { addLink as addLinkToMap, diagramOf, freeCell, freeSides, moveToContext as moveToContextOnMap, neighbour, placeHexagon, putDiagram, pruneLinks, removeHexagon as removeHexagonFromMap, removeLink as removeLinkFromMap, UNTITLED_HEXAGON, updateLink as updateLinkOnMap, type Cell, type Destination, type LinkPatch } from './map'
+import { addLink as addLinkToMap, diagramOf, freeCell, freeSides, mergeMap, moveToContext as moveToContextOnMap, neighbour, placeHexagon, putDiagram, pruneLinks, removeHexagon as removeHexagonFromMap, removeLink as removeLinkFromMap, UNTITLED_HEXAGON, updateLink as updateLinkOnMap, type Cell, type Destination, type LinkPatch } from './map'
 import { EXAMPLE_DIAGRAM } from './example'
 import { toMap } from './hexa'
 import { browserStorage, loadMap } from './persistence'
@@ -41,9 +41,10 @@ interface MapState {
    * fresh one. Undefined — a no-op — when `from` has no free side. Focuses the new hexagon; never bumps `revision`. */
   addHexagon: (from: string, opts: { side?: Wall; context: Destination }) => string | undefined
   /** Imports `file`'s one hexagon onto the first free cell from the current hexagon, into its own context or a
-   * fresh one — sharing `addHexagon`'s destination vocabulary and the same write path (ADR-02). Undefined when
-   * `file` does not hold exactly one hexagon (IMP-04). Focuses the imported hexagon; never bumps `revision`. */
-  importHexagon: (file: HexaMap, opts: { context: Destination }) => string | undefined
+   * fresh one — sharing `addHexagon`'s destination vocabulary and the same write path (ADR-02). A file with more
+   * than one hexagon is merged whole instead (`mergeMap`): `context` is ignored, its contexts all arrive as new.
+   * Focuses the (first) imported hexagon; never bumps `revision`. */
+  importHexagon: (file: HexaMap, opts: { context: Destination }) => string
   /** Removes `hexId`, pruning its links and dropping its own now-empty context; moves focus to `hexagons[0]` when
    * the deleted one was current. No-op ([]), leaving the map untouched, on the map's last hexagon (DEL-01) — a
    * map is never left with zero. Never bumps `revision`. */
@@ -91,7 +92,7 @@ export const useMapStore = create<MapState>()((set, get) => {
   }
   // Single placement path for addHexagon/importHexagon (ADR-02): both resolve their own cell/source, then share
   // the placeHexagon call and the focus-setting write.
-  const placeAndFocus = (map: HexaMap, view: Diagram, cell: Cell, contextId: string | undefined): string | undefined => {
+  const placeAndFocus = (map: HexaMap, view: Diagram, cell: Cell, contextId: string | undefined): string => {
     const { map: next, hexId } = placeHexagon(map, view, { cell, contextId })
     set({ map: next, focus: hexId })
     return hexId
@@ -133,8 +134,12 @@ export const useMapStore = create<MapState>()((set, get) => {
       return placeAndFocus(map, view, neighbour(source.cell, growSide), context === 'same' ? source.contextId : undefined)
     },
     importHexagon: (file, { context }) => {
-      if (file.hexagons.length !== 1) return undefined
       const map = get().map
+      if (file.hexagons.length > 1) {
+        const { map: merged, firstHexId } = mergeMap(map, file)
+        set({ map: merged, focus: firstHexId })
+        return firstHexId
+      }
       const current = map.hexagons.find((h) => h.id === get().focus)!
       const view = diagramOf(file, file.hexagons[0].id)
       return placeAndFocus(map, view, freeCell(map, current.cell), context === 'same' ? current.contextId : undefined)

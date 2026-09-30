@@ -105,6 +105,43 @@ export function placeHexagon(map: HexaMap, view: Diagram, at: { cell: Cell; cont
   return { map: { ...map, kind: 'hexagonal', contexts, hexagons: [...map.hexagons, hexagon] }, hexId }
 }
 
+/** Adds `incoming`'s hexagons, contexts and links to `map`: every context lands as a new one (name kept), and every
+ * id is renumbered in file order past the map's own, so nothing collides and links keep joining the same hexagons.
+ * The cluster keeps its shape but moves to the rows just below the map — disjoint rows can never share a cell — with
+ * its leftmost screen column (q + r/2) aligned to the map's. */
+export function mergeMap(map: HexaMap, incoming: HexaMap): { map: HexaMap; firstHexId: string } {
+  const minRow = (cells: readonly Cell[]) => Math.min(...cells.map((c) => c.r))
+  const minX = (cells: readonly Cell[]) => Math.min(...cells.map((c) => c.q + c.r / 2))
+  const here = map.hexagons.map((h) => h.cell)
+  const there = incoming.hexagons.map((h) => h.cell)
+  const dr = Math.max(...here.map((c) => c.r)) + 1 - minRow(there)
+  const dq = Math.round(minX(here) - minX(there) - dr / 2)
+
+  const contextIds = new Map<string, string>()
+  let contexts = map.contexts
+  for (const c of incoming.contexts) {
+    const id = nextContextId({ contexts })
+    contextIds.set(c.id, id)
+    contexts = [...contexts, { ...c, id }]
+  }
+  const hexIds = new Map<string, string>()
+  let hexIdSoFar = map.hexagons.map((h) => h.id)
+  const hexagons = incoming.hexagons.map((h): Hexagon => {
+    const id = nextId(hexIdSoFar, 'h')
+    hexIdSoFar = [...hexIdSoFar, id]
+    hexIds.set(h.id, id)
+    return { ...h, id, contextId: contextIds.get(h.contextId)!, cell: { q: h.cell.q + dq, r: h.cell.r + dr } }
+  })
+  let linkIdSoFar = map.links.map((l) => l.id)
+  const remap = (end: LinkEnd): LinkEnd => ({ ...end, hexagonId: hexIds.get(end.hexagonId)! })
+  const links = incoming.links.map((l): Link => {
+    const id = nextId(linkIdSoFar, 'link')
+    linkIdSoFar = [...linkIdSoFar, id]
+    return { ...l, id, from: remap(l.from), to: remap(l.to) }
+  })
+  return { map: { ...map, contexts, hexagons: [...map.hexagons, ...hexagons], links: [...map.links, ...links] }, firstHexId: hexagons[0].id }
+}
+
 /** Removes `hexId`, every link with either end on it, and — only when it was that hexagon's own context and now
  * holds none — that context. A foreign context that already had none of its own is left alone (ADR-03 E2: the
  * freed hexagon/context ids may be reused by the next `nextId` call). */

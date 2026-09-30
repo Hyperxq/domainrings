@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { addLink, contextOrdinal, contextName, crossHexagonPorts, diagramOf, freeCell, freeSides, linkEndLabel, moveToContext, neighbour, nextId, placeHexagon, putDiagram, pruneLinks, removeHexagon, removeLink, SIDE_ORDER, UNTITLED_HEXAGON, updateLink, type Cell } from './map'
+import { addLink, contextOrdinal, contextName, crossHexagonPorts, diagramOf, freeCell, freeSides, linkEndLabel, mergeMap, moveToContext, neighbour, nextId, placeHexagon, putDiagram, pruneLinks, removeHexagon, removeLink, SIDE_ORDER, UNTITLED_HEXAGON, updateLink, type Cell } from './map'
 import { toMap } from './hexa'
 import { EXAMPLE_DIAGRAM } from './example'
-import { VERSION, type Diagram, type HexaMap, type Link, type LinkEnd } from './schema'
+import { twoHexagonMap } from '../test/fixtures'
+import { MapSchema, VERSION, type Diagram, type HexaMap, type Link, type LinkEnd } from './schema'
 
 describe('diagramOf', () => {
   it('builds the v1-shaped view of a hexagon, with the map kind and no id/contextId/cell', () => {
@@ -691,5 +692,72 @@ describe('moveToContext', () => {
     expect(moveToContext(before, 'h1', 'c1')).toBe(before)
     expect(moveToContext(before, 'nope', 'c2')).toBe(before)
     expect(moveToContext(before, 'h1', 'nope')).toBe(before)
+  })
+})
+
+describe('mergeMap', () => {
+  const host = (): HexaMap => ({ ...twoHexagonMap(), contexts: [{ id: 'c1', name: 'Host' }] })
+  const incoming = (): HexaMap => ({
+    ...twoHexagonMap(),
+    contexts: [{ id: 'c1', name: 'Billing' }, { id: 'c2' }],
+    hexagons: twoHexagonMap().hexagons.map((h, i) => ({ ...h, contextId: `c${i + 1}` })),
+  })
+
+  it('renumbers every incoming hexagon, context and link past the current ids, in file order', () => {
+    const { map } = mergeMap(host(), incoming())
+    expect(map.hexagons.map((h) => h.id)).toEqual(['h1', 'h2', 'h3', 'h4'])
+    expect(map.contexts.map((c) => c.id)).toEqual(['c1', 'c2', 'c3'])
+    expect(map.links.map((l) => l.id)).toEqual(['l1', 'link1'])
+  })
+
+  it('adds every incoming context as a new one, keeping its name, and re-points each hexagon at its renumbered context', () => {
+    const { map } = mergeMap(host(), incoming())
+    expect(map.contexts).toStrictEqual([{ id: 'c1', name: 'Host' }, { id: 'c2', name: 'Billing' }, { id: 'c3' }])
+    expect(map.hexagons.slice(2).map((h) => h.contextId)).toEqual(['c2', 'c3'])
+  })
+
+  it('keeps an incoming link connecting the same renumbered hexagons and ports', () => {
+    const { map } = mergeMap(host(), incoming())
+    expect(map.links[1]).toStrictEqual({ id: 'link1', from: { hexagonId: 'h3', portId: 'p-out' }, to: { hexagonId: 'h4', portId: 'p-in' } })
+    expect(MapSchema.safeParse(map).success).toBe(true)
+  })
+
+  it('leaves the current hexagons, links and title untouched and keeps each incoming hexagon’s content', () => {
+    const before = host()
+    const { map } = mergeMap(before, incoming())
+    expect(map.title).toBe(before.title)
+    expect(map.hexagons.slice(0, 2)).toStrictEqual(before.hexagons)
+    expect(diagramOf(map, 'h3')).toStrictEqual(diagramOf(incoming(), 'h1'))
+  })
+
+  it('translates the incoming cluster rigidly onto cells below the current map, never overlapping it', () => {
+    const wide = incoming()
+    wide.hexagons[1].cell = { q: 0, r: 1 }
+    const { map } = mergeMap(host(), wide)
+    const cells = map.hexagons.map((h) => `${h.cell.q},${h.cell.r}`)
+    expect(new Set(cells).size).toBe(cells.length)
+    const [a, b] = map.hexagons.slice(2).map((h) => h.cell)
+    expect({ q: b.q - a.q, r: b.r - a.r }).toStrictEqual({ q: 0, r: 1 })
+    expect(Math.min(a.r, b.r)).toBe(1)
+  })
+
+  it('avoids id collisions when the current map has gaps, foreign ids or a higher numbering', () => {
+    const current: HexaMap = { ...host(), contexts: [{ id: 'c7' }], hexagons: host().hexagons.map((h, i) => ({ ...h, id: `h${i + 5}`, contextId: 'c7' })), links: [] }
+    const { map } = mergeMap(current, incoming())
+    expect(map.hexagons.map((h) => h.id)).toEqual(['h5', 'h6', 'h7', 'h8'])
+    expect(map.contexts.map((c) => c.id)).toEqual(['c7', 'c8', 'c9'])
+    expect(MapSchema.safeParse(map).success).toBe(true)
+  })
+
+  it('reports the first incoming hexagon’s new id', () => {
+    expect(mergeMap(host(), incoming()).firstHexId).toBe('h3')
+  })
+
+  it('does not mutate either input', () => {
+    const current = host()
+    const file = incoming()
+    const snapshot = structuredClone([current, file])
+    mergeMap(current, file)
+    expect([current, file]).toStrictEqual(snapshot)
   })
 })

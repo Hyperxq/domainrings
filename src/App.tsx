@@ -453,23 +453,23 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
 
   const completeImport = (file: HexaMap, context: Destination, fileName: string) => {
     const newHexId = importHexagon(file, { context })
-    if (!newHexId) return
     const imported = useMapStore.getState().map.hexagons.find((h) => h.id === newHexId)!
-    show({ tone: 'status', message: `Added ${imported.title || UNTITLED_HEXAGON} from ${fileName}.`, undo: before })
+    const contexts = file.contexts.length
+    const message =
+      file.hexagons.length > 1
+        ? `Added ${file.hexagons.length} hexagons and ${contexts} bounded ${contexts === 1 ? 'context' : 'contexts'} from ${fileName}.`
+        : `Added ${imported.title || UNTITLED_HEXAGON} from ${fileName}.`
+    show({ tone: 'status', message, undo: before })
   }
 
   // "Add hexagon from file…" (IMP-01..07): only a Hexagonal source has hexagons to add; refuses an Onion source
-  // (REQ-03) and a multi-hexagon file (IMP-04.2) before importing.
+  // (REQ-03) before importing.
   const handleAddFromFile = async (file: File, context: Destination) => {
     const parsed = await parseFile(file)
     if (!parsed) return
     if (parsed.kind !== 'hexagonal') {
       const kindLabel = CHOICES.find((c) => c.kind === parsed.kind)!.label
       show({ tone: 'error', message: `${file.name} is ${article(kindLabel)} ${kindLabel} file. Add hexagon from file… only accepts a Hexagonal map.` })
-      return
-    }
-    if (parsed.hexagons.length > 1) {
-      show({ tone: 'error', message: `This file has ${parsed.hexagons.length} hexagons. Add hexagon from file… takes one; use Open to replace the map.` })
       return
     }
     completeImport(parsed, context, file.name)

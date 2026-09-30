@@ -4,7 +4,7 @@ import { parseHexa, toHexa, toMap } from './hexa'
 import { diagramOf, freeCell, freeSides, neighbour, SIDE_ORDER, UNTITLED_HEXAGON } from './map'
 import { MapSchema, type HexaMap, type Link, type LinkEnd } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
-import { linkedTwoHexMap, twoHexMap } from '../test/fixtures'
+import { linkedTwoHexMap, twoHexagonMap, twoHexMap } from '../test/fixtures'
 
 const state = () => useMapStore.getState()
 const currentDiagram = () => diagramOf(state().map, state().focus)
@@ -258,11 +258,17 @@ describe('map store', () => {
     // toMap always yields kind hexagonal now (REQ-06) — no `kind` param left to vary.
     const oneHexFile = () => toMap({ ...EXAMPLE_DIAGRAM, title: 'Legacy System' })
 
-    it('returns undefined and leaves the map untouched when the file has more than one hexagon (IMP-04)', () => {
-      const before = state().map
-      const hexId = state().importHexagon(twoHexMap(), { context: 'same' })
-      expect(hexId).toBeUndefined()
-      expect(state().map).toBe(before)
+    it('merges a multi-hexagon file whole: new contexts, renumbered links, focus on its first hexagon, revision untouched', () => {
+      const before = state()
+      const hexId = state().importHexagon(twoHexagonMap(), { context: 'same' })
+      const { map } = state()
+      expect(map.hexagons).toHaveLength(before.map.hexagons.length + 2)
+      expect(map.contexts).toHaveLength(before.map.contexts.length + 1)
+      expect(map.links).toHaveLength(1)
+      expect(map.links[0].from.hexagonId).toBe(hexId)
+      expect(state().focus).toBe(hexId)
+      expect(state().revision).toBe(before.revision)
+      expect(MapSchema.safeParse(map).success).toBe(true)
     })
 
     it('imports into a fresh, unnamed context when context is "new", without touching the existing one', () => {
