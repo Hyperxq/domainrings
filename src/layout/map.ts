@@ -1,40 +1,20 @@
 import { contextName, diagramOf, neighbour, occupiedContexts, UNTITLED_HEXAGON } from '../model/map'
-import type { HexaMap, Hexagon, Link, Wall } from '../model/schema'
+import type { HexaMap, Link, Wall } from '../model/schema'
+import { canCompact, COMPACT_MAX_SHARE, COMPACT_RADIUS, COMPACT_TITLE, compactBounds, compactOf, hexagonBounds, type CompactLayout } from './compactHexagon'
 import { MAP_GAP } from './gap'
 import { contextRegions, footprintRegions, pointInRegion } from './hull'
 import { unionBox, type Box, type Point } from './geometry'
-import { wallFrame } from './hexagon/walls'
 import { layoutDiagram, type LayoutModel, type LayoutNode, type LayoutOptions, type LayoutText, type NodeKind } from './layout'
 import { GAP_MARGIN, outwardEdgePoint, routeLink, type LinkLabel } from './links'
 import { CHIP_LABEL, measure, TITLE } from './text'
 
 export { MAP_GAP }
+export { canCompact, hexagonBounds, type CompactLayout } from './compactHexagon'
 
 /** The node kinds REQ-LNK-05.1 names: a routed link must cross none of them, other than the node each end
  * anchors on. Excludes decorative/label nodes (`portLabel`, titles) — not "node boxes" in the requirement's
  * wording. */
 const AVOIDED_KINDS: ReadonlySet<NodeKind> = new Set(['port', 'adapter', 'actor', 'external', 'useCase', 'domainItem'])
-
-/** A non-current hexagon drawn as its silhouette alone: a regular pointy-top hexagon of `radius` about its centre. */
-/** A port's marker on a compact hexagon's silhouette; `at` is relative to the hexagon's centre. */
-export interface CompactPort {
-  id: string
-  name: string
-  wall: Wall
-  at: Point
-}
-
-export interface CompactLayout {
-  radius: number
-  /** The title's font size; the element count is drawn a little smaller. Grows with `radius` so the title stays
-   * readable when the whole map is fitted. */
-  size: number
-  /** Every domain item, use case, port, adapter, actor and external the hexagon holds. */
-  elements: number
-  /** The hexagon's title, shortened with an ellipsis to fit inside the silhouette. */
-  label: string
-  ports: CompactPort[]
-}
 
 export interface MapHexagonLayout {
   id: string
@@ -91,20 +71,6 @@ export interface MapLayout {
   /** One entry per context, only from two contexts up (CB-01.1) — an empty array below that threshold. */
   contexts: MapContextLayout[]
 }
-
-/** From this many hexagons up, every hexagon but the current and the expanded ones renders compact. */
-export const COMPACT_FROM = 4
-/** Whether a map of `count` hexagons is large enough to compact; `layoutMap` still draws every hexagon full without a current or expanded set. */
-export const canCompact = (count: number): boolean => count >= COMPACT_FROM
-/** A compact hexagon's silhouette radius and title size at unit scale; both grow together so a title always fits. */
-const COMPACT_RADIUS = 78
-const COMPACT_TITLE = { size: 14, em: 0.6 } as const
-/** Room kept clear of the silhouette's edge on each side of a compact title. */
-const COMPACT_TITLE_PAD = 14
-/** The most of a full hexagon's height a compact silhouette may take, so a large map's compact hexagons never
- * outgrow the ones being read. */
-const COMPACT_MAX_SHARE = 1 / 3
-const ELLIPSIS = '…'
 
 const MAP_TITLE_GAP = 16
 /** How far a context's hull stands off the footprints of the hexagons it outlines when the lattice tiles don't. */
@@ -188,14 +154,6 @@ function chipBox(chip: Point, label: string, size: number): Box {
   return { x: chip.x - measure(label, { ...CHIP_LABEL, size }) / 2, y: chip.y - size, width: measure(label, { ...CHIP_LABEL, size }), height: size * CHIP_LINE }
 }
 
-const compactBounds = (radius: number): Box => ({ x: (-radius * Math.sqrt(3)) / 2, y: -radius, width: radius * Math.sqrt(3), height: radius * 2 })
-
-/** A hexagon's own (untranslated) bounds — its silhouette when compact — shifted onto the map by its `centre` (ADR-04). */
-export const hexagonBounds = (hex: Pick<MapHexagonLayout, 'model' | 'centre' | 'compact'>): Box => {
-  const own = hex.compact ? compactBounds(hex.compact.radius) : hex.model.bounds
-  return { x: own.x + hex.centre.x, y: own.y + hex.centre.y, width: own.width, height: own.height }
-}
-
 /** Where the other hexagons go once the full hexagon `full` claims its box: those at or right of its centre move right,
  * the rest left, each side by the least that clears the nearest hexagon still level with the box. A side moves as one,
  * so no two hexagons on it come closer and a pair on opposite sides only moves apart — clearing one full hexagon after
@@ -225,39 +183,6 @@ function footprint(hex: MapHexagonLayout): Point[] {
     { x: box.x - HULL_PAD, y: box.y + box.height + HULL_PAD },
   ]
 }
-
-/** `title` cut to fit the widest part of a compact silhouette, ending in an ellipsis when it had to be shortened. */
-function compactLabel(title: string): string {
-  const room = COMPACT_RADIUS * Math.sqrt(3) - 2 * COMPACT_TITLE_PAD
-  if (measure(title, COMPACT_TITLE) <= room) return title
-  let label = title
-  while (label.length > 1 && measure(label + ELLIPSIS, COMPACT_TITLE) > room) label = label.slice(0, -1).trimEnd()
-  return label + ELLIPSIS
-}
-
-/** Each port's marker on the wall it sits on, spread along that wall so ports sharing one never share a point. */
-function compactPorts(hexagon: Hexagon, model: LayoutModel, radius: number): CompactPort[] {
-  const walled = hexagon.ports.flatMap((port) => {
-    const wall = model.nodes.find((n) => n.kind === 'port' && n.ref === port.id)?.wall
-    return wall ? [{ id: port.id, name: port.name, wall }] : []
-  })
-  const apothem = (radius * Math.sqrt(3)) / 2
-  return walled.map((port) => {
-    const onWall = walled.filter((p) => p.wall === port.wall)
-    const { n, dir } = wallFrame(port.wall)
-    const spacing = Math.min(radius * 0.3, (radius * 0.9) / onWall.length)
-    const along = (onWall.indexOf(port) - (onWall.length - 1) / 2) * spacing
-    return { ...port, at: { x: n.x * apothem + dir.x * along, y: n.y * apothem + dir.y * along } }
-  })
-}
-
-const compactOf = (hexagon: Hexagon, model: LayoutModel, unit: number): CompactLayout => ({
-  radius: COMPACT_RADIUS * unit,
-  size: COMPACT_TITLE.size * unit,
-  elements: hexagon.domain.length + hexagon.useCases.length + hexagon.ports.length + hexagon.adapters.length + hexagon.actors.length + hexagon.externals.length,
-  label: compactLabel(hexagon.title || UNTITLED_HEXAGON),
-  ports: compactPorts(hexagon, model, COMPACT_RADIUS * unit),
-})
 
 /** Where a grow "+" toward `side` sits: the midpoint to the neighbouring cell, pushed along that line until a button
  * of half-size `margin` clears the hexagon's own bounds — one-sided content can reach past the midpoint, and a full
