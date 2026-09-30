@@ -116,7 +116,7 @@ The legend shows only the types your diagram uses, and it is drawn into SVG and 
 
 ### Modes and guides
 
-**Detailed** (the default) shows type tags, notes, use-case buses, ownership links and the composition root. **Overview** keeps names and the main flow only; a port becomes a notch on the ring with its name written beside it, and the rings shrink to fit. **Guides** draws the dashed spokes between the hexagon's corners, and **Highlight** turns the layer hover and the dependency chain on and off. All of these are remembered, and exports use whatever is on screen. On narrower screens the toolbar folds these controls into a **View** menu and the exports into an **Export** menu.
+**Detailed** (the default) shows type tags, notes, use-case buses, ownership links and the composition root. **Overview** keeps names and the main flow only; a port becomes a notch on the ring with its name written beside it, and the rings shrink to fit. **Guides** draws the dashed spokes between the hexagon's corners, and **Highlight** turns the layer hover and the dependency chain on and off, and **Dependents** switches the chain to show what depends on the selection. All of these are remembered, and exports use whatever is on screen. On narrower screens the toolbar folds these controls into a **View** menu and the exports into an **Export** menu.
 
 The **Appearance** menu (the moon or sun at the end of the toolbar) switches between light, dark and your system's theme, and offers two alternative palettes, Ink and Moss, if you'd rather not draw in indigo and rust. Both are remembered in this browser, and exports use the palette on screen.
 
@@ -131,6 +131,10 @@ Select an element (an adapter, a port, a use case, a domain item, or an actor or
 When the chain reaches a driven port that is linked to another hexagon, the link and the port at its other end join it, even while that hexagon is drawn compact. On a compact hexagon the chain stops at the port; on a hexagon drawn in full it carries on inward to that hexagon's domain. It never leaves a core through another outbound port, so it always ends at a domain.
 
 Click empty canvas or press Esc to clear it, or turn **Highlight** off. It is also off while you link, and exports never carry it.
+
+#### Dependents
+
+Turn on **Dependents** (a toolbar button, or in the **View** menu on narrow screens) and the same selection shows the opposite question: what depends on it, which is what breaks if it changes. It runs the dependency rule backwards: a domain item reaches every use case, a use case reaches its ports, a port its adapters, an adapter its actors and external systems. Across hexagons it goes from a driving port backwards along each link into the caller, and stops at the port of a compact hexagon. The two chains never mix: only one is shown at a time, and dependents are drawn with a dash-dot stroke so they read differently from dependencies without relying on colour.
 
 ### File format
 

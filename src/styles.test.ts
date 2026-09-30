@@ -91,3 +91,14 @@ describe('a ringed endpoint\'s own name reads on the canvas, not the tone pill\'
     expect(overrideRule).toContain('fill: var(--ink)')
   })
 })
+
+describe('dependents emphasis', () => {
+  // Dashed map links and port boxes already exist, so the dependents style needs a pattern nothing else uses — colour never carries it.
+  it('draws the dependents with a dash pattern of its own, on every stroke the dependencies chain thickens, and nowhere else', () => {
+    const rule = (selector: string) => css.match(new RegExp(`svg\\[data-emphasis='dependents'\\] ${selector}[^{]*\\{([^}]*)\\}`))?.[1] ?? ''
+    const pattern = rule('\\.edge\\[data-chain\\]').match(/stroke-dasharray:\s*([^;]+)/)?.[1]
+    expect(pattern).toBeTruthy()
+    for (const selector of ['\\.map-link\\[data-chain\\]', '\\.node\\[data-chain\\] \\.box', '\\.compact-port\\[data-chain\\] circle']) expect(rule(selector)).toContain(`stroke-dasharray: ${pattern}`)
+    expect(css.split(`stroke-dasharray: ${pattern}`)).toHaveLength(2)
+  })
+})
