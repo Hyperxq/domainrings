@@ -1725,8 +1725,8 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     openEditor()
     const before = useMapStore.getState().map
     openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
     const file = await pickFile(oneHexFile())
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
 
     expect(useMapStore.getState().map.hexagons).toHaveLength(2)
     expect(useMapStore.getState().map.contexts).toStrictEqual(before.contexts)
@@ -1741,8 +1741,8 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     openEditor()
     const before = useMapStore.getState().map
     openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
     await pickFile(oneHexFile())
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
 
     expect(useMapStore.getState().map.contexts).toHaveLength(before.contexts.length + 1)
     expect(useMapStore.getState().map.contexts[0]).toStrictEqual(before.contexts[0])
@@ -1757,8 +1757,8 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     openEditor()
     fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
     openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
     await pickFile(oneHexFile())
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
 
     expect((screen.getByRole('radio', { name: 'Hexagon' }) as HTMLInputElement).checked).toBe(true)
     const imported = useMapStore.getState().map.hexagons.at(-1)!
@@ -1770,7 +1770,6 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     openEditor()
     const before = useMapStore.getState()
     openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
     await pickFile(toHexa(twoHexagonMap()), 'two.hexa')
 
     const { map, focus } = useMapStore.getState()
@@ -1779,6 +1778,7 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     expect(map.links).toHaveLength(1)
     expect(focus).toBe(map.hexagons[before.map.hexagons.length].id)
     expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.queryByRole('menu')).toBeNull()
     expect(toastEl()!.querySelector('p')!.textContent).toBe('Added 2 hexagons and 1 bounded context from two.hexa.')
 
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
@@ -1791,12 +1791,28 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     openEditor()
     const before = useMapStore.getState().map
     openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
     await pickFile('{ nope', 'broken.hexa')
 
     expect(useMapStore.getState().map).toBe(before)
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(screen.getByRole('alert').textContent).toContain('broken.hexa could not be opened')
+  })
+
+  it('asks the destination only after reading the file, and imports nothing when that question is dismissed', async () => {
+    render(<App />)
+    openEditor()
+    const before = useMapStore.getState().map
+    openImportMenu()
+    expect(screen.queryByRole('menu')).toBeNull()
+    await pickFile(oneHexFile())
+    expect(screen.getByRole('menuitem', { name: 'Import into Context 1' })).toBeTruthy()
+    expect(useMapStore.getState().map).toBe(before)
+
+    fireEvent.keyDown(screen.getAllByRole('menuitem')[0], { key: 'Escape' })
+
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(useMapStore.getState().map).toBe(before)
+    expect(toastEl()).toBeNull()
   })
 
   it('Undo restores the map and focus to what they were before the import', async () => {
@@ -1805,8 +1821,8 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     const before = useMapStore.getState().map
     const beforeFocus = useMapStore.getState().focus
     openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
     await pickFile(oneHexFile())
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
 
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
 
@@ -1819,7 +1835,6 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     openEditor()
     const before = useMapStore.getState().map
     openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
     await pickFile(v3OnionExample, 'sample.hexa')
 
     expect(useMapStore.getState().map).toBe(before)
@@ -1832,7 +1847,6 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     openEditor()
     const before = useMapStore.getState().map
     openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
     await pickFile(v4CleanExample, 'sample.hexa')
 
     expect(useMapStore.getState().map).toBe(before)
@@ -1887,19 +1901,19 @@ describe('journey', () => {
     // context — while v2-empty-context.hexa lands in a fresh, second context, giving exactly two bounded contexts
     // with hexagons, however many hexagons each one ends up holding.
     openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
     await pickFile(v1Minimal, 'v1-minimal.hexa')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
     expect(useMapStore.getState().map.hexagons).toHaveLength(2)
 
     openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
     await pickFile(v1Maximal, 'v1-maximal.hexa')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into Context 1' }))
     expect(useMapStore.getState().map.hexagons).toHaveLength(3)
     expect(useMapStore.getState().map.contexts).toHaveLength(1)
 
     openImportMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
     await pickFile(v2EmptyContext, 'legacy.hexa')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
     expect(useMapStore.getState().map.hexagons).toHaveLength(4)
     expect(useMapStore.getState().map.contexts).toHaveLength(2)
 

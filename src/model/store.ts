@@ -42,7 +42,7 @@ interface MapState {
   addHexagon: (from: string, opts: { side?: Wall; context: Destination }) => string | undefined
   /** Imports `file`'s one hexagon onto the first free cell from the current hexagon, into its own context or a
    * fresh one — sharing `addHexagon`'s destination vocabulary and the same write path (ADR-02). A file with more
-   * than one hexagon is merged whole instead (`mergeMap`): `context` is ignored, its contexts all arrive as new.
+   * than one hexagon is merged whole instead (`mergeMap`): `context` is ignored and its contexts all arrive as new.
    * Focuses the (first) imported hexagon; never bumps `revision`. */
   importHexagon: (file: HexaMap, opts: { context: Destination }) => string
   /** Removes `hexId`, pruning its links and dropping its own now-empty context; moves focus to `hexagons[0]` when

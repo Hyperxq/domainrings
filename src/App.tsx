@@ -463,16 +463,21 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   }
 
   // "Add hexagon from file…" (IMP-01..07): only a Hexagonal source has hexagons to add; refuses an Onion source
-  // (REQ-03) before importing.
-  const handleAddFromFile = async (file: File, context: Destination) => {
+  // (REQ-03). A several-hexagon file merges at once; a one-hexagon file hands back the step that imports it once
+  // the author has picked a destination, so the question is only asked of a file that needs it.
+  const handleAddFromFile = async (file: File): Promise<((context: Destination) => void) | undefined> => {
     const parsed = await parseFile(file)
-    if (!parsed) return
+    if (!parsed) return undefined
     if (parsed.kind !== 'hexagonal') {
       const kindLabel = CHOICES.find((c) => c.kind === parsed.kind)!.label
       show({ tone: 'error', message: `${file.name} is ${article(kindLabel)} ${kindLabel} file. Add hexagon from file… only accepts a Hexagonal map.` })
-      return
+      return undefined
     }
-    completeImport(parsed, context, file.name)
+    if (parsed.hexagons.length > 1) {
+      completeImport(parsed, 'new', file.name)
+      return undefined
+    }
+    return (context) => completeImport(parsed, context, file.name)
   }
 
   // Export scope (Hexagon vs Map) only exists for a multi-hexagon Hexagonal map (EXPORT-03.1) — Onion and Clean

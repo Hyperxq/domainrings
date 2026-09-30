@@ -373,8 +373,9 @@ export function Editor({
   onDeleteHexagon: () => void
   /** Moves the current hexagon into the given context, or a new one when `undefined`. */
   onMoveToContext: (contextId: string | undefined) => void
-  /** Imports the chosen file's one hexagon (IMP-01). */
-  onAddFromFile: (file: File, context: Destination) => void
+  /** Reads the picked file (IMP-01): resolves to the step that finishes the import once the author picks a
+   * destination when the file holds one hexagon, or to nothing when it needed no question or was refused. */
+  onAddFromFile: (file: File) => Promise<((context: Destination) => void) | undefined>
   /** The current hexagon's own bounded context, for the import menu's "Import into {context}" choice. */
   contextLabel: string
   /** Reports a context rename/clear session (focus → blur) that actually changed the name, with the map from
@@ -402,7 +403,7 @@ export function Editor({
     ...occupiedContexts(map).filter((c) => c.id !== ownContext).map((c) => ({ id: c.id, label: contextName(map, c.id) })),
     ...(map.hexagons.filter((h) => h.contextId === ownContext).length > 1 ? [{ id: NEW_CONTEXT, label: 'New bounded context' }] : []),
   ]
-  const importContext = useRef<Destination>('same')
+  const [pendingImport, setPendingImport] = useState<((context: Destination) => void) | null>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
   // Keyed by contextId, so renaming two contexts in the same session (unlikely, but never concurrent within one
   // input) each keeps its own pre-edit snapshot from focus to blur.
@@ -429,10 +430,13 @@ export function Editor({
               { id: 'same' as const, label: `Import into ${contextLabel}` },
               { id: 'new' as const, label: 'Import into a new bounded context' },
             ]}
+            autoOpen={pendingImport !== null}
+            onTrigger={pendingImport ? undefined : () => importInputRef.current?.click()}
             onChoose={(context) => {
-              importContext.current = context
-              importInputRef.current?.click()
+              pendingImport?.(context)
+              setPendingImport(null)
             }}
+            onDismiss={() => setPendingImport(null)}
           />
           <input
             ref={importInputRef}
@@ -440,10 +444,13 @@ export function Editor({
             accept=".hexa,application/json"
             className="visually-hidden"
             aria-label="Add hexagon from a .hexa file"
-            onChange={(e) => {
-              const file = e.currentTarget.files?.[0]
-              if (file) onAddFromFile(file, importContext.current)
-              e.currentTarget.value = ''
+            onChange={async (e) => {
+              const input = e.currentTarget
+              const file = input.files?.[0]
+              input.value = ''
+              if (!file) return
+              const choose = await onAddFromFile(file)
+              if (choose) setPendingImport(() => choose)
             }}
           />
         </Fold>

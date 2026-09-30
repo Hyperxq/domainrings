@@ -38,13 +38,19 @@ interface ChoiceMenuProps<Id extends string> {
   className?: string
   /** `end` aligns the menu's right edge with the trigger's, for a trigger near the viewport's right edge. */
   align?: 'start' | 'end'
+  /** Runs instead of opening the menu when the trigger is pressed — for a trigger whose own action comes first. */
+  onTrigger?: () => void
+  /** Opens the menu as soon as it turns true, for a menu the caller decides to show. */
+  autoOpen?: boolean
+  /** Called when the menu closes without a choice (Escape, Tab, an outside press, or the trigger again). */
+  onDismiss?: () => void
 }
 
 /**
  * A button that opens a menu of labelled choices. The menu is `position: fixed` under the trigger, so a scrolling
  * or clipping ancestor (the toolbar, the editor) never cuts it off — which holds only while no ancestor is transformed.
  */
-export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onChoose, className, align = 'start' }: ChoiceMenuProps<Id>) {
+export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onChoose, className, align = 'start', onTrigger, autoOpen, onDismiss }: ChoiceMenuProps<Id>) {
   const [at, setAt] = useState<MenuAt | null>(null)
   const [anchor, setAnchor] = useState<DOMRect | null>(null)
   const menu = useRef<HTMLDivElement>(null)
@@ -57,7 +63,7 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
   useEffect(() => {
     if (!at) return
     items()[0]?.focus()
-    const away = (e: PointerEvent) => !root.current?.contains(e.target as Node) && setAt(null)
+    const away = (e: PointerEvent) => !root.current?.contains(e.target as Node) && dismiss()
     document.addEventListener('pointerdown', away)
     return () => document.removeEventListener('pointerdown', away)
   }, [at])
@@ -76,6 +82,15 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
     setAt(null)
     trigger.current?.focus()
   }
+  const dismiss = () => {
+    setAt(null)
+    onDismiss?.()
+  }
+  useEffect(() => {
+    if (autoOpen) open()
+    // Opens on the flag turning true only; `open` reads the trigger's rect at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpen])
 
   return (
     <span ref={root} className="choice">
@@ -88,11 +103,12 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
         aria-haspopup="menu"
         aria-expanded={!!at}
         aria-controls={at ? menuId : undefined}
-        onClick={() => (at ? setAt(null) : open())}
+        onClick={() => (onTrigger ? onTrigger() : at ? dismiss() : open())}
         onKeyDown={(e) => {
           if (e.key !== 'ArrowDown' || at) return
           e.preventDefault()
-          open()
+          if (onTrigger) onTrigger()
+          else open()
         }}
       >
         {label}
@@ -117,9 +133,13 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
               // The Stage and Toast listen for Escape on the document; closing this menu is all it should do.
               e.stopPropagation()
               close()
+              onDismiss?.()
             }
             // Not prevented: with focus back on the trigger, the browser's own Tab moves on from there.
-            if (e.key === 'Tab') close()
+            if (e.key === 'Tab') {
+              close()
+              onDismiss?.()
+            }
           }}
         >
           {choices.map((choice) => (
