@@ -346,6 +346,74 @@ describe('undo toast', () => {
     expect(hasUseCase()).toBe(false)
   })
 
+  const rename = (title: string) => {
+    const field = screen.getByLabelText('Diagram title')
+    fireEvent.focus(field)
+    fireEvent.change(field, { target: { value: title } })
+    fireEvent.blur(field)
+  }
+  const titleOf = (kind: 'Onion' | 'Clean') => (kind === 'Onion' ? useOnionStore : useCleanStore).getState().map.title
+
+  it.each(['Onion', 'Clean'] as const)('steps back through several %s edits under the undo gate', (kind) => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: kind }))
+    rename('First')
+    rename('Second')
+    waitOutToast()
+    undoKey()
+    expect(titleOf(kind)).toBe('First')
+    undoKey()
+    expect(titleOf(kind)).toBe('Untitled architecture')
+  })
+
+  it.each(['Overview', 'Detailed'])('keeps the history when the view switches to %s without an edit', (view) => {
+    const { container } = render(<App />)
+    deleteUseCase(container)
+    waitOutToast()
+    fireEvent.click(screen.getByRole('radio', { name: view === 'Overview' ? 'Detailed' : 'Overview' }))
+    fireEvent.click(screen.getByRole('radio', { name: view }))
+    undoKey()
+    expect(hasUseCase()).toBe(true)
+  })
+
+  it('keeps the history when an element is only selected, not edited', () => {
+    const { container } = render(<App />)
+    deleteUseCase(container)
+    waitOutToast()
+    fireEvent.click(onCanvas(container, EXAMPLE_DIAGRAM.adapters[0].id))
+    undoKey()
+    expect(hasUseCase()).toBe(true)
+  })
+
+  it.each(['Onion', 'Clean'] as const)('keeps the %s history when the view switches without an edit', (kind) => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: kind }))
+    rename('Renamed')
+    waitOutToast()
+    fireEvent.click(screen.getByRole('radio', { name: 'Overview' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Detailed' }))
+    undoKey()
+    expect(titleOf(kind)).toBe('Untitled architecture')
+  })
+
+  it('undoes an edit made after a cross-kind swap, then the swap, then the edit before it', () => {
+    const { container } = render(<App />)
+    deleteUseCase(container)
+    waitOutToast()
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
+    rename('Renamed')
+    waitOutToast()
+    undoKey()
+    expect(titleOf('Onion')).toBe('Untitled architecture')
+    undoKey()
+    expect(hasUseCase()).toBe(false)
+    undoKey()
+    expect(hasUseCase()).toBe(true)
+  })
+
   it('never steps back past an unrecorded edit into older history', () => {
     const { container } = render(<App />)
     const [first, second] = [EXAMPLE_DIAGRAM.adapters[0].id, EXAMPLE_DIAGRAM.adapters[1].id]
