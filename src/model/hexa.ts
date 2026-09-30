@@ -21,7 +21,7 @@ export function toMap(diagram: LegacyDiagram): HexaMap {
   }
 }
 
-// Innermost-first (REQ-02) — fixed at creation, never grown/reordered/re-typed once a file exists.
+// Innermost-first (REQ-02): the canonical starting set, edited freely afterwards.
 const ONION_RINGS: OnionFile['rings'] = [
   { role: 'domain', name: 'Domain Model' },
   { role: 'domainServices', name: 'Domain Services' },

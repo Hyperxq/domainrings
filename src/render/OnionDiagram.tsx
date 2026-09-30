@@ -24,7 +24,7 @@ interface OnionDiagramProps {
   hoverRef: string | null
 }
 
-/** An Onion document's 4 fixed rings (reusing the same `<Ring>` primitive Hexagonal/Clean render with, ADR-01),
+/** An Onion document's rings (reusing the same `<Ring>` primitive Hexagonal/Clean render with, ADR-01),
  * its elements spread along their ring (REQ-07), inward-only dependency arrows (REQ-04), and actors/external
  * systems outside the outer ring with a direct arrow to their target (REQ-05) — no ports or adapters. Node/edge
  * primitives are shared with Clean via `RingedNodes.tsx` (ADR-01); only this file's own `<defs>` (the arrow

@@ -40,7 +40,7 @@ Everything in the diagram maps to a concept you use in code. From the centre out
 
 ### Onion
 
-Onion has four rings, innermost to outermost: **Domain Model**, **Domain Services**, **Application Services**, and an outer ring that holds UI, Infrastructure and Tests together. Add an element to whichever ring it belongs in, and it takes its place spread evenly around that ring's circumference. A dependency arrow may only point inward or stay within its own ring; while you draw one, the valid targets light up, and choosing a target further out is refused with a message instead of drawn. Actors and external systems can only connect to an element in the outer ring. An Onion file is always one diagram.
+Onion starts with four rings, innermost to outermost: **Domain Model**, **Domain Services**, **Application Services**, and an outer ring that holds UI, Infrastructure and Tests together. Rename any ring, add your own, and remove or reorder the ones in between from the ring's section in the editor; the innermost and outermost rings stay where they are (and can't be removed), and there are always at least two. Removing a ring moves its elements to the next inner ring and clears any kind that ring doesn't allow; moving a ring so a dependency would point outward removes that dependency. Each of these shows a message with **Undo**. Add an element to whichever ring it belongs in, and it takes its place spread evenly around that ring's circumference. A dependency arrow may only point inward or stay within its own ring; while you draw one, the valid targets light up, and choosing a target further out is refused with a message instead of drawn. Actors and external systems can only connect to an element in the outer ring. An Onion file is always one diagram.
 
 ### Clean
 
@@ -48,7 +48,7 @@ Clean also has four rings — **Entities**, **Use Cases**, **Interface Adapters*
 
 ### Element kinds
 
-In Onion and Clean, an element can optionally carry a kind, chosen in its card in the editor and drawn as a small tag above its name on the canvas and in exports. Each ring offers only its own kinds:
+In Onion and Clean, an element can optionally carry a kind, chosen in its card in the editor and drawn as a small tag above its name on the canvas and in exports. Each ring offers only its own kinds (kinds stay with a ring's original role when it is renamed or moved; a ring you add offers none):
 
 | Ring | Kinds |
 |---|---|
@@ -156,7 +156,7 @@ A `.hexa` file is plain JSON, now on version 4 — versions 1 through 3 still op
 }
 ```
 
-Ids must be unique, and every reference (`parentId`, `useCaseId`, `portId`, `adapterId`) must point at something that exists; import tells you exactly what is wrong when they do not. Version 1 and 2 files still open, including those marked `"app": "archviz"` from before the project was renamed — and if one carries a Clean or Onion `kind` from the old skin-switcher era, it opens as Hexagonal, since that switcher no longer exists. Version 3 files, saved after native Onion first shipped, keep their own kind (Hexagonal or Onion) as they were.
+Ids must be unique, and every reference (`parentId`, `useCaseId`, `portId`, `adapterId`) must point at something that exists; import tells you exactly what is wrong when they do not. Version 1 and 2 files still open, including those marked `"app": "archviz"` from before the project was renamed — and if one carries a Clean or Onion `kind` from the old skin-switcher era, it opens as Hexagonal, since that switcher no longer exists. Version 3 files, saved after native Onion first shipped, keep their own kind (Hexagonal or Onion) as they were. The current version is 5: it lets an Onion file hold any number of rings (two or more, innermost first, each with a `role` id that is one of the four original roles or an id made for a ring you added), and version 4 files still open unchanged.
 
 ### Fonts
 
@@ -177,7 +177,7 @@ The model and its validation live in `src/model/schema.ts`, Hexagonal's own ring
 
 ## What is coming
 
-Onion and Clean, each modelled as its own architecture rather than a skin over the hexagonal model, are here. What's coming next: the AI skill growing to read and write Onion and Clean, not just Hexagonal; and, for Onion, letting you edit its rings after creation while keeping the inward-dependency rule intact (issue #13).
+Onion and Clean, each modelled as its own architecture rather than a skin over the hexagonal model, are here. What's coming next: the AI skill growing to read and write Onion and Clean, not just Hexagonal.
 
 ## License
 
