@@ -17,6 +17,8 @@ export function frame(lines: TextLine[], minWidth = 0, padY = PAD_Y, padX = PAD_
 
 export type Frame = ReturnType<typeof frame>
 
+export type BoxFrames = ReturnType<typeof boxFrames>
+
 /** Box contents: every size derives from the text a box has to hold. */
 export function boxFrames(overview: boolean) {
   const { labels } = HEXAGONAL_KIND
