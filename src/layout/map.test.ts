@@ -935,3 +935,33 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
     for (const m of moved) expect(m).toBeLessThanOrEqual(shift / 2 + 1)
   })
 })
+
+describe('layoutMap — a hull on a compact map never crosses a hexagon of another context', () => {
+  // Two adjacent hexagons of one context sit either side of the current hexagon's column, so pushing them apart
+  // stretches their shared hull into a band across it.
+  const straddling = (): HexaMap => {
+    const base = manyHexagonMap(5)
+    const cells = [{ q: 0, r: 0 }, { q: 0, r: -1 }, { q: 1, r: -1 }, { q: -1, r: 0 }, { q: 1, r: 0 }]
+    const contexts = ['c-current', 'c-band', 'c-band', 'c-west', 'c-east']
+    return { ...base, contexts: [{ id: 'c-current' }, { id: 'c-band' }, { id: 'c-west' }, { id: 'c-east' }], hexagons: base.hexagons.map((h, i) => ({ ...h, cell: cells[i], contextId: contexts[i] })), links: [] }
+  }
+  const crossesBox = (loops: { x: number; y: number }[][], box: Box) =>
+    loops.some((loop) =>
+      loop.some((a, i) => {
+        const b = loop[(i + 1) % loop.length]
+        return Array.from({ length: 101 }, (_, k) => ({ x: a.x + ((b.x - a.x) * k) / 100, y: a.y + ((b.y - a.y) * k) / 100 })).some((p) => p.x > box.x && p.x < box.x + box.width && p.y > box.y && p.y < box.y + box.height)
+      }),
+    )
+
+  it('draws a context whose hexagons straddle the current one as separate loops around each', () => {
+    const result = layoutMap(straddling(), { current: 'h1' })
+    for (const context of result.contexts) {
+      for (const hexagon of result.hexagons.filter((h) => h.contextId !== context.id)) {
+        const box = hexagonBounds(hexagon)
+        expect(crossesBox(context.loops, box), `${context.id} across ${hexagon.id}`).toBe(false)
+        expect(pointInRegion({ x: box.x + box.width / 2, y: box.y + box.height / 2 }, context.loops), `${context.id} around ${hexagon.id}`).toBe(false)
+      }
+    }
+    expect(result.contexts.find((c) => c.id === 'c-band')!.loops).toHaveLength(2)
+  })
+})
