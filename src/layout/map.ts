@@ -1,6 +1,6 @@
 import { contextName, diagramOf, neighbour, occupiedContexts, UNTITLED_HEXAGON } from '../model/map'
 import type { HexaMap, Hexagon, Link, Wall } from '../model/schema'
-import { contextRegions, pointInRegion } from './hull'
+import { contextRegions, footprintRegions, pointInRegion } from './hull'
 import { layoutDiagram, wallFrame, type Box, type LayoutModel, type LayoutNode, type LayoutOptions, type LayoutText, type NodeKind, type Point } from './layout'
 import { GAP_MARGIN, outwardEdgePoint, routeLink, type LinkLabel } from './links'
 import { CHIP_LABEL, measure, TITLE } from './text'
@@ -91,11 +91,16 @@ const COMPACT_RADIUS = 78
 const COMPACT_TITLE = { size: 14, em: 0.6 } as const
 /** Room kept clear of the silhouette's edge on each side of a compact title. */
 const COMPACT_TITLE_PAD = 14
+/** The most of the current hexagon's height a compact silhouette may take, so a large map's compact hexagons never
+ * outgrow the one being read. */
+const COMPACT_MAX_SHARE = 1 / 3
 const ELLIPSIS = '…'
 
 /** Gap kept between two adjacent hexagons' outer edges, on top of their content width. */
 export const MAP_GAP = 60
 const MAP_TITLE_GAP = 16
+/** How far a context's hull stands off the footprints of the hexagons it outlines when the lattice tiles don't. */
+const HULL_PAD = MAP_GAP / 3
 /** Spacing between adjacent lanes when several links share the same hexagon-pair gap (REQ-LNK-05.5). */
 const LANE_PITCH = 10
 /** The farthest a lane may push the gap midline off-centre: half of `MAP_GAP` minus `links.ts`'s `GAP_MARGIN`
@@ -107,6 +112,8 @@ const LANE_PITCH = 10
 const MAX_LANE_OFFSET = MAP_GAP / 2 - GAP_MARGIN
 /** Vertical clearance between a region's topmost vertex and its chip. */
 const CHIP_GAP = 12
+/** How far from its region a chip on a crowded map may sit, nearest first. */
+const CHIP_REACHES = [1, 2, 3, 4, 6].map((k) => k * CHIP_GAP)
 /** The on-screen chip text size a fitted map must not fall below, in px. */
 const CHIP_FLOOR_PX = 10
 /** The stage area a 1440x900 window leaves for the map once the editor and toolbar islands are reserved — the
@@ -116,28 +123,41 @@ const REFERENCE_STAGE = { width: 1100, height: 820 }
 /** Above the region's highest vertex (min y, then min x) whose spot is clear of every context's region and every
  * hexagon's box — the plain topmost vertex can sit under a neighbouring context's tiles, and the full current
  * hexagon can reach past its own tile. When every such spot is taken, the highest boundary-edge midpoint pushed off
- * the region into clear space; the topmost vertex only if nothing is clear. */
-function chipAnchor(loops: Point[][], all: Point[][][], hexagons: Box[]): Point {
-  const inBox = (p: Point, b: Box) => p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y - CHIP_GAP && p.y <= b.y + b.height
-  const clear = (p: Point) => !all.some((region) => pointInRegion(p, region)) && !hexagons.some((b) => inBox(p, b))
+ * the region into clear space; the topmost vertex only if nothing is clear.
+ *
+ * With the chip's `text` extent, "clear" covers all of the text rather than just its baseline point, and a crowded
+ * map also gets spots further out (`CHIP_REACHES`) and slid sideways by half the text — a name wider than the
+ * hexagon it labels would otherwise always run into the neighbour beside it. */
+function chipAnchor(loops: Point[][], all: Point[][][], hexagons: Box[], text?: { width: number; size: number }): Point {
+  const inBox = (p: Point, b: Box) => p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height
+  const keepOut = hexagons.map((b): Box =>
+    text ? { x: b.x - text.width / 2, y: b.y - text.size / 4, width: b.width + text.width, height: b.height + text.size * 1.25 } : { ...b, y: b.y - CHIP_GAP, height: b.height + CHIP_GAP },
+  )
+  const probes = (p: Point): Point[] =>
+    text ? [p, { x: p.x - text.width / 2, y: p.y - text.size }, { x: p.x + text.width / 2, y: p.y - text.size }, { x: p.x - text.width / 2, y: p.y }, { x: p.x + text.width / 2, y: p.y }, { x: p.x, y: p.y - text.size }] : [p]
+  const clear = (p: Point) => !probes(p).some((q) => all.some((region) => pointInRegion(q, region))) && !keepOut.some((b) => inBox(p, b))
   const byHeight = (a: Point, b: Point) => a.y - b.y || a.x - b.x
   const vertices = loops.flat().sort(byHeight)
-  const above = vertices.map((v): Point => ({ x: v.x, y: v.y - CHIP_GAP })).find(clear)
-  if (above) return above
-  const beside = loops
-    .flatMap((loop) =>
-      loop.flatMap((a, i) => {
-        const b = loop[(i + 1) % loop.length]
-        const len = Math.hypot(b.x - a.x, b.y - a.y)
-        if (len === 0) return []
-        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
-        const normal = { x: (a.y - b.y) / len, y: (b.x - a.x) / len }
-        return [1, -1].map((sign): Point => ({ x: mid.x + normal.x * sign * CHIP_GAP, y: mid.y + normal.y * sign * CHIP_GAP }))
-      }),
-    )
-    .sort(byHeight)
-    .find(clear)
-  return beside ?? { x: vertices[0].x, y: vertices[0].y - CHIP_GAP }
+  const edgeSpots = (gap: number) =>
+    loops
+      .flatMap((loop) =>
+        loop.flatMap((a, i) => {
+          const b = loop[(i + 1) % loop.length]
+          const len = Math.hypot(b.x - a.x, b.y - a.y)
+          if (len === 0) return []
+          const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+          const normal = { x: (a.y - b.y) / len, y: (b.x - a.x) / len }
+          return [1, -1].map((sign): Point => ({ x: mid.x + normal.x * sign * gap, y: mid.y + normal.y * sign * gap }))
+        }),
+      )
+      .sort(byHeight)
+  for (const dx of text ? [0, -text.width / 2, text.width / 2] : [0]) {
+    for (const gap of text ? CHIP_REACHES : [CHIP_GAP]) {
+      const spot = vertices.map((v): Point => ({ x: v.x + dx, y: v.y - gap })).find(clear) ?? edgeSpots(gap).map((p): Point => ({ x: p.x + dx, y: p.y })).find(clear)
+      if (spot) return spot
+    }
+  }
+  return { x: vertices[0].x, y: vertices[0].y - CHIP_GAP }
 }
 
 /** A chip's approximate footprint (the text rises `size` above its baseline), so a long context name still grows
@@ -160,6 +180,35 @@ const compactBounds = (radius: number): Box => ({ x: (-radius * Math.sqrt(3)) / 
 export const hexagonBounds = (hex: Pick<MapHexagonLayout, 'model' | 'centre' | 'compact'>): Box => {
   const own = hex.compact ? compactBounds(hex.compact.radius) : hex.model.bounds
   return { x: own.x + hex.centre.x, y: own.y + hex.centre.y, width: own.width, height: own.height }
+}
+
+/** Where the compact hexagons go once the full current one claims its box: those at or right of its centre move right,
+ * the rest left, each side by the least that clears the nearest hexagon still level with the box. A side moves as one,
+ * so no two hexagons on it come closer, and the lattice keeps its compact pitch. */
+function clearCurrent(centres: Point[], owns: Box[], current: number): Point[] {
+  const at = (i: number): Box => ({ ...owns[i], x: owns[i].x + centres[i].x, y: owns[i].y + centres[i].y })
+  const box = at(current)
+  const level = (i: number) => at(i).y - (box.y + box.height) < MAP_GAP && box.y - (at(i).y + at(i).height) < MAP_GAP
+  const east = (i: number) => centres[i].x >= centres[current].x
+  const push = (isEast: boolean) =>
+    Math.max(0, ...centres.flatMap((_, i) => (i === current || !level(i) || east(i) !== isEast ? [] : [isEast ? box.x + box.width + MAP_GAP - at(i).x : at(i).x + at(i).width - (box.x - MAP_GAP)])))
+  const [eastward, westward] = [push(true), push(false)]
+  return centres.map((p, i) => (i === current ? p : { x: p.x + (east(i) ? eastward : -westward), y: p.y }))
+}
+
+/** The corners of the area a context's hull keeps around `hex`: the silhouette's own hexagon when compact, else its box. */
+function footprint(hex: MapHexagonLayout): Point[] {
+  if (hex.compact) {
+    const radius = hex.compact.radius + HULL_PAD / (Math.sqrt(3) / 2)
+    return Array.from({ length: 6 }, (_, i): Point => ({ x: hex.centre.x + radius * Math.cos(-Math.PI / 2 + (i * Math.PI) / 3), y: hex.centre.y + radius * Math.sin(-Math.PI / 2 + (i * Math.PI) / 3) }))
+  }
+  const box = hexagonBounds(hex)
+  return [
+    { x: box.x - HULL_PAD, y: box.y - HULL_PAD },
+    { x: box.x + box.width + HULL_PAD, y: box.y - HULL_PAD },
+    { x: box.x + box.width + HULL_PAD, y: box.y + box.height + HULL_PAD },
+    { x: box.x - HULL_PAD, y: box.y + box.height + HULL_PAD },
+  ]
 }
 
 /** `title` cut to fit the widest part of a compact silhouette, ending in an ellipsis when it had to be shortened. */
@@ -196,15 +245,15 @@ const compactOf = (hexagon: Hexagon, model: LayoutModel, unit: number): CompactL
 })
 
 /** Where a grow "+" toward `side` sits: the midpoint to the neighbouring cell, pushed along that line until a button
- * of half-size `margin` clears the hexagon's own bounds — one-sided content can reach past the midpoint. The
- * neighbour's centre always clears them, so the push never overshoots it. */
+ * of half-size `margin` clears the hexagon's own bounds — one-sided content can reach past the midpoint, and a full
+ * hexagon among compact ones reaches past the neighbouring cell's centre. */
 export function growAnchor(hex: Pick<MapHexagonLayout, 'centre' | 'cell' | 'model'>, side: Wall, pitch: Point, margin: number): Point {
   const to = cellCentre(neighbour(hex.cell, side), pitch)
   const d = { x: to.x - hex.centre.x, y: to.y - hex.centre.y }
   const box = hexagonBounds(hex)
   const leaves = (delta: number, min: number, size: number, from: number) =>
     delta > 0 ? (min + size + margin - from) / delta : delta < 0 ? (min - margin - from) / delta : Infinity
-  const t = Math.min(1, Math.max(0.5, Math.min(leaves(d.x, box.x, box.width, hex.centre.x), leaves(d.y, box.y, box.height, hex.centre.y))))
+  const t = Math.max(0.5, Math.min(leaves(d.x, box.x, box.width, hex.centre.x), leaves(d.y, box.y, box.height, hex.centre.y)))
   return { x: hex.centre.x + d.x * t, y: hex.centre.y + d.y * t }
 }
 
@@ -312,45 +361,45 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
   const place = (unit: number) => {
     const owns = perHexagon.map(({ model, compact }) => (compact ? compactBounds(COMPACT_RADIUS * unit) : model.bounds))
     // Every pair of hexagons that can sit in adjacent cells must clear each other by MAP_GAP on the pitch's axis. With
-    // compact neighbours only one hexagon is full, so the full-full pair never occurs and the pitch shrinks to the
-    // current hexagon's reach plus a compact one's.
+    // compact neighbours the lattice is sized from the compact footprint alone: the one full hexagon claims its room
+    // afterwards (`clearCurrent`) instead of inflating every cell.
     const extents = perHexagon.map(({ compact }, i) => ({ compact, left: -owns[i].x, right: owns[i].x + owns[i].width, top: -owns[i].y, bottom: owns[i].y + owns[i].height }))
-    const full = extents.filter((e) => !e.compact)
     const small = extents.filter((e) => e.compact)
-    const pairs = compacting ? [[full, small], [small, full], [small, small]] : [[extents, extents]]
+    const pairs = compacting ? [[small, small]] : [[extents, extents]]
     const span = (head: 'right' | 'bottom', tail: 'left' | 'top') =>
       Math.max(...pairs.map(([a, b]) => Math.max(...a.map((e) => e[head])) + Math.max(...b.map((e) => e[tail])))) + MAP_GAP
-    // Each axis keeps its box-derived minimum (no overlap), then the shorter one grows to the regular √3/2 ratio:
-    // hull tiles only trace regular hexagons on a regular lattice.
+    // Each axis keeps its box-derived minimum (no overlap). Hull tiles only trace regular hexagons on a regular
+    // lattice, so a map drawn with tile hulls grows the shorter axis to the regular √3/2 ratio; compact maps hug
+    // footprints instead and keep the tight pitch.
     const boxX = span('right', 'left')
     const boxY = span('bottom', 'top')
-    const pitch: Point = { x: Math.max(boxX, (boxY * 2) / Math.sqrt(3)), y: Math.max(boxY, (boxX * Math.sqrt(3)) / 2) }
-    const bounds = unionBox(
-      perHexagon.map(({ hexagon }, i) => {
-        const centre = cellCentre(hexagon.cell, pitch)
-        return { ...owns[i], x: owns[i].x + centre.x, y: owns[i].y + centre.y }
-      }),
-    )
-    return { pitch, bounds }
+    const pitch: Point = compacting ? { x: boxX, y: boxY } : { x: Math.max(boxX, (boxY * 2) / Math.sqrt(3)), y: Math.max(boxY, (boxX * Math.sqrt(3)) / 2) }
+    const cells = perHexagon.map(({ hexagon }) => cellCentre(hexagon.cell, pitch))
+    const current = perHexagon.findIndex(({ compact }) => !compact)
+    const centres = compacting && current >= 0 ? clearCurrent(cells, owns, current) : cells
+    const bounds = unionBox(owns.map((own, i) => ({ ...own, x: own.x + centres[i].x, y: own.y + centres[i].y })))
+    return { pitch, centres, bounds }
   }
   // Like the chips below, but only approaching the floor: growing the compact hexagon grows the lattice and so lowers
   // the fit scale the title is sized against, which saturates near 8-9px on screen. More passes never reach
   // CHIP_FLOOR_PX and on large maps keep inflating the silhouette, so the passes stay capped.
   let unit = 1
   if (compacting) {
+    const currentHeight = perHexagon.find(({ compact }) => !compact)?.model.bounds.height ?? Infinity
+    const maxUnit = (currentHeight * COMPACT_MAX_SHARE) / (2 * COMPACT_RADIUS)
     for (let pass = 0; pass < 4; pass++) {
       const { bounds } = place(unit)
       const scale = Math.min(REFERENCE_STAGE.width / bounds.width, REFERENCE_STAGE.height / bounds.height)
-      unit = Math.max(1, CHIP_FLOOR_PX / (COMPACT_TITLE.size * scale))
+      unit = Math.max(1, Math.min(maxUnit, CHIP_FLOOR_PX / (COMPACT_TITLE.size * scale)))
     }
   }
-  const { pitch } = place(unit)
+  const { pitch, centres } = place(unit)
 
-  const hexagons: MapHexagonLayout[] = perHexagon.map(({ hexagon, model, compact }) => ({
+  const hexagons: MapHexagonLayout[] = perHexagon.map(({ hexagon, model, compact }, i) => ({
     id: hexagon.id,
     contextId: hexagon.contextId,
     cell: hexagon.cell,
-    centre: cellCentre(hexagon.cell, pitch),
+    centre: centres[i],
     model,
     ...(compact ? { compact: compactOf(hexagon, model, unit) } : {}),
   }))
@@ -375,22 +424,31 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
   // exactly as a single hexagon always did (CB-01.4). A declared context owning no hexagon doesn't count.
   const contexts: MapContextLayout[] = []
   if (occupiedContexts(map).length >= 2) {
-    const regions = contextRegions(hexagons, pitch)
+    // Off the lattice each hull hugs its hexagons' own footprints, and a chip must keep its whole text (not just its
+    // baseline point) off every hexagon.
+    const regions = compacting
+      ? footprintRegions(hexagons.map((h) => ({ cell: h.cell, contextId: h.contextId, outline: footprint(h) })))
+      : contextRegions(hexagons, pitch)
+    const boxes = hexagons.map(hexagonBounds)
     for (const context of map.contexts) {
       const loops = regions.get(context.id) ?? []
       if (!loops.length) continue // a context declared with no hexagons (schema allows it, the store never creates one) draws nothing
-      const chip = chipAnchor(loops, [...regions.values()], hexagons.map(hexagonBounds))
-      contexts.push({ id: context.id, label: contextName(map, context.id), loops, chip, size: CHIP_LABEL.size })
+      contexts.push({ id: context.id, label: contextName(map, context.id), loops, chip: loops[0][0], size: CHIP_LABEL.size })
+    }
+    const placeChips = (size: number) => {
+      for (const c of contexts) c.chip = chipAnchor(c.loops, [...regions.values()], boxes, compacting ? { width: measure(c.label, { ...CHIP_LABEL, size }), size } : undefined)
     }
     const contentBounds = unionBox([bounds, ...contexts.flatMap((c) => c.loops.flat().map((p): Box => ({ x: p.x, y: p.y, width: 0, height: 0 })))])
     const boundsWith = (size: number) => unionBox([contentBounds, ...contexts.map((c) => chipBox(c.chip, c.label, size))])
     // Growing a chip grows the bounds and so lowers the fit scale it is sized against: a few passes settle it.
     let size: number = CHIP_LABEL.size
     for (let pass = 0; pass < 4; pass++) {
+      placeChips(size)
       const b = boundsWith(size)
       const scale = Math.min(REFERENCE_STAGE.width / b.width, REFERENCE_STAGE.height / b.height)
       size = Math.max(CHIP_LABEL.size, CHIP_FLOOR_PX / scale)
     }
+    placeChips(size)
     for (const c of contexts) c.size = size
     bounds = boundsWith(size)
   }

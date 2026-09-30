@@ -1,14 +1,15 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { cellCentre, COMPACT_FROM, growAnchor, hexagonBounds, layoutMap, MAP_GAP, type MapLayoutOptions } from './map'
 import { pointInRegion } from './hull'
-import { measure, TITLE } from './text'
+import { CHIP_LABEL, measure, TITLE } from './text'
 import { outwardEdgePoint, routeLink } from './links'
 import { layoutDiagram, type Box, type LayoutMode } from './layout'
-import { toMap } from '../model/hexa'
+import { parseHexa, toMap } from '../model/hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM } from '../model/example'
 import { freeCell, removeHexagon, SIDE_ORDER } from '../model/map'
 import { MapSchema, VERSION, type Diagram, type HexaMap, type Hexagon, type Wall } from '../model/schema'
-import { fitTo } from '../ui/viewport'
+import { fitTo, islandInset } from '../ui/viewport'
+import projectBuilder from '../model/fixtures/project-builder.hexa?raw'
 import { manyHexagonMap, twoHexagonMap } from '../test/fixtures'
 
 const CORPUS: Array<[string, Diagram]> = [
@@ -753,7 +754,7 @@ describe('layoutMap — compact neighbours from COMPACT_FROM hexagons up', () =>
         if (a.h.id >= b.h.id) continue
         const apartX = Math.max(a.box.x - (b.box.x + b.box.width), b.box.x - (a.box.x + a.box.width))
         const apartY = Math.max(a.box.y - (b.box.y + b.box.height), b.box.y - (a.box.y + a.box.height))
-        expect(Math.max(apartX, apartY), `${a.h.id} vs ${b.h.id}`).toBeGreaterThanOrEqual(MAP_GAP)
+        expect(Math.max(apartX, apartY), `${a.h.id} vs ${b.h.id}`).toBeGreaterThanOrEqual(MAP_GAP - 1e-6)
       }
     }
   })
@@ -850,5 +851,96 @@ describe('layoutMap — compact neighbours from COMPACT_FROM hexagons up', () =>
         }
       }
     }
+  })
+})
+
+// A real map: 6 contexts of one hexagon each, 11-25 elements a hexagon, 9 links between hexagons. Fit is judged the
+// way the app does it (1440x900, editor open), against the scales the shared full-hexagon pitch produced.
+describe('layoutMap — a real map with one hexagon per context (project-builder)', () => {
+  const parsed = parseHexa(projectBuilder)
+  if (!parsed.ok || parsed.map.kind !== 'hexagonal') throw new Error('project-builder fixture must parse')
+  const map = parsed.map
+  const STAGE = { width: 1440, height: 900 }
+  const INSET = islandInset(STAGE, true, false)
+  const TODAY_FIT = { detailed: 0.13989, overview: 0.26322 }
+  const MODES_UNDER_TEST = ['detailed', 'overview'] as const
+  const layoutFor = (mode: LayoutMode, current: string) => layoutMap(map, { mode, current })
+  const fit = (mode: LayoutMode, current: string) => fitTo(layoutFor(mode, current).bounds, STAGE.width, STAGE.height, INSET, 0).scale
+  const overlap = (a: Box, b: Box) => Math.max(a.x - (b.x + b.width), b.x - (a.x + a.width), a.y - (b.y + b.height), b.y - (a.y + a.height))
+  const chipBoxOf = (c: { chip: { x: number; y: number }; label: string; size: number }): Box => {
+    const width = measure(c.label, { ...CHIP_LABEL, size: c.size })
+    return { x: c.chip.x - width / 2, y: c.chip.y - c.size, width, height: c.size * 1.25 }
+  }
+  const distanceToLoops = (p: { x: number; y: number }, loops: { x: number; y: number }[][]) =>
+    Math.min(
+      ...loops.flatMap((loop) =>
+        loop.map((a, i) => {
+          const b = loop[(i + 1) % loop.length]
+          const len2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2
+          const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / len2))
+          return Math.hypot(p.x - (a.x + t * (b.x - a.x)), p.y - (a.y + t * (b.y - a.y)))
+        }),
+      ),
+    )
+  // layoutDiagram itself lays Authentication out at ~87000x100000 in Detailed, which no map layout can make readable.
+  const currentsIn = (mode: LayoutMode) => map.hexagons.map((h) => h.id).filter((id) => mode === 'overview' || id !== 'h-auth')
+
+  it.each(MODES_UNDER_TEST)('fits %s at least twice as large as the shared full-hexagon pitch did, with Execution current', (mode) => {
+    const scale = fit(mode, 'h-exec')
+    console.info(`project-builder fit (${mode}, Execution current): ${(TODAY_FIT[mode] * 100).toFixed(1)}% -> ${(scale * 100).toFixed(1)}%`)
+    expect(scale).toBeGreaterThanOrEqual(TODAY_FIT[mode] * 2)
+  })
+
+  it.each(MODES_UNDER_TEST)('keeps MAP_GAP between every pair of hexagon boxes in %s, whichever hexagon is current', (mode) => {
+    for (const current of currentsIn(mode)) {
+      const boxes = layoutFor(mode, current).hexagons.map((h) => ({ id: h.id, box: hexagonBounds(h) }))
+      for (const a of boxes) for (const b of boxes) if (a.id < b.id) expect(overlap(a.box, b.box), `${current}: ${a.id} vs ${b.id}`).toBeGreaterThanOrEqual(MAP_GAP - 1e-6)
+    }
+  })
+
+  it.each(MODES_UNDER_TEST)('draws each hull around its own hexagon alone, not around a lattice cell, in %s', (mode) => {
+    for (const current of currentsIn(mode)) {
+      const result = layoutFor(mode, current)
+      for (const hexagon of result.hexagons) {
+        const hull = result.contexts.find((c) => c.id === hexagon.contextId)!
+        const box = hexagonBounds(hexagon)
+        expect(pointInRegion({ x: hexagon.centre.x, y: hexagon.centre.y }, hull.loops), `${current}: ${hexagon.id} centre`).toBe(true)
+        for (const p of hull.loops.flat()) {
+          expect(p.x, `${current}: ${hexagon.id} x`).toBeGreaterThanOrEqual(box.x - MAP_GAP / 2)
+          expect(p.x).toBeLessThanOrEqual(box.x + box.width + MAP_GAP / 2)
+          expect(p.y).toBeGreaterThanOrEqual(box.y - MAP_GAP / 2)
+          expect(p.y).toBeLessThanOrEqual(box.y + box.height + MAP_GAP / 2)
+        }
+      }
+    }
+  })
+
+  it.each(MODES_UNDER_TEST)('puts every chip beside its own hull and clear of every hexagon in %s', (mode) => {
+    for (const current of currentsIn(mode)) {
+      const result = layoutFor(mode, current)
+      const boxes = result.hexagons.map(hexagonBounds)
+      for (const context of result.contexts) {
+        const chip = chipBoxOf(context)
+        boxes.forEach((box, i) => expect(overlap(chip, box), `${current}: chip ${context.id} vs ${result.hexagons[i].id}`).toBeGreaterThan(0))
+        const away = (c: typeof context) => distanceToLoops(context.chip, c.loops)
+        for (const other of result.contexts.filter((c) => c !== context)) expect(away(context), `${current}: chip ${context.id} nearer to ${other.id}`).toBeLessThan(away(other))
+      }
+    }
+  })
+
+  it('moves only the hexagons around a hexagon when another becomes current', () => {
+    const wide = manyHexagonMap(12)
+    wide.hexagons[6].externals.push({ id: 'ext-wide', name: 'A Very Long External System Name That Extends Far To The Right'.repeat(4) })
+    const before = layoutMap(wide, { current: 'h6' })
+    const after = layoutMap(wide, { current: 'h7' })
+    const far = ['h1', 'h2', 'h5']
+    const moved = far.map((id) => {
+      const a = before.hexagons.find((h) => h.id === id)!.centre
+      const b = after.hexagons.find((h) => h.id === id)!.centre
+      return Math.hypot(a.x - b.x, a.y - b.y)
+    })
+    console.info(`hexagons far from a switch of current moved by ${moved.map((m) => m.toFixed(0)).join(', ')}`)
+    const shift = Math.abs(hexagonBounds(after.hexagons.find((h) => h.id === 'h7')!).width - hexagonBounds(before.hexagons.find((h) => h.id === 'h6')!).width)
+    for (const m of moved) expect(m).toBeLessThanOrEqual(shift / 2 + 1)
   })
 })

@@ -92,3 +92,47 @@ export function pointInRegion(point: Point, loops: readonly Point[][]): boolean 
   }
   return inside
 }
+
+function convexHull(points: readonly Point[]): Point[] {
+  const cross = (o: Point, a: Point, b: Point) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+  const chain = (sorted: Point[]) => {
+    const half: Point[] = []
+    for (const p of sorted) {
+      while (half.length >= 2 && cross(half[half.length - 2], half[half.length - 1], p) <= 0) half.pop()
+      half.push(p)
+    }
+    return half.slice(0, -1)
+  }
+  const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y)
+  return [...chain(sorted), ...chain([...sorted].reverse())]
+}
+
+/** `items` grouped into runs of lattice-adjacent cells. */
+function adjacentGroups<T extends { cell: Cell }>(items: readonly T[]): T[][] {
+  let groups: T[][] = []
+  for (const item of items) {
+    const touching = groups.filter((group) => group.some((m) => EDGE_WALL.some((wall) => cellKey(neighbour(m.cell, wall)) === cellKey(item.cell))))
+    groups = [...groups.filter((group) => !touching.includes(group)), [item, ...touching.flat()]]
+  }
+  return groups
+}
+
+/**
+ * Per-context boundary loops hugging each hexagon's own `outline` rather than its lattice tile, for a map whose
+ * hexagons no longer sit on the lattice. A run of adjacent same-context hexagons shares one convex loop, unless
+ * that loop would take in another context's hexagon — then each keeps its own; outlines of different hexagons
+ * never overlap, so the loops never punch holes in each other under an evenodd fill.
+ */
+export function footprintRegions(hexagons: readonly { cell: Cell; contextId: string; outline: Point[] }[]): Map<string, Point[][]> {
+  const result = new Map<string, Point[][]>()
+  for (const contextId of new Set(hexagons.map((h) => h.contextId))) {
+    const foreign = hexagons.filter((h) => h.contextId !== contextId)
+    const loops = adjacentGroups(hexagons.filter((h) => h.contextId === contextId)).flatMap((group) => {
+      const hull = convexHull(group.flatMap((h) => h.outline))
+      const swallows = foreign.some((f) => f.outline.some((p) => pointInRegion(p, [hull])))
+      return swallows ? group.map((h) => convexHull(h.outline)) : [hull]
+    })
+    result.set(contextId, loops)
+  }
+  return result
+}

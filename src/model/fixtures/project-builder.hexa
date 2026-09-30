@@ -1,0 +1,901 @@
+{
+  "app": "domainrings",
+  "version": 4,
+  "kind": "hexagonal",
+  "title": "Project Builder",
+  "contexts": [
+    {
+      "id": "c-exec",
+      "name": "Execution (core)"
+    },
+    {
+      "id": "c-auth",
+      "name": "Authoring (Dialect system core)"
+    },
+    {
+      "id": "c-cat",
+      "name": "Catalog (supporting)"
+    },
+    {
+      "id": "c-sel",
+      "name": "Selection (core)"
+    },
+    {
+      "id": "c-launch",
+      "name": "Launch (supporting)"
+    },
+    {
+      "id": "c-run",
+      "name": "Runner hosting (generic)"
+    }
+  ],
+  "hexagons": [
+    {
+      "id": "h-exec",
+      "contextId": "c-exec",
+      "cell": {
+        "q": 0,
+        "r": 0
+      },
+      "title": "Execution",
+      "subtitle": "Same Instructions on the same workspace, same bytes; all or nothing (#2)",
+      "domain": [
+        {
+          "id": "d-run",
+          "name": "Run",
+          "type": "aggregate",
+          "note": "Enforces X3, X4, X5, X8. seal() is the only way to obtain a Plan. A Run whose Commit failed is terminal (E-7)"
+        },
+        {
+          "id": "d-frame",
+          "name": "Frame",
+          "type": "entity",
+          "parentId": "d-run",
+          "note": "Part of a Run one schematic executes, on a fork of its parent's Staging Tree. Carries its library as resolution scope (CA-5)"
+        },
+        {
+          "id": "d-tree",
+          "name": "StagingTree",
+          "type": "valueObject",
+          "parentId": "d-run",
+          "note": "Copy-on-write snapshot with unique paths"
+        },
+        {
+          "id": "d-instr",
+          "name": "Instruction",
+          "type": "valueObject",
+          "parentId": "d-run",
+          "note": "One mutation over the IR wire, with its conflict strategy (E-4)"
+        },
+        {
+          "id": "d-plan",
+          "name": "Plan",
+          "type": "valueObject",
+          "note": "Net changes + Read Set; immutable once sealed"
+        },
+        {
+          "id": "d-readset",
+          "name": "ReadSet",
+          "type": "valueObject",
+          "note": "Every path read through the tree with its content hash, or observed absence (E-9). Design, not in code yet"
+        },
+        {
+          "id": "d-wstate",
+          "name": "WorkspaceState",
+          "type": "valueObject",
+          "note": "untouched | restored | partially-applied | unknown. Action derived; cause separate (E-8)"
+        },
+        {
+          "id": "d-commit",
+          "name": "Commit",
+          "type": "domainService",
+          "note": "Stateless: Commit(plan, ports) -> WorkspaceState. Preflight (incl. Read Set), Journal and Snapshot are internal mechanism. Enforces X6, X7"
+        }
+      ],
+      "useCases": [
+        {
+          "id": "uc-exec-run",
+          "name": "ExecuteRun",
+          "placement": "w"
+        },
+        {
+          "id": "uc-exec-wire",
+          "name": "ServeIrWire",
+          "placement": "nw",
+          "note": "tree.read, ir.emit, ir.commit, ir.discard; invoke is new (Decision 16, engine#220)"
+        },
+        {
+          "id": "uc-exec-invoke",
+          "name": "InvokeChild",
+          "placement": "ne",
+          "note": "Fork a child Frame, spawn its runner, fast-forward on success, discard on failure (Decisions 5-7, 16)"
+        }
+      ],
+      "ports": [
+        {
+          "id": "p-exec-run",
+          "name": "executor",
+          "side": "driving",
+          "wall": "w",
+          "useCaseId": "uc-exec-run"
+        },
+        {
+          "id": "p-exec-wire",
+          "name": "irWire",
+          "side": "driving",
+          "wall": "nw",
+          "useCaseId": "uc-exec-wire",
+          "note": "Published Language; Execution is the Open Host Service"
+        },
+        {
+          "id": "p-exec-fs",
+          "name": "WorkspaceFS",
+          "side": "driven",
+          "wall": "se",
+          "useCaseId": "uc-exec-run",
+          "note": "FS, Reader, SnapshotStore ports used by Commit"
+        },
+        {
+          "id": "p-exec-runner",
+          "name": "RunnerHost",
+          "side": "driven",
+          "wall": "e",
+          "useCaseId": "uc-exec-invoke",
+          "note": "One runner process per Frame (Decision 16, engine#221)"
+        },
+        {
+          "id": "p-exec-resolve",
+          "name": "CollectionResolver",
+          "side": "driven",
+          "wall": "ne",
+          "useCaseId": "uc-exec-invoke",
+          "note": "Lexical resolution of invoke targets. Design, not in code yet"
+        }
+      ],
+      "adapters": [
+        {
+          "id": "a-exec-construct",
+          "name": "construct.NewExecutor",
+          "portId": "p-exec-run"
+        },
+        {
+          "id": "a-exec-gate",
+          "name": "bunipc gate",
+          "portId": "p-exec-wire"
+        },
+        {
+          "id": "a-exec-osfs",
+          "name": "osfs",
+          "portId": "p-exec-fs"
+        },
+        {
+          "id": "a-exec-spawn",
+          "name": "bunipc.Spawn",
+          "portId": "p-exec-runner"
+        },
+        {
+          "id": "a-exec-catalog",
+          "name": "Catalog resolver client",
+          "portId": "p-exec-resolve",
+          "note": "Today: empty DependencyOrchestrator seam"
+        }
+      ],
+      "actors": [],
+      "externals": [
+        {
+          "id": "ext-exec-disk",
+          "name": "Workspace disk",
+          "adapterId": "a-exec-osfs"
+        }
+      ],
+      "composition": {
+        "name": "construct"
+      }
+    },
+    {
+      "id": "h-auth",
+      "contextId": "c-auth",
+      "cell": {
+        "q": -1,
+        "r": 0
+      },
+      "title": "Authoring",
+      "subtitle": "Structured, AST-aware edits per file type; deterministic recipe (#5)",
+      "domain": [
+        {
+          "id": "d-session",
+          "name": "Session",
+          "type": "aggregate",
+          "note": "One per factory invocation. Owns open handles, content versions and epoch, one dirty AST per path, failure state, flush and settle (A-10). Today spread over RunContext"
+        },
+        {
+          "id": "d-handle",
+          "name": "DialectHandle",
+          "type": "entity",
+          "parentId": "d-session",
+          "note": "Identity = normalized path. Live AST is a cache of the content; re-parse when the version changed (A-7). Stale nodes fail loudly (A-8)"
+        },
+        {
+          "id": "d-directive",
+          "name": "Directive",
+          "type": "valueObject",
+          "parentId": "d-session",
+          "note": "An Instruction waiting to be sent"
+        },
+        {
+          "id": "d-oprules",
+          "name": "OpRules",
+          "type": "domainService",
+          "note": "Op specifications (e.g. addImport never duplicates, A3), verified by the conformance fixture (A-11)"
+        }
+      ],
+      "useCases": [
+        {
+          "id": "uc-auth-run",
+          "name": "RunFactory",
+          "placement": "w",
+          "note": "Validate inputs at the boundary, run, settle, flush, validate the declared Result (Decision 16)"
+        },
+        {
+          "id": "uc-auth-invoke",
+          "name": "InvokeSchematic",
+          "placement": "ne",
+          "note": "Quiescent parent before invoke, new epoch after (A-9). sdk#94"
+        },
+        {
+          "id": "uc-auth-codegen",
+          "name": "GenerateTypes",
+          "placement": "sw",
+          "note": "Input, Result and typed invoke (sdk#96)"
+        }
+      ],
+      "ports": [
+        {
+          "id": "p-auth-factory",
+          "name": "defineFactory",
+          "side": "driving",
+          "wall": "sw",
+          "useCaseId": "uc-auth-run"
+        },
+        {
+          "id": "p-auth-codegen",
+          "name": "codegen",
+          "side": "driving",
+          "wall": "w",
+          "useCaseId": "uc-auth-codegen"
+        },
+        {
+          "id": "p-auth-engine",
+          "name": "EngineClient",
+          "side": "driven",
+          "wall": "e",
+          "useCaseId": "uc-auth-invoke"
+        },
+        {
+          "id": "p-auth-dialect",
+          "name": "Dialect",
+          "side": "driven",
+          "wall": "ne",
+          "useCaseId": "uc-auth-run",
+          "note": "Contract: parse -> ops -> print; contract test = conformance fixture"
+        },
+        {
+          "id": "p-auth-schema",
+          "name": "SchemaResolver",
+          "side": "driven",
+          "wall": "se",
+          "useCaseId": "uc-auth-codegen",
+          "note": "Reads external schemas through Catalog's single resolver. Design, not in code yet"
+        }
+      ],
+      "adapters": [
+        {
+          "id": "a-auth-runner",
+          "name": "runner.ts",
+          "portId": "p-auth-factory"
+        },
+        {
+          "id": "a-auth-codegen",
+          "name": "pbuilder-codegen",
+          "portId": "p-auth-codegen"
+        },
+        {
+          "id": "a-auth-stdio",
+          "name": "stdio-engine-client",
+          "portId": "p-auth-engine"
+        },
+        {
+          "id": "a-auth-ts",
+          "name": "typescript / react dialects",
+          "portId": "p-auth-dialect"
+        },
+        {
+          "id": "a-auth-catalog",
+          "name": "Catalog resolver client",
+          "portId": "p-auth-schema"
+        }
+      ],
+      "actors": [
+        {
+          "id": "act-auth-author",
+          "name": "Author / AI agent",
+          "adapterId": "a-auth-codegen"
+        }
+      ],
+      "externals": [
+        {
+          "id": "ext-auth-tsmorph",
+          "name": "ts-morph",
+          "adapterId": "a-auth-ts"
+        }
+      ]
+    },
+    {
+      "id": "h-cat",
+      "contextId": "c-cat",
+      "cell": {
+        "q": 1,
+        "r": 0
+      },
+      "title": "Catalog",
+      "subtitle": "Which schematics exist, where from, how addressed (#4)",
+      "domain": [
+        {
+          "id": "d-manifest",
+          "name": "Manifest",
+          "type": "aggregate",
+          "note": "project-builder.json. Names and aliases unique (CA-6). Today a DTO (config.Config)"
+        },
+        {
+          "id": "d-collection",
+          "name": "Collection",
+          "type": "entity",
+          "parentId": "d-manifest",
+          "note": "Unit of addressing; local or contributed by a library"
+        },
+        {
+          "id": "d-external",
+          "name": "ExternalDeclaration",
+          "type": "valueObject",
+          "parentId": "d-manifest",
+          "note": "{registry, name, range, alias, exclude}; versions a library (CA-4)"
+        },
+        {
+          "id": "d-lock",
+          "name": "Lock",
+          "type": "valueObject",
+          "note": "project-builder-lock.json: library and SDK versions, integrity, hash of the Manifest inputs (CA-8). Not in code yet"
+        },
+        {
+          "id": "d-fingerprint",
+          "name": "Fingerprint",
+          "type": "valueObject"
+        },
+        {
+          "id": "d-mismatch",
+          "name": "Mismatch",
+          "type": "valueObject",
+          "note": "Immutable fact bound to a fingerprint, or the stored ContractMismatchObserved event (CA-9; #3 aligned)"
+        },
+        {
+          "id": "d-resolver",
+          "name": "DependencyResolver",
+          "type": "domainService",
+          "note": "resolve(Manifest, adapters) -> Lock with MVS; one version per library per workspace (CA-3, CA-4)"
+        }
+      ],
+      "useCases": [
+        {
+          "id": "uc-cat-add",
+          "name": "AddLibrary",
+          "placement": "sw",
+          "note": "builder add: declare, resolve, install, run setup schematics of every level in one Run (CA-10). Stub today"
+        },
+        {
+          "id": "uc-cat-resolve",
+          "name": "ResolveName",
+          "placement": "w",
+          "note": "Lexical, declared-only (CA-5); bare names only at the CLI (CA-7)"
+        },
+        {
+          "id": "uc-cat-query",
+          "name": "QueryCatalog",
+          "placement": "nw",
+          "note": "Selection metadata (title, Jobs, keywords) and valid mismatches"
+        }
+      ],
+      "ports": [
+        {
+          "id": "p-cat-add",
+          "name": "addRemove",
+          "side": "driving",
+          "wall": "sw",
+          "useCaseId": "uc-cat-add"
+        },
+        {
+          "id": "p-cat-resolve",
+          "name": "resolve",
+          "side": "driving",
+          "wall": "w",
+          "useCaseId": "uc-cat-resolve"
+        },
+        {
+          "id": "p-cat-query",
+          "name": "query",
+          "side": "driving",
+          "wall": "nw",
+          "useCaseId": "uc-cat-query"
+        },
+        {
+          "id": "p-cat-eco",
+          "name": "EcosystemAdapter",
+          "side": "driven",
+          "wall": "e",
+          "useCaseId": "uc-cat-add",
+          "note": "readManifest / install per ecosystem; readManifest deferred (CA-10)"
+        },
+        {
+          "id": "p-cat-registry",
+          "name": "MismatchRegistry",
+          "side": "driven",
+          "wall": "ne",
+          "useCaseId": "uc-cat-query",
+          "note": "Repository (CA-9)"
+        },
+        {
+          "id": "p-cat-store",
+          "name": "ManifestStore",
+          "side": "driven",
+          "wall": "se",
+          "useCaseId": "uc-cat-resolve"
+        }
+      ],
+      "adapters": [
+        {
+          "id": "a-cat-add",
+          "name": "builder add / remove",
+          "portId": "p-cat-add",
+          "note": "CONTRACT:STUB today"
+        },
+        {
+          "id": "a-cat-resolve",
+          "name": "config.ResolveSchematic / ResolveOrdered",
+          "portId": "p-cat-resolve"
+        },
+        {
+          "id": "a-cat-query",
+          "name": "catalog query",
+          "portId": "p-cat-query",
+          "note": "Design, not in code yet"
+        },
+        {
+          "id": "a-cat-npm",
+          "name": "npm adapter",
+          "portId": "p-cat-eco",
+          "note": "Design, not in code yet"
+        },
+        {
+          "id": "a-cat-registry",
+          "name": "mismatch store",
+          "portId": "p-cat-registry",
+          "note": "Design, not in code yet"
+        },
+        {
+          "id": "a-cat-config",
+          "name": "config.ReadProjectConfig",
+          "portId": "p-cat-store"
+        }
+      ],
+      "actors": [
+        {
+          "id": "act-cat-dev",
+          "name": "Developer / AI agent",
+          "adapterId": "a-cat-add"
+        }
+      ],
+      "externals": [
+        {
+          "id": "ext-cat-npm",
+          "name": "npm registry + global cache",
+          "adapterId": "a-cat-npm"
+        },
+        {
+          "id": "ext-cat-file",
+          "name": "project-builder.json",
+          "adapterId": "a-cat-config"
+        }
+      ]
+    },
+    {
+      "id": "h-sel",
+      "contextId": "c-sel",
+      "cell": {
+        "q": 2,
+        "r": -1
+      },
+      "title": "Selection",
+      "subtitle": "Search cost < saving of using the schematic (#3)",
+      "domain": [
+        {
+          "id": "d-schematic",
+          "name": "Schematic",
+          "type": "entity",
+          "note": "As seen by Selection; identity collection:schematic; owned by Catalog"
+        },
+        {
+          "id": "d-goal",
+          "name": "Goal",
+          "type": "valueObject"
+        },
+        {
+          "id": "d-job",
+          "name": "Job",
+          "type": "valueObject",
+          "note": "Jobs-to-be-done unit; text"
+        },
+        {
+          "id": "d-resolution",
+          "name": "Resolution",
+          "type": "valueObject",
+          "note": "Assembled by the LLM from computed evidence: Shortlist, Coverage, Verdict, Recommendation"
+        }
+      ],
+      "useCases": [
+        {
+          "id": "uc-sel-shortlist",
+          "name": "Shortlist",
+          "placement": "w",
+          "note": "Phase 1, deterministic: Jobs vs declared metadata"
+        },
+        {
+          "id": "uc-sel-eval",
+          "name": "EvaluateCandidates",
+          "placement": "ne",
+          "note": "Phase 2b: Dry Run per Candidate -> Plan"
+        }
+      ],
+      "ports": [
+        {
+          "id": "p-sel-search",
+          "name": "search",
+          "side": "driving",
+          "wall": "w",
+          "useCaseId": "uc-sel-shortlist"
+        },
+        {
+          "id": "p-sel-catalog",
+          "name": "CatalogReader",
+          "side": "driven",
+          "wall": "se",
+          "useCaseId": "uc-sel-shortlist"
+        },
+        {
+          "id": "p-sel-dryrun",
+          "name": "DryRunner",
+          "side": "driven",
+          "wall": "ne",
+          "useCaseId": "uc-sel-eval"
+        }
+      ],
+      "adapters": [
+        {
+          "id": "a-sel-search",
+          "name": "builder search --job / info",
+          "portId": "p-sel-search",
+          "note": "search is planned (CLI #71 Addendum 3); info exists"
+        },
+        {
+          "id": "a-sel-catalog",
+          "name": "catalog client",
+          "portId": "p-sel-catalog"
+        },
+        {
+          "id": "a-sel-dryrun",
+          "name": "builder execute --dry-run",
+          "portId": "p-sel-dryrun",
+          "note": "Blocked by cli#113"
+        }
+      ],
+      "actors": [
+        {
+          "id": "act-sel-ai",
+          "name": "AI agent (choose.md)",
+          "adapterId": "a-sel-search"
+        }
+      ],
+      "externals": []
+    },
+    {
+      "id": "h-launch",
+      "contextId": "c-launch",
+      "cell": {
+        "q": 1,
+        "r": -1
+      },
+      "title": "Launch",
+      "subtitle": "Prepares and starts a Run from outside (#6) — not modelled in depth",
+      "domain": [
+        {
+          "id": "d-inputs",
+          "name": "InputValues",
+          "type": "valueObject",
+          "note": "Root only: defaults < config < env < flags (Decision 3, 16)"
+        },
+        {
+          "id": "d-mode",
+          "name": "CommitMode",
+          "type": "valueObject",
+          "note": "always | never (Dry Run) | ask (reserved)"
+        },
+        {
+          "id": "d-preflight",
+          "name": "LaunchPreflight",
+          "type": "domainService",
+          "note": "Static targets, Manifest vs Lock (C4)"
+        }
+      ],
+      "useCases": [
+        {
+          "id": "uc-launch-exec",
+          "name": "ExecuteSchematic",
+          "placement": "w"
+        }
+      ],
+      "ports": [
+        {
+          "id": "p-launch-exec",
+          "name": "execute",
+          "side": "driving",
+          "wall": "w",
+          "useCaseId": "uc-launch-exec"
+        },
+        {
+          "id": "p-launch-executor",
+          "name": "Executor",
+          "side": "driven",
+          "wall": "se",
+          "useCaseId": "uc-launch-exec",
+          "note": "Engine imported as a Go library"
+        },
+        {
+          "id": "p-launch-catalog",
+          "name": "CatalogLookup",
+          "side": "driven",
+          "wall": "e",
+          "useCaseId": "uc-launch-exec",
+          "note": "Bare names in order (CA-7); Manifest vs Lock (C4)"
+        }
+      ],
+      "adapters": [
+        {
+          "id": "a-launch-cli",
+          "name": "builder execute",
+          "portId": "p-launch-exec"
+        },
+        {
+          "id": "a-launch-engine",
+          "name": "adapter/engine",
+          "portId": "p-launch-executor"
+        },
+        {
+          "id": "a-launch-config",
+          "name": "shared/config",
+          "portId": "p-launch-catalog"
+        }
+      ],
+      "actors": [
+        {
+          "id": "act-launch-dev",
+          "name": "Developer / AI agent / CI",
+          "adapterId": "a-launch-cli"
+        }
+      ],
+      "externals": []
+    },
+    {
+      "id": "h-run",
+      "contextId": "c-run",
+      "cell": {
+        "q": -1,
+        "r": 1
+      },
+      "title": "Runner hosting",
+      "subtitle": "Provision the Bun runtime that hosts Authoring inside Execution (#7)",
+      "domain": [
+        {
+          "id": "d-runnermanifest",
+          "name": "RunnerManifest",
+          "type": "valueObject"
+        },
+        {
+          "id": "d-sdkroot",
+          "name": "SdkRoot",
+          "type": "valueObject",
+          "note": "--sdk-root > BUILDER_SDK_ROOT > sdk.root > node_modules"
+        },
+        {
+          "id": "d-trust",
+          "name": "TrustGate",
+          "type": "domainService",
+          "note": "Hash-verified Bun, scrubbed env, empty temporary cwd (R-1, engine#219). Not a sandbox"
+        }
+      ],
+      "useCases": [
+        {
+          "id": "uc-run-spawn",
+          "name": "SpawnRunner"
+        }
+      ],
+      "ports": [
+        {
+          "id": "p-run-spawn",
+          "name": "spawn",
+          "side": "driving",
+          "wall": "nw",
+          "useCaseId": "uc-run-spawn"
+        },
+        {
+          "id": "p-run-entry",
+          "name": "FactoryEntry",
+          "side": "driven",
+          "wall": "ne",
+          "useCaseId": "uc-run-spawn",
+          "note": "Exactly one factory import per runner (fit-42)"
+        },
+        {
+          "id": "p-run-bun",
+          "name": "BunRuntime",
+          "side": "driven",
+          "wall": "se",
+          "useCaseId": "uc-run-spawn"
+        }
+      ],
+      "adapters": [
+        {
+          "id": "a-run-spawn",
+          "name": "buildSpawnCmd",
+          "portId": "p-run-spawn"
+        },
+        {
+          "id": "a-run-entry",
+          "name": "bootstrap-bridge",
+          "portId": "p-run-entry"
+        },
+        {
+          "id": "a-run-bun",
+          "name": "verified Bun binary",
+          "portId": "p-run-bun"
+        }
+      ],
+      "actors": [],
+      "externals": [
+        {
+          "id": "ext-run-bun",
+          "name": "Bun",
+          "adapterId": "a-run-bun"
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "id": "link1",
+      "from": {
+        "hexagonId": "h-launch",
+        "portId": "p-launch-executor",
+        "adapterId": "a-launch-engine"
+      },
+      "to": {
+        "hexagonId": "h-exec",
+        "portId": "p-exec-run",
+        "adapterId": "a-exec-construct"
+      },
+      "pattern": "customer-supplier"
+    },
+    {
+      "id": "link2",
+      "from": {
+        "hexagonId": "h-auth",
+        "portId": "p-auth-engine",
+        "adapterId": "a-auth-stdio"
+      },
+      "to": {
+        "hexagonId": "h-exec",
+        "portId": "p-exec-wire",
+        "adapterId": "a-exec-gate"
+      },
+      "pattern": "ohs-pl"
+    },
+    {
+      "id": "link3",
+      "from": {
+        "hexagonId": "h-exec",
+        "portId": "p-exec-runner",
+        "adapterId": "a-exec-spawn"
+      },
+      "to": {
+        "hexagonId": "h-run",
+        "portId": "p-run-spawn",
+        "adapterId": "a-run-spawn"
+      }
+    },
+    {
+      "id": "link4",
+      "from": {
+        "hexagonId": "h-run",
+        "portId": "p-run-entry",
+        "adapterId": "a-run-entry"
+      },
+      "to": {
+        "hexagonId": "h-auth",
+        "portId": "p-auth-factory",
+        "adapterId": "a-auth-runner"
+      }
+    },
+    {
+      "id": "link5",
+      "from": {
+        "hexagonId": "h-exec",
+        "portId": "p-exec-resolve",
+        "adapterId": "a-exec-catalog"
+      },
+      "to": {
+        "hexagonId": "h-cat",
+        "portId": "p-cat-resolve",
+        "adapterId": "a-cat-resolve"
+      }
+    },
+    {
+      "id": "link6",
+      "from": {
+        "hexagonId": "h-auth",
+        "portId": "p-auth-schema",
+        "adapterId": "a-auth-catalog"
+      },
+      "to": {
+        "hexagonId": "h-cat",
+        "portId": "p-cat-resolve",
+        "adapterId": "a-cat-resolve"
+      }
+    },
+    {
+      "id": "link7",
+      "from": {
+        "hexagonId": "h-launch",
+        "portId": "p-launch-catalog",
+        "adapterId": "a-launch-config"
+      },
+      "to": {
+        "hexagonId": "h-cat",
+        "portId": "p-cat-resolve",
+        "adapterId": "a-cat-resolve"
+      }
+    },
+    {
+      "id": "link8",
+      "from": {
+        "hexagonId": "h-sel",
+        "portId": "p-sel-catalog",
+        "adapterId": "a-sel-catalog"
+      },
+      "to": {
+        "hexagonId": "h-cat",
+        "portId": "p-cat-query",
+        "adapterId": "a-cat-query"
+      }
+    },
+    {
+      "id": "link9",
+      "from": {
+        "hexagonId": "h-sel",
+        "portId": "p-sel-dryrun",
+        "adapterId": "a-sel-dryrun"
+      },
+      "to": {
+        "hexagonId": "h-launch",
+        "portId": "p-launch-exec",
+        "adapterId": "a-launch-cli"
+      }
+    }
+  ]
+}
