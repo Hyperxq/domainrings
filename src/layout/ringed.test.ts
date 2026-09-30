@@ -1,23 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { newCleanMap, newOnionMap } from '../model/hexa'
 import { arcAngles, ringedArcAngles } from '../model/rings'
-import {
-  endpointLabelHeight,
-  endpointLabelWidth,
-  endpointLayout,
-  labelOverlapsBox,
-  ringedElementHeight,
-  ringedElementWidth,
-  RINGED_ENDPOINT_DIAMETER,
-  ringedBounds,
-  ringElementRadius,
-  ringOutlines,
-  ringSlotRadii,
-  titleFootprintBox,
-  titleHalfSpan,
-  TITLE_ARC_PAD,
-  TITLE_MAX_SPAN,
-} from './ringed'
+import { endpointLabelHeight, endpointLabelWidth, ringedElementHeight, ringedElementWidth, RINGED_ENDPOINT_DIAMETER, titleFootprintBox, titleHalfSpan, TITLE_ARC_PAD, TITLE_MAX_SPAN } from './ringedMetrics'
+import { endpointLayout, labelOverlapsBox, ringedBounds, ringElementRadius, ringOutlines, ringSlotRadii } from './ringed'
 import { measure, RING_LABEL, RING_SUBTITLE } from './text'
 
 // Direct unit coverage for the shared ring-outline/bounds sizing (ADR-01) — previously exercised only

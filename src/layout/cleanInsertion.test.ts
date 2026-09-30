@@ -3,7 +3,8 @@ import { newCleanMap } from '../model/hexa'
 import type { CleanFile } from '../model/schema'
 import { layoutClean } from './clean'
 import { cleanInsertionItem, cleanInsertionPoints } from './cleanInsertion'
-import { arcLabelFootprintBox, ringedElementHeight, ringedElementWidth, ringElementRadius, titleFootprintBox, titleHalfSpan, TITLE_ARC_PAD } from './ringed'
+import { arcLabelFootprintBox, ringedElementHeight, ringedElementWidth, titleFootprintBox, titleHalfSpan, TITLE_ARC_PAD } from './ringedMetrics'
+import { ringElementRadius } from './ringed'
 import { measure, RING_LABEL, RING_SUBTITLE } from './text'
 
 describe('cleanInsertionPoints', () => {

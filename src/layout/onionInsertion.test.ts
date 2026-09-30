@@ -3,7 +3,7 @@ import { newOnionMap } from '../model/hexa'
 import type { OnionFile } from '../model/schema'
 import { layoutOnion } from './onion'
 import { onionInsertionItem, onionInsertionPoints } from './onionInsertion'
-import { ringedElementHeight, ringedElementWidth } from './ringed'
+import { ringedElementHeight, ringedElementWidth } from './ringedMetrics'
 
 describe('onionInsertionPoints', () => {
   it('offers exactly one "+" per ring, ring-scoped, on a fresh (empty) map', () => {

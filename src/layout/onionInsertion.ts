@@ -3,7 +3,8 @@ import type { OnionFile } from '../model/schema'
 import type { Point } from './geometry'
 import type { OnionLayoutModel } from './onion'
 import { elementGapPoints, endpointInsertionPoints } from './ringedInsertion'
-import { ringedElementHeight, ringedElementWidth, ringSlotRadii } from './ringed'
+import { ringedElementHeight, ringedElementWidth } from './ringedMetrics'
+import { ringSlotRadii } from './ringed'
 
 const FULL_CIRCLE = { start: -Math.PI / 2, end: -Math.PI / 2 + 2 * Math.PI }
 
