@@ -980,7 +980,7 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
         if (new Set(climbs).size > 1) doubling.push(`${h.id}: ${edge.key}`)
       }
     }
-    expect(new Set(doubling)).toEqual(new Set(Object.keys(DOUBLING_BACK)))
+    expect(doubling.toSorted()).toEqual(Object.keys(DOUBLING_BACK).toSorted())
   })
 
   it.each(MODES_UNDER_TEST)('fits %s at least twice as large as the full-pitch baseline, with Execution current', (mode) => {
