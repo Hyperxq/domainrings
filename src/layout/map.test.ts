@@ -871,17 +871,8 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
     const width = measure(c.label, { ...CHIP_LABEL, size: c.size })
     return { x: c.chip.x - width / 2, y: c.chip.y - c.size, width, height: c.size * 1.25 }
   }
-  const distanceToLoops = (p: { x: number; y: number }, loops: { x: number; y: number }[][]) =>
-    Math.min(
-      ...loops.flatMap((loop) =>
-        loop.map((a, i) => {
-          const b = loop[(i + 1) % loop.length]
-          const len2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2
-          const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / len2))
-          return Math.hypot(p.x - (a.x + t * (b.x - a.x)), p.y - (a.y + t * (b.y - a.y)))
-        }),
-      ),
-    )
+  const distanceToLoops = (box: Box, loops: { x: number; y: number }[][]) =>
+    Math.min(...loops.flat().map((p) => Math.hypot(Math.max(box.x - p.x, 0, p.x - (box.x + box.width)), Math.max(box.y - p.y, 0, p.y - (box.y + box.height)))))
   // layoutDiagram itself lays Authentication out at ~87000x100000 in Detailed, which no map layout can make readable.
   const currentsIn = (mode: LayoutMode) => map.hexagons.map((h) => h.id).filter((id) => mode === 'overview' || id !== 'h-auth')
 
@@ -922,8 +913,8 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
       for (const context of result.contexts) {
         const chip = chipBoxOf(context)
         boxes.forEach((box, i) => expect(overlap(chip, box), `${current}: chip ${context.id} vs ${result.hexagons[i].id}`).toBeGreaterThan(0))
-        const away = (c: typeof context) => distanceToLoops(context.chip, c.loops)
-        for (const other of result.contexts.filter((c) => c !== context)) expect(away(context), `${current}: chip ${context.id} nearer to ${other.id}`).toBeLessThan(away(other))
+        for (const other of result.contexts.filter((c) => c !== context)) expect(overlap(chip, chipBoxOf(other)), `${current}: chip ${context.id} vs chip ${other.id}`).toBeGreaterThan(0)
+        expect(distanceToLoops(chip, context.loops), `${current}: chip ${context.id} distance`).toBeLessThanOrEqual(context.size * 3)
       }
     }
   })

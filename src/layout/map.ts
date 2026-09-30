@@ -112,8 +112,10 @@ const LANE_PITCH = 10
 const MAX_LANE_OFFSET = MAP_GAP / 2 - GAP_MARGIN
 /** Vertical clearance between a region's topmost vertex and its chip. */
 const CHIP_GAP = 12
+/** A chip's line height over its font size. */
+const CHIP_LINE = 1.25
 /** How far from its region a chip on a crowded map may sit, nearest first. */
-const CHIP_REACHES = [1, 2, 3, 4, 6].map((k) => k * CHIP_GAP)
+const CHIP_REACHES = [1, 2, 3, 4, 5, 6, 7].map((k) => k * CHIP_GAP)
 /** The on-screen chip text size a fitted map must not fall below, in px. */
 const CHIP_FLOOR_PX = 10
 /** The stage area a 1440x900 window leaves for the map once the editor and toolbar islands are reserved — the
@@ -126,16 +128,18 @@ const REFERENCE_STAGE = { width: 1100, height: 820 }
  * the region into clear space; the topmost vertex only if nothing is clear.
  *
  * With the chip's `text` extent, "clear" covers all of the text rather than just its baseline point, and a crowded
- * map also gets spots further out (`CHIP_REACHES`) and slid sideways by half the text — a name wider than the
+ * map also gets spots further out (`CHIP_REACHES`) and slid sideways by up to half the text — a name wider than the
  * hexagon it labels would otherwise always run into the neighbour beside it. */
 function chipAnchor(loops: Point[][], all: Point[][][], hexagons: Box[], text?: { width: number; size: number }): Point {
   const inBox = (p: Point, b: Box) => p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height
   const keepOut = hexagons.map((b): Box =>
-    text ? { x: b.x - text.width / 2, y: b.y - text.size / 4, width: b.width + text.width, height: b.height + text.size * 1.25 } : { ...b, y: b.y - CHIP_GAP, height: b.height + CHIP_GAP },
+    text ? { x: b.x - text.width / 2, y: b.y - text.size / 4, width: b.width + text.width, height: b.height + text.size * CHIP_LINE } : { ...b, y: b.y - CHIP_GAP, height: b.height + CHIP_GAP },
   )
   const probes = (p: Point): Point[] =>
     text ? [p, { x: p.x - text.width / 2, y: p.y - text.size }, { x: p.x + text.width / 2, y: p.y - text.size }, { x: p.x - text.width / 2, y: p.y }, { x: p.x + text.width / 2, y: p.y }, { x: p.x, y: p.y - text.size }] : [p]
-  const clear = (p: Point) => !probes(p).some((q) => all.some((region) => pointInRegion(q, region))) && !keepOut.some((b) => inBox(p, b))
+  const inText = (v: Point, p: Point) => text !== undefined && Math.abs(v.x - p.x) <= text.width / 2 && v.y >= p.y - text.size && v.y <= p.y
+  const clear = (p: Point) =>
+    !probes(p).some((q) => all.some((region) => pointInRegion(q, region))) && !all.some((region) => region.flat().some((v) => inText(v, p))) && !keepOut.some((b) => inBox(p, b))
   const byHeight = (a: Point, b: Point) => a.y - b.y || a.x - b.x
   const vertices = loops.flat().sort(byHeight)
   const edgeSpots = (gap: number) =>
@@ -151,7 +155,7 @@ function chipAnchor(loops: Point[][], all: Point[][][], hexagons: Box[], text?: 
         }),
       )
       .sort(byHeight)
-  for (const dx of text ? [0, -text.width / 2, text.width / 2] : [0]) {
+  for (const dx of text ? [0, -0.25, 0.25, -0.5, 0.5].map((k) => k * text.width) : [0]) {
     for (const gap of text ? CHIP_REACHES : [CHIP_GAP]) {
       const spot = vertices.map((v): Point => ({ x: v.x + dx, y: v.y - gap })).find(clear) ?? edgeSpots(gap).map((p): Point => ({ x: p.x + dx, y: p.y })).find(clear)
       if (spot) return spot
@@ -163,7 +167,7 @@ function chipAnchor(loops: Point[][], all: Point[][][], hexagons: Box[], text?: 
 /** A chip's approximate footprint (the text rises `size` above its baseline), so a long context name still grows
  * the map's bounds to include it. */
 function chipBox(chip: Point, label: string, size: number): Box {
-  return { x: chip.x - measure(label, { ...CHIP_LABEL, size }) / 2, y: chip.y - size, width: measure(label, { ...CHIP_LABEL, size }), height: size * 1.25 }
+  return { x: chip.x - measure(label, { ...CHIP_LABEL, size }) / 2, y: chip.y - size, width: measure(label, { ...CHIP_LABEL, size }), height: size * CHIP_LINE }
 }
 
 function unionBox(boxes: Box[]): Box {
@@ -372,7 +376,9 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
     // lattice, so a map drawn with tile hulls grows the shorter axis to the regular √3/2 ratio; compact maps hug
     // footprints instead and keep the tight pitch.
     const boxX = span('right', 'left')
-    const boxY = span('bottom', 'top')
+    // A compact hexagon's chip sits above its hull and is as large as its title; two lines are kept free so chips wider
+    // than their hexagons can stagger instead of running into each other.
+    const boxY = span('bottom', 'top') + (compacting ? COMPACT_TITLE.size * unit * CHIP_LINE * 2 + 2 * CHIP_GAP : 0)
     const pitch: Point = compacting ? { x: boxX, y: boxY } : { x: Math.max(boxX, (boxY * 2) / Math.sqrt(3)), y: Math.max(boxY, (boxX * Math.sqrt(3)) / 2) }
     const cells = perHexagon.map(({ hexagon }) => cellCentre(hexagon.cell, pitch))
     const current = perHexagon.findIndex(({ compact }) => !compact)
@@ -436,7 +442,11 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
       contexts.push({ id: context.id, label: contextName(map, context.id), loops, chip: loops[0][0], size: CHIP_LABEL.size })
     }
     const placeChips = (size: number) => {
-      for (const c of contexts) c.chip = chipAnchor(c.loops, [...regions.values()], boxes, compacting ? { width: measure(c.label, { ...CHIP_LABEL, size }), size } : undefined)
+      const taken: Box[] = []
+      for (const c of contexts) {
+        c.chip = chipAnchor(c.loops, [...regions.values()], [...boxes, ...taken], compacting ? { width: measure(c.label, { ...CHIP_LABEL, size }), size } : undefined)
+        if (compacting) taken.push(chipBox(c.chip, c.label, size))
+      }
     }
     const contentBounds = unionBox([bounds, ...contexts.flatMap((c) => c.loops.flat().map((p): Box => ({ x: p.x, y: p.y, width: 0, height: 0 })))])
     const boundsWith = (size: number) => unionBox([contentBounds, ...contexts.map((c) => chipBox(c.chip, c.label, size))])
