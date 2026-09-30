@@ -1,6 +1,7 @@
 import type { Box, Point } from './layout'
 
-/** What a route must keep off: every hexagon's box and every context chip, inside the map's own `within` area. */
+/** What a route must keep off: every hexagon's box and every context chip. It runs inside the map's own `within` area,
+ * or one channel beyond it — the way round a hexagon on the map's edge. */
 export interface Scene {
   hexagons: Box[]
   chips: Box[]
@@ -12,7 +13,7 @@ const CHANNEL = 30
 /** A chip is small text, so a route may pass closer to it than to a hexagon. */
 const CHIP_MARGIN = 8
 /** How near a route may run to a box before it counts as touching it. */
-const CLEARANCE = 4
+const CLEARANCE = 1
 /** What a bend costs, in the units of length: a route prefers a few long runs to a staircase. */
 const BEND_COST = 40
 
@@ -62,8 +63,9 @@ class Heap<T> {
     if (items.length) {
       items[0] = last
       for (let i = 0; ; ) {
-        const child = [2 * i + 1, 2 * i + 2].filter((c) => c < items.length).sort((a, b) => items[a][0] - items[b][0])[0]
-        if (child === undefined || items[child][0] >= last[0]) break
+        const left = 2 * i + 1
+        const child = left + 1 < items.length && items[left + 1][0] < items[left][0] ? left + 1 : left
+        if (child >= items.length || items[child][0] >= last[0]) break
         ;[items[i], items[child]] = [items[child], items[i]]
         i = child
       }
@@ -73,42 +75,45 @@ class Heap<T> {
 }
 
 /**
- * An orthogonal route from `from` to `to` that keeps clear of every box in `scene`, or `undefined` when there is none.
+ * An orthogonal route from one of the `from` points to one of the `to` points that keeps clear of every box in `scene`,
+ * or `undefined` when there is none — a point sealed in by boxes is simply never the one used.
  * The route runs along the lines a hexagon's edge leaves `CHANNEL` away — the midline of the gap to the next hexagon,
  * shifted by `lane` so parallel links stay apart — and `CHIP_MARGIN` off a chip's edge, searched A*-style with
  * `BEND_COST` per bend. The lines only need to exist where a route may turn, so the graph is never built: a node is
  * a crossing of one x line and one y line, and its neighbours are the next crossings along each line.
  */
-export function routeAround(from: Point, to: Point, { hexagons, chips, within }: Scene, lane = 0): Point[] | undefined {
+export function routeAround(from: readonly Point[], to: readonly Point[], { hexagons, chips, within }: Scene, lane = 0): Point[] | undefined {
   const boxes = [...hexagons, ...chips]
   const lines = (pos: 'x' | 'y', len: 'width' | 'height') => {
-    const [min, max] = [within[pos], within[pos] + within[len]]
+    const [min, max] = [within[pos] - CHANNEL, within[pos] + within[len] + CHANNEL]
     const near = [
       ...hexagons.flatMap((b) => [b[pos] - CHANNEL + lane, b[pos] + b[len] + CHANNEL + lane]),
       ...chips.flatMap((b) => [b[pos] - CHIP_MARGIN, b[pos] + b[len] + CHIP_MARGIN]),
     ].filter((v) => v >= min && v <= max)
-    return [...new Set([from[pos], to[pos], ...near])].sort((a, b) => a - b)
+    return [...new Set([...from.map((p) => p[pos]), ...to.map((p) => p[pos]), ...near])].sort((a, b) => a - b)
   }
   const xs = lines('x', 'width')
   const ys = lines('y', 'height')
   const at = (i: number, j: number): Point => ({ x: xs[i], y: ys[j] })
-  const goal = { i: xs.indexOf(to.x), j: ys.indexOf(to.y) }
-  const distance = (i: number, j: number) => Math.abs(xs[i] - to.x) + Math.abs(ys[j] - to.y)
+  const goals = to.map((p) => ({ i: xs.indexOf(p.x), j: ys.indexOf(p.y), at: p }))
+  const distance = (i: number, j: number) => Math.min(...to.map((p) => Math.abs(xs[i] - p.x) + Math.abs(ys[j] - p.y)))
 
   // A search state is a crossing plus the way it was entered; 4 means "not entered yet", so the first run is no bend.
   const state = (i: number, j: number, step: number) => (i * ys.length + j) * 5 + step
   const cost = new Map<number, number>()
   const parent = new Map<number, number>()
   const open = new Heap<{ i: number; j: number; step: number; cost: number }>()
-  const start = { i: xs.indexOf(from.x), j: ys.indexOf(from.y), step: 4, cost: 0 }
-  cost.set(state(start.i, start.j, start.step), 0)
-  open.push(0, start)
+  for (const p of from) {
+    const start = { i: xs.indexOf(p.x), j: ys.indexOf(p.y), step: 4, cost: 0 }
+    cost.set(state(start.i, start.j, start.step), 0)
+    open.push(distance(start.i, start.j), start)
+  }
 
   while (open.size) {
     const here = open.pop()
     const key = state(here.i, here.j, here.step)
     if (here.cost > cost.get(key)!) continue
-    if (here.i === goal.i && here.j === goal.j) {
+    if (goals.some((g) => g.i === here.i && g.j === here.j)) {
       const route: Point[] = []
       for (let k: number | undefined = key; k !== undefined; k = parent.get(k)) {
         const cell = (k - (k % 5)) / 5
