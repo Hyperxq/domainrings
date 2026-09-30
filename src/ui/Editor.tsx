@@ -1,43 +1,24 @@
 import type { ReactNode } from 'react'
-import { flushSync } from 'react-dom'
 import { HEXAGONAL_KIND } from '../model/kinds'
-import {
-  defaultWall,
-  DomainTypeSchema,
-  DRIVING_WALLS,
-  SideSchema,
-  WallSchema,
-  type Diagram,
-  type HexaMap,
-  type LinkEnd,
-  type Side,
-  type Wall,
-} from '../model/schema'
-import { parentCandidates } from '../model/links'
+import type { Diagram, HexaMap, LinkEnd } from '../model/schema'
 import { contextName, diagramOf, freeSides, occupiedContexts, UNTITLED_HEXAGON, type Destination, type LinkPatch } from '../model/map'
 import { useMapStore } from '../model/store'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Fold } from './Fold'
 import { Icon } from './Icon'
 import { sessionOf, type FieldSession, type OnPrune, type OnRecord } from './editor/fieldSession'
+import { CollectionSections } from './editor/CollectionSections'
 import { ContextsSection } from './editor/ContextsSection'
-import { ItemSection } from './editor/ItemSection'
-import { LinkSelect } from './editor/LinkSelect'
 import { LinksSection } from './editor/LinksSection'
 import { MapSection } from './editor/MapSection'
-import { revealInEditor } from './revealInEditor'
 
-const { addItem, setMeta } = useMapStore.getState()
-
-const WALL_LABEL: Record<Wall, string> = { nw: 'North-west', w: 'West', sw: 'South-west', ne: 'North-east', e: 'East', se: 'South-east' }
+const { setMeta } = useMapStore.getState()
 
 const NO_FREE_SIDE_HINT = 'No free side around this hexagon.'
 const LAST_HEXAGON_HINT = 'A map needs at least one hexagon.'
 const NO_CONTEXT_TO_MOVE_HINT = 'This hexagon is alone in the only bounded context.'
 /** Stands in for a context id in the move menu: a new context has none yet. */
 const NEW_CONTEXT = ''
-
-const DOMAIN_TYPE_LABEL = { entity: 'Entity', valueObject: 'Value object', aggregate: 'Aggregate', domainService: 'Domain service' }
 
 interface HintedButtonProps {
   enabled: boolean
@@ -62,23 +43,6 @@ function Hint({ id, children }: { id: string; children: ReactNode }) {
       {children}
     </p>
   )
-}
-
-const article = (word: string) => (/^[aeiou]/i.test(word) ? 'an' : 'a')
-const capitalise = (text: string) => text[0].toUpperCase() + text.slice(1)
-
-/** A new port lands on its side's default wall, with the caret already in its name. */
-function addPort(hexId: string, side: Side) {
-  let id = ''
-  flushSync(() => {
-    id = addItem(hexId, 'ports', { side, wall: defaultWall(side) })
-  })
-  revealInEditor(id, true)
-}
-
-function adaptersBySide(d: Diagram) {
-  const portSide = new Map(d.ports.map((p) => [p.id, p.side]))
-  return (side: Side) => d.adapters.filter((a) => (a.portId ? portSide.get(a.portId) === side : true))
 }
 
 export function Editor({
@@ -125,9 +89,6 @@ export function Editor({
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   const d = diagramOf(map, hexId)
-  const labels = HEXAGONAL_KIND.labels
-  const adaptersOn = adaptersBySide(d)
-  const sideLabel: Record<Side, string> = { driving: labels.drivingPort, driven: labels.drivenPort }
   const currentCell = map.hexagons.find((h) => h.id === hexId)?.cell
   const canGrow = !!currentCell && freeSides(map, currentCell).length > 0
   const canDelete = map.hexagons.length > 1
@@ -223,148 +184,7 @@ export function Editor({
           </ul>
         </Fold>
 
-        <ItemSection
-          hexId={hexId}
-          map={map}
-          onPrune={onPrune}
-          onRecord={onRecord}
-          fieldSession={fieldSession}
-          collection="domain"
-          items={d.domain}
-          title="Domain"
-          noun="domain item"
-          empty="No domain items yet. Add the entities and value objects at the core."
-          fields={(item, update) => (
-            <>
-              <label className="field">
-                <span>Type</span>
-                <select value={item.type} onChange={(e) => update({ type: DomainTypeSchema.parse(e.target.value) })}>
-                  {DomainTypeSchema.options.map((t) => <option key={t} value={t}>{DOMAIN_TYPE_LABEL[t]}</option>)}
-                </select>
-              </label>
-              <LinkSelect label="Belongs to" value={item.parentId} options={parentCandidates(d.domain, item.id)} onChange={(parentId) => update({ parentId })} />
-            </>
-          )}
-        />
-
-        <ItemSection
-          hexId={hexId}
-          map={map}
-          onPrune={onPrune}
-          onRecord={onRecord}
-          fieldSession={fieldSession}
-          collection="useCases"
-          items={d.useCases}
-          title="Use cases"
-          noun="use case"
-          empty="No use cases yet. Add what the application does."
-          fields={(item, update) => (
-            <label className="field">
-              <span>Placement</span>
-              <select aria-label="Placement" value={item.placement ?? 'top'} onChange={(e) => update({ placement: e.target.value === 'top' ? undefined : WallSchema.parse(e.target.value) })}>
-                <option value="top">Under the title</option>
-                {WallSchema.options.map((w) => <option key={w} value={w}>{WALL_LABEL[w]}</option>)}
-              </select>
-            </label>
-          )}
-        />
-
-        <ItemSection
-          hexId={hexId}
-          map={map}
-          onPrune={onPrune}
-          onRecord={onRecord}
-          fieldSession={fieldSession}
-          collection="ports"
-          items={d.ports}
-          title="Ports"
-          noun="port"
-          actions={SideSchema.options.map((side) => (
-            <button
-              key={side}
-              type="button"
-              className="text-button small"
-              aria-label={`Add ${article(sideLabel[side])} ${sideLabel[side]}`}
-              title={`Add ${article(sideLabel[side])} ${sideLabel[side]}`}
-              onClick={() => {
-                onRecord({ map, focus: hexId })
-                addPort(hexId, side)
-              }}
-            >
-              + {sideLabel[side].split(' ')[0]}
-            </button>
-          ))}
-          groups={SideSchema.options.map((side) => ({ key: side, title: `${capitalise(sideLabel[side])}s`, items: d.ports.filter((p) => p.side === side) }))}
-          empty="No ports yet. Add one per boundary the use cases expose or need."
-          fields={(item, update) => (
-            <>
-              <label className="field">
-                <span>Side</span>
-                {/* A wall belongs to one side's half, so changing side drops it back to that side's default. */}
-                <select value={item.side} onChange={(e) => update({ side: SideSchema.parse(e.target.value), wall: undefined })}>
-                  {SideSchema.options.map((s) => <option key={s} value={s}>{sideLabel[s]}</option>)}
-                </select>
-              </label>
-              <label className="field">
-                <span>Wall</span>
-                <select value={item.wall ?? defaultWall(item.side)} onChange={(e) => update({ wall: WallSchema.parse(e.target.value) })}>
-                  {WallSchema.options
-                    .filter((w) => DRIVING_WALLS.has(w) === (item.side === 'driving'))
-                    .map((w) => <option key={w} value={w}>{WALL_LABEL[w]}</option>)}
-                </select>
-              </label>
-              <LinkSelect label="Use case" value={item.useCaseId} options={d.useCases} onChange={(useCaseId) => update({ useCaseId })} />
-            </>
-          )}
-        />
-
-        <ItemSection
-          hexId={hexId}
-          map={map}
-          onPrune={onPrune}
-          onRecord={onRecord}
-          fieldSession={fieldSession}
-          collection="adapters"
-          items={d.adapters}
-          title="Adapters"
-          noun="adapter"
-          empty="No adapters yet. Add the code that plugs into a port."
-          fields={(item, update) => (
-            <LinkSelect label="Port" value={item.portId} options={d.ports.map((p) => ({ id: p.id, name: `${p.name} (${sideLabel[p.side]})` }))} onChange={(portId) => update({ portId })} />
-          )}
-        />
-
-        <ItemSection
-          hexId={hexId}
-          map={map}
-          onPrune={onPrune}
-          onRecord={onRecord}
-          fieldSession={fieldSession}
-          collection="actors"
-          items={d.actors}
-          title="Actors"
-          noun="actor"
-          empty="No actors yet. Add who or what drives the application."
-          fields={(item, update) => (
-            <LinkSelect label="Calls adapter" value={item.adapterId} options={adaptersOn('driving')} onChange={(adapterId) => update({ adapterId })} />
-          )}
-        />
-
-        <ItemSection
-          hexId={hexId}
-          map={map}
-          onPrune={onPrune}
-          onRecord={onRecord}
-          fieldSession={fieldSession}
-          collection="externals"
-          items={d.externals}
-          title="External systems"
-          noun="external system"
-          empty="No external systems yet. Add databases, APIs and services the adapters talk to."
-          fields={(item, update) => (
-            <LinkSelect label="Used by adapter" value={item.adapterId} options={adaptersOn('driven')} onChange={(adapterId) => update({ adapterId })} />
-          )}
-        />
+        <CollectionSections hexId={hexId} map={map} diagram={d} onPrune={onPrune} onRecord={onRecord} fieldSession={fieldSession} />
       </div>
     </aside>
   )
