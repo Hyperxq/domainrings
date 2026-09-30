@@ -79,7 +79,7 @@ function buildOnionModel(doc: OnionFile, orderedElementsOn: (role: string) => re
 
   const outer = rings[rings.length - 1]
   const outerElements = elements.filter((e) => e.ringRole === outer.role).map((e) => ({ x: e.x, y: e.y, width: ringedElementWidth(e.name, e.kind), height: ringedElementHeight(e.name, e.kind) }))
-  const { endpoints, extraReach } = endpointLayout(doc.actors, doc.externals, outer, outerElements)
+  const { endpoints, extraReach } = endpointLayout(doc.actors, doc.externals, outer, outerElements, elementAt)
 
   const dependencyEdges: Omit<OnionEdgeLayout, 'control'>[] = doc.dependencies.flatMap((dep: OnionDependency) => {
     const from = elementAt.get(dep.fromId)

@@ -28,6 +28,7 @@ afterEach(cleanup)
 /** The stage as the app wires it: laid out from the live store. */
 function Harness({
   highlight = true,
+  dependents = false,
   onReveal = () => {},
   onGrow = () => {},
   onLink = () => {},
@@ -40,6 +41,7 @@ function Harness({
   onToggleExpanded = () => {},
 }: {
   highlight?: boolean
+  dependents?: boolean
   onReveal?: (ref: string, focus: boolean) => void
   onGrow?: (side: import('../model/schema').Wall, context: 'same' | 'new') => void
   onLink?: (source: string, choice: import('../model/links').LinkChoice) => void
@@ -78,6 +80,7 @@ function Harness({
       onLink={onLink}
       showGuides
       highlight={highlight}
+      dependents={dependents}
       contextLabel={contextName(map, currentContextId)}
       onGrow={onGrow}
       naming={naming}
@@ -1415,5 +1418,52 @@ describe('Stage — dependency chain emphasis', () => {
 
     expect(chained(container, 'h2')).toEqual(['d-email', 'd-feedback', 'd-rating', 'p-submit', 'uc-submit'])
     expect(container.querySelector('.map-link')!.hasAttribute('data-chain')).toBe(true)
+  })
+
+  describe('as dependents', () => {
+    it('emphasizes what depends on the selection, and marks the canvas as showing dependents', () => {
+      const { container } = render(<Harness dependents />)
+
+      select(container, 'd-rating')
+
+      expect(svg(container).getAttribute('data-emphasis')).toBe('dependents')
+      expect(chained(container)).toEqual(['a-email', 'a-http', 'a-knex', 'a-legacy', 'act-frontend', 'd-rating', 'ext-legacy', 'ext-mailgun', 'ext-pg', 'p-notify', 'p-repo', 'p-submit', 'p-users', 'uc-submit'])
+    })
+
+    it('leaves the dependencies marking untouched when off', () => {
+      const { container } = render(<Harness />)
+      select(container, 'd-rating')
+      expect(svg(container).getAttribute('data-emphasis')).toBe('')
+      expect(chained(container)).toEqual(['d-feedback', 'd-rating'])
+    })
+
+    it('follows a link backwards into the caller hexagon', () => {
+      useMapStore.getState().replace(linkedTwoHexMap())
+      act(() => useMapStore.getState().setFocus('h2'))
+      const { container } = render(<Harness dependents />)
+
+      select(container, 'p-submit', 'h2')
+
+      expect(chained(container, 'h2')).toEqual(['a-http', 'act-frontend', 'p-submit'])
+      expect(chained(container, 'h1')).toEqual(['a-knex', 'ext-pg', 'p-repo'])
+      expect(container.querySelector('.map-link')!.hasAttribute('data-chain')).toBe(true)
+    })
+
+    it('stops at the port of a compact caller', () => {
+      useMapStore.getState().replace(manyHexagonMap(6))
+      act(() => useMapStore.getState().setFocus('h2'))
+      const { container } = render(<Harness dependents />)
+
+      select(container, 'p-submit', 'h2')
+
+      expect(chained(container, 'h1')).toEqual(['p-repo'])
+    })
+
+    it('is off with Highlight off', () => {
+      const { container } = render(<Harness dependents highlight={false} />)
+      select(container, 'd-rating')
+      expect(svg(container).hasAttribute('data-emphasis')).toBe(false)
+      expect(container.querySelector('[data-chain]')).toBeNull()
+    })
   })
 })

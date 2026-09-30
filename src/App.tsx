@@ -71,6 +71,7 @@ const LEGEND_EXPORT_KEY = 'domainrings:legend-export'
 const OVERVIEW_KEY = 'domainrings:overview'
 const GUIDES_KEY = 'domainrings:guides'
 const HIGHLIGHT_KEY = 'domainrings:highlight'
+const DEPENDENTS_KEY = 'domainrings:dependents'
 const LEGEND_OPEN_KEY = 'domainrings:legend-open'
 const NONE_EXPANDED: ReadonlySet<string> = new Set()
 const { replace, restore, removeItem, updateItem, addHexagon, importHexagon, removeHexagon, moveToContext, setMeta, addLink, updateLink: updateLinkAction, removeLink: removeLinkAction } = useMapStore.getState()
@@ -113,6 +114,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const [mode, setMode] = useState<LayoutMode>(() => (readPref(OVERVIEW_KEY, false) ? 'overview' : 'detailed'))
   const [guides, setGuides] = useState(() => readPref(GUIDES_KEY, true))
   const [highlight, setHighlight] = useState(() => readPref(HIGHLIGHT_KEY, true))
+  const [dependents, setDependents] = useState(() => readPref(DEPENDENTS_KEY, false))
   // View state, not part of the document: which hexagons the author expanded, kept for the document they were chosen in.
   const [viewed, setViewed] = useState<{ revision: number; expanded: ReadonlySet<string> }>({ revision, expanded: new Set() })
   const expanded = viewed.revision === revision ? viewed.expanded : NONE_EXPANDED
@@ -601,6 +603,11 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           writePref(HIGHLIGHT_KEY, on)
           setHighlight(on)
         }}
+        dependents={dependents}
+        onDependents={(on) => {
+          writePref(DEPENDENTS_KEY, on)
+          setDependents(on)
+        }}
         onExpandAll={activeKind === 'hexagonal' && canCompact(map.hexagons.length) ? (expand) => setViewed({ revision, expanded: new Set(expand ? map.hexagons.map((h) => h.id) : []) }) : undefined}
       />
       {activeKind === 'hexagonal' && (
@@ -641,6 +648,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
             diagram={diagram}
             mode={mode}
             highlight={highlight}
+            dependents={dependents}
             legend={legend}
             revision={revision}
             title={diagram.title}

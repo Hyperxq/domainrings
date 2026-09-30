@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { parseHexa } from '../model/hexa'
 import type { CleanFile, OnionFile } from '../model/schema'
@@ -7,6 +9,7 @@ import { layoutClean, type CleanLayoutModel } from '../layout/clean'
 import { layoutOnion } from '../layout/onion'
 import { ringedElementHeight, ringedElementWidth, ringElementRadius, titleHalfSpan, TITLE_ARC_PAD, TITLE_LINE } from '../layout/ringed'
 import { measure, RING_LABEL, RING_SUBTITLE } from '../layout/text'
+import { RingedEdge } from '../render/RingedNodes'
 
 const FILES = ['onion', 'clean'].flatMap((kind) => ['basic', 'advanced', 'stress'].map((level) => `${kind}-${level}.hexa`))
 
@@ -71,18 +74,25 @@ function boxTouches(box: Rect, f: Footprint): boolean {
   return false
 }
 
-/** The path Detailed view (the default) draws an edge along: a quadratic bowed through the layout's own control
- * point (`render/RingedNodes.tsx`). Overview draws straight chords, which no control point can steer. */
-function edgeSamples(edge: { from: Pt; to: Pt; control: Pt }): Pt[] {
+function quadraticSamples(from: Pt, to: Pt, control: Pt): Pt[] {
   const STEPS = 400
   return Array.from({ length: STEPS + 1 }, (_, i) => {
     const t = i / STEPS
     const u = 1 - t
-    return {
-      x: u * u * edge.from.x + 2 * u * t * edge.control.x + t * t * edge.to.x,
-      y: u * u * edge.from.y + 2 * u * t * edge.control.y + t * t * edge.to.y,
-    }
+    return { x: u * u * from.x + 2 * u * t * control.x + t * t * to.x, y: u * u * from.y + 2 * u * t * control.y + t * t * to.y }
   })
+}
+
+/** Detailed draws each edge as a quadratic bowed through the layout's own control point. */
+const detailedSamples = (edge: { from: Pt; to: Pt; control: Pt }): Pt[] => quadraticSamples(edge.from, edge.to, edge.control)
+
+/** Overview draws what `RingedEdge` paints by default; its `d` is parsed back (`M x yL x y`, or `M x yQ cx cy x y`)
+ * so a change to how it draws an edge can't slip past this test. A straight chord is its own midpoint's quadratic. */
+function overviewSamples(edge: { from: Pt; to: Pt; control: Pt }): Pt[] {
+  const markup = renderToStaticMarkup(createElement('svg', null, createElement(RingedEdge, { edge: { key: 'e', kind: 'dependency', ...edge }, markerId: 'a' })))
+  const nums = [.../ d="([^"]+)"/.exec(markup)![1].matchAll(/-?[\d.]+(?:e-?\d+)?/g)].map((m) => Number(m[0]))
+  const control = nums.length === 6 ? { x: nums[2], y: nums[3] } : { x: (edge.from.x + edge.to.x) / 2, y: (edge.from.y + edge.to.y) / 2 }
+  return quadraticSamples(edge.from, edge.to, control)
 }
 
 describe('at fit, no ring title or sector name is touched by a box or an edge (Onion/Clean examples)', () => {
@@ -97,13 +107,15 @@ describe('at fit, no ring title or sector name is touched by a box or an edge (O
         expect(hits).toEqual([])
       })
 
-      it('no edge crosses a title or sector name (Detailed, the default view)', () => {
-        const hits = model.edges.flatMap((edge) => {
-          const samples = edgeSamples(edge).filter((p) => !boxes.some((b) => insideRect(p, b)))
-          return labels.filter((f) => samples.some((p) => insideFootprint(p, f))).map((f) => `${f.name} × edge ${edge.fromRef} → ${edge.toRef}`)
+      for (const [view, sample] of [['Detailed, the default view', detailedSamples], ['Overview', overviewSamples]] as const) {
+        it(`no edge crosses a title or sector name (${view})`, () => {
+          const hits = model.edges.flatMap((edge) => {
+            const samples = sample(edge).filter((p) => !boxes.some((b) => insideRect(p, b)))
+            return labels.filter((f) => samples.some((p) => insideFootprint(p, f))).map((f) => `${f.name} × edge ${edge.fromRef} → ${edge.toRef}`)
+          })
+          expect(hits).toEqual([])
         })
-        expect(hits).toEqual([])
-      })
+      }
     })
   }
 })

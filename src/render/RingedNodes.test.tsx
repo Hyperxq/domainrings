@@ -12,7 +12,7 @@ function parseQuadratic(d: string): { control: { x: number; y: number } } {
 const renderEdge = (edge: RingedEdgeLayout) => {
   const { container } = render(
     <svg>
-      <RingedEdge edge={edge} markerId="arrow" curved />
+      <RingedEdge edge={edge} markerId="arrow" />
     </svg>,
   )
   return container.querySelector('path')!.getAttribute('d')!
