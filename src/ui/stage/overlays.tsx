@@ -1,4 +1,5 @@
-import type { LayoutNode, Point } from '../../layout/layout'
+import type { LayoutNode } from '../../layout/layout'
+import type { Point } from '../../layout/geometry'
 import { canCompact } from '../../layout/compactHexagon'
 import { hexagonBounds } from '../../layout/lattice'
 import { growAnchor, hexagonTitle, type MapHexagonLayout, type MapLayout } from '../../layout/map'

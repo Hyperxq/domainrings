@@ -13,8 +13,6 @@ import { seatUseCases } from './hexagon/useCaseSeating'
 import { VERTEX } from './hexagon/walls'
 import type { TextLine } from './text'
 
-export type { Box, Point } from './geometry'
-
 /** Colour = side or layer: driving and driven pills, slate external systems, teal ports and use cases. */
 export type Tone = 'driving' | 'driven' | 'teal' | 'slate' | 'muted' | 'domain'
 export type NodeKind =

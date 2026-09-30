@@ -13,7 +13,7 @@ import type { HexaMap } from '../model/schema'
 import { parseHexa } from '../model/hexa'
 import { hexGroup, linkedTwoHexMap, manyHexagonMap, twoHexMap } from '../test/fixtures'
 import { contains, fitMap, fitTo, islandInset, MIN_FIT_SCALE, MIN_SCALE, pinch, visibleRect, zoomAt } from './viewport'
-import type { Box, Point } from '../layout/layout'
+import type { Box, Point } from '../layout/geometry'
 import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
 
 beforeAll(() => {

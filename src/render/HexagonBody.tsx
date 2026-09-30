@@ -1,5 +1,6 @@
 import type { CompactLayout } from '../layout/compactHexagon'
-import type { LayoutEdge, LayoutModel, LayoutNode, LayoutText, Point } from '../layout/layout'
+import type { LayoutEdge, LayoutModel, LayoutNode, LayoutText } from '../layout/layout'
+import type { Point } from '../layout/geometry'
 import { EDGE_LABEL, LINE_METRICS, SUBTITLE, TAG_GAP, TITLE } from '../layout/text'
 import { bandPath } from './band'
 import { Ring } from './Ring'

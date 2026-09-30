@@ -1,4 +1,5 @@
-import type { LayoutMode, Point } from '../layout/layout'
+import type { LayoutMode } from '../layout/layout'
+import type { Point } from '../layout/geometry'
 import { edgeControl } from '../layout/edgeRouting'
 import type { RingedKind } from '../model/ringedKinds'
 import { endpointLabelHeight, endpointLines, KIND_LINE_STEP, KIND_METRICS, RINGED_ELEMENT_METRICS, RINGED_ENDPOINT_DIAMETER, ringedElementHeight, ringedElementLines, ringedElementWidth, ringedKindHeight, ringedKindLines } from '../layout/ringedMetrics'

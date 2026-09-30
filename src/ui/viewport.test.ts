@@ -3,7 +3,7 @@ import { contains, EDITOR_CHIP_BOTTOM, fitMap, fitTo, islandInset, LEGEND_ISLAND
 import { hexagonBounds } from '../layout/lattice'
 import { currentHexagon, layoutMap } from '../layout/map'
 import { TWO_SLICES_MAP } from '../model/example'
-import type { Point } from '../layout/layout'
+import type { Point } from '../layout/geometry'
 
 describe('viewport', () => {
   const v = { x: -100, y: -50, scale: 2 }

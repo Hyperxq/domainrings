@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { Box } from '../layout/layout'
+import type { Box } from '../layout/geometry'
 import { LEGEND_GAP, LEGEND_HEADING, LEGEND_PAD, LEGEND_ROW, legendSections, LEGEND_SWATCH, legendSize, type LegendModel } from '../layout/legend'
 import { LINE_METRICS } from '../layout/text'
 
