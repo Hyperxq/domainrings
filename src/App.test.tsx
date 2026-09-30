@@ -654,6 +654,22 @@ describe('legend island', () => {
   })
 })
 
+describe('dependents preference', () => {
+  beforeEach(() => localStorage.removeItem('domainrings:dependents'))
+  afterEach(() => localStorage.removeItem('domainrings:dependents'))
+
+  it('reaches the stage as the dependents emphasis and persists', () => {
+    const { container } = render(<App />)
+    fireEvent.click(onCanvas(container, EXAMPLE_DIAGRAM.useCases[0].id))
+    expect(container.querySelector('svg.canvas')!.getAttribute('data-emphasis')).toBe('')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dependents' }))
+
+    expect(container.querySelector('svg.canvas')!.getAttribute('data-emphasis')).toBe('dependents')
+    expect(localStorage.getItem('domainrings:dependents')).toBe('true')
+  })
+})
+
 describe('appearance menu', () => {
   const root = document.documentElement
   const choose = (name: RegExp) => {

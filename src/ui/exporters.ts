@@ -145,7 +145,7 @@ const STEP_DOWN = 0.75
 const encode = (canvas: HTMLCanvasElement) => new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
 
 /** Encodes at `pixelRatio`, stepping the ratio down while the browser refuses the canvas (it yields no blob once
- * a canvas passes the engine's size limit, which is far lower in Safari than in Chrome). */
+ * a canvas passes the engine's size limit, which is far lower in Safari than in Chrome) or yields no 2d context. */
 export async function pngBlob(markup: string, bounds: Box, pixelRatio = 2): Promise<{ blob: Blob; pixelRatio: number }> {
   const image = new Image()
   // A data URL (not a blob URL) keeps the canvas untainted in every engine.
@@ -153,10 +153,15 @@ export async function pngBlob(markup: string, bounds: Box, pixelRatio = 2): Prom
   await image.decode()
   const fits = Math.min(MAX_CANVAS_SIDE / Math.max(bounds.width, bounds.height), Math.sqrt(MAX_CANVAS_AREA / (bounds.width * bounds.height)))
   for (let ratio = Math.min(pixelRatio, fits); ratio >= MIN_PIXEL_RATIO; ratio *= STEP_DOWN) {
+    // A clamped ratio lands the longest side on the limit exactly, so rounding up could tip it over.
+    const round = ratio >= fits ? Math.floor : Math.ceil
     const canvas = document.createElement('canvas')
-    canvas.width = Math.ceil(bounds.width * ratio)
-    canvas.height = Math.ceil(bounds.height * ratio)
-    canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height)
+    canvas.width = round(bounds.width * ratio)
+    canvas.height = round(bounds.height * ratio)
+    // WebKit reports an over-budget canvas as a null context rather than a null blob.
+    const context = canvas.getContext('2d')
+    if (!context) continue
+    context.drawImage(image, 0, 0, canvas.width, canvas.height)
     const blob = await encode(canvas)
     if (blob) return { blob, pixelRatio: ratio }
   }

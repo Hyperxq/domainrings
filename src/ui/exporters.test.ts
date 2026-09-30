@@ -238,16 +238,19 @@ describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {
 describe('pngBlob', () => {
   const area = { x: 0, y: 0, width: 2000, height: 1000 }
   let canvasSizes: number[]
+  let canvasSides: [number, number][]
   let maxPixels: number
 
   beforeEach(() => {
     canvasSizes = []
+    canvasSides = []
     maxPixels = Infinity
     ;(HTMLImageElement.prototype as unknown as { decode: () => Promise<void> }).decode = () => Promise.resolve()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D)
     vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (this: HTMLCanvasElement, cb: BlobCallback) {
       const pixels = this.width * this.height
       canvasSizes.push(pixels)
+      canvasSides.push([this.width, this.height])
       cb(pixels > maxPixels ? null : new Blob(['png'], { type: 'image/png' }))
     })
   })
@@ -277,6 +280,28 @@ describe('pngBlob', () => {
     const { pixelRatio } = await pngBlob('<svg/>', { x: 0, y: 0, width: 11600, height: 10000 })
     expect(pixelRatio).toBeLessThan(2)
     expect(canvasSizes[0]).toBeLessThanOrEqual(16384 * 16384)
+  })
+
+  it('floors the canvas sides while the ratio is clamped so none can pass the limit', async () => {
+    const { pixelRatio } = await pngBlob('<svg/>', { x: 0, y: 0, width: 10000, height: 3333.3 })
+    expect(pixelRatio).toBeCloseTo(1.6384)
+    expect(canvasSides[0]).toEqual([16384, 5461])
+  })
+
+  it('steps the ratio down when the browser yields no 2d context, as WebKit does past its canvas budget', async () => {
+    vi.mocked(HTMLCanvasElement.prototype.getContext).mockImplementation(function (this: HTMLCanvasElement) {
+      return this.width * this.height > 2_000_000 ? null : ({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D)
+    } as typeof HTMLCanvasElement.prototype.getContext)
+    const { blob, pixelRatio } = await pngBlob('<svg/>', area)
+    expect(blob.type).toBe('image/png')
+    expect(pixelRatio).toBeLessThan(2)
+    expect(canvasSizes.every((pixels) => pixels <= 2_000_000)).toBe(true)
+  })
+
+  it('rejects with the encode error when no ratio ever yields a 2d context', async () => {
+    vi.mocked(HTMLCanvasElement.prototype.getContext).mockReturnValue(null)
+    await expect(pngBlob('<svg/>', area)).rejects.toThrow('The browser could not encode the PNG.')
+    expect(canvasSizes).toEqual([])
   })
 
   it('rejects with the encode error once even the minimum ratio is refused', async () => {
