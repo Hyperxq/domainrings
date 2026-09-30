@@ -1,9 +1,12 @@
 import { contextName, diagramOf, neighbour, occupiedContexts, UNTITLED_HEXAGON } from '../model/map'
 import type { HexaMap, Hexagon, Link, Wall } from '../model/schema'
+import { MAP_GAP } from './gap'
 import { contextRegions, footprintRegions, pointInRegion } from './hull'
 import { layoutDiagram, wallFrame, type Box, type LayoutModel, type LayoutNode, type LayoutOptions, type LayoutText, type NodeKind, type Point } from './layout'
 import { GAP_MARGIN, outwardEdgePoint, routeLink, type LinkLabel } from './links'
 import { CHIP_LABEL, measure, TITLE } from './text'
+
+export { MAP_GAP }
 
 /** The node kinds REQ-LNK-05.1 names: a routed link must cross none of them, other than the node each end
  * anchors on. Excludes decorative/label nodes (`portLabel`, titles) — not "node boxes" in the requirement's
@@ -101,8 +104,6 @@ const COMPACT_TITLE_PAD = 14
 const COMPACT_MAX_SHARE = 1 / 3
 const ELLIPSIS = '…'
 
-/** Gap kept between two adjacent hexagons' outer edges, on top of their content width. */
-export const MAP_GAP = 60
 const MAP_TITLE_GAP = 16
 /** How far a context's hull stands off the footprints of the hexagons it outlines when the lattice tiles don't. */
 const HULL_PAD = MAP_GAP / 3

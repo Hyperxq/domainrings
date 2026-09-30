@@ -1,6 +1,7 @@
 import { wallFrame } from './layout'
 import type { Box, Point } from './layout'
 import type { Wall } from '../model/schema'
+import { MAP_GAP } from './gap'
 import { crossesBox, routeAround, type Scene } from './obstacleRoute'
 
 /** One end's routing inputs: the anchor's world-space point (the port's own point, or an adapter's outer-edge
@@ -42,7 +43,7 @@ export function outwardEdgePoint(box: Box, wall: Wall): Point {
  * Small enough that a stub or a detour corner never travels more than `MAP_GAP/2` past its own box's edge — since
  * two hexagon boxes are always at least `MAP_GAP` apart (`layoutMap`'s own placement guarantee), a stub built from
  * this margin can never reach into the OTHER hexagon's box. */
-export const GAP_MARGIN = 15
+export const GAP_MARGIN = MAP_GAP / 4
 
 /** `box`'s own edge on `axis` (`'x' | 'y'`) facing `side` (`'lo'` = its min edge, `'hi'` = its max edge). */
 function edge(box: Box, axis: 'x' | 'y', side: 'lo' | 'hi'): number {
