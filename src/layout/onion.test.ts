@@ -171,3 +171,40 @@ describe('tidyOnionOrder — the explicit "Tidy ring order" action (Decision 3)'
     expect(tidyOnionOrder(newOnionMap('Fresh'))).toBeUndefined()
   })
 })
+
+describe('layoutOnion (any ring count)', () => {
+  const ring = (role: string, name: string) => ({ role, name })
+  const doc = (rings: OnionFile['rings'], elements: OnionFile['elements'] = [], dependencies: OnionFile['dependencies'] = []): OnionFile => ({ ...newOnionMap('Rings'), rings, elements, dependencies })
+
+  it.each([
+    ['two rings', [ring('domain', 'Core'), ring('outer', 'Edge')]],
+    ['three rings', [ring('domain', 'Core'), ring('ring-a1b2c3d4', 'Events'), ring('outer', 'Edge')]],
+    ['five rings', [ring('domain', 'Core'), ring('domainServices', 'Services'), ring('ring-a1b2c3d4', 'Events'), ring('application', 'App'), ring('outer', 'Edge')]],
+  ])('lays out %s, each strictly inside the next, and places an element on each ring at its own radius', (_name, rings) => {
+    const elements = rings.map((r, i) => ({ id: `e${i}`, name: `Item${i}`, ringRole: r.role }))
+    const model = layoutOnion(doc(rings, elements))
+    expect(model.rings.map((r) => r.role)).toEqual(rings.map((r) => r.role))
+    for (let i = 0; i < model.rings.length - 1; i++) expect(model.rings[i].apex).toBeLessThan(model.rings[i + 1].apex)
+    model.elements.forEach((e, i) => {
+      const radius = ringElementRadius(model.rings[i], model.rings[i - 1])
+      expect(Math.hypot(e.x, e.y)).toBeCloseTo(radius, 0)
+    })
+  })
+
+  it('draws a dependency between elements of a user-added ring and an inner ring', () => {
+    const rings = [ring('domain', 'Core'), ring('ring-a1b2c3d4', 'Events'), ring('outer', 'Edge')]
+    const elements = [
+      { id: 'a', name: 'Order', ringRole: 'domain' },
+      { id: 'b', name: 'OrderPlaced', ringRole: 'ring-a1b2c3d4' },
+    ]
+    const model = layoutOnion(doc(rings, elements, [{ id: 'd', fromId: 'b', toId: 'a' }]))
+    expect(model.edges.filter((e) => e.kind === 'dependency')).toHaveLength(1)
+  })
+
+  it('anchors actors outside the last ring whichever ring that is', () => {
+    const rings = [ring('domain', 'Core'), ring('outer', 'Edge')]
+    const model = layoutOnion({ ...doc(rings, [{ id: 'w', name: 'Web', ringRole: 'outer' }]), actors: [{ id: 'u', name: 'User', targetId: 'w' }] })
+    const outer = model.rings[1]
+    expect(Math.hypot(model.endpoints[0].x, model.endpoints[0].y)).toBeGreaterThan(outer.halfWidth)
+  })
+})
