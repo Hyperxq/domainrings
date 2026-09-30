@@ -1,6 +1,7 @@
 import { wallFrame } from './layout'
 import type { Box, Point } from './layout'
 import type { Wall } from '../model/schema'
+import { crossesBox, routeAround, type Scene } from './obstacleRoute'
 
 /** One end's routing inputs: the anchor's world-space point (the port's own point, or an adapter's outer-edge
  * point when the end carries one — REQ-LNK-05.3), its resolved wall, its own hexagon's map-space bounding box,
@@ -127,7 +128,24 @@ function sweepCrossesBox(mid: { axis: 'x' | 'y'; at: number }, other: number, fr
  * the other axis first, exactly as the obstacle jogs did.
  */
 function exitPoints(end: RouteEnd, mid: { axis: 'x' | 'y'; at: number }): Point[] {
-  const { axis, dir } = escapeAxis(end.wall)
+  const points = exitWalk(end)
+  const stub = points[points.length - 1]
+  const midOther = mid.axis === 'x' ? stub.y : stub.x
+  const stubGap = mid.axis === 'x' ? stub.x : stub.y
+  if (!sweepCrossesBox(mid, midOther, stubGap, mid.at, end.box)) return points
+
+  const midOAxis = otherAxis(mid.axis)
+  const loEdge = edge(end.box, midOAxis, 'lo')
+  const hiEdge = edge(end.box, midOAxis, 'hi')
+  const cornerOther = pastNearerEdge(midOther, loEdge, hiEdge)
+  const corner: Point = mid.axis === 'x' ? { x: stub.x, y: cornerOther } : { x: cornerOther, y: stub.y }
+  return [...points, corner]
+}
+
+/** `exitPoints` up to its stub: the escape walk alone, ending `GAP_MARGIN` outside `end.box` — before any corner detour
+ * toward a particular gap. `exit` defaults to the wall's own escape axis. */
+function exitWalk(end: RouteEnd, exit = escapeAxis(end.wall)): Point[] {
+  const { axis, dir } = exit
   const oAxis = otherAxis(axis)
   const boxExit = axisExit(end.point[axis], dir, edge(end.box, axis, 'lo'), edge(end.box, axis, 'hi'))
   const target = end.point[axis] + dir * (boxExit + GAP_MARGIN)
@@ -155,19 +173,17 @@ function exitPoints(end: RouteEnd, mid: { axis: 'x' | 'y'; at: number }): Point[
     points.push(axis === 'x' ? { x: pos, y: other } : { x: other, y: pos })
     remaining.splice(remaining.indexOf(blocking), 1)
   }
-  const stub: Point = axis === 'x' ? { x: target, y: other } : { x: other, y: target }
-  points.push(stub)
+  points.push(axis === 'x' ? { x: target, y: other } : { x: other, y: target })
+  return points
+}
 
-  const midOther = mid.axis === 'x' ? stub.y : stub.x
-  const stubGap = mid.axis === 'x' ? stub.x : stub.y
-  if (!sweepCrossesBox(mid, midOther, stubGap, mid.at, end.box)) return points
-
-  const midOAxis = otherAxis(mid.axis)
-  const loEdge = edge(end.box, midOAxis, 'lo')
-  const hiEdge = edge(end.box, midOAxis, 'hi')
-  const cornerOther = pastNearerEdge(midOther, loEdge, hiEdge)
-  const corner: Point = mid.axis === 'x' ? { x: stub.x, y: cornerOther } : { x: cornerOther, y: stub.y }
-  return [...points, corner]
+/** The way `end` leaves its own box along its wall's other axis, for a slanted wall that faces two axes at once —
+ * what a port uses when a chip or box sits right in front of its own escape axis. */
+function sideWalk(end: RouteEnd): Point[] | undefined {
+  const { axis } = escapeAxis(end.wall)
+  const { n } = wallFrame(end.wall)
+  const side = axis === 'x' ? n.y : n.x
+  return side === 0 ? undefined : exitWalk(end, { axis: otherAxis(axis), dir: Math.sign(side) as 1 | -1 })
 }
 
 /** Drops a point that repeats the one before it — the two exit-point lists can independently land on the same
@@ -187,8 +203,8 @@ export interface LinkLabel {
 /**
  * Deterministic channel route between two ports (ADR-01, refined) — a pure function of the two endpoints (plus
  * the caller-supplied `laneOffset`, itself derived only from links sharing this same gap — `layout/map.ts`'s own
- * concern, never inspected here); it never inspects any hexagon but the two endpoints, so it is O(1) per link
- * regardless of map size (REQ-LNK-05.2). Crosses via the midline of the gap the two hexagons' own boxes are
+ * concern, never inspected here); without a `scene` it never inspects any hexagon but the two endpoints, so it is
+ * O(1) per link regardless of map size (REQ-LNK-05.2). Crosses via the midline of the gap the two hexagons' own boxes are
  * guaranteed to have between them (`layout/map.ts` never places two boxes closer than `MAP_GAP`), reached from
  * each port via `exitPoints` — a bounded exit stub, plus a corner detour when the port's own wall faces away from
  * the gap — so the guarantee holds regardless of which wall either port sits on (REQ-LNK-05.1).
@@ -198,8 +214,12 @@ export interface LinkLabel {
  * two links sharing a gap land on distinct, non-overlapping parallel crossings instead of the same one
  * (REQ-LNK-05.5). The label — always the midpoint of the two (now shifted) crossings — follows automatically,
  * without separate bookkeeping (REQ-LNK-06.1 holds under lanes).
+ *
+ * With a `scene`, a route that would pass through a hexagon other than its two ends, or across a chip, is replaced by
+ * one `routeAround` finds between the two exit stubs, labelled on its longest run and flagged `detoured` — it may run
+ * outside `scene.within`, so the caller widens its bounds; when no such route exists the direct one stands.
  */
-export function routeLink(from: RouteEnd, to: RouteEnd, laneOffset = 0): { points: Point[]; label: LinkLabel } {
+export function routeLink(from: RouteEnd, to: RouteEnd, laneOffset = 0, scene?: Scene): { points: Point[]; label: LinkLabel; detoured?: true } {
   const gap = gapMidline(from.box, to.box)
   const mid = { axis: gap.axis, at: gap.at + laneOffset }
   const fromExit = exitPoints(from, mid)
@@ -207,8 +227,28 @@ export function routeLink(from: RouteEnd, to: RouteEnd, laneOffset = 0): { point
   const fromCross = onMidline(fromExit[fromExit.length - 1], mid)
   const toCross = onMidline(toExit[toExit.length - 1], mid)
 
-  return {
+  const direct = {
     points: dedupe([from.point, ...fromExit, fromCross, toCross, ...[...toExit].reverse(), to.point]),
     label: { at: { x: (fromCross.x + toCross.x) / 2, y: (fromCross.y + toCross.y) / 2 }, vertical: mid.axis === 'x' },
+  }
+  if (!scene || !crossesBox(direct.points, [...scene.hexagons, ...scene.chips])) return direct
+
+  const stub = (walk: Point[]) => walk[walk.length - 1]
+  const [fromWalks, toWalks] = [[exitWalk(from)], [exitWalk(to)]]
+  const around = { ...scene, hexagons: [...scene.hexagons, from.box, to.box] }
+  let detour = routeAround(fromWalks.map(stub), toWalks.map(stub), around, laneOffset)
+  if (!detour) {
+    for (const [end, walks] of [[from, fromWalks], [to, toWalks]] as const) walks.push(...[sideWalk(end)].filter((w) => w !== undefined))
+    detour = routeAround(fromWalks.map(stub), toWalks.map(stub), around, laneOffset)
+  }
+  if (!detour || detour.length < 2) return direct
+  const endsAt = (p: Point) => (walk: Point[]) => stub(walk).x === p.x && stub(walk).y === p.y
+  const fromWalk = fromWalks.find(endsAt(detour[0]))!
+  const toWalk = toWalks.find(endsAt(detour[detour.length - 1]))!
+  const [longest] = detour.slice(1).map((p, i) => ({ a: detour[i], b: p })).sort((s, t) => Math.hypot(t.b.x - t.a.x, t.b.y - t.a.y) - Math.hypot(s.b.x - s.a.x, s.b.y - s.a.y))
+  return {
+    points: dedupe([from.point, ...fromWalk, ...detour, ...[...toWalk].reverse(), to.point]),
+    label: { at: { x: (longest.a.x + longest.b.x) / 2, y: (longest.a.y + longest.b.y) / 2 }, vertical: longest.a.x === longest.b.x },
+    detoured: true,
   }
 }

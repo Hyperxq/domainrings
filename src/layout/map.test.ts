@@ -982,9 +982,6 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
     }
   })
 
-  // #23: routeLink only knows its two endpoint boxes, so a link between hexagons that are not neighbours crosses the
-  // ones between them, and every route ignores chips. The two `fails` tests go red once routing avoids them; the
-  // plain test above them then goes red too, as the cue to turn them into plain `it`s.
   const crossings = (mode: LayoutMode, obstacle: 'hexagon' | 'chip') => {
     let count = 0
     for (const current of currents) {
@@ -1000,18 +997,16 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
     return count
   }
 
-  it.each(MODES_UNDER_TEST)('has a route for every link and still crosses hexagons and chips in %s', (mode) => {
+  it.each(MODES_UNDER_TEST)('has a route for every link in %s', (mode) => {
     for (const current of currents) {
       const ids = layoutFor(mode, current).links.map((l) => l.id)
       expect(ids.sort()).toEqual(map.links.map((l) => l.id).sort())
     }
-    expect(crossings(mode, 'hexagon')).toBeGreaterThan(0)
-    expect(crossings(mode, 'chip')).toBeGreaterThan(0)
   })
-  it.fails.each(MODES_UNDER_TEST)('routes no link through another hexagon in %s', (mode) => {
+  it.each(MODES_UNDER_TEST)('routes no link through another hexagon in %s', (mode) => {
     expect(crossings(mode, 'hexagon')).toBe(0)
   })
-  it.fails.each(MODES_UNDER_TEST)('routes no link across a chip in %s', (mode) => {
+  it.each(MODES_UNDER_TEST)('routes no link across a chip in %s', (mode) => {
     expect(crossings(mode, 'chip')).toBe(0)
   })
 })
@@ -1069,6 +1064,22 @@ describe('layoutMap — several expanded hexagons', () => {
         const [from, to] = [link.from, link.to].map((end) => portPoint(result.hexagons.find((h) => h.id === end.hexagonId)!, end.portId, end.adapterId))
         expect(points[0], `${link.id} from`).toStrictEqual(from)
         expect(points.at(-1), `${link.id} to`).toStrictEqual(to)
+      }
+    })
+
+    it.each(SUBSETS)('routes every link orthogonally, through no other hexagon and across no chip: %s', (_, expanded) => {
+      const result = layoutWith(mode, expanded)
+      const chips = result.contexts.map((c): Box => {
+        const width = measure(c.label, { ...CHIP_LABEL, size: c.size })
+        return { x: c.chip.x - width / 2, y: c.chip.y - c.size, width, height: c.size * 1.25 }
+      })
+      for (const link of map.links) {
+        const { points } = result.links.find((l) => l.id === link.id)!
+        const others = result.hexagons.filter((h) => h.id !== link.from.hexagonId && h.id !== link.to.hexagonId).map(hexagonBounds)
+        for (let i = 0; i < points.length - 1; i++) {
+          expect(points[i].x === points[i + 1].x || points[i].y === points[i + 1].y, `${link.id} segment ${i} is orthogonal`).toBe(true)
+          expect([...others, ...chips].some((box) => segmentHitsBox(points[i], points[i + 1], box)), `${link.id} segment ${i}`).toBe(false)
+        }
       }
     })
 

@@ -497,3 +497,46 @@ describe('layoutMap — two links sharing the same hexagon-pair gap get distinct
     expect(after).toEqual(before)
   })
 })
+
+describe('routeLink — with a scene, a route through a third hexagon or a chip goes round it', () => {
+  const from: RouteEnd = { point: { x: 50, y: -10 }, wall: 'e', box: { x: -50, y: -50, width: 100, height: 100 }, clear: [] }
+  const to: RouteEnd = { point: { x: 250, y: 20 }, wall: 'w', box: { x: 250, y: -50, width: 100, height: 100 }, clear: [] }
+  const within: Box = { x: -100, y: -300, width: 500, height: 600 }
+  const third: Box = { x: 100, y: -200, width: 100, height: 400 }
+  const hits = (points: Point[], box: Box) => points.slice(1).some((p, i) => segmentPenetratesBox(points[i], p, box))
+
+  it('keeps the direct route, unflagged, when nothing is in its way', () => {
+    const clear = routeLink(from, to, 0, { hexagons: [{ x: 100, y: 100, width: 100, height: 100 }], chips: [], within })
+    expect(clear).toEqual(routeLink(from, to))
+  })
+
+  it('goes round a hexagon standing in the gap, keeping both anchors and axis-aligned segments', () => {
+    const { points, detoured } = routeLink(from, to, 0, { hexagons: [third], chips: [], within })
+    expect(detoured).toBe(true)
+    expect(points[0]).toEqual(from.point)
+    expect(points.at(-1)).toEqual(to.point)
+    expect(hits(points, third)).toBe(false)
+    expect(points.slice(1).every((p, i) => p.x === points[i].x || p.y === points[i].y)).toBe(true)
+  })
+
+  it('goes round a chip standing in the gap', () => {
+    const chip: Box = { x: 120, y: -30, width: 60, height: 60 }
+    const { points, detoured } = routeLink(from, to, 0, { hexagons: [], chips: [chip], within })
+    expect(detoured).toBe(true)
+    expect(hits(points, chip)).toBe(false)
+  })
+
+  it('puts the label on a run of the detour, turned to follow it', () => {
+    const { points, label } = routeLink(from, to, 0, { hexagons: [third], chips: [], within })
+    const run = points.slice(1).map((p, i) => ({ a: points[i], b: p })).find(({ a, b }) => label.vertical === (a.x === b.x) && label.at.x >= Math.min(a.x, b.x) && label.at.x <= Math.max(a.x, b.x) && label.at.y >= Math.min(a.y, b.y) && label.at.y <= Math.max(a.y, b.y))
+    expect(run).toBeDefined()
+  })
+
+  it('leaves through the wall’s other axis when a chip sits right in front of its own escape axis', () => {
+    const slanted: RouteEnd = { point: { x: 40, y: 40 }, wall: 'se', box: { x: -50, y: -50, width: 100, height: 100 }, clear: [] }
+    const chip: Box = { x: -10, y: 50, width: 100, height: 30 }
+    const { points, detoured } = routeLink(slanted, { ...to, point: { x: 250, y: 40 } }, 0, { hexagons: [], chips: [chip], within })
+    expect(detoured).toBe(true)
+    expect(hits(points, chip)).toBe(false)
+  })
+})
