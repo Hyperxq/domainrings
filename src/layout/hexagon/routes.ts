@@ -66,13 +66,13 @@ export function routeEdges({ d, overview, nodes, plan, app, insideApp, domain, o
     return [{ x: ax, y: a.y }, { x: mx, y: a.y }, { x: mx, y: b.y }, { x: bx, y: b.y }]
   }
 
-  /** Use case → bus → socket: sideways out of the use case, down its lane, then straight into the socket. */
   /** Use case to the head of its bus lane for this socket's side (see toLane). */
   const laneHead = (useCase: LayoutNode, socket: LayoutNode) => {
     const side = socket.side ?? 'driven'
     const lane = laneX(side, d.useCases.findIndex((u) => `useCase:${u.id}` === useCase.key), insideApp.halfWidth)
     return toLane({ ...useCase, seated: !!useCase.wall }, lane, insideApp.apex, socket.y)
   }
+  /** Use case → bus → socket: sideways out of the use case, down its lane, then straight into the socket. */
   const busRoute = (useCase: LayoutNode, socket: LayoutNode): Point[] => {
     const head = laneHead(useCase, socket)
     const lane = head.at(-1)!.x
@@ -224,8 +224,8 @@ export function routeEdges({ d, overview, nodes, plan, app, insideApp, domain, o
     const tail = face
       ? (() => {
           const { n } = wallFrame(socket.wall!)
-          const reach = (face.x - lane) / n.x
-          return [{ x: lane, y: face.y - n.y * reach }, face]
+          const run = (face.x - lane) / n.x
+          return [{ x: lane, y: face.y - n.y * run }, face]
         })()
       : [{ x: lane, y: to }, { x: socket.x - socket.width / 2, y: to }]
     const points = dedupe([...head, { x: lane, y: from }, ...tail])

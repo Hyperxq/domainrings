@@ -47,15 +47,14 @@ export function placeNodes({ d, overview, app, insideApp, outer, domain, titles,
     const node = place(r.key, r.ref, r.kind, 'domain', r.frame, r.x, blockTop + domainShift + r.top + r.frame.height / 2)
     if (r.kind !== 'aggregate') node.align = 'center'
   }
-  let y = 0
-  y = -(domain.apex + GAP + centre.servicesBlock.height)
+  let y = -(domain.apex + GAP + centre.servicesBlock.height)
   centre.serviceItems.forEach((item, i) => {
     const f = centre.serviceFrames[i]
     place(`domainItem:${item.id}`, item.id, 'domainItem', 'domain', f, 0, y + f.height / 2)
     y += f.height
   })
-  // Use cases hang right under the application title, lowered only where the ring is too narrow for a box or
-  // for its bus corners; the solver guaranteed the stacked position fits, so this never goes below it.
+  // Use cases hang right under the application title at the centres `seating` resolved, which lower them only
+  // where the ring is too narrow for a box or for its bus corners.
   stack.forEach((i, j) => {
     const u = d.useCases[i]
     place(`useCase:${u.id}`, u.id, 'useCase', 'teal', useCaseFrames[i], 0, useCaseCentres[j]).align = 'center'
