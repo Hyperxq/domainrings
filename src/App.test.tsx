@@ -987,6 +987,19 @@ describe('autosave failure notice', () => {
       expect(recoveryEl()!.textContent).toContain("latest changes couldn't be saved")
     })
 
+    it.each([
+      ['no storage', undefined],
+      ['a storage that throws', { setItem: () => { throw new DOMException('full', 'QuotaExceededError') } }],
+    ])('leaves no save-failed flag behind once disposed with %s', (_, storage) => {
+      vi.useFakeTimers()
+      const dispose = wireAutosave(storage as unknown as Storage | undefined, 'none')
+      act(() => useMapStore.getState().setMapMeta({ title: 'Edited' }))
+      act(() => vi.advanceTimersByTime(1000))
+      expect(useSaveFailed.getState().failed).toBe(true)
+      dispose()
+      expect(useSaveFailed.getState().failed).toBe(false)
+    })
+
     it('shows the notice from the start when the browser gives no storage at all', () => {
       onTestFinished(wireAutosave(undefined, 'none'))
       render(<App />)
