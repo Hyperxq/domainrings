@@ -26,7 +26,8 @@ import { Icon } from './ui/Icon'
 import { Legend } from './ui/Legend'
 import type { PaletteId } from './ui/palette'
 import { readPref, setRootPref, writePref } from './ui/prefs'
-import { decodeSharePayload, encodeSharePayload, isOversizedShareLink, shareLinkURL, SHARE_HASH_PREFIX } from './ui/shareLink'
+import { encodeSharePayload, isOversizedShareLink, shareLinkURL } from './ui/shareLink'
+import { useShareLinkOnMount } from './ui/useShareLinkOnMount'
 import { Stage } from './ui/Stage'
 import { typing } from './ui/keys'
 import { Toast } from './ui/Toast'
@@ -443,48 +444,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     if (parsed) swap(parsed, `Opened ${file.name}.`)
   }
 
-  // REQ-01/02/03/04: a share link in the address is consumed once, on mount. The ref is set before any await so
-  // React StrictMode's double-invoke of this effect never re-enters the async branch below.
-  const linkHandled = useRef(false)
-  useEffect(() => {
-    if (linkHandled.current) return
-    linkHandled.current = true
-    const finishLink = () => history.replaceState(null, '', location.pathname)
-    const openLinkedText = async (text: string) => {
-      const parsed = await parseSource(text, 'This link')
-      if (parsed) swap(parsed, 'Opened from a link.')
-    }
-    void (async () => {
-      if (location.hash.startsWith(SHARE_HASH_PREFIX)) {
-        const text = await decodeSharePayload(location.hash.slice(SHARE_HASH_PREFIX.length))
-        if (text === undefined) {
-          show({ tone: 'error', message: 'This link could not be read.' })
-          return finishLink()
-        }
-        await openLinkedText(text)
-        return finishLink()
-      }
-      const src = new URLSearchParams(location.search).get('src')
-      if (src === null) return
-      if (!src.startsWith('https://')) {
-        show({ tone: 'error', message: "This link's address is not https, so nothing was fetched." })
-        return finishLink()
-      }
-      let text: string
-      try {
-        const response = await fetch(src)
-        if (!response.ok) throw new Error(`HTTP ${response.status}`)
-        text = await response.text()
-      } catch {
-        show({ tone: 'error', message: "This link's file could not be reached." })
-        return finishLink()
-      }
-      await openLinkedText(text)
-      finishLink()
-    })()
-    // Runs once on mount only — the effect reads location/hash as they are at load, not on every re-render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  useShareLinkOnMount({ parseSource, swap, showError: (message) => show({ tone: 'error', message }) })
 
   // REQ-05/06: the ACTIVE document's whole file (`active.file`, the same single resolution `exportAs` uses) —
   // not always the Hexagonal map, and never scoped to one hexagon, which "Copy link" never promises.
