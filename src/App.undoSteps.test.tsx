@@ -6,7 +6,7 @@ import { toHexa, toMap } from './model/hexa'
 import { useCleanStore } from './model/cleanStore'
 import { useMapStore } from './model/store'
 import { useOnionStore } from './model/onionStore'
-import { installDialogPolyfill } from './test/fixtures'
+import { installDialogPolyfill, twoHexMap } from './test/fixtures'
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class {
@@ -133,6 +133,19 @@ describe('Hexagonal editor field sessions', () => {
     expect(doc()).toBe(added)
     undoKey()
     expect(doc()).toBe(toHexa(toMap(EXAMPLE_DIAGRAM)))
+  })
+})
+
+describe('Hexagonal editor field controls', () => {
+  it('only the name and note of an item are text controls, so per-change steps can never fire per keystroke', () => {
+    render(<App />)
+    expandEditor()
+    const cards = document.querySelectorAll('li.item[data-item-id]')
+    expect(cards.length).toBeGreaterThan(0)
+    for (const card of cards) {
+      const texts = [...card.querySelectorAll('input, textarea')].map((el) => (el.matches('input.name') ? 'name' : el.tagName.toLowerCase()))
+      expect(texts).toEqual(['name', 'textarea'])
+    }
   })
 })
 
