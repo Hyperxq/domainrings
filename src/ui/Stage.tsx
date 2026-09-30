@@ -35,6 +35,8 @@ interface StageProps {
   mode: LayoutMode
   /** Off: hovering still reveals the "+" buttons, but nothing dims, glows or retitles. */
   highlight: boolean
+  /** Emphasize what depends on the selection instead of what it depends on. */
+  dependents: boolean
   legend: LegendModel
   revision: number
   title: string
@@ -78,7 +80,7 @@ const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
 const layerOf = (target: Element) =>
   target.closest('[data-band]')?.getAttribute('data-band') ?? target.closest('[data-layer]')?.getAttribute('data-layer') ?? null
 
-export function Stage({ model, map, hexId, diagram, mode, highlight, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete, onRecord, linking, onLinking, onLink, contextLabel, onGrow, naming, onNamed, onNamingCancel, onToggleExpanded }: StageProps) {
+export function Stage({ model, map, hexId, diagram, mode, highlight, dependents, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete, onRecord, linking, onLinking, onLink, contextLabel, onGrow, naming, onNamed, onNamingCancel, onToggleExpanded }: StageProps) {
   const hex = currentHexagon(model, hexId)
   const hexModel = hex.model
   const mainRef = useRef<HTMLElement>(null)
@@ -246,7 +248,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
     !!ref && !!clickedHexId && clickedHexId !== hexId && crossTargets.some((p) => p.hexagonId === clickedHexId && p.portId === ref)
   // Only what is drawn can be followed, so the chain ends at the ports of a compact hexagon.
   const chain =
-    highlight && !linking && selected ? dependencyChain(map, hexId, selected, new Set(model.hexagons.filter((h) => !h.compact).map((h) => h.id))) : undefined
+    highlight && !linking && selected ? dependencyChain(map, hexId, selected, new Set(model.hexagons.filter((h) => !h.compact).map((h) => h.id)), dependents ? 'dependents' : 'dependencies') : undefined
   const nameOf = (ref: string) => {
     const collection = collectionOf(diagram, ref)
     const items: { id: string; name: string }[] = collection ? diagram[collection] : []
@@ -316,7 +318,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
         onFocus={(e) => !pointerPressed.current && setHovered(layerOf(e.target as Element))}
         onBlur={(e) => !(e.relatedTarget as Element | null)?.closest?.('[data-plus]') && setHovered(null)}
         data-link-mode={linking ? '' : undefined}
-        data-emphasis={chain ? '' : undefined}
+        data-emphasis={chain ? (dependents ? 'dependents' : '') : undefined}
         onClick={(e) => {
           if (panned.current) return
           const target = e.target as Element

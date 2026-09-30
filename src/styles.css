@@ -153,6 +153,12 @@ svg[data-emphasis] .edge[data-chain],
 svg[data-emphasis] .map-link[data-chain] { stroke-width: 2.6; }
 svg[data-emphasis] .node[data-chain] .box { stroke-width: 2.8; }
 svg[data-emphasis] .compact-port[data-chain] circle { stroke-width: 3; }
+/* Dependents keep that weight and dim the same way; a dash-dot pattern no other stroke uses sets them apart from the
+   dependencies chain without leaning on colour. */
+svg[data-emphasis='dependents'] .edge[data-chain],
+svg[data-emphasis='dependents'] .map-link[data-chain],
+svg[data-emphasis='dependents'] .node[data-chain] .box,
+svg[data-emphasis='dependents'] .compact-port[data-chain] circle { stroke-dasharray: 10 3 2 3; }
 
 /* Current-hexagon cue and non-current hexagon affordance (FOCUS-01, CANVAS-03). */
 .hex-cue {

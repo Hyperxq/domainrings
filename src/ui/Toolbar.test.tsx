@@ -30,6 +30,7 @@ function renderToolbar(
     mode?: 'overview' | 'detailed'
     guides?: boolean
     highlight?: boolean
+    dependents?: boolean
     showScope?: boolean
     exportScope?: 'map' | 'hexagon'
     themeChoice?: 'light' | 'dark' | 'system'
@@ -53,6 +54,8 @@ function renderToolbar(
     onGuides: vi.fn(),
     highlight: true,
     onHighlight: vi.fn(),
+    dependents: false,
+    onDependents: vi.fn(),
     showScope: false,
     exportScope: 'map' as 'map' | 'hexagon',
     onExportScope: vi.fn(),
@@ -63,6 +66,20 @@ function renderToolbar(
 }
 
 describe('Toolbar at full width', () => {
+  it('has a Dependents toggle that shows its state, explains itself and flips on click', () => {
+    const props = renderToolbar({ dependents: false })
+    const toggle = screen.getByRole('button', { name: 'Dependents' })
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    expect(toggle.getAttribute('title')).toMatch(/what depends on the selection/i)
+
+    fireEvent.click(toggle)
+
+    expect(props.onDependents).toHaveBeenCalledWith(true)
+    cleanup()
+    renderToolbar({ dependents: true })
+    expect(screen.getByRole('button', { name: 'Dependents' }).getAttribute('aria-pressed')).toBe('true')
+  })
+
   it('shows the three export buttons and no compact controls — no kind switcher anywhere (REQ-01)', () => {
     renderToolbar()
     expect(screen.queryByRole('radio', { name: /Hexagonal|Clean|Onion/ })).toBeNull()
@@ -201,6 +218,7 @@ describe('Toolbar below the compact breakpoint', () => {
     expect(screen.queryByRole('radio', { name: 'Overview' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Guides' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Highlight' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Dependents' })).toBeNull()
 
     openView()
 
@@ -210,6 +228,7 @@ describe('Toolbar below the compact breakpoint', () => {
       ['Detailed', 'false'],
       ['Guides', 'false'],
       ['Highlight', 'true'],
+      ['Dependents', 'false'],
     ])
   })
 
@@ -218,13 +237,14 @@ describe('Toolbar below the compact breakpoint', () => {
     ['Detailed', 'onMode', 'detailed'],
     ['Guides', 'onGuides', true],
     ['Highlight', 'onHighlight', false],
+    ['Dependents', 'onDependents', true],
   ] as const)('choosing %s in the View menu calls %s with %s', (name, handler, value) => {
     const props = renderToolbar({ mode: 'detailed', guides: false, highlight: true })
     openView()
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name }))
     expect(props[handler]).toHaveBeenCalledTimes(1)
     expect(props[handler]).toHaveBeenCalledWith(value)
-    for (const other of (['onMode', 'onGuides', 'onHighlight'] as const).filter((h) => h !== handler)) expect(props[other]).not.toHaveBeenCalled()
+    for (const other of (['onMode', 'onGuides', 'onHighlight', 'onDependents'] as const).filter((h) => h !== handler)) expect(props[other]).not.toHaveBeenCalled()
   })
 
   it('keeps the Export menu, with no kind select anywhere (REQ-01)', () => {

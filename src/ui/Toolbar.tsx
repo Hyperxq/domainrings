@@ -29,6 +29,8 @@ interface ToolbarProps {
   onGuides: (show: boolean) => void
   highlight: boolean
   onHighlight: (on: boolean) => void
+  dependents: boolean
+  onDependents: (on: boolean) => void
   /** Only a map large enough to compact has hexagons to expand: present, it adds Expand all (true) and Collapse all (false). */
   onExpandAll?: (expand: boolean) => void
   /** Only a multi-hexagon map has more than one thing to export (EXPORT-03) — a single hexagon has nothing to choose between. */
@@ -64,7 +66,7 @@ const fullMedia = media(FULL_TOOLBAR)
 const roomyMedia = media(ROOMY_TOOLBAR)
 const darkMedia = media('(prefers-color-scheme: dark)')
 
-export function Toolbar({ themeChoice, palette, onNew, onExample, onOpen, onCopyLink, onExport, onTheme, onPalette, mode, onMode, guides, onGuides, highlight, onHighlight, onExpandAll, showScope, exportScope, onExportScope }: ToolbarProps) {
+export function Toolbar({ themeChoice, palette, onNew, onExample, onOpen, onCopyLink, onExport, onTheme, onPalette, mode, onMode, guides, onGuides, highlight, onHighlight, dependents, onDependents, onExpandAll, showScope, exportScope, onExportScope }: ToolbarProps) {
   const full = useSyncExternalStore(fullMedia.subscribe, fullMedia.matches)
   const roomy = useSyncExternalStore(roomyMedia.subscribe, roomyMedia.matches)
   const systemDark = useSyncExternalStore(darkMedia.subscribe, darkMedia.matches)
@@ -93,6 +95,9 @@ export function Toolbar({ themeChoice, palette, onNew, onExample, onOpen, onCopy
           <button type="button" className="text-button" aria-pressed={highlight} title="Highlight the layer under the pointer" onClick={() => onHighlight(!highlight)}>
             Highlight
           </button>
+          <button type="button" className="text-button" aria-pressed={dependents} title="Emphasize what depends on the selection, not what it depends on" onClick={() => onDependents(!dependents)}>
+            Dependents
+          </button>
           {onExpandAll && (
             <>
               <button type="button" className="text-button" title="Show every hexagon in full" onClick={() => onExpandAll(true)}>
@@ -117,11 +122,13 @@ export function Toolbar({ themeChoice, palette, onNew, onExample, onOpen, onCopy
             { id: 'detailed', label: MODE_LABEL.detailed, checked: mode === 'detailed' },
             { id: 'guides', label: 'Guides', checked: guides },
             { id: 'highlight', label: 'Highlight', checked: highlight },
+            { id: 'dependents', label: 'Dependents', checked: dependents },
             ...(onExpandAll ? [{ id: 'expand-all' as const, label: 'Expand all' }, { id: 'collapse-all' as const, label: 'Collapse all' }] : []),
           ]}
           onChoose={(id) => {
             if (id === 'guides') onGuides(!guides)
             else if (id === 'highlight') onHighlight(!highlight)
+            else if (id === 'dependents') onDependents(!dependents)
             else if (id === 'expand-all' || id === 'collapse-all') onExpandAll?.(id === 'expand-all')
             else onMode(id)
           }}
