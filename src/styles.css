@@ -158,6 +158,7 @@
 }
 [data-hex][role='button'] { cursor: pointer; }
 .compact-title { text-anchor: middle; font-weight: 600; }
+.compact-port circle { fill: var(--card); stroke: var(--teal); stroke-width: 1.6; }
 .compact-count { text-anchor: middle; fill: var(--muted); font-family: var(--font-mono); }
 [data-hex][role='button']:hover .ring-outer { fill: var(--card-hover); }
 

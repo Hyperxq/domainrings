@@ -793,14 +793,39 @@ describe('layoutMap — compact neighbours from COMPACT_FROM hexagons up', () =>
     expect(hexagonBounds(compact).height).toBeLessThan(hexagonBounds(result.hexagons.find((h) => h.id === 'h6')!).height / 2)
   })
 
-  it('ends a link on a compact hexagon at the midpoint of one of its walls', () => {
+  it('gives a compact hexagon one marker per port, on the wall the port sits on, spread apart when several share a wall', () => {
+    const map = manyHexagonMap(6)
+    map.hexagons[0].ports = map.hexagons[0].ports.map((p) => (p.side === 'driven' ? { ...p, wall: 'e' as const } : p))
+    const hex = layoutMap(map, { current: 'h4' }).hexagons[0]
+    expect(hex.compact!.ports.map((m) => m.id)).toEqual(map.hexagons[0].ports.map((p) => p.id))
+    const markers = hex.compact!.ports.filter((m) => m.id !== 'p-submit')
+    expect(markers).toHaveLength(3)
+    expect(markers.every((m) => m.wall === 'e')).toBe(true)
+    const apothem = (hex.compact!.radius * Math.sqrt(3)) / 2
+    for (const m of markers) expect(m.at.x).toBeCloseTo(apothem, 6)
+    expect(new Set(markers.map((m) => m.at.y)).size).toBe(markers.length)
+    expect(Math.max(...markers.map((m) => Math.abs(m.at.y)))).toBeLessThan(hex.compact!.radius / 2)
+  })
+
+  it('ends a link on the marker of its port on a compact hexagon', () => {
     const result = layoutMap(manyHexagonMap(6), { current: 'h4' })
     const link = result.links[0]
-    for (const [end, id] of [[link.points[0], 'h1'], [link.points.at(-1)!, 'h2']] as const) {
+    for (const [end, id, portId] of [[link.points[0], 'h1', 'p-repo'], [link.points.at(-1)!, 'h2', 'p-submit']] as const) {
       const hex = result.hexagons.find((h) => h.id === id)!
-      const apothem = (hexagonBounds(hex).height / 2) * (Math.sqrt(3) / 2)
-      expect(Math.hypot(end.x - hex.centre.x, end.y - hex.centre.y)).toBeCloseTo(apothem, 6)
+      const marker = hex.compact!.ports.find((m) => m.id === portId)!
+      expect(end).toStrictEqual({ x: hex.centre.x + marker.at.x, y: hex.centre.y + marker.at.y })
     }
+  })
+
+  it('ends two links on the same wall of a compact hexagon at different points', () => {
+    const map = manyHexagonMap(6)
+    map.hexagons[0].ports = map.hexagons[0].ports.map((p) => ({ ...p, wall: 'e' as const }))
+    map.links = [
+      { id: 'l1', from: { hexagonId: 'h1', portId: 'p-repo' }, to: { hexagonId: 'h2', portId: 'p-submit' } },
+      { id: 'l2', from: { hexagonId: 'h1', portId: 'p-notify' }, to: { hexagonId: 'h3', portId: 'p-submit' } },
+    ]
+    const [a, b] = layoutMap(map, { current: 'h4' }).links
+    expect(a.points[0]).not.toStrictEqual(b.points[0])
   })
 
   it('keeps every context chip out of every hexagon box, including the full current one', () => {

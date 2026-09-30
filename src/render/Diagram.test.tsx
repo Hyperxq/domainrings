@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react'
+import { cleanup, render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -339,7 +339,7 @@ describe('MapDiagram — compact neighbours', () => {
     expect(compact.querySelector('.compact-title')?.textContent).toBe('Slice 1')
     expect(compact.querySelector('.compact-count')?.textContent).toBe('16 elements')
     expect(compact.querySelectorAll('path.ring')).toHaveLength(1)
-    expect(compact.querySelectorAll('.node, .edge, [data-band]')).toHaveLength(0)
+    expect(compact.querySelectorAll('.node:not(.compact-port), .edge, [data-band]')).toHaveLength(0)
     expect(container.querySelector('[data-hex="h2"]')!.querySelectorAll('.node').length).toBeGreaterThan(0)
   })
 
@@ -350,6 +350,22 @@ describe('MapDiagram — compact neighbours', () => {
     expect(compact.getAttribute('tabindex')).toBe('0')
     expect(compact.getAttribute('aria-label')).toBe('Make Slice 3 the current hexagon')
     expect(compact.querySelector('title')?.textContent).toBe('Slice 3')
+  })
+
+  it('draws each port of a compact hexagon as a marker, focusable and named only while it is a link target', () => {
+    const idle = renderSvg(manyHexagonMap(5), { focus: 'h2' }).container
+    const markers = idle.querySelectorAll('[data-hex="h1"] .node-port')
+    expect([...markers].map((m) => m.getAttribute('data-ref'))).toEqual(['p-submit', 'p-repo', 'p-notify', 'p-users'])
+    expect(idle.querySelectorAll('[data-hex="h1"] .node-port[tabindex]')).toHaveLength(0)
+    cleanup()
+
+    const { container } = renderSvg(manyHexagonMap(5), { focus: 'h2', crossLinkTargets: new Map([['h1', new Set(['p-submit'])]]) })
+    const target = container.querySelector('[data-hex="h1"] .node-port[data-ref="p-submit"]')!
+    expect(target.getAttribute('tabindex')).toBe('0')
+    expect(target.getAttribute('role')).toBe('button')
+    expect(target.getAttribute('aria-label')).toBe('submitChatFeedback on Slice 1')
+    expect(target.hasAttribute('data-link-target')).toBe(true)
+    expect(container.querySelectorAll('[data-hex="h1"] .node-port[tabindex]')).toHaveLength(1)
   })
 
   it('singular count reads "1 element"', () => {

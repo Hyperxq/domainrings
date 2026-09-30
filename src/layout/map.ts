@@ -11,6 +11,14 @@ import { CHIP_LABEL, measure, TITLE } from './text'
 const AVOIDED_KINDS: ReadonlySet<NodeKind> = new Set(['port', 'adapter', 'actor', 'external', 'useCase', 'domainItem'])
 
 /** A non-current hexagon drawn as its silhouette alone: a regular pointy-top hexagon of `radius` about its centre. */
+/** A port's marker on a compact hexagon's silhouette; `at` is relative to the hexagon's centre. */
+export interface CompactPort {
+  id: string
+  name: string
+  wall: Wall
+  at: Point
+}
+
 export interface CompactLayout {
   radius: number
   /** The title's font size; the element count is drawn a little smaller. Grows with `radius` so the title stays
@@ -20,6 +28,7 @@ export interface CompactLayout {
   elements: number
   /** The hexagon's title, shortened with an ellipsis to fit inside the silhouette. */
   label: string
+  ports: CompactPort[]
 }
 
 export interface MapHexagonLayout {
@@ -162,11 +171,28 @@ function compactLabel(title: string): string {
   return label + ELLIPSIS
 }
 
-const compactOf = (hexagon: Hexagon, unit: number): CompactLayout => ({
+/** Each port's marker on the wall it sits on, spread along that wall so ports sharing one never share a point. */
+function compactPorts(hexagon: Hexagon, model: LayoutModel, radius: number): CompactPort[] {
+  const walled = hexagon.ports.flatMap((port) => {
+    const wall = model.nodes.find((n) => n.kind === 'port' && n.ref === port.id)?.wall
+    return wall ? [{ id: port.id, name: port.name, wall }] : []
+  })
+  const apothem = (radius * Math.sqrt(3)) / 2
+  return walled.map((port) => {
+    const onWall = walled.filter((p) => p.wall === port.wall)
+    const { n, dir } = wallFrame(port.wall)
+    const spacing = Math.min(radius * 0.3, (radius * 0.9) / onWall.length)
+    const along = (onWall.indexOf(port) - (onWall.length - 1) / 2) * spacing
+    return { ...port, at: { x: n.x * apothem + dir.x * along, y: n.y * apothem + dir.y * along } }
+  })
+}
+
+const compactOf = (hexagon: Hexagon, model: LayoutModel, unit: number): CompactLayout => ({
   radius: COMPACT_RADIUS * unit,
   size: COMPACT_TITLE.size * unit,
   elements: hexagon.domain.length + hexagon.useCases.length + hexagon.ports.length + hexagon.adapters.length + hexagon.actors.length + hexagon.externals.length,
   label: compactLabel(hexagon.title || UNTITLED_HEXAGON),
+  ports: compactPorts(hexagon, model, COMPACT_RADIUS * unit),
 })
 
 /** Where a grow "+" toward `side` sits: the midpoint to the neighbouring cell, pushed along that line until a button
@@ -216,13 +242,12 @@ function translatedNodeBox(node: LayoutNode, centre: Point): Box {
  * hexagon's bounding box, and this hexagon's OTHER avoided-kind node boxes (`clear`) for the escape walk to step
  * around (REQ-LNK-05.1) — never the node the anchor itself sits on. */
 function routeEnd(hexagon: MapHexagonLayout, portId: string, adapterId?: string) {
-  const port = portNode(hexagon.model, portId)
   if (hexagon.compact) {
-    // A compact hexagon draws neither ports nor adapters: the link ends at the midpoint of the wall its port sits on.
-    const { n } = wallFrame(port.wall!)
-    const apothem = (hexagon.compact.radius * Math.sqrt(3)) / 2
-    return { point: { x: hexagon.centre.x + n.x * apothem, y: hexagon.centre.y + n.y * apothem }, wall: port.wall!, box: hexagonBounds(hexagon), clear: [] }
+    // A compact hexagon draws no adapters: the link ends at its port's marker on the silhouette.
+    const marker = hexagon.compact.ports.find((m) => m.id === portId)!
+    return { point: { x: hexagon.centre.x + marker.at.x, y: hexagon.centre.y + marker.at.y }, wall: marker.wall, box: hexagonBounds(hexagon), clear: [] }
   }
+  const port = portNode(hexagon.model, portId)
   const anchorNode = adapterId ? adapterNode(hexagon.model, adapterId) : port
   const point = adapterId ? outwardEdgePoint(translatedNodeBox(anchorNode, hexagon.centre), port.wall!) : { x: port.x + hexagon.centre.x, y: port.y + hexagon.centre.y }
   const clear = hexagon.model.nodes.filter((n) => AVOIDED_KINDS.has(n.kind) && n !== anchorNode).map((n) => translatedNodeBox(n, hexagon.centre))
@@ -324,7 +349,7 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
     cell: hexagon.cell,
     centre: cellCentre(hexagon.cell, pitch),
     model,
-    ...(compact ? { compact: compactOf(hexagon, unit) } : {}),
+    ...(compact ? { compact: compactOf(hexagon, model, unit) } : {}),
   }))
   const hexagonOf = new Map(hexagons.map((h) => [h.id, h]))
   const lanes = laneOffsets(map.links)
