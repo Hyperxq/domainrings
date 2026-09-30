@@ -813,7 +813,6 @@ describe('layoutMap — compact neighbours from COMPACT_FROM hexagons up', () =>
     const map = manyHexagonMap(12)
     const before = fitScale(map)
     const after = fitScale(map, 'h6')
-    console.info(`fit scale on 12 hexagons: ${before.toFixed(4)} full -> ${after.toFixed(4)} compact`)
     expect(after).toBeGreaterThan(before * 1.3)
   })
 
@@ -891,7 +890,10 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
   const map = projectBuilderMap()
   const STAGE = { width: 1440, height: 900 }
   const INSET = islandInset(STAGE, true, false)
-  const TODAY_FIT = { detailed: 0.13989, overview: 0.26322 }
+  // The Fit scale this map had before the lattice was sized from compact hexagons (one shared pitch sized for the
+  // full current hexagon), measured by fitTo at the reference stage above with Execution current. The compact
+  // layout must at least double it.
+  const FULL_PITCH_BASELINE = { detailed: 0.13989, overview: 0.26322 }
   const MODES_UNDER_TEST = ['detailed', 'overview'] as const
   const layoutFor = (mode: LayoutMode, current: string) => layoutMap(map, { mode, current })
   const fit = (mode: LayoutMode, current: string) => fitTo(layoutFor(mode, current).bounds, STAGE.width, STAGE.height, INSET, 0).scale
@@ -905,10 +907,9 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
   // layoutDiagram itself lays Authentication out at ~87000x100000 in Detailed, which no map layout can make readable.
   const currentsIn = (mode: LayoutMode) => map.hexagons.map((h) => h.id).filter((id) => mode === 'overview' || id !== 'h-auth')
 
-  it.each(MODES_UNDER_TEST)('fits %s at least twice as large as the shared full-hexagon pitch did, with Execution current', (mode) => {
+  it.each(MODES_UNDER_TEST)('fits %s at least twice as large as the full-pitch baseline, with Execution current', (mode) => {
     const scale = fit(mode, 'h-exec')
-    console.info(`project-builder fit (${mode}, Execution current): ${(TODAY_FIT[mode] * 100).toFixed(1)}% -> ${(scale * 100).toFixed(1)}%`)
-    expect(scale).toBeGreaterThanOrEqual(TODAY_FIT[mode] * 2)
+    expect(scale).toBeGreaterThanOrEqual(FULL_PITCH_BASELINE[mode] * 2)
   })
 
   it.each(MODES_UNDER_TEST)('keeps MAP_GAP between every pair of hexagon boxes in %s, whichever hexagon is current', (mode) => {
@@ -916,6 +917,14 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
       const boxes = layoutFor(mode, current).hexagons.map((h) => ({ id: h.id, box: hexagonBounds(h) }))
       for (const a of boxes) for (const b of boxes) if (a.id < b.id) expect(overlap(a.box, b.box), `${current}: ${a.id} vs ${b.id}`).toBeGreaterThanOrEqual(MAP_GAP - 1e-6)
     }
+  })
+
+  // #22: layoutDiagram itself makes Authoring ~87000x100000 in Detailed. The map layout must still stay finite and overlap-free.
+  it('keeps a finite, overlap-free layout when Authoring, whose Detailed size is runaway, is current', () => {
+    const result = layoutFor('detailed', 'h-auth')
+    expect(Object.values(result.bounds).every(Number.isFinite)).toBe(true)
+    const boxes = result.hexagons.map((h) => ({ id: h.id, box: hexagonBounds(h) }))
+    for (const a of boxes) for (const b of boxes) if (a.id < b.id) expect(overlap(a.box, b.box), `${a.id} vs ${b.id}`).toBeGreaterThanOrEqual(MAP_GAP - 1e-6)
   })
 
   it.each(MODES_UNDER_TEST)('draws each hull around its own hexagon alone, not around a lattice cell, in %s', (mode) => {
@@ -966,7 +975,9 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
       })
     }
   })
+})
 
+describe('layoutMap — switching the current hexagon', () => {
   it('moves only the hexagons around a hexagon when another becomes current', () => {
     const wide = manyHexagonMap(12)
     wide.hexagons[6].externals.push({ id: 'ext-wide', name: 'A Very Long External System Name That Extends Far To The Right'.repeat(4) })
@@ -978,7 +989,6 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
       const b = after.hexagons.find((h) => h.id === id)!.centre
       return Math.hypot(a.x - b.x, a.y - b.y)
     })
-    console.info(`hexagons far from a switch of current moved by ${moved.map((m) => m.toFixed(0)).join(', ')}`)
     const shift = Math.abs(hexagonBounds(after.hexagons.find((h) => h.id === 'h7')!).width - hexagonBounds(before.hexagons.find((h) => h.id === 'h6')!).width)
     for (const m of moved) expect(m).toBeLessThanOrEqual(shift / 2 + 1)
   })

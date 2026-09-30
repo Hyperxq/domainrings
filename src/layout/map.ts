@@ -116,6 +116,8 @@ const CHIP_GAP = 12
 const CHIP_LINE = 1.25
 /** How far from its region a chip on a crowded map may sit, nearest first. */
 const CHIP_REACHES = [1, 2, 3, 4, 5, 6, 7].map((k) => k * CHIP_GAP)
+/** How far a chip on a crowded map may slide sideways along its region, as fractions of its text width. */
+const CHIP_SLIDES = [0, -0.25, 0.25, -0.5, 0.5]
 /** The on-screen chip text size a fitted map must not fall below, in px. */
 const CHIP_FLOOR_PX = 10
 /** The stage area a 1440x900 window leaves for the map once the editor and toolbar islands are reserved — the
@@ -128,7 +130,7 @@ const REFERENCE_STAGE = { width: 1100, height: 820 }
  * the region into clear space; the topmost vertex only if nothing is clear.
  *
  * With the chip's `text` extent, "clear" covers all of the text rather than just its baseline point, and a crowded
- * map also gets spots further out (`CHIP_REACHES`) and slid sideways by up to half the text — a name wider than the
+ * map also gets spots further out (`CHIP_REACHES`) and slid sideways (`CHIP_SLIDES`) — a name wider than the
  * hexagon it labels would otherwise always run into the neighbour beside it. */
 function chipAnchor(loops: Point[][], all: Point[][][], hexagons: Box[], text?: { width: number; size: number }): Point {
   const inBox = (p: Point, b: Box) => p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height
@@ -155,7 +157,7 @@ function chipAnchor(loops: Point[][], all: Point[][][], hexagons: Box[], text?: 
         }),
       )
       .sort(byHeight)
-  for (const dx of text ? [0, -0.25, 0.25, -0.5, 0.5].map((k) => k * text.width) : [0]) {
+  for (const dx of text ? CHIP_SLIDES.map((k) => k * text.width) : [0]) {
     for (const gap of text ? CHIP_REACHES : [CHIP_GAP]) {
       const spot = vertices.map((v): Point => ({ x: v.x + dx, y: v.y - gap })).find(clear) ?? edgeSpots(gap).map((p): Point => ({ x: p.x + dx, y: p.y })).find(clear)
       if (spot) return spot
@@ -442,7 +444,7 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
     for (const context of map.contexts) {
       const loops = regions.get(context.id) ?? []
       if (!loops.length) continue // a context declared with no hexagons (schema allows it, the store never creates one) draws nothing
-      contexts.push({ id: context.id, label: contextName(map, context.id), loops, chip: loops[0][0], size: CHIP_LABEL.size })
+      contexts.push({ id: context.id, label: contextName(map, context.id), loops, chip: loops[0][0], size: CHIP_LABEL.size }) // the chip is only a placeholder: `placeChips` positions it
     }
     const placeChips = (size: number) => {
       const taken: Box[] = []
