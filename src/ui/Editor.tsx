@@ -1,4 +1,4 @@
-import { useRef, useState, type FocusEvent, type ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { HEXAGONAL_KIND } from '../model/kinds'
 import {
@@ -21,34 +21,15 @@ import { useMapStore, type Item } from '../model/store'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Fold } from './Fold'
 import { Icon } from './Icon'
+import { sessionOf, type FieldSession, type OnPrune, type OnRecord } from './editor/fieldSession'
 import { LinkSelect } from './editor/LinkSelect'
 import { LinksSection } from './editor/LinksSection'
+import { MapSection } from './editor/MapSection'
 import { revealInEditor } from './revealInEditor'
 
-const { addItem, updateItem, removeItem, setMeta, setMapMeta, setContextName } = useMapStore.getState()
+const { addItem, updateItem, removeItem, setMeta, setContextName } = useMapStore.getState()
 
 type Patch<K extends CollectionKey> = Partial<Omit<Item<K>, 'id'>>
-
-/** Reports the links a port change/removal broke (SEAM-06), with the map/focus from just before the edit, so the
- * caller can toast and offer undo — Section calls the store directly, so this is how App finds out. */
-type OnPrune = (pruned: Link[], before: { map: HexaMap; focus: string }) => void
-
-/** Records a silent undo step: the map/focus from just before an edit that raises no toast of its own. */
-type OnRecord = (before: { map: HexaMap; focus: string }) => void
-
-/** Tracks the one text field being edited, so its whole session (focus → blur) becomes a single undo step. */
-interface FieldSession {
-  begin: (before: { map: HexaMap; focus: string }, field: Element) => void
-  end: () => void
-}
-
-const sessionOf = (fieldSession: FieldSession) => ({
-  onFocus: (e: FocusEvent<HTMLElement>) => {
-    const { map, focus } = useMapStore.getState()
-    fieldSession.begin({ map, focus }, e.currentTarget)
-  },
-  onBlur: fieldSession.end,
-})
 
 const WALL_LABEL: Record<Wall, string> = { nw: 'North-west', w: 'West', sw: 'South-west', ne: 'North-east', e: 'East', se: 'South-east' }
 
@@ -241,8 +222,6 @@ export function Editor({
     ...occupiedContexts(map).filter((c) => c.id !== ownContext).map((c) => ({ id: c.id, label: contextName(map, c.id) })),
     ...(map.hexagons.filter((h) => h.contextId === ownContext).length > 1 ? [{ id: NEW_CONTEXT, label: 'New bounded context' }] : []),
   ]
-  const [pendingImport, setPendingImport] = useState<((context: Destination) => void) | null>(null)
-  const importInputRef = useRef<HTMLInputElement>(null)
   // Keyed by contextId, so renaming two contexts in the same session (unlikely, but never concurrent within one
   // input) each keeps its own pre-edit snapshot from focus to blur.
   const contextRenameBefore = useRef(new Map<string, HexaMap>())
@@ -258,41 +237,7 @@ export function Editor({
       </header>
 
       <div id="editor-body" className="editor-body" hidden={!open}>
-        <Fold id="map" title="Map">
-          <label className="field">
-            <span>Map title</span>
-            <input value={map.title} onChange={(e) => setMapMeta({ title: e.target.value })} {...session} />
-          </label>
-          <ChoiceMenu
-            label="Add hexagon from file…"
-            choices={[
-              { id: 'same' as const, label: `Import into ${contextLabel}` },
-              { id: 'new' as const, label: 'Import into a new bounded context' },
-            ]}
-            autoOpen={pendingImport !== null}
-            onTrigger={pendingImport ? undefined : () => importInputRef.current?.click()}
-            onChoose={(context) => {
-              pendingImport?.(context)
-              setPendingImport(null)
-            }}
-            onDismiss={() => setPendingImport(null)}
-          />
-          <input
-            ref={importInputRef}
-            type="file"
-            accept=".hexa,application/json"
-            className="visually-hidden"
-            aria-label="Add hexagon from a .hexa file"
-            onChange={async (e) => {
-              const input = e.currentTarget
-              const file = input.files?.[0]
-              input.value = ''
-              if (!file) return
-              const choose = await onAddFromFile(file)
-              if (choose) setPendingImport(() => choose)
-            }}
-          />
-        </Fold>
+        <MapSection title={map.title} contextLabel={contextLabel} onAddFromFile={onAddFromFile} session={session} />
 
         <Fold id="contexts" title="Bounded contexts" count={occupiedContexts(map).length}>
           <ul className="items">
