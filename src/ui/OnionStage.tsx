@@ -8,7 +8,7 @@ import { useOnionStore } from '../model/onionStore'
 import type { OnionFile } from '../model/schema'
 import { OnionDiagram } from '../render/OnionDiagram'
 import { affordanceVisible, DependChip, InlineNameField, PlusGlyph } from './ringed/RingedAffordances'
-import { RingedStage } from './RingedCanvas'
+import { RingedStage } from './ringed/RingedStage'
 import { useDependGesture } from './ringed/useDependGesture'
 
 const { addElement, updateElement, removeElement, removeEndpoint, addDependency, addEndpoint } = useOnionStore.getState()
@@ -43,7 +43,7 @@ interface OnionStageProps {
 const REJECT_MESSAGE = 'A dependency can only point to the same ring or a more inward one.'
 
 /** Canvas analogue for Onion (ADR-02): the diagram, its ring/endpoint "+" affordances (REQ-05, REQ-07), and the
- * "Depend on…" gesture (REQ-04) — shared with Clean via `RingedCanvas.tsx` (ADR-01): select an element, choose
+ * "Depend on…" gesture (REQ-04) — shared with Clean via `ringed/useDependGesture.ts` (ADR-01): select an element, choose
  * another in the same or a more inward ring; a valid target is marked with `data-link-target` while linking
  * (same convention Hexagonal's own link mode uses), and choosing one that is not valid cancels the gesture and
  * reports why via `onReject`, leaving the document unchanged either way. */

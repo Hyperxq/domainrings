@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type Ref } from 'react'
-import type { Box } from '../layout/layout'
-import { layerOf, refOf } from './canvasTarget'
-import { keyOnCanvas } from './keys'
-import { fitTo, islandInset } from './viewport'
-import { gridBackgroundStyle, useElementSize, useViewportInteractions, ZoomControls } from './viewportChrome'
+import type { Box } from '../../layout/layout'
+import { layerOf, refOf } from '../canvasTarget'
+import { keyOnCanvas } from '../keys'
+import { fitTo, islandInset } from '../viewport'
+import { gridBackgroundStyle, useElementSize, useViewportInteractions, ZoomControls } from '../viewportChrome'
 
 /** Which ring (by role, `data-band`/`data-layer`) or specific element/endpoint (`data-ref`) is currently hovered
  * or focused — everything a caller needs to decide which of its own "+" affordances to reveal (`affordanceVisible`,

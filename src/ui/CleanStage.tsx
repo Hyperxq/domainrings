@@ -8,7 +8,7 @@ import { useCleanStore } from '../model/cleanStore'
 import type { CleanFile } from '../model/schema'
 import { CleanDiagram } from '../render/CleanDiagram'
 import { affordanceVisible, DependChip, InlineNameField, PlusGlyph } from './ringed/RingedAffordances'
-import { RingedStage } from './RingedCanvas'
+import { RingedStage } from './ringed/RingedStage'
 import { useDependGesture } from './ringed/useDependGesture'
 
 const { addSector, addElement, updateElement, removeElement, removeEndpoint, addDependency, addEndpoint } = useCleanStore.getState()
@@ -42,7 +42,7 @@ interface CleanStageProps {
 const REJECT_MESSAGE = 'A dependency can only point to the same ring or a more inward one.'
 
 /** Canvas analogue for Clean (ADR-02): the diagram, its sector/element/endpoint "+" affordances (REQ-03, REQ-04,
- * REQ-07), and the "Depend on…" gesture (REQ-06) — shared with Onion via `RingedCanvas.tsx` (ADR-01). A new
+ * REQ-07), and the "Depend on…" gesture (REQ-06) — shared with Onion via `ringed/useDependGesture.ts` (ADR-01). A new
  * sector has no canvas node of its own to attach an inline rename to (sectors only ever appear as wedge
  * dividers, REQ-08) — renaming one happens in `CleanEditor`; only a new ELEMENT opens inline here, same as
  * Onion's own "+" does. */

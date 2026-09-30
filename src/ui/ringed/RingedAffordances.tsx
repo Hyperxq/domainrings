@@ -1,4 +1,4 @@
-import type { RingedHover } from '../RingedCanvas'
+import type { RingedHover } from './RingedStage'
 
 export interface RingedInsertionPoint {
   key: string
