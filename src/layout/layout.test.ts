@@ -1104,6 +1104,20 @@ describe('use cases placed on a wall', () => {
   const base: Diagram = { version: 1, kind: 'hexagonal', title: '', domain: [{ id: 'd1', name: 'Order', type: 'entity' }], useCases: [], ports: [], adapters: [], actors: [], externals: [] }
   // A wide seat alone on a lower wall: only its own sector and domain clearance size the ring.
   const LONE_SEAT: Diagram = { ...base, useCases: [{ id: 'u1', name: 'ReconcileEveryOutstandingInvoice', placement: 'sw' }] }
+  // A seat with no socket of its own on the west wall, beside sockets that other use cases serve there.
+  const seatBesideForeignSockets = (sockets: number): Diagram => ({
+    ...base,
+    useCases: [{ id: 'u0', name: 'PlaceOrder' }, { id: 'u1', name: 'SettleTheDailyLedger', placement: 'w' }],
+    ports: Array.from({ length: sockets }, (_, i) => ({ id: `w${i}`, name: `receiveEvent${i}`, side: 'driving' as const, wall: 'w' as const, useCaseId: 'u0' })),
+  })
+  it.each([1, 2, 3])('seats a use case clear of the %i sockets other use cases serve on its wall', (sockets) => {
+    const m = layoutDiagram(seatBesideForeignSockets(sockets))
+    const seat = m.nodes.find((n) => n.kind === 'useCase' && n.ref === 'u1')!
+    const foreign = m.nodes.filter((n) => n.kind === 'port')
+    expect(foreign).toHaveLength(sockets)
+    for (const port of foreign) expect(Math.abs(seat.y - port.y), port.ref).toBeGreaterThanOrEqual(seat.height / 2 + 14 - 1e-6)
+  })
+
   // A seat beside a tall west column with no slanted port: column sockets keep no sector, so only the clash check parts them.
   const BY_COLUMN: Diagram = {
     ...base,

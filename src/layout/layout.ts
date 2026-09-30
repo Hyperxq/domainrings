@@ -783,6 +783,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
           .map((p) => ({ port: ports.get(p.ref)!, u: p.y * dir.y, inward: widths[p.side].socketHalf + labelReach(ports.get(p.ref)!) })),
       ]
       const inset = Math.max(0, ...sockets.map((s) => s.inward)) + (overview ? GAP : DOMAIN_RUN)
+      const socketsAlong = sockets.map((s) => s.u).sort((a, b) => a - b)
       const items = here
         .map((i) => {
           const f = useCaseFrames[i]
@@ -792,9 +793,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
           // ring size, so a seat with no socket of its own here steps past them along the wall.
           let want = own ?? 0
           if (own === undefined) {
-            const foreign = sockets.map((s) => s.u).sort((a, b) => a - b)
-            const hit = () => foreign.find((u) => Math.abs(u - want) < along + GAP)
-            for (let u = hit(); u !== undefined; u = hit()) want = u + along + GAP
+            for (const u of socketsAlong) if (Math.abs(u - want) < along + GAP) want = u + along + GAP
           }
           return { i, wall, frame: f, want, along, across: reach(f.width, f.height, n) }
         })

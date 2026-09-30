@@ -944,11 +944,11 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
     }
   })
 
+  const COMPARABLE_FIT = 0.75
   it('fits Detailed with any hexagon current at a scale comparable to Execution current', () => {
     const reference = fit('detailed', 'h-exec')
     for (const current of currents) {
-      console.log('FIT', current, fit('detailed', current))
-      expect(fit('detailed', current), current).toBeGreaterThanOrEqual(reference * 0.75)
+      expect(fit('detailed', current), current).toBeGreaterThanOrEqual(reference * COMPARABLE_FIT)
     }
   })
 
