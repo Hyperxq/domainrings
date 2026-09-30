@@ -8,7 +8,8 @@ import { useOnionStore } from '../model/onionStore'
 import type { OnionFile } from '../model/schema'
 import { OnionDiagram } from '../render/OnionDiagram'
 import { affordanceVisible, DependChip, InlineNameField, PlusGlyph } from './ringed/RingedAffordances'
-import { RingedStage, useDependGesture } from './RingedCanvas'
+import { RingedStage } from './RingedCanvas'
+import { useDependGesture } from './ringed/useDependGesture'
 
 const { addElement, updateElement, removeElement, removeEndpoint, addDependency, addEndpoint } = useOnionStore.getState()
 

@@ -8,7 +8,8 @@ import { useCleanStore } from '../model/cleanStore'
 import type { CleanFile } from '../model/schema'
 import { CleanDiagram } from '../render/CleanDiagram'
 import { affordanceVisible, DependChip, InlineNameField, PlusGlyph } from './ringed/RingedAffordances'
-import { RingedStage, useDependGesture } from './RingedCanvas'
+import { RingedStage } from './RingedCanvas'
+import { useDependGesture } from './ringed/useDependGesture'
 
 const { addSector, addElement, updateElement, removeElement, removeEndpoint, addDependency, addEndpoint } = useCleanStore.getState()
 
