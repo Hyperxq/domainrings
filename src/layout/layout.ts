@@ -699,6 +699,8 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
     // The driven side also keeps one lane per declared port, for the dotted ownership links.
     Math.max(innerHalfWidth + LANE * (1 + (side === 'driven' ? declared.length : 0)), useCaseBlock.width / 2 + measure(laneVerb[side], EDGE_LABEL) + 2 * LANE) +
     LANE * (useCaseFrames.length - 1 - k)
+  /** The bus lane's x: the driving lanes run left of the centre, the driven ones right. */
+  const laneX = (side: Side, k: number, innerHalfWidth: number) => (side === 'driving' ? -1 : 1) * busX(side, k, innerHalfWidth)
   const socketClearance = (side: Side, innerHalfWidth: number) =>
     useCaseFrames.length && !overview ? busX(side, 0, innerHalfWidth) + RUN : 0
   const useCaseOffsets = stackFrames.map((_, j) => stackFrames.slice(0, j).reduce((o, f) => o + f.height + GAP, 0))
@@ -732,8 +734,8 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
       ]),
     )
     // A run meets an upper slanted wall square, rising as it goes, so its row cannot sit above the lane foot. The
-    // feet stay put as the ring grows: when they lie below the room above the domain no ring seats the stack under
-    // them, and it keeps its place.
+    // feet stay put as the ring grows, so when they lie below the room above the domain no ring can seat the stack
+    // under them: the stack then keeps the depth it would have without them, and those runs still double back.
     const belowFeet = overview
       ? -Infinity
       : Math.max(
@@ -741,7 +743,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
           ...stackFrames.flatMap((f, j) =>
             wallBoxes
               .filter((b) => b.kind === 'port' && wallFrame(b.wall).n.y < 0 && ports.get(b.ref)!.useCaseId === d.useCases[stack[j]].id)
-              .map((b) => laneFoot(faceOf(b, appO), b.wall, (b.side === 'driving' ? -1 : 1) * busX(b.side, stack[j], insideO.halfWidth)).y + appO.apex - useCaseOffsets[j] - f.height / 2),
+              .map((b) => laneFoot(faceOf(b, appO), b.wall, laneX(b.side, stack[j], insideO.halfWidth)).y + appO.apex - useCaseOffsets[j] - f.height / 2),
           ),
         )
     const lowest = appO.apex - insideO.apex - DOMAIN_RUN - useCaseBlock.height
@@ -890,7 +892,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
       if (seat && seat.wall === wallOf(port)) continue
       const from = seat ?? stacked[stack.indexOf(k)]
       const sign = port.side === 'driving' ? -1 : 1
-      const lane = sign * busX(port.side, k, insideO.halfWidth)
+      const lane = laneX(port.side, k, insideO.halfWidth)
       const slanted = slantedSocket.find((s) => s.ref === port.id)
       const socket = planned.find((p) => p.key === `port:${port.id}`)
       const portY = slanted?.face.y ?? socket?.y
@@ -998,7 +1000,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
         if (k >= 0 && !overview && seatWall(d.useCases[k]) !== b.wall) {
           // The run from the bus lane to the socket, along the wall normal, keeps at least RUN.
           const { n, dir } = wallFrame(b.wall)
-          const bus = (b.side === 'driving' ? -1 : 1) * busX(b.side, k, inner.halfWidth)
+          const bus = laneX(b.side, k, inner.halfWidth)
           minApothem = Math.max(minApothem, (bus + RUN * n.x - b.u * dir.x) / n.x + b.height / 2)
         }
       }
@@ -1145,7 +1147,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   /** Use case to the head of its bus lane for this socket's side (see toLane). */
   const laneHead = (useCase: LayoutNode, socket: LayoutNode) => {
     const side = socket.side ?? 'driven'
-    const lane = (side === 'driving' ? -1 : 1) * busX(side, d.useCases.findIndex((u) => `useCase:${u.id}` === useCase.key), insideApp.halfWidth)
+    const lane = laneX(side, d.useCases.findIndex((u) => `useCase:${u.id}` === useCase.key), insideApp.halfWidth)
     return toLane({ ...useCase, seated: !!useCase.wall }, lane, insideApp.apex, socket.y)
   }
   const busRoute = (useCase: LayoutNode, socket: LayoutNode): Point[] => {
