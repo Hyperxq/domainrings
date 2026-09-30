@@ -8,7 +8,7 @@ import { legendFor, legendForClean, legendForOnion } from './layout/legend'
 import { layoutClean } from './layout/clean'
 import { layoutOnion } from './layout/onion'
 import { EXAMPLES } from './model/example'
-import { newCleanMap, newOnionMap, parseHexa, toHexa, toMap } from './model/hexa'
+import { toHexa } from './model/hexa'
 import { collectionOf, type LinkChoice } from './model/links'
 import { contextName, diagramOf, linkEndLabel, occupiedContexts, UNTITLED_HEXAGON, type Destination, type LinkPatch } from './model/map'
 import { useCleanStore } from './model/cleanStore'
@@ -17,12 +17,12 @@ import { useSaveFailed, type Recovery } from './model/persistence'
 import type { StoredFile } from './model/fileFormat'
 import type { CleanFile, HexaMap, Link, LinkEnd, OnionFile, Wall } from './model/schema'
 import { useMapStore } from './model/store'
-import type { ArchitectureChoice } from './ui/ArchitectureChoiceDialog'
 import { ArchitectureChoiceDialog, CHOICES } from './ui/ArchitectureChoiceDialog'
 import { Editor } from './ui/Editor'
 import { revealInEditor } from './ui/revealInEditor'
 import { download } from './ui/exporters'
 import { useExport } from './ui/useExport'
+import { useOpenDocument } from './ui/useOpenDocument'
 import { Icon } from './ui/Icon'
 import { Legend } from './ui/Legend'
 import type { PaletteId } from './ui/palette'
@@ -60,9 +60,9 @@ const HIGHLIGHT_KEY = 'domainrings:highlight'
 const DEPENDENTS_KEY = 'domainrings:dependents'
 const LEGEND_OPEN_KEY = 'domainrings:legend-open'
 const NONE_EXPANDED: ReadonlySet<string> = new Set()
-const { replace, restore, removeItem, updateItem, addHexagon, importHexagon, removeHexagon, moveToContext, setMeta, addLink, updateLink: updateLinkAction, removeLink: removeLinkAction } = useMapStore.getState()
-const { replace: replaceOnion, restore: restoreOnion } = useOnionStore.getState()
-const { replace: replaceClean, restore: restoreClean } = useCleanStore.getState()
+const { restore, removeItem, updateItem, addHexagon, importHexagon, removeHexagon, moveToContext, setMeta, addLink, updateLink: updateLinkAction, removeLink: removeLinkAction } = useMapStore.getState()
+const { restore: restoreOnion } = useOnionStore.getState()
+const { restore: restoreClean } = useCleanStore.getState()
 
 /** Undo, generalized over all three kinds (REQ-09): routes to whichever store the snapshot's own document
  * belongs to — the one restore path every kind's toast shares. The runtime check IS the type guard; the cast
@@ -235,40 +235,8 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // `undo.map.kind`, so the view returns with it. One snapshot, one restore path, for every swap direction.
   const beforeSwap: UndoSnapshot = activeKind === 'onion' ? { map: onionMap, swap: true } : activeKind === 'clean' ? { map: cleanMap, swap: true } : { ...before, swap: true }
 
-  // The one kind-dispatch outside the render fork (ADR-02): routes a newly created/opened/loaded document to
-  // whichever store matches its own kind and flips the active view.
-  const swap = (file: StoredFile, message: string) => {
-    show({ tone: 'status', message, undo: beforeSwap })
-    if (file.kind === 'onion') {
-      replaceOnion(file)
-      setActiveKind('onion')
-      return
-    }
-    if (file.kind === 'clean') {
-      replaceClean(file)
-      setActiveKind('clean')
-      return
-    }
-    replace(file)
-    setActiveKind('hexagonal')
-    setExportScope('map')
-  }
-
-  // REQ-01: the one-time, permanent architecture choice for a brand-new file — Toolbar's New button opens this
-  // instead of creating a Hexagonal map directly.
   const [choosingArchitecture, setChoosingArchitecture] = useState(false)
-  const completeNew = (kind: ArchitectureChoice) => {
-    setChoosingArchitecture(false)
-    if (kind === 'onion') {
-      swap(newOnionMap('Untitled architecture'), 'Started a new Onion diagram.')
-      return
-    }
-    if (kind === 'clean') {
-      swap(newCleanMap('Untitled architecture'), 'Started a new Clean diagram.')
-      return
-    }
-    swap(toMap({ version: 1, kind: 'hexagonal', title: 'Untitled architecture', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }), 'Started a new diagram.')
-  }
+  const { swap, completeNew, parseSource, parseFile, importFile } = useOpenDocument({ beforeSwap, show, setActiveKind, setExportScope, setChoosingArchitecture })
 
   const nameOf = (ref: string) => {
     const collection = collectionOf(diagram, ref)
@@ -403,25 +371,6 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     const chosenEnd: LinkEnd = { hexagonId: choice.hexagonId, portId: choice.portId }
     createLink(...(sourceSide === 'driven' ? ([sourceEnd, chosenEnd] as const) : ([chosenEnd, sourceEnd] as const)))
     setLinking(null)
-  }
-
-  // Shared by Open…, "Add hexagon from file…" and a share link: text that fails to parse is refused the same
-  // way everywhere (IMP-07) — a newer-version source isn't broken (REQ-03.1), so it gets its own headline, no
-  // fix-it framing. `label` names the source in the notice ("broken.hexa" for a file, "This link" for a link).
-  const parseSource = async (text: string, label: string): Promise<StoredFile | undefined> => {
-    const result = parseHexa(text)
-    if (result.ok) return result.map
-    const message =
-      result.reason === 'newer' ? `${label} was made by a newer version of domainrings.` : `${label} could not be opened. Fix these problems and try again:`
-    show({ tone: 'error', message, details: result.errors })
-    return undefined
-  }
-
-  const parseFile = async (file: File): Promise<StoredFile | undefined> => parseSource(await file.text(), file.name)
-
-  const importFile = async (file: File) => {
-    const parsed = await parseFile(file)
-    if (parsed) swap(parsed, `Opened ${file.name}.`)
   }
 
   useShareLinkOnMount({ parseSource, swap, showError: (message) => show({ tone: 'error', message }) })
