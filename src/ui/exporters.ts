@@ -136,18 +136,31 @@ export async function svgMarkup(svg: SVGSVGElement, bounds: Box, title: string, 
   return new XMLSerializer().serializeToString(clone)
 }
 
-export async function pngBlob(markup: string, bounds: Box, pixelRatio = 2): Promise<Blob> {
+// Chrome's canvas limits; no engine accepts more, so larger requests are clamped before the first attempt.
+const MAX_CANVAS_SIDE = 16384
+const MAX_CANVAS_AREA = MAX_CANVAS_SIDE ** 2
+const MIN_PIXEL_RATIO = 0.1
+const STEP_DOWN = 0.75
+
+const encode = (canvas: HTMLCanvasElement) => new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+
+/** Encodes at `pixelRatio`, stepping the ratio down while the browser refuses the canvas (it yields no blob once
+ * a canvas passes the engine's size limit, which is far lower in Safari than in Chrome). */
+export async function pngBlob(markup: string, bounds: Box, pixelRatio = 2): Promise<{ blob: Blob; pixelRatio: number }> {
   const image = new Image()
   // A data URL (not a blob URL) keeps the canvas untainted in every engine.
   image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`
   await image.decode()
-  const canvas = document.createElement('canvas')
-  canvas.width = Math.ceil(bounds.width * pixelRatio)
-  canvas.height = Math.ceil(bounds.height * pixelRatio)
-  canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height)
-  return new Promise((resolve, reject) =>
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('The browser could not encode the PNG.'))), 'image/png'),
-  )
+  const fits = Math.min(MAX_CANVAS_SIDE / Math.max(bounds.width, bounds.height), Math.sqrt(MAX_CANVAS_AREA / (bounds.width * bounds.height)))
+  for (let ratio = Math.min(pixelRatio, fits); ratio >= MIN_PIXEL_RATIO; ratio *= STEP_DOWN) {
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.ceil(bounds.width * ratio)
+    canvas.height = Math.ceil(bounds.height * ratio)
+    canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height)
+    const blob = await encode(canvas)
+    if (blob) return { blob, pixelRatio: ratio }
+  }
+  throw new Error('The browser could not encode the PNG.')
 }
 
 export function download(content: Blob | string, filename: string, type = 'application/octet-stream') {

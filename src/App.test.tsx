@@ -2788,12 +2788,37 @@ describe('Onion export (REQ-08)', () => {
     expect(clickSpy.mock.instances.at(-1)).toMatchObject({ download: `${fileSlug('Onion sample')}.png` })
     expect(drawImage).toHaveBeenCalledTimes(1)
     expect(captured?.type).toBe('image/png')
+    expect(screen.queryByText(/Exported at/)).toBeNull()
 
     delete (HTMLImageElement.prototype as unknown as { decode?: () => Promise<void> }).decode
     contextSpy.mockRestore()
     toBlobSpy.mockRestore()
     createSpy.mockRestore()
     clickSpy.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  it('tells the author the resolution used when the PNG had to be exported smaller than requested', async () => {
+    await openOnionSample()
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+    ;(HTMLImageElement.prototype as unknown as { decode: () => Promise<void> }).decode = vi.fn().mockResolvedValue(undefined)
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D)
+    let refusals = 1
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (this: HTMLCanvasElement, cb: BlobCallback) {
+      cb(refusals-- > 0 ? null : new Blob(['fake-png'], { type: 'image/png' }))
+    })
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock')
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Export as PNG' }))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    expect(screen.getByText('Exported at 75% resolution. Use SVG for full resolution.')).toBeTruthy()
+
+    delete (HTMLImageElement.prototype as unknown as { decode?: () => Promise<void> }).decode
+    vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
 

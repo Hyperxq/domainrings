@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { svgMarkup } from './exporters'
+import { pngBlob, svgMarkup } from './exporters'
 
 const NS = 'http://www.w3.org/2000/svg'
 const bounds = { x: 0, y: 0, width: 400, height: 300 }
@@ -232,5 +232,56 @@ describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {
 
     expect(markup).not.toContain('data-hover')
     expect(group.getAttribute('data-hover')).toBe('outer')
+  })
+})
+
+describe('pngBlob', () => {
+  const area = { x: 0, y: 0, width: 2000, height: 1000 }
+  let canvasSizes: number[]
+  let maxPixels: number
+
+  beforeEach(() => {
+    canvasSizes = []
+    maxPixels = Infinity
+    ;(HTMLImageElement.prototype as unknown as { decode: () => Promise<void> }).decode = () => Promise.resolve()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D)
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (this: HTMLCanvasElement, cb: BlobCallback) {
+      const pixels = this.width * this.height
+      canvasSizes.push(pixels)
+      cb(pixels > maxPixels ? null : new Blob(['png'], { type: 'image/png' }))
+    })
+  })
+
+  afterEach(() => {
+    delete (HTMLImageElement.prototype as unknown as { decode?: () => Promise<void> }).decode
+    vi.restoreAllMocks()
+  })
+
+  it('encodes at the requested ratio when the browser accepts it', async () => {
+    const { blob, pixelRatio } = await pngBlob('<svg/>', area)
+    expect(pixelRatio).toBe(2)
+    expect(blob.type).toBe('image/png')
+    expect(canvasSizes).toEqual([4000 * 2000])
+  })
+
+  it('steps the ratio down until the browser encodes the canvas', async () => {
+    maxPixels = 2_000_000
+    const { blob, pixelRatio } = await pngBlob('<svg/>', area)
+    expect(blob.type).toBe('image/png')
+    expect(pixelRatio).toBeLessThan(2)
+    expect(canvasSizes.length).toBeGreaterThan(1)
+    expect(canvasSizes.at(-1)).toBeLessThanOrEqual(maxPixels)
+  })
+
+  it('starts below the requested ratio when the canvas exceeds the largest known browser limit', async () => {
+    const { pixelRatio } = await pngBlob('<svg/>', { x: 0, y: 0, width: 11600, height: 10000 })
+    expect(pixelRatio).toBeLessThan(2)
+    expect(canvasSizes[0]).toBeLessThanOrEqual(16384 * 16384)
+  })
+
+  it('rejects with the encode error once even the minimum ratio is refused', async () => {
+    maxPixels = 0
+    await expect(pngBlob('<svg/>', area)).rejects.toThrow('The browser could not encode the PNG.')
+    expect(canvasSizes.length).toBeLessThan(30)
   })
 })
