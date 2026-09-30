@@ -3,6 +3,7 @@ import type { CleanElement, CleanFile, CleanRingRole } from '../model/schema'
 import { countCrossings } from './crossings'
 import { minimizeCrossings, neighborLookup, type CrossingGroup } from './crossingMinimization'
 import type { Box, LayoutRing } from './layout'
+import { routeEdgesAroundLabels } from './edgeRouting'
 import { endpointLayout, ringedBounds, ringedElementHeight, ringedElementWidth, ringOutlines, ringSlotRadii, risksLabelAt, TITLE_ARC_PAD, type RingedExtraLabel } from './ringed'
 import { measure, RING_SUBTITLE } from './text'
 
@@ -49,6 +50,8 @@ export interface CleanEdgeLayout {
   toRef: string
   from: { x: number; y: number }
   to: { x: number; y: number }
+  /** The quadratic control point Detailed view bows this arrow through, kept clear of every title and sector name. */
+  control: { x: number; y: number }
 }
 
 export interface CleanLayoutModel {
@@ -173,14 +176,14 @@ function buildCleanModel(doc: CleanFile, sectors: CleanSectorWedge[], orderedEle
   const outerElements = elements.filter((e) => e.ringRole === outer.role).map((e) => ({ x: e.x, y: e.y, width: ringedElementWidth(e.name), height: ringedElementHeight(e.name) }))
   const { endpoints, extraReach } = endpointLayout(doc.actors, doc.externals, outer, outerElements)
 
-  const dependencyEdges: CleanEdgeLayout[] = doc.dependencies.flatMap((dep) => {
+  const dependencyEdges: Omit<CleanEdgeLayout, 'control'>[] = doc.dependencies.flatMap((dep) => {
     const from = elementAt.get(dep.fromId)
     const to = elementAt.get(dep.toId)
     return from && to
       ? [{ key: `dependency:${dep.id}`, kind: 'dependency' as const, fromRef: dep.fromId, toRef: dep.toId, from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y } }]
       : []
   })
-  const endpointEdges: CleanEdgeLayout[] = endpoints.flatMap((endpoint) => {
+  const endpointEdges: Omit<CleanEdgeLayout, 'control'>[] = endpoints.flatMap((endpoint) => {
     const target = endpoint.targetId ? elementAt.get(endpoint.targetId) : undefined
     return target
       ? [{ key: `endpoint-edge:${endpoint.ref}`, kind: 'endpoint' as const, fromRef: endpoint.ref, toRef: endpoint.targetId!, from: { x: endpoint.x, y: endpoint.y }, to: { x: target.x, y: target.y } }]
@@ -192,7 +195,11 @@ function buildCleanModel(doc: CleanFile, sectors: CleanSectorWedge[], orderedEle
     sectors,
     elements,
     endpoints,
-    edges: [...dependencyEdges, ...endpointEdges],
+    edges: routeEdgesAroundLabels(
+      [...dependencyEdges, ...endpointEdges],
+      rings,
+      sectors.map((s) => ({ ...s, ringIndex: rings.findIndex((r) => r.role === s.ringRole) })),
+    ),
     bounds: ringedBounds(outer, extraReach),
   }
 }
