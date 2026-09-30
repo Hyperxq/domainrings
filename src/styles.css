@@ -157,6 +157,9 @@
   animation: enter var(--motion-base) var(--motion-ease);
 }
 [data-hex][role='button'] { cursor: pointer; }
+.compact-title { text-anchor: middle; font-weight: 600; }
+.compact-count { text-anchor: middle; fill: var(--muted); font-family: var(--font-mono); }
+[data-hex][role='button']:hover .ring-outer { fill: var(--card-hover); }
 
 /* On-canvas "+" affordances and the inline name field, laid over the stage in screen coordinates. */
 .affordances { position: absolute; inset: 0; pointer-events: none; }
