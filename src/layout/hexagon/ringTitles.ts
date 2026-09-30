@@ -41,3 +41,5 @@ export function ringTitles(d: Diagram) {
     }))
   return { titleWidth, titleHeight, titleDepth, rings }
 }
+
+export type RingTitles = ReturnType<typeof ringTitles>

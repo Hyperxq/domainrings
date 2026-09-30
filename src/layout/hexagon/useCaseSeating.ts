@@ -1,11 +1,11 @@
 import { HEXAGONAL_KIND } from '../../model/kinds'
-import { defaultWall, SideSchema, type Diagram, type Port, type Side, type UseCase, type Wall } from '../../model/schema'
+import { defaultWall, SideSchema, type Diagram, type Side, type UseCase, type Wall } from '../../model/schema'
 import { reach, type Point } from '../geometry'
-import type { NodeKind } from '../layout'
-import type { Frame } from './boxFrames'
-import type { Planned, WallBox } from './columns'
 import { depthAt, type Outline } from '../outline'
 import { EDGE_LABEL, measure } from '../text'
+import type { BoxFrames, Frame } from './boxFrames'
+import type { BoxPlan, WallBox } from './columns'
+import type { RingTitles } from './ringTitles'
 import { DOMAIN_RUN, GAP, LABEL_GAP, LANE, PAD, RUN } from './spacing'
 import { WALLS, wallFrame } from './walls'
 
@@ -49,13 +49,16 @@ export interface SeatingInput {
   useCaseFrames: Frame[]
   /** How many driven ports the domain declares: each keeps one extra lane for its dotted ownership link. */
   declaredPorts: number
-  titles: { titleHeight: (i: number) => number; titleDepth: number }
-  columns: { ports: Map<string, Port>; wallBoxes: WallBox[]; of: (kind: NodeKind) => Planned[]; widths: Record<Side, { socketHalf: number }> }
-  frames: { portLabel: (p: Port) => Frame; labelReach: (p: Port) => number }
+  titles: RingTitles
+  plan: BoxPlan
+  frames: BoxFrames
 }
 
 /** How the use cases sit in the application ring: stacked under its title, or seated on a wall, each with the bus lane its runs take to the sockets. */
-export function seatUseCases({ d, overview, appIndex, useCaseFrames, declaredPorts, titles: { titleHeight, titleDepth }, columns: { ports, wallBoxes, of, widths }, frames: { portLabel, labelReach } }: SeatingInput) {
+export function seatUseCases({ d, overview, appIndex, useCaseFrames, declaredPorts, titles, plan, frames }: SeatingInput) {
+  const { titleHeight, titleDepth } = titles
+  const { ports, wallBoxes, of, widths } = plan
+  const { portLabel, labelReach } = frames
   const { labels } = HEXAGONAL_KIND
   /** Indices into d.useCases of the use cases stacked under the application title. */
   const stack = d.useCases.flatMap((u, i) => (seatWall(u) ? [] : [i]))
@@ -163,3 +166,5 @@ export function seatUseCases({ d, overview, appIndex, useCaseFrames, declaredPor
 
   return { stack, stackFrames, useCaseBlock, useCaseOffsets, busX, laneX, socketClearance, useCaseCentres, seats, seatsAt }
 }
+
+export type UseCaseSeating = ReturnType<typeof seatUseCases>

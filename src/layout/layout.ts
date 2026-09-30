@@ -1,10 +1,10 @@
 import { HEXAGONAL_KIND, type RingRole } from '../model/kinds'
 import type { Diagram, Side, Wall } from '../model/schema'
 import type { Box, Point } from './geometry'
+import { layoutBounds } from './hexagon/bounds'
 import { boxFrames } from './hexagon/boxFrames'
 import { layCentre } from './hexagon/centreBlock'
 import { planBoxes } from './hexagon/columns'
-import { layoutBounds } from './hexagon/bounds'
 import { assignLayers, placeNodes } from './hexagon/nodes'
 import { solveRings } from './hexagon/ringSolver'
 import { ringTitles } from './hexagon/ringTitles'
@@ -117,76 +117,30 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   const overview = mode === 'overview'
   const config = HEXAGONAL_KIND
   const frames = boxFrames(overview)
-  const { portLabel, labelReach, domainFrame, useCaseFrame } = frames
-  const { ports, portOf, wallOf, hasSlanted, sectored, planned, of, edgePlan, widths, wallBoxes, localCorners, columnCorners, labelU, portLabels } = planBoxes(d, overview, frames)
-
-
+  const plan = planBoxes(d, overview, frames)
   const titles = ringTitles(d)
-  const { titleWidth, titleHeight, titleDepth: TITLE_DEPTH } = titles
-  const last = config.rings.length - 1
-  const centre = layCentre({ d, overview, domainFrame, titles })
-  const { boxes: coreBoxes, serviceItems, serviceFrames, servicesBlock, declared } = centre
-  const useCaseFrames = d.useCases.map(useCaseFrame)
+  const centre = layCentre({ d, overview, domainFrame: frames.domainFrame, titles })
+  const useCaseFrames = d.useCases.map(frames.useCaseFrame)
   const appIndex = config.rings.findIndex((r) => r.role === 'application')
-  const seating = seatUseCases({
-    d,
-    overview,
-    appIndex,
-    useCaseFrames,
-    declaredPorts: declared.length,
-    titles: { titleHeight, titleDepth: TITLE_DEPTH },
-    columns: { ports, wallBoxes, of, widths },
-    frames: { portLabel, labelReach },
-  })
-  const { stack, useCaseBlock, useCaseCentres, seatsAt } = seating
+  const seating = seatUseCases({ d, overview, appIndex, useCaseFrames, declaredPorts: centre.declared.length, titles, plan, frames })
 
-  const { outlines, domainShift } = solveRings({
-    d,
-    overview,
-    appIndex,
-    titles: { titleWidth, titleHeight, titleDepth: TITLE_DEPTH },
-    centre,
-    columns: { ports, wallOf, planned, of, widths, wallBoxes, hasSlanted, sectored, localCorners, columnCorners },
-    frames: { portLabel, labelReach },
-    seating: { ...seating, useCaseFrames, labelU, portLabels },
-  })
-
+  const { outlines, domainShift } = solveRings({ d, overview, appIndex, titles, centre, plan, frames, useCaseFrames, seating })
   const app = outlines[appIndex]
   const insideApp = outlines[appIndex + 1]
   const outer = outlines[0]
-  const domain = outlines[last]
+  const domain = outlines[config.rings.length - 1]
 
-  // 5. Nodes and edges.
-  const rings = titles.rings(outlines)
-
-  const compositionFrame = d.composition && !overview ? frames.compositionFrame(d.composition) : undefined
-  const nodes = placeNodes({
-    d,
-    app,
-    outer,
-    domain,
-    titleDepth: TITLE_DEPTH,
-    domainShift,
-    centre: { boxes: coreBoxes, serviceItems, serviceFrames, servicesHeight: servicesBlock.height },
-    columns: { planned, widths, portOf },
-    wallBoxes,
-    useCases: { stack, frames: useCaseFrames, stackCentres: useCaseCentres(app, insideApp), seated: seatsAt(app) },
-    portLabels: portLabels(app),
-    compositionFrame,
-  })
-
-  const edges = routeEdges({ d, overview, nodes, edgePlan, app, insideApp, domain, outer, seating: { stack, blockWidth: useCaseBlock.width, laneX: seating.laneX } })
-
+  const nodes = placeNodes({ d, overview, app, insideApp, outer, domain, titles, domainShift, centre, plan, frames, useCaseFrames, seating })
+  const edges = routeEdges({ d, overview, nodes, plan, app, insideApp, domain, outer, seating })
   const { texts, bounds } = layoutBounds(d, outer, nodes, edges)
-
-  assignLayers(nodes, serviceItems)
+  assignLayers(nodes, centre.serviceItems)
 
   // Spokes run along the centre-to-vertex lines, from each outer vertex in to the domain's, never over its fill.
   const guides = VERTEX.map((v) => ({ from: { x: v.x * outer.apex, y: v.y * outer.apex }, to: { x: v.x * domain.apex, y: v.y * domain.apex } }))
 
   return {
     shape: 'hexagon',
-    rings,
+    rings: titles.rings(outlines),
     guides,
     nodes,
     edges,

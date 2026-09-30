@@ -4,8 +4,9 @@ import { dedupe, dot, enterBox, reach, type Point } from '../geometry'
 import type { LayoutEdge, LayoutNode } from '../layout'
 import { COS30, halfWidthAt, type Outline } from '../outline'
 import { EDGE_LABEL, measure } from '../text'
+import type { BoxPlan } from './columns'
 import { COLUMN_GAP, LANE, OUTSIDE_GAP } from './spacing'
-import { laneFoot, toLane } from './useCaseSeating'
+import { laneFoot, toLane, type UseCaseSeating } from './useCaseSeating'
 import { SLANTED_WALLS, VERTEX, wallFrame } from './walls'
 
 /** The composition trunk hugs the outer hexagon this far out. */
@@ -30,30 +31,24 @@ function laneOrder(spans: Array<[number, number]>): number[] {
   return spans.map((_, i) => order.indexOf(i))
 }
 
-/** How the use cases sit in the application ring, as far as their runs to the sockets need. */
-export interface RouteSeating {
-  /** Indices into `d.useCases` of the use cases stacked under the application title. */
-  stack: number[]
-  /** Width of the stacked use cases' widest box. */
-  blockWidth: number
-  laneX: (side: Side, k: number, innerHalfWidth: number) => number
-}
-
 export interface RouteInput {
   d: Diagram
   overview: boolean
   nodes: LayoutNode[]
-  edgePlan: Array<[string, string, string?]>
+  plan: BoxPlan
   app: Outline
   insideApp: Outline
   domain: Outline
   outer: Outline
-  seating: RouteSeating
+  seating: UseCaseSeating
 }
 
 /** Every edge of the diagram: each planned import, the use cases' asks into the domain, the domain's port declarations and the composition trunks. */
-export function routeEdges({ d, overview, nodes, edgePlan, app, insideApp, domain, outer, seating: { stack, blockWidth, laneX } }: RouteInput): LayoutEdge[] {
+export function routeEdges({ d, overview, nodes, plan, app, insideApp, domain, outer, seating }: RouteInput): LayoutEdge[] {
   const { labels } = HEXAGONAL_KIND
+  const { edgePlan } = plan
+  const { stack, laneX } = seating
+  const blockWidth = seating.useCaseBlock.width
   const byKey = new Map(nodes.map((n) => [n.key, n]))
   const faceX = (n: LayoutNode, towardX: number) => n.x + (Math.sign(towardX - n.x) * n.width) / 2
 

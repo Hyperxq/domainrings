@@ -263,3 +263,5 @@ export function planBoxes(d: Diagram, overview: boolean, { NOTCH, portLabel, ada
       : []
   return { ports, portOf, wallOf, hasSlanted, sectored, planned, of, edgePlan, widths, wallBoxes, localCorners, columnCorners, labelU, portLabels }
 }
+
+export type BoxPlan = ReturnType<typeof planBoxes>

@@ -2,8 +2,8 @@ import { HEXAGONAL_KIND } from '../../model/kinds'
 import type { Diagram, DomainItem } from '../../model/schema'
 import type { NodeKind } from '../layout'
 import { depthAt, type Outline } from '../outline'
-import { styled } from '../text'
 import { DOMAIN_TAGS } from '../tags'
+import { styled } from '../text'
 import { frame, type Frame } from './boxFrames'
 import { COLUMN_GAP, DOMAIN_PAD } from './spacing'
 
@@ -138,3 +138,5 @@ export function layCentre({ d, overview, domainFrame, titles: { titleHeight, tit
     Math.max(0, ...coreBoxes.map((r) => depthAt(o, Math.abs(r.x) + r.frame.width / 2 + DOMAIN_PAD) - (titleDepth + r.top)))
   return { boxes: coreBoxes, serviceItems, serviceFrames, servicesBlock, declared, bodyShift }
 }
+
+export type CentreBlock = ReturnType<typeof layCentre>

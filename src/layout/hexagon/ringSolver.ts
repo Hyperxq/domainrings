@@ -1,93 +1,47 @@
 import { HEXAGONAL_KIND } from '../../model/kinds'
-import { SideSchema, type Diagram, type Port, type Side, type Wall } from '../../model/schema'
+import { SideSchema, type Diagram } from '../../model/schema'
 import { dot, hairline, quadsOverlap, rectCorners, type Point } from '../geometry'
-import type { NodeKind } from '../layout'
-import type { Frame } from './boxFrames'
-import type { Planned, WallBox } from './columns'
 import { COS30, fitRing, halfWidthAt, hexagon, type Need, type Outline } from '../outline'
 import { RING_LABEL } from '../text'
+import type { BoxFrames, Frame } from './boxFrames'
+import type { CentreBlock } from './centreBlock'
+import type { BoxPlan, Planned } from './columns'
+import type { RingTitles } from './ringTitles'
 import { DOMAIN_PAD, DOMAIN_RUN, GAP, LABEL_GAP, LABEL_PAD_X, OUTSIDE_GAP, PAD, RUN } from './spacing'
-import { faceOf, laneFoot, seatWall, toLane } from './useCaseSeating'
+import { faceOf, laneFoot, seatWall, toLane, type UseCaseSeating } from './useCaseSeating'
 import { sectorApothem, wallAngle, wallFrame } from './walls'
 
 const LABEL_LINE = RING_LABEL.size + 4
 const nearest = (y: number, height: number) => Math.max(0, Math.abs(y) - height / 2)
 const farthest = (y: number, height: number) => Math.abs(y) + height / 2
 
-interface Sized {
-  width: number
-  height: number
-}
-
-interface WallCorner {
-  u: number
-  v: number
-}
-
-interface Seat {
-  i: number
-  wall: Wall
-  frame: Sized
-  u: number
-  /** How far in from the wall's sockets the seat starts. */
-  inset: number
-  across: number
-}
-
-type Seated = Seat & { x: number; y: number }
-
 export interface RingSolverInput {
   d: Diagram
   overview: boolean
   /** Index of the application ring in the kind's ring list. */
   appIndex: number
-  titles: { titleWidth: (i: number) => number; titleHeight: (i: number) => number; titleDepth: number }
-  centre: {
-    boxes: { x: number; top: number; frame: Sized }[]
-    serviceFrames: Sized[]
-    servicesBlock: { width: number; height: number }
-    bodyShift: (o: Outline) => number
-  }
-  columns: {
-    ports: Map<string, Port>
-    wallOf: (p: Port) => Wall
-    planned: Planned[]
-    of: (kind: NodeKind) => Planned[]
-    widths: Record<Side, { socketHalf: number; adapter: number; leaf: number }>
-    wallBoxes: WallBox[]
-    hasSlanted: boolean
-    sectored: boolean
-    localCorners: (b: WallBox) => WallCorner[]
-    columnCorners: (kind: NodeKind, v: (p: Planned) => number[]) => WallCorner[]
-  }
-  frames: { portLabel: (p: Port) => Frame; labelReach: (p: Port) => number }
-  seating: {
-    stack: number[]
-    stackFrames: Sized[]
-    useCaseFrames: Sized[]
-    useCaseBlock: Sized
-    useCaseOffsets: number[]
-    busX: (side: Side, k: number, innerHalfWidth: number) => number
-    laneX: (side: Side, k: number, innerHalfWidth: number) => number
-    socketClearance: (side: Side, innerHalfWidth: number) => number
-    seats: () => Seat[]
-    seatsAt: (appO: Outline) => Seated[]
-    useCaseCentres: (appO: Outline, insideO: Outline) => number[]
-    labelU: (b: WallBox, f: Frame) => number
-    portLabels: (appO: Outline) => { x: number; y: number; frame: Sized; rotation: number | undefined }[]
-  }
+  titles: RingTitles
+  centre: CentreBlock
+  plan: BoxPlan
+  frames: BoxFrames
+  useCaseFrames: Frame[]
+  seating: UseCaseSeating
 }
 
 /**
  * Every ring's outline, inside-out, and how far the domain body drops below its title: each ring holds its own
  * content, fitted to the real box corners.
  */
-export function solveRings({ d, overview, appIndex, titles: { titleWidth, titleHeight, titleDepth }, centre, columns: { ports, wallOf, planned, of, widths, wallBoxes, hasSlanted, sectored, localCorners, columnCorners }, frames: { portLabel, labelReach }, seating: { stack, stackFrames, useCaseFrames, useCaseBlock, useCaseOffsets, busX, laneX, socketClearance, seats, seatsAt, useCaseCentres, labelU, portLabels } }: RingSolverInput): { outlines: Outline[]; domainShift: number } {
+export function solveRings({ d, overview, appIndex, titles, centre, plan, frames, useCaseFrames, seating }: RingSolverInput): { outlines: Outline[]; domainShift: number } {
   const config = HEXAGONAL_KIND
+  const { titleWidth, titleHeight, titleDepth } = titles
   const { bodyShift, serviceFrames, servicesBlock } = centre
+  const { ports, wallOf, planned, of, widths, wallBoxes, hasSlanted, sectored, localCorners, columnCorners, labelU, portLabels } = plan
+  const { portLabel, labelReach } = frames
+  const { stack, stackFrames, useCaseBlock, useCaseOffsets, busX, laneX, socketClearance, seats, seatsAt, useCaseCentres } = seating
   const last = config.rings.length - 1
   let domainShift = 0
-  const boxQuad = (b: { x: number; y: number; frame: Sized }) => rectCorners(b.x, b.y, b.frame.width, b.frame.height)
+  const boxQuad = (b: { x: number; y: number; frame: { width: number; height: number } }) => rectCorners(b.x, b.y, b.frame.width, b.frame.height)
 
   /**
    * For a candidate application ring: does a slanted-wall socket, an overview port name or a seated use case touch
@@ -146,7 +100,7 @@ export function solveRings({ d, overview, appIndex, titles: { titleWidth, titleH
     return boxes.some((b) => runs.some((r) => r.useCase !== b.i && quadsOverlap(b.quad, r.quad)))
   }
 
-  // 4. Rings, inside-out: each one holds its own content, fitted to the real box corners. The stack above the
+  // Rings, inside-out: each one holds its own content, fitted to the real box corners. The stack above the
   // inner ring (use cases, then the title) is absolute here; titles move up under the top vertex afterwards.
   const outlines: Outline[] = []
 
