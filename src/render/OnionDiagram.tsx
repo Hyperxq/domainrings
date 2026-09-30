@@ -2,7 +2,7 @@ import type { LayoutMode } from '../layout/layout'
 import type { OnionLayoutModel } from '../layout/onion'
 import type { LegendModel } from '../layout/legend'
 import { RingedEdge, ringedVisibleEdges, RingedElementNode, RingedEndpointNode } from './RingedNodes'
-import { Ring } from './Diagram'
+import { Ring } from './Ring'
 import { SvgLegend } from './SvgLegend'
 
 interface OnionDiagramProps {
