@@ -4,6 +4,7 @@ import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/i
 import type { LayoutMode, LayoutNode, Point } from '../layout/layout'
 import type { LegendModel } from '../layout/legend'
 import { currentHexagon, growAnchor, hexagonBounds, hexagonTitle, type MapLayout } from '../layout/map'
+import { dependencyChain } from '../model/chain'
 import { collectionOf, linkTargets, type LinkChoice } from '../model/links'
 import { crossHexagonPorts, freeSides, UNTITLED_HEXAGON, type Destination } from '../model/map'
 import type { CollectionKey, Diagram as DiagramModel, DomainType, HexaMap, Wall } from '../model/schema'
@@ -238,6 +239,9 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
   }
   const isCrossTarget = (clickedHexId: string | null | undefined, ref: string | null) =>
     !!ref && !!clickedHexId && clickedHexId !== hexId && crossTargets.some((p) => p.hexagonId === clickedHexId && p.portId === ref)
+  // Only what is drawn can be followed, so the chain ends at the ports of a compact hexagon.
+  const chain =
+    highlight && !linking && selected ? dependencyChain(map, hexId, selected, new Set(model.hexagons.filter((h) => !h.compact).map((h) => h.id))) : undefined
   const nameOf = (ref: string) => {
     const collection = collectionOf(diagram, ref)
     const items: { id: string; name: string }[] = collection ? diagram[collection] : []
@@ -307,6 +311,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
         onFocus={(e) => !pointerPressed.current && setHovered(layerOf(e.target as Element))}
         onBlur={(e) => !(e.relatedTarget as Element | null)?.closest?.('[data-plus]') && setHovered(null)}
         data-link-mode={linking ? '' : undefined}
+        data-emphasis={chain ? '' : undefined}
         onClick={(e) => {
           if (panned.current) return
           const target = e.target as Element
@@ -368,6 +373,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, legend, rev
           linkTargets={new Set(targets.map((t) => t.targetRef))}
           crossLinkTargets={crossLinkTargets}
           hovered={highlight ? hovered : null}
+          chain={chain}
         />
       </svg>
       {/* Mounted from the start (not just once there is something to say): a screen reader only picks up

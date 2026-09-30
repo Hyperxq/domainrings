@@ -144,6 +144,16 @@
 [data-hex][data-hover='domain'] .node[data-layer='domain'] .box { stroke-width: 2; filter: brightness(1.2); }
 .glow-domain { flood-color: var(--teal-deep); }
 
+/* Dependency chain: with a selection, the chain keeps full strength and thickens while the rest of the map dims — the
+   weight, not just the dimming, tells it apart, so it reads in every palette and theme. */
+svg[data-emphasis] [data-hex]:not([data-chain]),
+svg[data-emphasis] .map-link:not([data-chain]),
+svg[data-emphasis] [data-hex][data-chain] :is(.node, .edge, .edge-label):not([data-chain]) { opacity: 0.35; }
+svg[data-emphasis] .edge[data-chain],
+svg[data-emphasis] .map-link[data-chain] { stroke-width: 2.6; }
+svg[data-emphasis] .node[data-chain] .box { stroke-width: 2.8; }
+svg[data-emphasis] .compact-port[data-chain] circle { stroke-width: 3; }
+
 /* Current-hexagon cue and non-current hexagon affordance (FOCUS-01, CANVAS-03). */
 .hex-cue {
   fill: none;

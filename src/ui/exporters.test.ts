@@ -101,9 +101,9 @@ describe('svgMarkup legend', () => {
   it('drops the canvas editing hooks from every element', async () => {
     const svg = canvas()
     const node = svg.querySelector('rect')!
-    for (const [k, v] of Object.entries({ tabindex: '0', role: 'button', 'aria-label': 'Edit X', 'data-ref': 'x', 'data-band': 'domain', 'data-layer': 'domain', 'data-selected': '' })) node.setAttribute(k, v)
+    for (const [k, v] of Object.entries({ tabindex: '0', role: 'button', 'aria-label': 'Edit X', 'data-ref': 'x', 'data-band': 'domain', 'data-layer': 'domain', 'data-selected': '', 'data-chain': '', 'data-emphasis': '' })) node.setAttribute(k, v)
     const markup = await svgMarkup(svg, bounds, 'T', { legend: true, legendHeight: 120 })
-    expect(markup).not.toMatch(/tabindex|role=|aria-label|data-ref|data-band|data-layer|data-selected/)
+    expect(markup).not.toMatch(/tabindex|role=|aria-label|data-ref|data-band|data-layer|data-selected|data-chain|data-emphasis/)
   })
 
   it('removes a canvas-only pick affordance entirely, not just its scoping attribute (Onion’s "+" glyphs and "Depend on…" chip share the svg with the diagram, unlike Hexagonal’s own screen-space overlay)', async () => {

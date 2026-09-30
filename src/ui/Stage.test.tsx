@@ -10,7 +10,7 @@ import { contextName, diagramOf, freeSides, neighbour, SIDE_ORDER } from '../mod
 import { useMapStore } from '../model/store'
 import type { HexaMap } from '../model/schema'
 import { parseHexa } from '../model/hexa'
-import { hexGroup, manyHexagonMap, twoHexMap } from '../test/fixtures'
+import { hexGroup, linkedTwoHexMap, manyHexagonMap, twoHexMap } from '../test/fixtures'
 import { contains, fitMap, fitTo, islandInset, MIN_FIT_SCALE, MIN_SCALE, pinch, visibleRect, zoomAt } from './viewport'
 import type { Box, Point } from '../layout/layout'
 import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
@@ -1266,5 +1266,72 @@ describe('Stage — compact neighbours on a large map', () => {
     } finally {
       restore()
     }
+  })
+})
+
+describe('Stage — dependency chain emphasis', () => {
+  // A port or an aggregate is drawn twice under one ref, so refs are deduplicated.
+  const chained = (container: HTMLElement, hexId = 'h1') => [...new Set([...hexGroup(container, hexId).querySelectorAll('[data-chain][data-ref]')].map((n) => n.getAttribute('data-ref')))].sort()
+  const select = (container: HTMLElement, ref: string, hexId = 'h1') => fireEvent.click(hexGroup(container, hexId).querySelector(`.node[data-ref="${ref}"]`)!)
+
+  it('emphasizes the chain of a selected adapter and marks the canvas as emphasizing', () => {
+    const { container } = render(<Harness />)
+    expect(svg(container).hasAttribute('data-emphasis')).toBe(false)
+
+    select(container, 'a-http')
+
+    expect(svg(container).hasAttribute('data-emphasis')).toBe(true)
+    expect(chained(container)).toEqual(['a-http', 'd-email', 'd-feedback', 'd-rating', 'p-submit', 'uc-submit'])
+    expect(hexGroup(container, 'h1').hasAttribute('data-chain')).toBe(true)
+    expect(container.querySelectorAll('.edge[data-chain]').length).toBeGreaterThan(0)
+    expect(container.querySelectorAll('.edge:not([data-chain])').length).toBeGreaterThan(0)
+  })
+
+  it('clears on Escape and on a click on empty canvas', () => {
+    const { container } = render(<Harness />)
+    select(container, 'a-http')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(svg(container).hasAttribute('data-emphasis')).toBe(false)
+    expect(container.querySelector('[data-chain]')).toBeNull()
+
+    select(container, 'a-http')
+    fireEvent.click(container.querySelector('[data-band="application"]')!)
+    expect(svg(container).hasAttribute('data-emphasis')).toBe(false)
+  })
+
+  it('is off with Highlight off, and while linking', () => {
+    const off = render(<Harness highlight={false} />)
+    select(off.container, 'a-http')
+    expect(svg(off.container).hasAttribute('data-emphasis')).toBe(false)
+    expect(off.container.querySelector('[data-chain]')).toBeNull()
+    cleanup()
+
+    const { container } = render(<Harness />)
+    select(container, 'a-knex')
+    fireEvent.keyDown(document.body, { key: 'l' })
+    expect(svg(container).hasAttribute('data-link-mode')).toBe(true)
+    expect(svg(container).hasAttribute('data-emphasis')).toBe(false)
+  })
+
+  it('follows a link into a compact hexagon and stops at its port', () => {
+    useMapStore.getState().replace(manyHexagonMap(6))
+    const { container } = render(<Harness />)
+
+    select(container, 'a-knex')
+
+    expect(container.querySelector('.map-link')!.hasAttribute('data-chain')).toBe(true)
+    expect(hexGroup(container, 'h2').hasAttribute('data-chain')).toBe(true)
+    expect(chained(container, 'h2')).toEqual(['p-submit'])
+    expect(hexGroup(container, 'h3').hasAttribute('data-chain')).toBe(false)
+  })
+
+  it('carries on inward to the domain when the linked hexagon is fully drawn', () => {
+    useMapStore.getState().replace(linkedTwoHexMap())
+    const { container } = render(<Harness />)
+
+    select(container, 'a-knex')
+
+    expect(chained(container, 'h2')).toEqual(['d-email', 'd-feedback', 'd-rating', 'p-submit', 'uc-submit'])
+    expect(container.querySelector('.map-link')!.hasAttribute('data-chain')).toBe(true)
   })
 })
