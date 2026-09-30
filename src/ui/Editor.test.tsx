@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { Editor, revealInEditor } from './Editor'
+import { Editor } from './Editor'
+import { revealInEditor } from './revealInEditor'
 import { EXAMPLE_DIAGRAM } from '../model/example'
 import { toMap } from '../model/hexa'
 import { neighbour, SIDE_ORDER } from '../model/map'

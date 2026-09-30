@@ -22,6 +22,7 @@ import { useMapStore, type Item } from '../model/store'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Fold } from './Fold'
 import { Icon } from './Icon'
+import { revealInEditor } from './revealInEditor'
 
 const { addItem, updateItem, removeItem, setMeta, setMapMeta, setContextName } = useMapStore.getState()
 
@@ -50,27 +51,11 @@ const sessionOf = (fieldSession: FieldSession) => ({
 
 const WALL_LABEL: Record<Wall, string> = { nw: 'North-west', w: 'West', sw: 'South-west', ne: 'North-east', e: 'East', se: 'South-east' }
 
-const FLASH_MS = 1200
 const NO_FREE_SIDE_HINT = 'No free side around this hexagon.'
 const LAST_HEXAGON_HINT = 'A map needs at least one hexagon.'
 const NO_CONTEXT_TO_MOVE_HINT = 'This hexagon is alone in the only bounded context.'
 /** Stands in for a context id in the move menu: a new context has none yet. */
 const NEW_CONTEXT = ''
-
-/** Bring a card into view and flash it, so canvas and panel stay in step; `focus` also selects its first field. */
-export function revealInEditor(id: string, focus: boolean) {
-  const card = document.querySelector(`[data-item-id="${id}"]`)
-  if (!card) return
-  const section = card.closest('details.fold')
-  if (section instanceof HTMLDetailsElement) section.open = true
-  card.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
-  card.classList.add('is-flash')
-  setTimeout(() => card.classList.remove('is-flash'), FLASH_MS)
-  if (!focus) return
-  const field = card.querySelector('input')
-  field?.focus({ preventScroll: true })
-  field?.select()
-}
 
 const DOMAIN_TYPE_LABEL = { entity: 'Entity', valueObject: 'Value object', aggregate: 'Aggregate', domainService: 'Domain service' }
 
