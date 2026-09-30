@@ -255,7 +255,8 @@ export type CollectionKey = (typeof COLLECTIONS)[number]
 
 export const OnionRingRoleSchema = z.enum(['domain', 'domainServices', 'application', 'outer'])
 const OnionRingSchema = z.object({ role: OnionRingRoleSchema, name: z.string() })
-const OnionElementSchema = z.object({ id, name: z.string(), ringRole: OnionRingRoleSchema, kind: RingedKindSchema.optional(), note })
+const OnionElementV3Schema = z.object({ id, name: z.string(), ringRole: OnionRingRoleSchema, note })
+const OnionElementSchema = OnionElementV3Schema.extend({ kind: RingedKindSchema.optional() })
 const OnionDependencySchema = z.object({ id, fromId: id, toId: id })
 const OnionEndpointSchema = z.object({ id, name: z.string(), targetId: id.optional(), note })
 
@@ -275,7 +276,7 @@ const OnionFields = {
 }
 
 // Frozen (v3): the Onion arm a v3 build wrote — never change this schema, ADR-03.
-const OnionFileObjectV3 = z.object({ version: z.literal(3), kind: z.literal('onion'), ...OnionFields })
+const OnionFileObjectV3 = z.object({ version: z.literal(3), kind: z.literal('onion'), ...OnionFields, elements: z.array(OnionElementV3Schema) })
 
 const OnionFileObject = z.object({ version: z.literal(VERSION), kind: z.literal('onion'), ...OnionFields })
 

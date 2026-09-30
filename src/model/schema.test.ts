@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CleanFileSchema, DiagramSchema, linkEndProblem, MapSchema, OnionFileSchema, VERSION } from './schema'
+import { APP, CleanFileSchema, DiagramSchema, HexaFileV3Schema, linkEndProblem, MapSchema, OnionFileSchema, VERSION } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
 import { newCleanMap, newOnionMap, toMap } from './hexa'
 
@@ -338,5 +338,15 @@ describe('ringed element kinds', () => {
 
   it('does not offer domain event in Clean\'s entities ring', () => {
     expect(CleanFileSchema.safeParse(clean([{ id: 'a', name: 'Order', sectorId: 's-domain', kind: 'domainEvent' }])).success).toBe(false)
+  })
+})
+
+describe('frozen v3 Onion arm', () => {
+  it('still strips an element kind, exactly as before kinds existed', () => {
+    const { version: _v, ...onion } = newOnionMap('Old')
+    const file = { ...onion, version: 3, app: APP, elements: [{ id: 'e1', name: 'Order', ringRole: 'domain', kind: 'entity' }] }
+    const result = HexaFileV3Schema.safeParse(file)
+    expect(result.success).toBe(true)
+    if (result.success && result.data.kind === 'onion') expect(result.data.elements[0]).toEqual({ id: 'e1', name: 'Order', ringRole: 'domain' })
   })
 })
