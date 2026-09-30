@@ -9,9 +9,12 @@ import { useMapStore } from './store'
 export function wireAutosave(storage: Storage | undefined, recovery: Recovery): () => void {
   if (!storage) {
     useSaveFailed.setState({ failed: true })
-    return () => {}
+    return () => useSaveFailed.setState({ failed: false })
   }
   const onSave = (ok: boolean) => useSaveFailed.setState({ failed: !ok })
   const stops = [useMapStore, useOnionStore, useCleanStore].map((store) => autosave(store as never, storage, recovery, { onSave }))
-  return () => stops.forEach((stop) => stop())
+  return () => {
+    stops.forEach((stop) => stop())
+    useSaveFailed.setState({ failed: false })
+  }
 }
