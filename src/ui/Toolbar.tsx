@@ -1,12 +1,11 @@
 import { EXAMPLES } from '../model/example'
 import type { LayoutMode } from '../layout/layout'
-import { useSyncExternalStore } from 'react'
+import { useRef, useSyncExternalStore } from 'react'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
 import { PALETTES, type PaletteId } from './palette'
-import { useMapStore } from '../model/store'
 import { usePreferencesStore, type ThemeChoice } from './state/preferencesStore'
-import { useViewStore, type ExportScope } from './state/viewStore'
+import { useViewStore } from './state/viewStore'
 
 const REPOSITORY_URL = 'https://github.com/Hyperxq/domainrings'
 
@@ -19,8 +18,6 @@ interface ToolbarProps {
   /** Always copies the whole map (REQ-05), regardless of the export scope selection. */
   onCopyLink: () => void
   onExport: (format: 'hexa' | 'svg' | 'png') => void
-  /** Only a map large enough to compact has hexagons to expand: true adds Expand all and Collapse all. */
-  canExpandAll: boolean
   /** Only a multi-hexagon map has more than one thing to export (EXPORT-03) — a single hexagon has nothing to choose between. */
   showScope: boolean
 }
@@ -31,20 +28,10 @@ const SWITCHES = [
   { id: 'highlight', label: 'Highlight', title: 'Highlight the layer under the pointer' },
   { id: 'dependents', label: 'Dependents', title: 'Emphasize what depends on the selection, not what it depends on' },
 ] as const
-const SCOPE_LABEL: Record<ExportScope, string> = { map: 'Map', hexagon: 'Hexagon' }
 const MODE_LABEL: Record<LayoutMode, string> = { overview: 'Overview', detailed: 'Detailed' }
 const THEME_LABEL: Record<ThemeChoice, string> = { light: 'Light', dark: 'Dark', system: 'System' }
-const EXPORT_CHOICES = [
-  { id: 'hexa', label: '.hexa' },
-  { id: 'svg', label: 'SVG' },
-  { id: 'png', label: 'PNG' },
-] as const
-
-/* Each tier's widest toolbar (a multi-hexagon map, fallback fonts) plus the 12px side margins, measured in Chrome:
- * the full one is 1326px, so below 1350 the kind radios and export buttons collapse; the compact one is 1112px, so
- * below 1136 the file actions lose their words, the view controls fold into a menu and the export scope into the
- * Export menu. */
-export const FULL_TOOLBAR = '(min-width: 1350px)'
+/* The widest toolbar with the view controls in the bar (a multi-hexagon map, fallback fonts) plus the 12px side margins,
+ * measured in Chrome, is 1112px: below 1136 the view controls fold into a menu. */
 export const ROOMY_TOOLBAR = '(min-width: 1136px)'
 const media = (query: string) => ({
   subscribe: (onChange: () => void) => {
@@ -54,20 +41,17 @@ const media = (query: string) => ({
   },
   matches: () => matchMedia(query).matches,
 })
-const fullMedia = media(FULL_TOOLBAR)
 const roomyMedia = media(ROOMY_TOOLBAR)
 const darkMedia = media('(prefers-color-scheme: dark)')
 
-export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, canExpandAll, showScope }: ToolbarProps) {
+export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showScope }: ToolbarProps) {
   const preferences = usePreferencesStore()
   const { mode, theme: themeChoice, palette } = preferences
   const exportScope = useViewStore((s) => s.exportScope)
-  const onExpandAll = (expand: boolean) => useViewStore.getState().expandAll(expand ? useMapStore.getState().map.hexagons.map((h) => h.id) : [])
-  const full = useSyncExternalStore(fullMedia.subscribe, fullMedia.matches)
   const roomy = useSyncExternalStore(roomyMedia.subscribe, roomyMedia.matches)
   const systemDark = useSyncExternalStore(darkMedia.subscribe, darkMedia.matches)
   const dark = themeChoice === 'system' ? systemDark : themeChoice === 'dark'
-  const tool = roomy ? 'tool' : 'icon-button'
+  const openFile = useRef<HTMLInputElement>(null)
   return (
     <header className="island toolbar">
       <h1 className="wordmark">domainrings</h1>
@@ -105,19 +89,6 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, canExp
               {label}
             </button>
           ))}
-          {canExpandAll && (
-            <>
-              <span className="divider" aria-hidden="true" />
-              <button type="button" className="tool" title="Show every hexagon in full" onClick={() => onExpandAll(true)}>
-                <Icon name="expand" />
-                Expand all
-              </button>
-              <button type="button" className="tool" title="Show only the current hexagon in full" onClick={() => onExpandAll(false)}>
-                <Icon name="shrink" />
-                Collapse all
-              </button>
-            </>
-          )}
         </>
       ) : (
         <ChoiceMenu
@@ -130,16 +101,9 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, canExp
           choices={[
             ...MODES.map((m) => ({ id: m, label: MODE_LABEL[m], checked: mode === m, control: 'radio' as const })),
             ...SWITCHES.map(({ id, label }) => ({ id, label, checked: preferences[id], control: 'switch' as const })),
-            ...(canExpandAll
-              ? [
-                  { id: 'expand-all' as const, label: 'Expand all', control: 'action' as const, icon: 'expand' as const },
-                  { id: 'collapse-all' as const, label: 'Collapse all', control: 'action' as const, icon: 'shrink' as const },
-                ]
-              : []),
           ]}
           onChoose={(id) => {
             if (id === 'overview' || id === 'detailed') usePreferencesStore.setState({ mode: id })
-            else if (id === 'expand-all' || id === 'collapse-all') onExpandAll(id === 'expand-all')
             else usePreferencesStore.setState({ [id]: !preferences[id] })
           }}
         />
@@ -147,92 +111,49 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, canExp
 
       <span className="divider" aria-hidden="true" />
 
-      <button type="button" className={tool} aria-label="New diagram" title="New diagram" onClick={onNew}>
-        <Icon name="new" />
-        {roomy && 'New'}
-      </button>
-      <label className={`${tool} example-picker`} title="Load an example">
-        <Icon name="example" />
-        {roomy && 'Example'}
-        <select
-          aria-label="Load an example"
-          value=""
-          onChange={(e) => {
-            const example = EXAMPLES.find((x) => x.id === e.currentTarget.value)
-            if (example) onExample(example.id)
-          }}
-        >
-          <option value="" disabled>
-            Load an example
-          </option>
-          {(['Hexagonal', 'Onion', 'Clean'] as const).map((architecture) => (
-            <optgroup key={architecture} label={architecture}>
-              {EXAMPLES.filter((x) => x.architecture === architecture).map((x) => (
-                <option key={x.id} value={x.id}>{x.label}</option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-      </label>
-      <label className={tool} title="Open a .hexa file, replacing the map">
-        <input
-          type="file"
-          accept=".hexa,application/json"
-          className="visually-hidden"
-          aria-label="Open a .hexa file, replacing the map"
-          onChange={(e) => {
-            const file = e.currentTarget.files?.[0]
-            if (file) onOpen(file)
-            e.currentTarget.value = ''
-          }}
-        />
-        <Icon name="upload" />
-        {roomy && 'Open…'}
-      </label>
-      <button type="button" className={tool} aria-label="Copy link" title="Copy a link to this map" onClick={onCopyLink}>
-        <Icon name="link" />
-        {roomy && 'Copy link'}
-      </button>
-
-      <span className="divider" aria-hidden="true" />
-
-      {full ? (
-        <span className="export">
-          <span id="export-label" className="export-label">
-            Export
-          </span>
-          {showScope && (
-            <fieldset className="kinds">
-              <legend className="visually-hidden">Export scope</legend>
-              {(['map', 'hexagon'] as const).map((s) => (
-                <label key={s} className="kind">
-                  <input type="radio" name="export-scope" value={s} checked={exportScope === s} onChange={() => useViewStore.setState({ exportScope: s })} />
-                  <span>{SCOPE_LABEL[s]}</span>
-                </label>
-              ))}
-            </fieldset>
-          )}
-          <span className="segmented" role="group" aria-labelledby="export-label">
-            <button type="button" className="text-button" aria-label="Save as .hexa file" onClick={() => onExport('hexa')}>.hexa</button>
-            <button type="button" className="text-button" aria-label="Export as SVG" onClick={() => onExport('svg')}>SVG</button>
-            <button type="button" className="text-button" aria-label="Export as PNG" onClick={() => onExport('png')}>PNG</button>
-          </span>
-        </span>
-      ) : (
-        <ChoiceMenu
-          label={
-            <>
-              Export
-              <Icon name="chevron" />
-            </>
-          }
-          choices={[
-            ...(showScope ? (['map', 'hexagon'] as const).map((s) => ({ id: s, label: SCOPE_LABEL[s], checked: exportScope === s })) : []),
-            ...EXPORT_CHOICES,
-          ]}
-          onChoose={(id) => (id === 'map' || id === 'hexagon' ? useViewStore.setState({ exportScope: id }) : onExport(id))}
-        />
-      )}
+      <ChoiceMenu
+        label={
+          <>
+            File
+            <Icon name="chevron" />
+          </>
+        }
+        choices={[
+          { id: 'new', label: 'New', control: 'action', icon: 'new' },
+          ...EXAMPLES.map((x) => ({ id: x.id, label: x.label, control: 'action' as const, group: x.architecture })),
+          { id: 'open', label: 'Open…', control: 'action', icon: 'upload' },
+          { id: 'save', label: 'Save (.hexa)', control: 'action', icon: 'download' },
+        ]}
+        onChoose={(id) => (id === 'new' ? onNew() : id === 'open' ? openFile.current?.click() : id === 'save' ? onExport('hexa') : onExample(id))}
+      />
+      <input
+        ref={openFile}
+        type="file"
+        accept=".hexa,application/json"
+        className="visually-hidden"
+        tabIndex={-1}
+        aria-label="Open a .hexa file, replacing the map"
+        onChange={(e) => {
+          const file = e.currentTarget.files?.[0]
+          if (file) onOpen(file)
+          e.currentTarget.value = ''
+        }}
+      />
+      <ChoiceMenu
+        label={
+          <>
+            Share
+            <Icon name="chevron" />
+          </>
+        }
+        choices={[
+          { id: 'copy-link', label: 'Copy link', control: 'action', icon: 'link' },
+          ...(showScope ? [{ id: 'scope' as const, label: 'Only the current hexagon', checked: exportScope === 'hexagon', control: 'switch' as const, group: 'Export image' }] : []),
+          { id: 'svg', label: 'SVG', control: 'action', group: 'Export image' },
+          { id: 'png', label: 'PNG', control: 'action', group: 'Export image' },
+        ]}
+        onChoose={(id) => (id === 'copy-link' ? onCopyLink() : id === 'scope' ? useViewStore.setState({ exportScope: exportScope === 'hexagon' ? 'map' : 'hexagon' }) : onExport(id))}
+      />
 
       <span className="divider" aria-hidden="true" />
 

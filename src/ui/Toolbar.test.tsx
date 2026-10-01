@@ -1,21 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { FULL_TOOLBAR, ROOMY_TOOLBAR, Toolbar } from './Toolbar'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { ROOMY_TOOLBAR, Toolbar } from './Toolbar'
+import { EXAMPLES } from '../model/example'
 import { usePreferencesStore } from './state/preferencesStore'
-import { useMapStore } from '../model/store'
-import { manyHexagonMap } from '../test/fixtures'
 import { useViewStore } from './state/viewStore'
 
 type Listener = () => void
 const minWidth = (query: string) => Number(/min-width: (\d+)px/.exec(query)![1])
-const FULL = minWidth(FULL_TOOLBAR)
+const WIDE = 1600
 const ROOMY = minWidth(ROOMY_TOOLBAR)
-let viewport = FULL
+let viewport = WIDE
 let systemDark = false
 const listeners = new Set<Listener>()
 
 beforeEach(() => {
-  viewport = FULL
+  viewport = WIDE
   systemDark = false
   listeners.clear()
   window.matchMedia = ((media: string) => ({
@@ -43,18 +42,17 @@ function renderToolbar(
     exportScope?: 'map' | 'hexagon'
     themeChoice?: 'light' | 'dark' | 'system'
     palette?: 'default' | 'ink' | 'moss'
-    canExpandAll?: boolean
   } = {},
 ) {
-  const { mode = 'detailed', guides = true, highlight = true, dependents = false, themeChoice = 'system', palette = 'default', exportScope = 'map', showScope = false, canExpandAll = false } = overrides
+  const { mode = 'detailed', guides = true, highlight = true, dependents = false, themeChoice = 'system', palette = 'default', exportScope = 'map', showScope = false } = overrides
   usePreferencesStore.setState({ mode, guides, highlight, dependents, theme: themeChoice, palette })
   useViewStore.setState({ exportScope })
   const props = { onNew: vi.fn(), onExample: vi.fn(), onOpen: vi.fn(), onCopyLink: vi.fn(), onExport: vi.fn() }
-  render(<Toolbar {...props} showScope={showScope} canExpandAll={canExpandAll} />)
+  render(<Toolbar {...props} showScope={showScope} />)
   return props
 }
 
-describe('Toolbar at full width', () => {
+describe('Toolbar at wide width', () => {
   it('has a Dependents switch that shows its state, explains itself and flips on click', () => {
     renderToolbar({ dependents: false })
     const toggle = screen.getByRole('switch', { name: 'Dependents' })
@@ -106,140 +104,43 @@ describe('Toolbar at full width', () => {
   })
 
   it('separates the detail level, the switches and the actions with dividers', () => {
-    useMapStore.getState().replace(manyHexagonMap(6))
-    renderToolbar({ canExpandAll: true })
+    renderToolbar()
     const dividers = [...document.querySelectorAll('.toolbar .divider')]
     const before = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
     const between = (a: Element, b: Element) => dividers.some((d) => before(a, d) && before(d, b))
     const mode = screen.getByRole('radiogroup', { name: 'Detail level' })
     const guides = screen.getByRole('switch', { name: 'Guides' })
     const dependents = screen.getByRole('switch', { name: 'Dependents' })
-    const expand = screen.getByRole('button', { name: 'Expand all' })
+    const file = screen.getByRole('button', { name: 'File' })
     expect(between(mode, guides)).toBe(true)
-    expect(between(dependents, expand)).toBe(true)
+    expect(between(dependents, file)).toBe(true)
     expect(between(guides, dependents)).toBe(false)
   })
 
-  it('shows the three export buttons and no compact controls — no kind switcher anywhere (REQ-01)', () => {
+  it('offers File and Share as menus with no kind switcher or export buttons (REQ-01)', () => {
     renderToolbar()
     expect(screen.queryByRole('radio', { name: /Hexagonal|Clean|Onion/ })).toBeNull()
-    for (const name of ['Save as .hexa file', 'Export as SVG', 'Export as PNG']) expect(screen.getByRole('button', { name })).toBeTruthy()
     expect(screen.queryByRole('combobox', { name: 'Architecture style' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Export' })).toBeNull()
-  })
-
-  it('seats the export scope between the Export label and the formats, so it reads as part of the export', () => {
-    renderToolbar({ showScope: true })
-    const scope = screen.getByRole('group', { name: 'Export scope' })
-    const exportGroup = screen.getByRole('group', { name: 'Export' })
-    const label = screen.getByText('Export')
-    expect(label.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(scope.compareDocumentPosition(exportGroup) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(scope.parentElement).toBe(exportGroup.parentElement)
+    for (const name of ['File', 'Share']) expect(screen.getByRole('button', { name }).getAttribute('aria-haspopup')).toBe('menu')
+    for (const name of ['Save as .hexa file', 'Export as SVG', 'Export as PNG', 'Export', 'New diagram', 'Copy link']) expect(screen.queryByRole('button', { name })).toBeNull()
   })
 })
 
-describe('Toolbar below the full-width breakpoint', () => {
-  beforeEach(() => {
-    viewport = FULL - 1
-  })
-
-  it('has no kind select at this breakpoint either (REQ-01)', () => {
-    renderToolbar()
-    expect(screen.queryByRole('combobox', { name: 'Architecture style' })).toBeNull()
-    expect(screen.queryByRole('radio', { name: 'Clean' })).toBeNull()
-  })
-
-  it.each([
-    ['.hexa', 'hexa'],
-    ['SVG', 'svg'],
-    ['PNG', 'png'],
-  ] as const)('collapses the export buttons into a menu whose %s choice exports %s', (label, format) => {
-    const { onExport } = renderToolbar()
-    expect(screen.queryByRole('button', { name: 'Export as SVG' })).toBeNull()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Export' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: label }))
-
-    expect(onExport).toHaveBeenCalledTimes(1)
-    expect(onExport).toHaveBeenCalledWith(format)
-  })
-
-  it('follows the viewport across the breakpoint', () => {
-    renderToolbar()
-    expect(screen.queryByRole('button', { name: 'Export as SVG' })).toBeNull()
-
-    viewport = FULL
-    act(() => listeners.forEach((l) => l()))
-
-    expect(screen.getByRole('button', { name: 'Export as SVG' })).toBeTruthy()
-  })
-})
-
-describe('Toolbar expand and collapse all', () => {
-  it('shows Expand all and Collapse all beside the view toggles, each setting its own direction', () => {
-    useMapStore.getState().replace(manyHexagonMap(6))
-    renderToolbar({ canExpandAll: true })
-    expect(screen.getByRole('button', { name: 'Expand all' }).querySelector('svg')).not.toBeNull()
-    expect(screen.getByRole('button', { name: 'Collapse all' }).querySelector('svg')).not.toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Expand all' }))
-    expect([...useViewStore.getState().expanded]).toEqual(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse all' }))
-    expect(useViewStore.getState().expanded.size).toBe(0)
-  })
-
-  it('shows neither when the map has nothing to expand', () => {
-    renderToolbar()
-    expect(screen.queryByRole('button', { name: 'Expand all' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Collapse all' })).toBeNull()
-  })
-
-  it('folds both into the View menu below the roomy breakpoint', () => {
-    viewport = ROOMY - 1
-    useMapStore.getState().replace(manyHexagonMap(6))
-    renderToolbar({ canExpandAll: true })
-    expect(screen.queryByRole('button', { name: 'Expand all' })).toBeNull()
-
-    fireEvent.click(screen.getByRole('button', { name: 'View' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Expand all' }))
-    expect(useViewStore.getState().expanded.size).toBe(6)
-    fireEvent.click(screen.getByRole('button', { name: 'View' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Collapse all' }))
-    expect(useViewStore.getState().expanded.size).toBe(0)
-  })
-})
 
 describe('Toolbar between the two breakpoints', () => {
   beforeEach(() => {
     viewport = ROOMY
   })
 
-  it('keeps the file buttons labelled and the detail level and toggles in the bar', () => {
+  it('keeps the detail level and toggles in the bar, with File and Share as menus', () => {
     renderToolbar()
-    for (const text of ['New', 'Example', 'Open…']) expect(screen.getByText(text)).toBeTruthy()
+    for (const name of ['File', 'Share']) expect(screen.getByRole('button', { name })).toBeTruthy()
     expect(screen.getByRole('radio', { name: 'Overview' })).toBeTruthy()
     expect(screen.getByRole('switch', { name: 'Guides' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
   })
-
-  it('folds the export scope into the Export menu as soon as the formats are a menu', () => {
-    renderToolbar({ showScope: true, exportScope: 'map' })
-    expect(screen.queryByRole('radio', { name: 'Hexagon' })).toBeNull()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Export' }))
-    const items = screen.getAllByRole('menu')[0].querySelectorAll('[role^="menuitem"]')
-    expect([...items].map((item) => [item.textContent, item.getAttribute('aria-checked')])).toEqual([
-      ['Map', 'true'],
-      ['Hexagon', 'false'],
-      ['.hexa', null],
-      ['SVG', null],
-      ['PNG', null],
-    ])
-
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Hexagon' }))
-    expect(useViewStore.getState().exportScope).toBe('hexagon')
-  })
 })
+
 
 describe('Toolbar below the compact breakpoint', () => {
   beforeEach(() => {
@@ -247,14 +148,6 @@ describe('Toolbar below the compact breakpoint', () => {
   })
 
   const openView = () => fireEvent.click(screen.getByRole('button', { name: 'View' }))
-
-  it('shows the file actions as icons that keep their accessible names and tooltips', () => {
-    renderToolbar()
-    for (const text of ['New', 'Example', 'Open…']) expect(screen.queryByText(text)).toBeNull()
-    expect(screen.getByRole('button', { name: 'New diagram' }).getAttribute('title')).toBe('New diagram')
-    expect(screen.getByRole('combobox', { name: 'Load an example' }).closest('label')!.getAttribute('title')).toBe('Load an example')
-    expect(screen.getByLabelText('Open a .hexa file, replacing the map').closest('label')!.getAttribute('title')).toBe('Open a .hexa file, replacing the map')
-  })
 
   it('moves the detail level and the toggles into a View menu that shows their state', () => {
     renderToolbar({ mode: 'overview', guides: false, highlight: true })
@@ -289,69 +182,138 @@ describe('Toolbar below the compact breakpoint', () => {
     expect(usePreferencesStore.getState()).toEqual({ ...before, [field]: value })
   })
 
-  it('shows the same three kinds of control in the View menu: a segmented mode, switches and icon actions, set apart', () => {
-    useMapStore.getState().replace(manyHexagonMap(6))
-    renderToolbar({ canExpandAll: true })
+  it('shows two kinds of control in the View menu: a segmented mode and switches, set apart', () => {
+    renderToolbar()
     openView()
     const menu = screen.getByRole('menu')
     const pill = within(menu).getAllByRole('menuitemradio')[0].parentElement!
     expect(pill.classList.contains('segmented')).toBe(true)
     expect(within(pill).getAllByRole('menuitemradio')).toHaveLength(2)
     for (const item of within(menu).getAllByRole('menuitemcheckbox')) expect(item.querySelector('.switch-track > .switch-knob')).not.toBeNull()
-    for (const name of ['Expand all', 'Collapse all']) expect(within(menu).getByRole('menuitem', { name }).querySelector('svg')).not.toBeNull()
-    expect(within(menu).getAllByRole('separator')).toHaveLength(2)
+    expect(within(menu).queryByRole('menuitem')).toBeNull()
+    expect(within(menu).getAllByRole('separator')).toHaveLength(1)
   })
 
-  it('keeps the Export menu, with no kind select anywhere (REQ-01)', () => {
+})
+
+describe.each([
+  ['wide', WIDE],
+  ['compact', ROOMY - 1],
+  ['phone', 390],
+])('Toolbar File and Share menus at %s width', (_, width) => {
+  beforeEach(() => {
+    viewport = width
+  })
+
+  const open = (name: 'File' | 'Share') => fireEvent.click(screen.getByRole('button', { name }))
+
+  it('File lists New, the examples under their architecture, Open… and Save (.hexa), with icons on the actions', () => {
+    renderToolbar()
+    open('File')
+    const menu = screen.getByRole('menu', { name: 'File' })
+    const names = (root: Element) => [...root.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)
+    expect(names(menu)).toEqual(['New', ...EXAMPLES.map((x) => x.label), 'Open…', 'Save (.hexa)'])
+    for (const architecture of ['Hexagonal', 'Onion', 'Clean']) {
+      expect(names(within(menu).getByRole('group', { name: architecture }))).toEqual(EXAMPLES.filter((x) => x.architecture === architecture).map((x) => x.label))
+    }
+    for (const name of ['New', 'Open…', 'Save (.hexa)']) expect(within(menu).getByRole('menuitem', { name }).querySelector('svg')).not.toBeNull()
+  })
+
+  it('File > New and File > an example call their handlers', () => {
+    const { onNew, onExample } = renderToolbar()
+    open('File')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'New' }))
+    expect(onNew).toHaveBeenCalledTimes(1)
+    open('File')
+    fireEvent.click(screen.getByRole('menuitem', { name: EXAMPLES[4].label }))
+    expect(onExample).toHaveBeenCalledTimes(1)
+    expect(onExample).toHaveBeenCalledWith(EXAMPLES[4].id)
+  })
+
+  it('File > Save (.hexa) exports a .hexa file and nothing else', () => {
     const { onExport } = renderToolbar()
-    expect(screen.queryByRole('combobox', { name: 'Architecture style' })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Export' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'SVG' }))
-    expect(onExport).toHaveBeenCalledWith('svg')
+    open('File')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Save (.hexa)' }))
+    expect(onExport).toHaveBeenCalledTimes(1)
+    expect(onExport).toHaveBeenCalledWith('hexa')
   })
 
-  const openExport = () => fireEvent.click(screen.getByRole('button', { name: 'Export' }))
+  it('File > Open… opens the file picker, and the picked file goes to onOpen', () => {
+    const { onOpen } = renderToolbar()
+    const input = screen.getByLabelText('Open a .hexa file, replacing the map') as HTMLInputElement
+    const pick = vi.spyOn(input, 'click')
+    open('File')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Open…' }))
+    expect(pick).toHaveBeenCalledTimes(1)
+    const file = new File(['{}'], 'map.hexa')
+    fireEvent.change(input, { target: { files: [file] } })
+    expect(onOpen).toHaveBeenCalledWith(file)
+  })
 
-  it('folds the export scope into the Export menu, checked by the current scope, ahead of the formats', () => {
+  it('Share lists Copy link first, then an Export image group with SVG and PNG', () => {
+    renderToolbar()
+    open('Share')
+    const menu = screen.getByRole('menu', { name: 'Share' })
+    expect([...menu.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(['Copy link', 'SVG', 'PNG'])
+    const group = screen.getByRole('group', { name: 'Export image' })
+    expect([...group.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(['SVG', 'PNG'])
+    expect(within(menu).getByRole('menuitem', { name: 'Copy link' }).querySelector('svg')).not.toBeNull()
+  })
+
+  it.each([
+    ['Copy link', undefined],
+    ['SVG', 'svg'],
+    ['PNG', 'png'],
+  ] as const)('Share > %s calls its handler', (name, format) => {
+    const { onCopyLink, onExport } = renderToolbar()
+    open('Share')
+    fireEvent.click(screen.getByRole('menuitem', { name }))
+    if (format) {
+      expect(onExport).toHaveBeenCalledTimes(1)
+      expect(onExport).toHaveBeenCalledWith(format)
+      expect(onCopyLink).not.toHaveBeenCalled()
+    } else {
+      expect(onCopyLink).toHaveBeenCalledTimes(1)
+      expect(onExport).not.toHaveBeenCalled()
+    }
+  })
+
+  it('shows the scope switch inside Export image only when the scope applies, checked by the current scope', () => {
     renderToolbar({ showScope: true, exportScope: 'map' })
-    expect(screen.queryByRole('radio', { name: 'Hexagon' })).toBeNull()
+    open('Share')
+    const group = screen.getByRole('group', { name: 'Export image' })
+    const scope = within(group).getByRole('menuitemcheckbox', { name: 'Only the current hexagon' })
+    expect(scope.getAttribute('aria-checked')).toBe('false')
+    expect(scope.querySelector('.switch-track > .switch-knob')).not.toBeNull()
+    expect([...group.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(['Only the current hexagon', 'SVG', 'PNG'])
+    cleanup()
 
-    openExport()
-
-    const items = screen.getAllByRole('menu')[0].querySelectorAll('[role^="menuitem"]')
-    expect([...items].map((item) => [item.textContent, item.getAttribute('aria-checked')])).toEqual([
-      ['Map', 'true'],
-      ['Hexagon', 'false'],
-      ['.hexa', null],
-      ['SVG', null],
-      ['PNG', null],
-    ])
+    renderToolbar({ showScope: false })
+    open('Share')
+    expect(screen.queryByRole('menuitemcheckbox')).toBeNull()
   })
 
-  it('choosing a scope in the Export menu sets the scope and exports nothing', () => {
-    const { onExport } = renderToolbar({ showScope: true, exportScope: 'map' })
-    openExport()
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Hexagon' }))
-    expect(useViewStore.getState().exportScope).toBe('hexagon')
+  it.each([
+    ['map', 'hexagon'],
+    ['hexagon', 'map'],
+  ] as const)('flipping the scope switch from %s writes %s and exports nothing', (from, to) => {
+    const { onExport } = renderToolbar({ showScope: true, exportScope: from })
+    open('Share')
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Only the current hexagon' }).getAttribute('aria-checked')).toBe(String(from === 'hexagon'))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Only the current hexagon' }))
+    expect(useViewStore.getState().exportScope).toBe(to)
     expect(onExport).not.toHaveBeenCalled()
   })
 
-  it('choosing a format in the Export menu exports it and leaves the scope alone', () => {
-    const { onExport } = renderToolbar({ showScope: true, exportScope: 'hexagon' })
-    openExport()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'PNG' }))
-    expect(onExport).toHaveBeenCalledTimes(1)
-    expect(onExport).toHaveBeenCalledWith('png')
-    expect(useViewStore.getState().exportScope).toBe('hexagon')
-  })
-
-  it('lists no scope items for a single-hexagon map', () => {
-    renderToolbar({ showScope: false })
-    openExport()
-    expect(screen.queryAllByRole('menuitemcheckbox')).toHaveLength(0)
-    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['.hexa', 'SVG', 'PNG'])
+  it('opens from ArrowDown with the first item focused', () => {
+    renderToolbar()
+    const trigger = screen.getByRole('button', { name: 'File' })
+    trigger.focus()
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'New' }))
   })
 })
+
 
 // At a literal phone width (below styles.css's toolbar wrap point, TOOLBAR-PHONE-01) the markup is the same
 // icon-only tier as above — styles.css wraps it into two rows instead of scrolling sideways — so this pins the
@@ -362,12 +324,9 @@ describe('Toolbar at phone width', () => {
     viewport = 390
   })
 
-  it('keeps every control reachable: the three menus, the labelled file actions, and the GitHub link', () => {
+  it('keeps every control reachable: the four menus and the GitHub link', () => {
     renderToolbar({ showScope: true })
-    for (const name of ['View', 'Export', 'Appearance']) expect(screen.getByRole('button', { name })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'New diagram' })).toBeTruthy()
-    expect(screen.getByRole('combobox', { name: 'Load an example' })).toBeTruthy()
-    expect(screen.getByLabelText('Open a .hexa file, replacing the map')).toBeTruthy()
+    for (const name of ['View', 'File', 'Share', 'Appearance']) expect(screen.getByRole('button', { name })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'View the source on GitHub' })).toBeTruthy()
   })
 })
@@ -378,7 +337,7 @@ describe('Toolbar appearance menu', () => {
   const MOON = /^M21 12\.8/
   const SUN = /^M12 8a4/
 
-  it.each([FULL, FULL - 1, ROOMY - 1])('is one icon-sized trigger at a %ipx viewport', (width) => {
+  it.each([WIDE, ROOMY, ROOMY - 1])('is one icon-sized trigger at a %ipx viewport', (width) => {
     viewport = width
     renderToolbar()
     const trigger = screen.getByRole('button', { name: 'Appearance' })

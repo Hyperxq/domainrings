@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { canCompact } from './layout/compactHexagon'
 import { hexagonBounds } from './layout/lattice'
 import { currentHexagon, layoutMap } from './layout/map'
 import { legendFor, legendForClean, legendForOnion } from './layout/legend'
@@ -138,7 +137,6 @@ export function App({ boot = {} }: AppProps = {}) {
         onOpen={importFile}
         onCopyLink={handleCopyLink}
         onExport={exportAs}
-        canExpandAll={activeKind === 'hexagonal' && canCompact(map.hexagons.length)}
       />
       {activeKind === 'hexagonal' && (
         <HexagonalWorkspace

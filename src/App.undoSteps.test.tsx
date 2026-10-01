@@ -31,6 +31,10 @@ afterEach(() => {
 })
 
 const toast = () => screen.queryAllByRole('status').find((el) => el.classList.contains('toast')) ?? null
+const newDiagram = () => {
+  fireEvent.click(screen.getByRole('button', { name: 'File' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'New' }))
+}
 const undoKey = () => fireEvent.keyDown(document.body, { key: 'z', ctrlKey: true })
 const doc = () => toHexa(useMapStore.getState().map)
 const expandEditor = () => fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
@@ -221,7 +225,7 @@ describe('a field session cut short by unmounting', () => {
 describe('an add step absorbing its name', () => {
   it('trusts nothing beyond the name: a later untracked change still refuses Undo', () => {
     const { container } = render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    newDiagram()
     fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
     fireEvent.pointerOver(container.querySelector('[data-band="domain"]')!)
     fireEvent.click(screen.getByRole('button', { name: 'Add an element to Domain Model' }))
@@ -282,7 +286,7 @@ describe('Hexagonal stage edits', () => {
 describe('Onion and Clean stage edits', () => {
   const open = (kind: 'Onion' | 'Clean') => {
     const { container } = render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    newDiagram()
     fireEvent.click(screen.getByRole('button', { name: kind }))
     return container
   }
@@ -336,8 +340,8 @@ describe('the undo refusal gate stays a safety net', () => {
     const { container } = render(<App />)
     const pristine = doc()
     const hover = (layer: string) => fireEvent.pointerOver(container.querySelector(`[data-band="${layer}"]`)!)
-    const newDiagram = (kind: 'Onion' | 'Clean') => {
-      fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    const newOf = (kind: 'Onion' | 'Clean') => {
+      newDiagram()
       fireEvent.click(screen.getByRole('button', { name: kind }))
     }
     const nameInline = (name: string) => {
@@ -356,13 +360,13 @@ describe('the undo refusal gate stays a safety net', () => {
     fireEvent.keyDown(screen.getByRole('textbox', { name: 'Name' }), { key: 'Enter' })
     fireEvent.click(screen.getAllByRole('button', { name: /^Remove use case / })[0])
 
-    newDiagram('Onion')
+    newOf('Onion')
     hover('domain')
     fireEvent.click(screen.getByRole('button', { name: 'Add an element to Domain Model' }))
     nameInline('Order')
     session(screen.getByLabelText('Diagram title'), 'Onion title')
 
-    newDiagram('Clean')
+    newOf('Clean')
     hover('domain')
     fireEvent.click(within(container.querySelector('main')!).getByRole('button', { name: 'Add sector to Entities' }))
     session(screen.getByLabelText('Diagram title'), 'Clean title')

@@ -41,6 +41,21 @@ import v2Honeycomb from './model/fixtures/v2-honeycomb.hexa?raw'
 import v3OnionExample from './model/fixtures/v3-onion-example.hexa?raw'
 import v4CleanExample from './model/fixtures/v4-clean-example.hexa?raw'
 
+/** Opens the toolbar menu (unless a step already left it open) and presses one of its items. */
+const choose = (menu: 'File' | 'Share', item: string) => {
+  if (!screen.queryByRole('menu', { name: menu })) fireEvent.click(screen.getByRole('button', { name: menu }))
+  fireEvent.click(screen.getByRole('menuitem', { name: item }))
+}
+const scopeSwitch = () => {
+  if (!screen.queryByRole('menu', { name: 'Share' })) fireEvent.click(screen.getByRole('button', { name: 'Share' }))
+  return screen.getByRole('menuitemcheckbox', { name: 'Only the current hexagon' })
+}
+const pickScope = (scope: 'map' | 'hexagon') => {
+  const only = scopeSwitch()
+  if ((only.getAttribute('aria-checked') === 'true') === (scope === 'hexagon')) fireEvent.click(screen.getByRole('button', { name: 'Share' }))
+  else fireEvent.click(only)
+}
+
 const scrollIntoView = vi.fn()
 
 beforeAll(() => {
@@ -329,7 +344,7 @@ describe('undo toast', () => {
     const { container } = render(<App />)
     deleteUseCase(container)
     waitOutToast()
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: /Onion/ }))
     expect(useOnionStore.getState().map.title).toBe('Untitled architecture')
     undoKey()
@@ -361,7 +376,7 @@ describe('undo toast', () => {
 
   it.each(['Onion', 'Clean'] as const)('steps back through several %s edits under the undo gate', (kind) => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: kind }))
     rename('First')
     rename('Second')
@@ -393,7 +408,7 @@ describe('undo toast', () => {
 
   it.each(['Onion', 'Clean'] as const)('keeps the %s history when the view switches without an edit', (kind) => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: kind }))
     rename('Renamed')
     waitOutToast()
@@ -407,7 +422,7 @@ describe('undo toast', () => {
     const { container } = render(<App />)
     deleteUseCase(container)
     waitOutToast()
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
     rename('Renamed')
     waitOutToast()
@@ -480,15 +495,14 @@ describe('undo toast', () => {
 })
 
 describe('toolbar', () => {
-  it('labels New, Example and Open with text, and groups the export formats under one Export label', () => {
+  it('groups the document actions under File and the sharing actions under Share', () => {
     render(<App />)
-    for (const [name, text] of [['New diagram', 'New'], ['Load an example', 'Example'], ['Open a .hexa file, replacing the map', 'Open…']]) {
-      const control = screen.getByLabelText(name)
-      expect(control.closest('.icon-button, .tool')!.textContent).toContain(text)
-    }
-    const group = screen.getByRole('group', { name: 'Export' })
-    expect([...group.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['.hexa', 'SVG', 'PNG'])
-    expect(group.querySelector('svg')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'File' }))
+    const file = screen.getByRole('menu', { name: 'File' })
+    for (const name of ['New', 'Open…', 'Save (.hexa)']) expect(within(file).getByRole('menuitem', { name })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
+    const share = screen.getByRole('menu', { name: 'Share' })
+    expect([...share.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).toEqual(['Copy link', 'SVG', 'PNG'])
   })
 
   it('links to the source repository in a new tab', () => {
@@ -505,22 +519,17 @@ describe('toolbar', () => {
 // The learning path (project/pending-changes/ringed-examples-readme): 3 architectures x 3 levels each, grouped
 // by architecture in the menu and loaded through the same parseHexa path a user's Open… takes.
 describe('the Example menu — learning path (CANVAS-01/02/04, FOCUS-02)', () => {
-  const pickExample = (value: string) => fireEvent.change(screen.getByLabelText('Load an example'), { target: { value } })
-
   it('groups the menu into 3 architectures of 3 levels each, in basic/stress/advanced order', () => {
     render(<App />)
-    const select = screen.getByLabelText('Load an example') as HTMLSelectElement
-    const groups = Array.from(select.querySelectorAll('optgroup'))
-    expect(groups.map((g) => g.label)).toEqual(['Hexagonal', 'Onion', 'Clean'])
-    for (const group of groups) expect(group.querySelectorAll('option')).toHaveLength(3)
+    fireEvent.click(screen.getByRole('button', { name: 'File' }))
+    const groups = ['Hexagonal', 'Onion', 'Clean'].map((name) => screen.getByRole('group', { name }))
+    for (const group of groups) expect(group.querySelectorAll('[role="menuitem"]')).toHaveLength(3)
   })
 
   for (const example of EXAMPLES) {
     it(`loading "${example.label}" shows the ${example.architecture} view and its own title`, () => {
       const { container } = render(<App />)
-      const option = screen.getByRole('option', { name: example.label }) as HTMLOptionElement
-
-      pickExample(option.value)
+            choose('File', example.label)
 
       expect(toastEl()!.textContent).toContain(`Loaded the ${example.label} example.`)
       if (example.architecture === 'Hexagonal') {
@@ -534,8 +543,7 @@ describe('the Example menu — learning path (CANVAS-01/02/04, FOCUS-02)', () =>
 
   it('renders the Hexagonal advanced example as several bounded contexts, non-overlapping, connected by links', () => {
     const { container } = render(<App />)
-    const option = screen.getByRole('option', { name: 'E-commerce — Hexagonal (advanced)' }) as HTMLOptionElement
-    pickExample(option.value)
+        choose('File', 'E-commerce — Hexagonal (advanced)')
 
     const groups = container.querySelectorAll('svg.canvas [data-hex]')
     expect(groups).toHaveLength(4)
@@ -550,9 +558,7 @@ describe('the Example menu — learning path (CANVAS-01/02/04, FOCUS-02)', () =>
   it('Undo after loading an example restores the previous document', () => {
     render(<App />)
     const before = useMapStore.getState().map
-    const option = screen.getByRole('option', { name: 'Stress test' }) as HTMLOptionElement
-
-    pickExample(option.value)
+        choose('File', 'Stress test')
     expect(useMapStore.getState().map).not.toBe(before)
 
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
@@ -970,7 +976,7 @@ describe('current hexagon (FOCUS-03, FOCUS-06)', () => {
     fireEvent.click(hexGroup(container, 'h2').querySelector(`[data-ref="${useCase.id}"]`)!)
     expect(container.querySelectorAll('[data-selected]')).toHaveLength(1)
 
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Hexagonal' }))
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
 
@@ -1266,7 +1272,7 @@ describe('expanding hexagons on a large map', () => {
         captured = blob as Blob
         return 'blob:mock'
       })
-      fireEvent.click(screen.getByRole('button', { name: 'Save as .hexa file' }))
+      choose('File', 'Save (.hexa)')
       const text = await captured!.text()
       createSpy.mockRestore()
       clickSpy.mockRestore()
@@ -1296,8 +1302,9 @@ describe('expanding hexagons on a large map', () => {
     })
     onTestFinished(() => createSpy.mockRestore())
     const exported = async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Share' }))
       await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+        choose('Share', 'SVG')
         await Promise.resolve()
         await Promise.resolve()
       })
@@ -1318,22 +1325,22 @@ describe('expanding hexagons on a large map', () => {
 
 describe('export scope (EXPORT-03)', () => {
 
-  it('hides the Export scope choice on a single-hexagon map', () => {
+  it('hides the export scope switch on a single-hexagon map', () => {
     render(<App />)
-    expect(screen.queryByRole('group', { name: 'Export scope' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'Only the current hexagon' })).toBeNull()
   })
 
-  it('shows the Export scope choice, defaulted to Map, on a multi-hexagon map', () => {
+  it('shows the export scope switch, off (the whole map), on a multi-hexagon map', () => {
     useMapStore.getState().replace(twoHexMap())
     render(<App />)
-    expect((screen.getByRole('radio', { name: 'Map' }) as HTMLInputElement).checked).toBe(true)
-    expect((screen.getByRole('radio', { name: 'Hexagon' }) as HTMLInputElement).checked).toBe(false)
-  })
+    expect(scopeSwitch().getAttribute('aria-checked')).toBe('false')
+      })
 
   it('always saves the whole map as .hexa, regardless of the chosen export scope', async () => {
     useMapStore.getState().replace(twoHexMap())
     render(<App />)
-    fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
+    pickScope('hexagon')
 
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     let captured: Blob | undefined
@@ -1342,7 +1349,7 @@ describe('export scope (EXPORT-03)', () => {
       return 'blob:mock'
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save as .hexa file' }))
+    choose('File', 'Save (.hexa)')
 
     expect(clickSpy).toHaveBeenCalledTimes(1)
     const anchor = clickSpy.mock.instances[0] as HTMLAnchorElement
@@ -1365,7 +1372,7 @@ describe('export scope (EXPORT-03)', () => {
 
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:mock')
-    fireEvent.click(screen.getByRole('button', { name: 'Save as .hexa file' }))
+    choose('File', 'Save (.hexa)')
 
     expect((clickSpy.mock.instances[0] as HTMLAnchorElement).download).toBe(`${fileSlug('Renamed whole map')}.hexa`)
     createSpy.mockRestore()
@@ -1399,9 +1406,10 @@ describe('export scope (EXPORT-03)', () => {
       captured = blob as Blob
       return 'blob:mock'
     })
-    fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
+    pickScope('hexagon')
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      choose('Share', 'SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -1435,8 +1443,9 @@ describe('export scope (EXPORT-03)', () => {
     const viewBoxWidth = (markup: string) => Number(/viewBox="[-\d.]+ [-\d.]+ ([-\d.]+) /.exec(markup)![1])
 
     // Scope defaults to Map, current hexagon (h1) unchanged: both hexagons' own headings should appear.
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      choose('Share', 'SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -1445,9 +1454,10 @@ describe('export scope (EXPORT-03)', () => {
     expect(clickSpy.mock.instances.at(-1)).toMatchObject({ download: `${fileSlug('Whole map title')}.svg` })
 
     // Switch to Hexagon scope: only h1 (the current hexagon) should export, under its OWN title/filename.
-    fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
+    pickScope('hexagon')
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      choose('Share', 'SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -1489,8 +1499,9 @@ describe('export scope (EXPORT-03)', () => {
     const hullPathCount = (markup: string) =>
       (markup.match(/<path[^>]*>/g) ?? []).filter((p) => p.includes('fill-rule="evenodd"') && p.includes('stroke-dasharray="4 4"')).length
 
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      choose('Share', 'SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -1500,9 +1511,10 @@ describe('export scope (EXPORT-03)', () => {
     expect(hullPathCount(mapMarkup)).toBeGreaterThanOrEqual(2)
     expect(mapMarkup).not.toMatch(/data-hull|data-chip|data-hulls|data-legend/)
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
+    pickScope('hexagon')
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      choose('Share', 'SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -1517,7 +1529,7 @@ describe('export scope (EXPORT-03)', () => {
     useMapStore.getState().replace({ ...map, hexagons: [map.hexagons[0], { ...map.hexagons[1], title: '' }] })
     const { container } = render(<App />)
     fireEvent.click(hexGroup(container, 'h2'))
-    fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
+    pickScope('hexagon')
     vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
 
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
@@ -1527,8 +1539,9 @@ describe('export scope (EXPORT-03)', () => {
       return 'blob:mock'
     })
 
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      choose('Share', 'SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -1549,8 +1562,8 @@ describe('export scope (EXPORT-03)', () => {
     it('resets the export scope to Map whenever the map is replaced (import)', async () => {
       useMapStore.getState().replace(twoHexMap())
       render(<App />)
-      fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
-      expect((screen.getByRole('radio', { name: 'Hexagon' }) as HTMLInputElement).checked).toBe(true)
+      pickScope('hexagon')
+      expect(scopeSwitch().getAttribute('aria-checked')).toBe('true')
 
       const file = new File([toHexa(twoHexMap())], 'two.hexa', { type: 'application/json' })
       fireEvent.change(screen.getByLabelText('Open a .hexa file, replacing the map'), { target: { files: [file] } })
@@ -1558,9 +1571,8 @@ describe('export scope (EXPORT-03)', () => {
         await vi.advanceTimersByTimeAsync(0)
       })
 
-      expect((screen.getByRole('radio', { name: 'Map' }) as HTMLInputElement).checked).toBe(true)
-      expect((screen.getByRole('radio', { name: 'Hexagon' }) as HTMLInputElement).checked).toBe(false)
-    })
+      expect(scopeSwitch().getAttribute('aria-checked')).toBe('false')
+          })
   })
 })
 
@@ -1917,12 +1929,12 @@ describe('import a hexagon from file (IMP-01..07)', () => {
     useMapStore.getState().setFocus('h2')
     render(<App />)
     openEditor()
-    fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
+    pickScope('hexagon')
     openImportMenu()
     await pickFile(oneHexFile())
     fireEvent.click(screen.getByRole('menuitem', { name: 'Import into a new bounded context' }))
 
-    expect((screen.getByRole('radio', { name: 'Hexagon' }) as HTMLInputElement).checked).toBe(true)
+    expect(scopeSwitch().getAttribute('aria-checked')).toBe('true')
     const imported = useMapStore.getState().map.hexagons.at(-1)!
     expect(useMapStore.getState().focus).toBe(imported.id)
   })
@@ -2062,7 +2074,7 @@ describe('journey', () => {
       captured = blob as Blob
       return 'blob:mock'
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save as .hexa file' }))
+    choose('File', 'Save (.hexa)')
     const text = await captured!.text()
     createSpy.mockRestore()
     clickSpy.mockRestore()
@@ -2079,7 +2091,7 @@ describe('journey', () => {
   it('from New, three slice files land in two bounded contexts and the saved map reopens whole (IMP-01.4, CB-04.3)', async () => {
     render(<App />)
     openEditor()
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Hexagonal' }))
     expect(useMapStore.getState().map.hexagons).toHaveLength(1)
 
@@ -2128,7 +2140,7 @@ describe('journey', () => {
 
   it('from New, the author grows two bounded contexts and four hexagons', async () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Hexagonal' }))
     const title = useMapStore.getState().map.hexagons[0].title || 'Untitled hexagon'
 
@@ -2266,8 +2278,9 @@ describe('journey', () => {
       captured = blob as Blob
       return 'blob:mock'
     })
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      choose('Share', 'SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -2374,9 +2387,9 @@ describe('copy the current map as a link (REQ-05, REQ-06)', () => {
     const writeText = stubClipboard()
     useMapStore.getState().replace(twoHexMap())
     render(<App />)
-    fireEvent.click(screen.getByRole('radio', { name: 'Hexagon' }))
+    pickScope('hexagon')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
+    choose('Share', 'Copy link')
     await act(async () => {
       await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
     })
@@ -2398,7 +2411,7 @@ describe('copy the current map as a link (REQ-05, REQ-06)', () => {
     useMapStore.getState().replace(big)
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
+    choose('Share', 'Copy link')
     await vi.waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Use Save'))
 
     expect(writeText).not.toHaveBeenCalled()
@@ -2407,10 +2420,10 @@ describe('copy the current map as a link (REQ-05, REQ-06)', () => {
   it('copies a link to the active ONION document, not the Hexagonal map, when Onion is active', async () => {
     const writeText = stubClipboard()
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
+    choose('Share', 'Copy link')
     await act(async () => {
       await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
     })
@@ -2424,10 +2437,10 @@ describe('copy the current map as a link (REQ-05, REQ-06)', () => {
   it('copies a link to the active CLEAN document, not the Hexagonal map, when Clean is active', async () => {
     const writeText = stubClipboard()
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
+    choose('Share', 'Copy link')
     await act(async () => {
       await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
     })
@@ -2449,7 +2462,7 @@ describe('save the current map as a .hexa file, per kind (mirrors "copy link"\'s
       captured = blob as Blob
       return 'blob:mock'
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save as .hexa file' }))
+    choose('File', 'Save (.hexa)')
     const text = await captured!.text()
     createSpy.mockRestore()
     clickSpy.mockRestore()
@@ -2458,7 +2471,7 @@ describe('save the current map as a .hexa file, per kind (mirrors "copy link"\'s
 
   it('saves the active ONION document, not the Hexagonal map, when Onion is active', async () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
 
     const text = await saveHexa()
@@ -2469,7 +2482,7 @@ describe('save the current map as a .hexa file, per kind (mirrors "copy link"\'s
 
   it.each(['Onion', 'Clean'])('renames the active %s document: saved title and file name follow it, and Undo restores the previous name', async (kind) => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: kind }))
 
     const field = screen.getByLabelText('Diagram title')
@@ -2488,7 +2501,7 @@ describe('save the current map as a .hexa file, per kind (mirrors "copy link"\'s
       return 'blob:mock'
     })
     onTestFinished(() => createSpy.mockRestore())
-    fireEvent.click(screen.getByRole('button', { name: 'Save as .hexa file' }))
+    choose('File', 'Save (.hexa)')
     const text = await captured!.text()
     const saved = parseHexa(text)
     expect(saved.ok && saved.map.title).toBe('Payments Core')
@@ -2500,7 +2513,7 @@ describe('save the current map as a .hexa file, per kind (mirrors "copy link"\'s
 
   it('saves the active CLEAN document, not the Hexagonal map, when Clean is active', async () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
 
     const text = await saveHexa()
@@ -2649,7 +2662,7 @@ describe('the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
   it('New opens the chooser; picking Hexagonal is pixel-identical to the old direct New', () => {
     const { container } = render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     expect(screen.getByRole('dialog').textContent).toContain('Choose an architecture')
     fireEvent.click(screen.getByRole('button', { name: 'Hexagonal' }))
 
@@ -2665,7 +2678,7 @@ describe('the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
     const { container } = render(<App />)
     const hexaMapBefore = useMapStore.getState().map
 
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
 
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -2686,7 +2699,7 @@ describe('the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
     const hexaMapBefore = useMapStore.getState().map
     const onionMapBefore = useOnionStore.getState().map
 
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
 
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -2706,7 +2719,7 @@ describe('the architecture chooser (REQ-01, REQ-02, REQ-06)', () => {
 
   it('Esc on the chooser leaves the current view untouched', () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     const dialog = screen.getByRole('dialog')
 
     fireEvent.keyDown(dialog, { key: 'Escape' })
@@ -2744,7 +2757,8 @@ describe('Onion export (REQ-08)', () => {
     useMapStore.getState().replace(twoHexMap())
     await openOnionSample()
     expect(useOnionStore.getState().map.kind).toBe('onion')
-    expect(screen.queryByRole('group', { name: 'Export scope' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'Only the current hexagon' })).toBeNull()
   })
 
   it('exports the Onion diagram as SVG showing its rings, elements, dependency arrow, actor and its own legend, named after its own title, with no leftover "+"/"Depend on…" affordances', async () => {
@@ -2758,8 +2772,9 @@ describe('Onion export (REQ-08)', () => {
       return 'blob:mock'
     })
 
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      choose('Share', 'SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -2806,8 +2821,9 @@ describe('Onion export (REQ-08)', () => {
       return 'blob:mock'
     })
 
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Export as PNG' }))
+      choose('Share', 'PNG')
       await Promise.resolve()
       await Promise.resolve()
       await Promise.resolve()
@@ -2838,8 +2854,9 @@ describe('Onion export (REQ-08)', () => {
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock')
 
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Export as PNG' }))
+      choose('Share', 'PNG')
       await new Promise((resolve) => setTimeout(resolve, 0))
     })
 
@@ -2861,8 +2878,9 @@ describe('Onion export (REQ-08)', () => {
       return 'blob:mock'
     })
 
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      choose('Share', 'SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -2898,8 +2916,9 @@ describe('Clean export (REQ-05)', () => {
       return 'blob:mock'
     })
 
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Export as SVG' }))
+      choose('Share', 'SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -2947,8 +2966,9 @@ describe('Clean export (REQ-05)', () => {
       return 'blob:mock'
     })
 
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Export as PNG' }))
+      choose('Share', 'PNG')
       await Promise.resolve()
       await Promise.resolve()
       await Promise.resolve()
@@ -2974,7 +2994,7 @@ describe('Onion undo (REQ-09)', () => {
   // article, so an unscoped query is never ambiguous between the two — unlike Clean's own (see below).
   const openOnion = () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
     fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
   }
@@ -3088,7 +3108,7 @@ describe('Clean undo (REQ-09)', () => {
   // "Add element to X") — every editor-panel query below is scoped to the editor pane to pick the right one.
   const openClean = () => {
     const { container } = render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
     fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
     return within(container.querySelector('aside.editor')!)
@@ -3222,7 +3242,7 @@ describe.each([
 ])('$kind undo of dependency and endpoint edits (REQ-09)', ({ kind, doc, seed }) => {
   const open = (patch: EndpointPatch = {}) => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: kind }))
     fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
     seed(patch)
@@ -3275,11 +3295,11 @@ describe.each([
 describe('swap undo across kinds (REQ-09)', () => {
   it('Onion → Hexagonal via New, then Undo restores the Onion document and its view', () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
     const onionBefore = useOnionStore.getState().map
 
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Hexagonal' }))
     expect(useMapStore.getState().map.kind).toBe('hexagonal')
 
@@ -3292,12 +3312,11 @@ describe('swap undo across kinds (REQ-09)', () => {
 
   it('from a Clean document, loading an Example then Undo restores the Clean document', () => {
     const { container } = render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
     const cleanBefore = useCleanStore.getState().map
 
-    const option = screen.getByRole('option', { name: 'Chat feedback slice' }) as HTMLOptionElement
-    fireEvent.change(screen.getByLabelText('Load an example'), { target: { value: option.value } })
+    choose('File', 'Chat feedback slice')
     expect(useMapStore.getState().map).toStrictEqual(EXAMPLES.find((x) => x.id === 'hexagonal-basic')!.map)
 
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
@@ -3311,7 +3330,7 @@ describe('swap undo across kinds (REQ-09)', () => {
     const { container } = render(<App />)
     const hexBefore = useMapStore.getState().map
 
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
     expect(useCleanStore.getState().map.kind).toBe('clean')
 
@@ -3323,11 +3342,11 @@ describe('swap undo across kinds (REQ-09)', () => {
 
   it('Onion → Clean via New, then Undo restores the Onion document and its view', () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
     const onionBefore = useOnionStore.getState().map
 
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
     expect(useCleanStore.getState().map.kind).toBe('clean')
 
@@ -3340,11 +3359,11 @@ describe('swap undo across kinds (REQ-09)', () => {
 
   it('Clean → Onion via New, then Undo restores the Clean document and its view', () => {
     const { container } = render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
     const cleanBefore = useCleanStore.getState().map
 
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
     expect(useOnionStore.getState().map.kind).toBe('onion')
 
@@ -3359,7 +3378,7 @@ describe('swap undo across kinds (REQ-09)', () => {
     const { container } = render(<App />)
     const hexBefore = useMapStore.getState().map
 
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
     expect(useOnionStore.getState().map.kind).toBe('onion')
 
@@ -3378,7 +3397,7 @@ describe('Onion/Clean layout is memoised across renders that do not change the d
 
   it('toggling the theme does not recompute the Onion layout', () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
     vi.mocked(layoutOnion).mockClear()
 
@@ -3390,7 +3409,7 @@ describe('Onion/Clean layout is memoised across renders that do not change the d
 
   it('toggling the legend does not recompute the Clean layout', () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: 'Clean' }))
     vi.mocked(layoutClean).mockClear()
 
@@ -3432,14 +3451,14 @@ describe('move a hexagon to another bounded context', () => {
 })
 
 describe('view-only mode', () => {
-  const choose = (kind: 'Onion' | 'Clean') => {
-    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+  const startNew = (kind: 'Onion' | 'Clean') => {
+    choose('File', 'New')
     fireEvent.click(screen.getByRole('button', { name: kind }))
   }
 
   it.each(['Hexagonal', 'Onion', 'Clean'] as const)('hides the editor panel in %s and brings it back when turned off', (kind) => {
     render(<App />)
-    if (kind !== 'Hexagonal') choose(kind)
+    if (kind !== 'Hexagonal') startNew(kind)
     expect(screen.getByLabelText('Diagram editor')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'View only' }))
     expect(screen.queryByLabelText('Diagram editor')).toBeNull()

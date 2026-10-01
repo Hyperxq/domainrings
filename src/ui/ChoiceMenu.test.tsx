@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { ChoiceMenu } from './ChoiceMenu'
 
 afterEach(cleanup)
@@ -245,5 +245,39 @@ describe('ChoiceMenu', () => {
     fireEvent.click(trigger)
     fireEvent.click(items()[0])
     expect(onDismiss).toHaveBeenCalledTimes(4)
+  })
+})
+
+describe('ChoiceMenu group headings', () => {
+  const GROUPED = [
+    { id: 'copy', label: 'Copy link', control: 'action' },
+    { id: 'scope', label: 'Only the current hexagon', checked: false, control: 'switch', group: 'Export image' },
+    { id: 'svg', label: 'SVG', control: 'action', group: 'Export image' },
+    { id: 'png', label: 'PNG', control: 'action', group: 'Export image' },
+  ] as const
+
+  const open = () => {
+    render(<ChoiceMenu label="Share" choices={GROUPED} onChoose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
+  }
+
+  it('wraps consecutive choices sharing a group in a labelled group, leaving the others outside it', () => {
+    open()
+    const group = screen.getByRole('group', { name: 'Export image' })
+    expect([...group.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(['Only the current hexagon', 'SVG', 'PNG'])
+    expect(within(group).queryByRole('menuitem', { name: 'Copy link' })).toBeNull()
+    expect(group.getAttribute('aria-labelledby')).toBe(screen.getByText('Export image').id)
+  })
+
+  it('sets the group apart from the choices before it with a separator, and keeps every item in arrow-key order', () => {
+    open()
+    expect(screen.getAllByRole('separator').length).toBeGreaterThan(0)
+    const names = [...screen.getByRole('menu').querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)
+    expect(names).toEqual(['Copy link', 'Only the current hexagon', 'SVG', 'PNG'])
+  })
+
+  it('does not count the heading as an item', () => {
+    open()
+    expect(screen.queryByRole('menuitem', { name: 'Export image' })).toBeNull()
   })
 })

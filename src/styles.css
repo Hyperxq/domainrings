@@ -494,29 +494,6 @@ a.icon-button { color: inherit; text-decoration: none; }
 .text-button:hover,
 .zoom-level:hover { background: var(--hover); }
 .icon-button[aria-pressed='true'] { background: var(--teal); color: var(--card); }
-label.icon-button:focus-within,
-label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
-/* Toolbar actions carry a short word next to the icon; below ROOMY_TOOLBAR they render as icon buttons instead. */
-.tool {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: none;
-  height: 32px;
-  padding: 0 10px 0 8px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 13px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.tool:hover { background: var(--hover); }
-/* The native select covers the icon, so keyboard, touch and screen readers get a real list of examples. */
-.example-picker { position: relative; }
-.example-picker select { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
 
 .toolbar {
   top: 12px;
@@ -544,37 +521,10 @@ label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
   white-space: nowrap;
 }
 
-.kinds {
-  display: flex;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-.kind input { position: absolute; opacity: 0; pointer-events: none; }
-.kind span {
-  display: block;
-  padding: 7px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.kind span:hover { background: var(--hover); }
-.kind input:checked + span { background: var(--teal-soft); color: var(--teal); font-weight: 600; }
-.kind input:focus-visible + span { outline: 2px solid var(--teal); outline-offset: 1px; }
-.kind input[aria-disabled='true'] + span { opacity: 0.5; cursor: not-allowed; }
-.kind-select { flex: none; height: 32px; }
-.kind-select[aria-disabled='true'] { opacity: 0.5; cursor: not-allowed; }
-
 .divider { flex: none; width: 1px; height: 20px; margin: 0 4px; background: var(--line); }
 
-.export { display: inline-flex; align-items: center; gap: 6px; flex: none; padding-left: 4px; }
-.export-label { color: var(--muted); font-size: 13px; }
-/* One bordered pill, so the halves read as one control: the three export formats, or the detail level with its
-   selected half filled. */
+/* One bordered pill, so the halves read as one control: the detail level with its selected half filled. */
 .segmented { display: inline-flex; flex: none; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-.segmented .text-button { height: 28px; border-radius: 0; color: var(--ink); font-size: 13px; }
-.segmented .text-button + .text-button { border-left: 1px solid var(--line); }
 .segmented-option { height: 28px; padding: 0 12px; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 13px; white-space: nowrap; cursor: pointer; }
 .segmented-option + .segmented-option { border-left: 1px solid var(--line); }
 .segmented-option:hover { background: var(--hover); }
@@ -642,6 +592,7 @@ label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
 .choice-menu .text-button[data-control='switch'][aria-checked] { background: transparent; color: inherit; }
 .choice-menu .segmented { display: flex; }
 .choice-menu .segmented-option { flex: 1; height: 32px; }
+.choice-heading { padding: 4px 8px 2px; color: var(--muted); font-size: 12px; font-weight: 600; }
 .choice-separator { height: 1px; margin: 2px 4px; background: var(--line); }
 .choice-description { color: var(--muted); font-size: 12px; font-weight: 400; }
 
