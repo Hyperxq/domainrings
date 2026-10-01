@@ -17,6 +17,7 @@ import { useMapStore } from './model/store'
 import { ArchitectureChoiceDialog } from './ui/ArchitectureChoiceDialog'
 import { useExport } from './ui/useExport'
 import { useOpenDocument } from './ui/useOpenDocument'
+import { useHistoryStore } from './ui/state/historyStore'
 import { useUndoHistory } from './ui/useUndoHistory'
 import { usePreferencesStore } from './ui/state/preferencesStore'
 import { useViewStore } from './ui/state/viewStore'
@@ -90,10 +91,9 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       : activeKind === 'clean'
         ? { file: cleanMap, bounds: cleanModel!.bounds, title: cleanMap.title, scoped: false, legend: legendInExport }
         : { file: map, bounds: scoped ? hexagonBounds(currentHexagon(model, hexId)) : model.bounds, title: scoped ? diagram.title || UNTITLED_HEXAGON : map.title, scoped, legend: legendInExport }
-  const { record, beginField, endField, dropUndo, undoLast, absorbEdit } = useUndoHistory({
+  const undoLast = useUndoHistory({
     activeFile: active.file,
     hexId,
-    choosingArchitecture,
     onUnavailable: () => show({ tone: 'status', message: "Undo isn't available: the document changed in ways Undo doesn't track." }),
     onRestored: (entry) => {
       // The restored document's own kind IS the view to bring back (REQ-09) — a same-kind edit's undo
@@ -105,7 +105,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     },
   })
   const show = (next: Omit<Notice, 'id'>) => {
-    if (next.undo) record(next.undo)
+    if (next.undo) useHistoryStore.getState().record(next.undo)
     setNotice({ ...next, id: ++noticeSeq.current })
   }
   // The one undo mechanism (REQ-09), instantiated once per kind: OnionEditor/OnionStage and CleanEditor/CleanStage
@@ -116,7 +116,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // Retracts the toast for an add that was immediately cancelled (naming Esc'd out) without offering it as an
   // undo step — the add already unwound itself; mirrors onNamingCancel's own setNotice(null) below.
   const clearNotice = () => {
-    dropUndo(notice?.undo)
+    useHistoryStore.getState().dropUndo(notice?.undo)
     setNotice(null)
   }
   // Onion and Clean have no ports or adapters — each kind builds the legend it actually draws (ADR-01), all
@@ -176,11 +176,11 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       {activeKind === 'hexagonal' && (
         <HexagonalWorkspace
           legend={legend}
-          fieldSession={{ begin: beginField, end: () => endField() }}
+          fieldSession={{ begin: useHistoryStore.getState().beginField, end: () => useHistoryStore.getState().endField() }}
           show={show}
           nameOf={nameOf}
           parseFile={parseFile}
-          onRecord={record}
+          onRecord={useHistoryStore.getState().record}
           model={model}
           map={map}
           hexId={hexId}
@@ -190,12 +190,12 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           svgRef={svgRef}
           onLinking={startLinking}
           onNamed={(title) => {
-            absorbEdit()
+            useHistoryStore.getState().absorbEdit()
             setMeta(growing!.hexId, { title })
             useViewStore.setState({ growing: null })
           }}
           onNamingCancel={() => {
-            dropUndo(growing!.before)
+            useHistoryStore.getState().dropUndo(growing!.before)
             restore(growing!.before)
             useViewStore.setState({ growing: null })
             setNotice(null)
@@ -210,7 +210,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           svgRef={svgRef}
           onReject={(message) => show({ tone: 'error', message })}
           onMutate={mutateOnion}
-          onNamed={absorbEdit}
+          onNamed={useHistoryStore.getState().absorbEdit}
           onCancelMutate={clearNotice}
         />
       )}
@@ -222,7 +222,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           svgRef={svgRef}
           onReject={(message) => show({ tone: 'error', message })}
           onMutate={mutateClean}
-          onNamed={absorbEdit}
+          onNamed={useHistoryStore.getState().absorbEdit}
           onCancelMutate={clearNotice}
         />
       )}
