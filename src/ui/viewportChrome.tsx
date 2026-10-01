@@ -5,7 +5,8 @@ import { Icon } from './Icon'
 import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
 import { useEasedViewport } from './useEasedViewport'
-import { MIN_SCALE, panBy, pinch, zoomAt, type Viewport } from './viewport'
+import type { Box } from '../layout/geometry'
+import { contains, MIN_SCALE, panBy, pinch, zoomAt, type Viewport } from './viewport'
 
 /** A press starting on a floating island, a "+" affordance or an inline name field never pans — shared by Stage
  * and RingedStage (ADR-01: neither's chrome differs here). */
@@ -37,6 +38,39 @@ export function useElementSize(ref: RefObject<HTMLElement | null>): { width: num
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   return size
+}
+
+/** While the editor panel is open, an 'auto' view that still shows `interest` in the area the panel leaves is frozen
+ * as it is, instead of refitting around the panel (which snaps the canvas when an element is revealed). Closing the
+ * panel restores 'auto' unless the author has panned or zoomed since — the frozen object's identity tells. A map
+ * change that moves something off screen still drops a frozen view back to 'auto' (FIT-02.2), as for any manual view.
+ * `visible` is the diagram box the NEW free area shows under the current view. Called from the stage's own render:
+ * the update below is a render-phase one. */
+export function useFreezeWhilePanelOpen({
+  panelOpen,
+  view,
+  viewport,
+  setView,
+  visible,
+  interest,
+}: {
+  panelOpen: boolean
+  view: 'auto' | Viewport
+  viewport: Viewport
+  setView: Dispatch<SetStateAction<'auto' | Viewport>>
+  visible: Box
+  interest: Box
+}) {
+  const [seen, setSeen] = useState({ panelOpen, frozen: null as Viewport | null })
+  if (panelOpen === seen.panelOpen) return
+  let frozen: Viewport | null = null
+  if (panelOpen) {
+    if (view === 'auto' && contains(visible, interest)) {
+      frozen = viewport
+      setView(viewport)
+    }
+  } else if (seen.frozen && view === seen.frozen) setView('auto')
+  setSeen({ panelOpen, frozen })
 }
 
 export interface ViewportInteractions {

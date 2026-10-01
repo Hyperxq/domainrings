@@ -2,7 +2,7 @@ import { useState, type RefObject } from 'react'
 import { hexagonBounds } from '../../layout/lattice'
 import { type MapHexagonLayout, type MapLayout } from '../../layout/map'
 import { contains, fitMap, fitTo, islandInset, visibleRect } from '../viewport'
-import { useElementSize, useViewportInteractions } from '../viewportChrome'
+import { useElementSize, useFreezeWhilePanelOpen, useViewportInteractions } from '../viewportChrome'
 
 /** The stage's size, fit and pan/zoom state for a map, including the reset that keeps a manual viewport only while
  * every added, removed or shifted hexagon is still on screen. Called from `Stage`'s own render: the reset below is
@@ -46,15 +46,7 @@ export function useStageViewport({
   const { view, viewport, setView } = interactions
   const centre = { x: size.width / 2, y: size.height / 2 }
 
-  // The panel only changes the free area, so an 'auto' view that still shows the current hexagon is frozen as it is
-  // instead of refitting around the panel — otherwise revealing a just-named element snaps the canvas, and closing
-  // the panel snaps it back. When the panel would cover it, 'auto' stays and eases to the new fit. On 2+ hexagons
-  // 'auto' IS the whole-map fit and must keep tracking the free area (FIT-02.1), so it is never frozen there.
-  const [seenPanelOpen, setSeenPanelOpen] = useState(panelOpen)
-  if (panelOpen !== seenPanelOpen) {
-    setSeenPanelOpen(panelOpen)
-    if (view === 'auto' && model.hexagons.length < 2 && contains(visibleRect(viewport, effectiveSize, inset), hexagonBounds(hex))) setView(viewport)
-  }
+  useFreezeWhilePanelOpen({ panelOpen, view, viewport, setView, visible: visibleRect(viewport, effectiveSize, inset), interest: hexagonBounds(hex) })
 
   // Grow/import/delete/undo never bump `revision` (ADR-02/ADR-05), so the fitKey reset above can't see them — this
   // tracks the hexagon id set instead. A `Viewport` the author set stays iff every added/removed/shifted box is still fully
