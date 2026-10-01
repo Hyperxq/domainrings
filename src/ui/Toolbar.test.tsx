@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { FULL_TOOLBAR, ROOMY_TOOLBAR, Toolbar } from './Toolbar'
+import { usePreferencesStore } from './state/preferencesStore'
 
 type Listener = () => void
 const minWidth = (query: string) => Number(/min-width: (\d+)px/.exec(query)![1])
@@ -23,7 +24,10 @@ beforeEach(() => {
     removeEventListener: (_: string, l: Listener) => listeners.delete(l),
   })) as unknown as typeof matchMedia
 })
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
 
 function renderToolbar(
   overrides: {
@@ -61,7 +65,17 @@ function renderToolbar(
     onExportScope: vi.fn(),
     ...overrides,
   }
-  render(<Toolbar {...props} />)
+  const { mode, guides, highlight, dependents, themeChoice: theme, palette, onMode, onGuides, onHighlight, onDependents, onTheme, onPalette, ...toolbar } = props
+  usePreferencesStore.setState({ mode, guides, highlight, dependents, theme, palette })
+  // The toolbar writes its choices straight to the store; the handlers the tests read record those writes.
+  const handlers = { mode: onMode, guides: onGuides, highlight: onHighlight, dependents: onDependents, theme: onTheme, palette: onPalette } as Record<string, (value: unknown) => void>
+  vi.restoreAllMocks()
+  const setState = usePreferencesStore.setState
+  vi.spyOn(usePreferencesStore, 'setState').mockImplementation(((partial: object) => {
+    for (const [field, value] of Object.entries(partial)) handlers[field](value)
+    setState(partial)
+  }) as typeof setState)
+  render(<Toolbar {...toolbar} />)
   return props
 }
 

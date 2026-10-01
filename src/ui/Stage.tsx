@@ -1,6 +1,6 @@
 import { useRef, useState, type Ref } from 'react'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
-import type { LayoutMode, LayoutNode } from '../layout/layout'
+import type { LayoutNode } from '../layout/layout'
 import type { Point } from '../layout/geometry'
 import type { LegendModel } from '../layout/legend'
 import { currentHexagon, type MapLayout } from '../layout/map'
@@ -17,6 +17,7 @@ import { ExpandToggles, GrowButtons, LinkChip } from './stage/overlays'
 import { useCanvasShortcuts } from './stage/useCanvasShortcuts'
 import { useHexagonFocus } from './stage/useHexagonFocus'
 import { useStageViewport } from './stage/useStageViewport'
+import { usePreferencesStore } from './state/preferencesStore'
 import { gridBackgroundStyle, ZoomControls } from './viewportChrome'
 
 interface StageProps {
@@ -27,19 +28,11 @@ interface StageProps {
   /** The hexagon `diagram` is the view of; every point insertion/editing works in belongs to it. */
   hexId: string
   diagram: DiagramModel
-  mode: LayoutMode
-  /** Off: hovering still reveals the "+" buttons, but nothing dims, glows or retitles. */
-  highlight: boolean
-  /** Emphasize what depends on the selection instead of what it depends on. */
-  dependents: boolean
   legend: LegendModel
   revision: number
   title: string
   svgRef: Ref<SVGSVGElement>
   panelOpen: boolean
-  /** The open legend island takes the right column, so the fit leaves it free. */
-  legendOpen: boolean
-  showGuides: boolean
   /** Opens the editor at the card for `ref` (an item id, `composition` or `layer:<role>`); `focus` selects its first field. */
   onReveal: (ref: string, focus: boolean) => void
   /** Removes the element `ref` names; false when it is not a model item (a note, the composition root). */
@@ -71,7 +64,13 @@ const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
   actors: 'actor',
   externals: 'external',
 }
-export function Stage({ model, map, hexId, diagram, mode, highlight, dependents, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete, onRecord, linking, onLinking, onLink, contextLabel, onGrow, naming, onNamed, onNamingCancel, onToggleExpanded }: StageProps) {
+export function Stage({ model, map, hexId, diagram, legend, revision, title, svgRef, panelOpen, onReveal, onDelete, onRecord, linking, onLinking, onLink, contextLabel, onGrow, naming, onNamed, onNamingCancel, onToggleExpanded }: StageProps) {
+  const mode = usePreferencesStore((s) => s.mode)
+  const highlight = usePreferencesStore((s) => s.highlight)
+  const dependents = usePreferencesStore((s) => s.dependents)
+  const showGuides = usePreferencesStore((s) => s.guides)
+  // The open legend island takes the right column, so the fit leaves it free.
+  const legendOpen = usePreferencesStore((s) => s.legendOpen)
   const hex = currentHexagon(model, hexId)
   const hexModel = hex.model
   const mainRef = useRef<HTMLElement>(null)

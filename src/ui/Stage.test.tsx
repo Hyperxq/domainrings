@@ -9,6 +9,7 @@ import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
 import { toMap } from '../model/hexa'
 import { contextName, diagramOf, freeSides, neighbour, SIDE_ORDER } from '../model/map'
 import { useMapStore } from '../model/store'
+import { usePreferencesStore } from './state/preferencesStore'
 import type { HexaMap } from '../model/schema'
 import { parseHexa } from '../model/hexa'
 import { hexGroup, linkedTwoHexMap, manyHexagonMap, twoHexMap } from '../test/fixtures'
@@ -54,6 +55,7 @@ function Harness({
   expanded?: ReadonlySet<string>
   onToggleExpanded?: (id: string) => void
 }) {
+  usePreferencesStore.setState({ mode, highlight, dependents, guides: true, legendOpen: false })
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   const diagram = diagramOf(map, hexId)
@@ -66,22 +68,17 @@ function Harness({
       map={map}
       hexId={hexId}
       diagram={diagram}
-      mode={mode}
       legend={legendFor(diagram)}
       revision={0}
       title="Test"
       svgRef={svgRef}
       panelOpen={panelOpen}
-      legendOpen={false}
       onReveal={onReveal}
       onDelete={() => false}
       onRecord={() => {}}
       linking={linking}
       onLinking={setLinking}
       onLink={onLink}
-      showGuides
-      highlight={highlight}
-      dependents={dependents}
       contextLabel={contextName(map, currentContextId)}
       onGrow={onGrow}
       naming={naming}

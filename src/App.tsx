@@ -63,7 +63,8 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const revision = useMapStore((s) => s.revision)
   const diagram = diagramOf(map, hexId)
   const multiHexagon = map.hexagons.length > 1
-  const { mode, guides, highlight, dependents, legendOpen, legendInExport, theme: themeChoice, palette } = usePreferencesStore()
+  const mode = usePreferencesStore((s) => s.mode)
+  const legendInExport = usePreferencesStore((s) => s.legendInExport)
   // View state, not part of the document: which hexagons the author expanded, kept for the document they were chosen in.
   const [viewed, setViewed] = useState<{ revision: number; expanded: ReadonlySet<string> }>({ revision, expanded: new Set() })
   const expanded = viewed.revision === revision ? viewed.expanded : NONE_EXPANDED
@@ -132,14 +133,6 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // Onion and Clean have no ports or adapters — each kind builds the legend it actually draws (ADR-01), all
   // three sharing the one open/close and "include in export" state above.
   const legend = activeKind === 'onion' ? legendForOnion(onionMap) : activeKind === 'clean' ? legendForClean(cleanMap) : legendFor(diagram)
-  // One panel description for all three kinds: the open/close and "include in export" state is shared.
-  const legendPanel = {
-    legend,
-    open: legendOpen,
-    onOpen: (open: boolean) => usePreferencesStore.setState({ legendOpen: open }),
-    includeInExport: legendInExport,
-    onIncludeInExport: (include: boolean) => usePreferencesStore.setState({ legendInExport: include }),
-  }
   // The document being replaced (REQ-09), captured before any store mutation whatever kind is currently active —
   // Undo restores it into its own store (`restoreUndo`) and the toast's onUndo below flips `activeKind` back from
   // `undo.map.kind`, so the view returns with it. One snapshot, one restore path, for every swap direction.
@@ -191,8 +184,6 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         showScope={canScopeExport}
         exportScope={exportScope}
         onExportScope={setExportScope}
-        themeChoice={themeChoice}
-        palette={palette}
         onNew={() => setChoosingArchitecture(true)}
         onExample={(id) => {
           const example = EXAMPLES.find((x) => x.id === id)!
@@ -201,23 +192,13 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         onOpen={importFile}
         onCopyLink={handleCopyLink}
         onExport={exportAs}
-        onTheme={(theme) => usePreferencesStore.setState({ theme })}
-        onPalette={(palette) => usePreferencesStore.setState({ palette })}
-        mode={mode}
-        onMode={(mode) => usePreferencesStore.setState({ mode })}
-        guides={guides}
-        onGuides={(guides) => usePreferencesStore.setState({ guides })}
-        highlight={highlight}
-        onHighlight={(highlight) => usePreferencesStore.setState({ highlight })}
-        dependents={dependents}
-        onDependents={(dependents) => usePreferencesStore.setState({ dependents })}
         onExpandAll={activeKind === 'hexagonal' && canCompact(map.hexagons.length) ? (expand) => setViewed({ revision, expanded: new Set(expand ? map.hexagons.map((h) => h.id) : []) }) : undefined}
       />
       {activeKind === 'hexagonal' && (
         <HexagonalWorkspace
           editorOpen={editorOpen}
           onToggleEditor={() => setEditorOpen(!editorOpen)}
-          legendPanel={legendPanel}
+          legend={legend}
           fieldSession={{ begin: beginField, end: () => endField() }}
           show={show}
           nameOf={nameOf}
@@ -229,13 +210,9 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           map={map}
           hexId={hexId}
           diagram={diagram}
-          mode={mode}
-          highlight={highlight}
-          dependents={dependents}
           revision={revision}
           title={diagram.title}
           svgRef={svgRef}
-          showGuides={guides}
           onReveal={reveal}
           linking={linking}
           onLinking={startLinking}
@@ -258,10 +235,9 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         <OnionWorkspace
           editorOpen={editorOpen}
           onToggleEditor={() => setEditorOpen(!editorOpen)}
-          legendPanel={legendPanel}
+          legend={legend}
           model={onionModel!}
           doc={onionMap}
-          mode={mode}
           svgRef={svgRef}
           onReject={(message) => show({ tone: 'error', message })}
           onMutate={mutateOnion}
@@ -273,10 +249,9 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         <CleanWorkspace
           editorOpen={editorOpen}
           onToggleEditor={() => setEditorOpen(!editorOpen)}
-          legendPanel={legendPanel}
+          legend={legend}
           model={cleanModel!}
           doc={cleanMap}
-          mode={mode}
           svgRef={svgRef}
           onReject={(message) => show({ tone: 'error', message })}
           onMutate={mutateClean}

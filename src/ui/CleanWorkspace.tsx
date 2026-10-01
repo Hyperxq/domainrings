@@ -1,18 +1,18 @@
 import type { Ref } from 'react'
-import type { LayoutMode } from '../layout/layout'
 import type { CleanLayoutModel } from '../layout/clean'
 import type { CleanFile } from '../model/schema'
-import { Legend, type LegendProps } from './Legend'
+import type { LegendModel } from '../layout/legend'
+import { usePreferencesStore } from './state/preferencesStore'
+import { Legend } from './Legend'
 import { CleanEditor } from './CleanEditor'
 import { CleanStage } from './CleanStage'
 
 interface CleanWorkspaceProps {
   editorOpen: boolean
   onToggleEditor: () => void
-  legendPanel: LegendProps
+  legend: LegendModel
   model: CleanLayoutModel
   doc: CleanFile
-  mode: LayoutMode
   svgRef: Ref<SVGSVGElement>
   onReject: (message: string) => void
   onMutate: (message: string, before: CleanFile) => void
@@ -20,11 +20,13 @@ interface CleanWorkspaceProps {
   onCancelMutate: () => void
 }
 
-export function CleanWorkspace({ editorOpen, onToggleEditor, legendPanel, model, doc, mode, svgRef, onReject, onMutate, onNamed, onCancelMutate }: CleanWorkspaceProps) {
+export function CleanWorkspace({ editorOpen, onToggleEditor, legend, model, doc, svgRef, onReject, onMutate, onNamed, onCancelMutate }: CleanWorkspaceProps) {
+  const mode = usePreferencesStore((s) => s.mode)
+  const legendOpen = usePreferencesStore((s) => s.legendOpen)
   return (
     <>
       <CleanEditor open={editorOpen} onToggle={onToggleEditor} onMutate={onMutate} />
-      <Legend {...legendPanel} />
+      <Legend legend={legend} />
       <CleanStage
         model={model}
         doc={doc}
@@ -35,7 +37,7 @@ export function CleanWorkspace({ editorOpen, onToggleEditor, legendPanel, model,
         onNamed={onNamed}
         onCancelMutate={onCancelMutate}
         panelOpen={editorOpen}
-        legendOpen={legendPanel.open}
+        legendOpen={legendOpen}
       />
     </>
   )
