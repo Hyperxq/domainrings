@@ -1589,4 +1589,30 @@ describe('Stage — smooth fit changes (animated refit, panel open/close)', () =
     frames(400)
     expect(viewBoxOf(container)).toBe(zoomed)
   })
+
+  it('keeps the canvas where it is when the editor panel opens and closes while the hexagon stays visible', () => {
+    allowMotion()
+    const { container } = render(<Harness />)
+    const before = viewBoxOf(container)
+
+    act(() => useViewStore.setState({ editorOpen: true }))
+    frames(400)
+    expect(viewBoxOf(container)).toBe(before)
+
+    act(() => useViewStore.setState({ editorOpen: false }))
+    frames(400)
+    expect(viewBoxOf(container)).toBe(before)
+  })
+
+  it('refits, easing, when the panel would cover the hexagon', () => {
+    allowMotion()
+    restoreSize()
+    restoreSize = stubFixedSize(700, 900)
+    const { container } = render(<Harness />)
+    const before = viewBoxOf(container)
+    act(() => useViewStore.setState({ editorOpen: true }))
+    expect(viewBoxOf(container)).toBe(before)
+    frames(400)
+    expect(viewBoxOf(container)).not.toBe(before)
+  })
 })
