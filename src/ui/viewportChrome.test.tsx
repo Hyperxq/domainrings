@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { ZoomControls } from './viewportChrome'
+import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
+import { useState } from 'react'
+import { useFreezeWhilePanelOpen, ZoomControls } from './viewportChrome'
+import type { Viewport } from './viewport'
 import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
 import { useMapStore } from '../model/store'
@@ -72,5 +74,58 @@ describe('ZoomControls expand and collapse all', () => {
     renderControls()
     expect(screen.queryByRole('button', { name: 'Expand all' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Collapse all' })).toBeNull()
+  })
+})
+
+describe('useFreezeWhilePanelOpen', () => {
+  const FIT: Viewport = { x: 0, y: 0, scale: 1 }
+  const interest = { x: 10, y: 10, width: 50, height: 50 }
+  const visibleIn = { x: 0, y: 0, width: 100, height: 100 }
+  const visibleOut = { x: 0, y: 0, width: 30, height: 30 }
+  const setup = (initialView: 'auto' | Viewport = 'auto') =>
+    renderHook(
+      (p: { panelOpen: boolean; visible: typeof visibleIn }) => {
+        const [view, setView] = useState<'auto' | Viewport>(initialView)
+        useFreezeWhilePanelOpen({ panelOpen: p.panelOpen, view, viewport: view === 'auto' ? FIT : view, setView, visible: p.visible, interest })
+        return { view, setView }
+      },
+      { initialProps: { panelOpen: false, visible: visibleIn } },
+    )
+
+  it('freezes an auto view when the panel opens and the interest stays visible', () => {
+    const { result, rerender } = setup()
+    rerender({ panelOpen: true, visible: visibleIn })
+    expect(result.current.view).toEqual(FIT)
+    expect(result.current.view).not.toBe('auto')
+  })
+
+  it('leaves an auto view alone when the panel would cover the interest', () => {
+    const { result, rerender } = setup()
+    rerender({ panelOpen: true, visible: visibleOut })
+    expect(result.current.view).toBe('auto')
+  })
+
+  it('returns to auto on close when the freeze is still in place', () => {
+    const { result, rerender } = setup()
+    rerender({ panelOpen: true, visible: visibleIn })
+    rerender({ panelOpen: false, visible: visibleIn })
+    expect(result.current.view).toBe('auto')
+  })
+
+  it('keeps a view the author changed while the panel was open', () => {
+    const { result, rerender } = setup()
+    rerender({ panelOpen: true, visible: visibleIn })
+    const manual = { ...FIT, scale: 2 }
+    act(() => result.current.setView(manual))
+    rerender({ panelOpen: false, visible: visibleIn })
+    expect(result.current.view).toBe(manual)
+  })
+
+  it('never touches a view that was manual before the panel opened', () => {
+    const manual = { ...FIT, scale: 2 }
+    const { result, rerender } = setup(manual)
+    rerender({ panelOpen: true, visible: visibleIn })
+    rerender({ panelOpen: false, visible: visibleIn })
+    expect(result.current.view).toBe(manual)
   })
 })

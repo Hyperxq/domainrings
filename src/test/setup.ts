@@ -12,3 +12,7 @@ afterEach(() => {
   useHistoryStore.setState(useHistoryStore.getInitialState(), true)
   useNoticeStore.setState(useNoticeStore.getInitialState(), true)
 })
+
+// jsdom has no matchMedia. Motion-sensitive code reads this as "reduce", so a viewport change lands instantly
+// unless a test opts in to animation; any other query reports no match, as before.
+window.matchMedia ??= ((media: string) => ({ matches: media.includes('prefers-reduced-motion'), media, addEventListener() {}, removeEventListener() {} })) as unknown as typeof matchMedia

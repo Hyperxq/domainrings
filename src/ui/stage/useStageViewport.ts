@@ -2,7 +2,7 @@ import { useState, type RefObject } from 'react'
 import { hexagonBounds } from '../../layout/lattice'
 import { type MapHexagonLayout, type MapLayout } from '../../layout/map'
 import { contains, fitMap, fitTo, islandInset, visibleRect } from '../viewport'
-import { useElementSize, useViewportInteractions } from '../viewportChrome'
+import { useElementSize, useFreezeWhilePanelOpen, useViewportInteractions } from '../viewportChrome'
 
 /** The stage's size, fit and pan/zoom state for a map, including the reset that keeps a manual viewport only while
  * every added, removed or shifted hexagon is still on screen. Called from `Stage`'s own render: the reset below is
@@ -40,10 +40,13 @@ export function useStageViewport({
     autoFit,
     wholeFitScale: wholeFit.scale,
     fitKey,
+    settleKey: `${size.width}x${size.height}`,
     onPanStart,
   })
-  const { view, setView } = interactions
+  const { view, heading, setView } = interactions
   const centre = { x: size.width / 2, y: size.height / 2 }
+
+  useFreezeWhilePanelOpen({ panelOpen, view, viewport: heading.current, setView, visible: visibleRect(heading.current, effectiveSize, inset), interest: hexagonBounds(hex) })
 
   // Grow/import/delete/undo never bump `revision` (ADR-02/ADR-05), so the fitKey reset above can't see them — this
   // tracks the hexagon id set instead. A `Viewport` the author set stays iff every added/removed/shifted box is still fully

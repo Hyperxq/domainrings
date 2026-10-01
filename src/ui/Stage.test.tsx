@@ -620,20 +620,34 @@ describe('Stage — the whole-map auto view survives a canvas focus switch (FIT-
     }
   })
 
-  it('a switch on a two-hexagon map does not freeze the view — it still tracks a later inset change from the side panel opening', () => {
+  it('a switch on a two-hexagon map does not freeze the view — opening the side panel leaves it where it is while the current hexagon stays visible', () => {
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<Harness />)
-    const insetClosed = islandInset({ width: 0, height: 0 }, false, false)
-    const insetOpen = islandInset({ width: 0, height: 0 }, true, false)
-    // Premise: opening the panel actually moves the inset in this (width:0) environment, or the assertion below is vacuous.
-    expect(insetOpen).not.toEqual(insetClosed)
-
     fireEvent.click(hexGroup(container, 'h2'))
+    const before = viewportOf(container)
+
     act(() => useViewStore.setState({ editorOpen: true }))
 
-    const model = layoutMap(useMapStore.getState().map)
-    expect(model.hexagons).toHaveLength(2)
-    expectViewport(container, fitTo(model.bounds, model.bounds.width, model.bounds.height, insetOpen, 0))
+    expectViewport(container, before)
+  })
+
+  it('a switch on a two-hexagon map still refits to the whole map when the side panel would cover the current hexagon', () => {
+    const restore = stubFixedSize(700, 900)
+    try {
+      useMapStore.getState().replace(twoHexMap())
+      const { container } = render(<Harness />)
+      fireEvent.click(hexGroup(container, 'h2'))
+      const insetOpen = islandInset({ width: 700, height: 900 }, true, false)
+      expect(insetOpen).not.toEqual(islandInset({ width: 700, height: 900 }, false, false))
+
+      act(() => useViewStore.setState({ editorOpen: true }))
+
+      const model = layoutMap(useMapStore.getState().map)
+      expect(model.hexagons).toHaveLength(2)
+      expectViewport(container, fitTo(model.bounds, 700, 900, insetOpen, 0))
+    } finally {
+      restore()
+    }
   })
 
   it('the initial auto view on exactly two widely-spaced hexagons is the whole-map fit, not the current-hexagon fallback', () => {
@@ -1525,5 +1539,152 @@ describe('Stage in view-only mode', () => {
     const before = viewportOf(container).scale
     fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
     expect(viewportOf(container).scale).toBeGreaterThan(before)
+  })
+})
+
+describe('Stage — smooth fit changes (animated refit, panel open/close)', () => {
+  const SCREEN = { width: 2000, height: 800 }
+  let restoreSize: () => void
+  const originalMatchMedia = window.matchMedia
+  const viewBoxOf = (container: HTMLElement) => svg(container).getAttribute('viewBox')
+  const frames = (ms: number) => act(() => void vi.advanceTimersByTime(ms))
+  const allowMotion = () => {
+    window.matchMedia = ((media: string) => ({ matches: false, media, addEventListener() {}, removeEventListener() {} })) as unknown as typeof matchMedia
+  }
+  beforeEach(() => {
+    vi.useFakeTimers()
+    restoreSize = stubFixedSize(SCREEN.width, SCREEN.height)
+    useViewStore.setState({ editorOpen: false })
+  })
+  afterEach(() => {
+    restoreSize()
+    window.matchMedia = originalMatchMedia
+    vi.useRealTimers()
+  })
+
+  it('eases to the new fit after a grow instead of snapping, and reaches it after the duration', () => {
+    allowMotion()
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+    const before = viewBoxOf(container)
+
+    act(() => void useMapStore.getState().addHexagon('h1', { context: 'same' }))
+    expect(viewBoxOf(container)).toBe(before)
+    frames(48)
+    const mid = viewBoxOf(container)
+    expect(mid).not.toBe(before)
+
+    frames(400)
+    const settled = viewBoxOf(container)
+    expect(settled).not.toBe(mid)
+    const model = layoutMap(useMapStore.getState().map)
+    const expected = fitTo(model.bounds, SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false), 0)
+    expectViewport(container, expected)
+  })
+
+  it('changes instantly under prefers-reduced-motion', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+    const before = viewBoxOf(container)
+    act(() => void useMapStore.getState().addHexagon('h1', { context: 'same' }))
+    expect(viewBoxOf(container)).not.toBe(before)
+    const model = layoutMap(useMapStore.getState().map)
+    expectViewport(container, fitTo(model.bounds, SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false), 0))
+  })
+
+  it('a wheel zoom is immediate and cancels a running ease', () => {
+    allowMotion()
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+    act(() => void useMapStore.getState().addHexagon('h1', { context: 'same' }))
+    frames(48)
+    fireEvent.wheel(container.querySelector('main')!, { deltaY: -300, clientX: 500, clientY: 400 })
+    const zoomed = viewBoxOf(container)
+    frames(400)
+    expect(viewBoxOf(container)).toBe(zoomed)
+  })
+
+  it('keeps the canvas where it is when the editor panel opens and closes while the hexagon stays visible', () => {
+    allowMotion()
+    const { container } = render(<Harness />)
+    const before = viewBoxOf(container)
+
+    act(() => useViewStore.setState({ editorOpen: true }))
+    frames(400)
+    expect(viewBoxOf(container)).toBe(before)
+
+    act(() => useViewStore.setState({ editorOpen: false }))
+    frames(400)
+    expect(viewBoxOf(container)).toBe(before)
+  })
+
+  it('refits, easing, when the panel would cover the hexagon', () => {
+    allowMotion()
+    restoreSize()
+    restoreSize = stubFixedSize(700, 900)
+    const { container } = render(<Harness />)
+    const before = viewBoxOf(container)
+    act(() => useViewStore.setState({ editorOpen: true }))
+    expect(viewBoxOf(container)).toBe(before)
+    frames(400)
+    expect(viewBoxOf(container)).not.toBe(before)
+  })
+
+  describe('on a multi-hexagon map', () => {
+    const openPanel = () => act(() => useViewStore.setState({ editorOpen: true }))
+    const closePanel = () => act(() => useViewStore.setState({ editorOpen: false }))
+    const wholeMapFit = (panelOpen: boolean) => {
+      const model = layoutMap(useMapStore.getState().map)
+      return fitTo(model.bounds, SCREEN.width, SCREEN.height, islandInset(SCREEN, panelOpen, false), 0)
+    }
+    beforeEach(() => {
+      allowMotion()
+      useMapStore.getState().replace(twoHexMap())
+    })
+
+    it('opening the panel leaves the view where it is while the current hexagon stays visible', () => {
+      const { container } = render(<Harness />)
+      const before = viewBoxOf(container)
+      openPanel()
+      frames(400)
+      expect(viewBoxOf(container)).toBe(before)
+    })
+
+    it('closing the panel leaves the whole-map fit in place', () => {
+      const { container } = render(<Harness />)
+      const before = viewBoxOf(container)
+      openPanel()
+      closePanel()
+      expect(viewBoxOf(container)).toBe(before)
+      frames(400)
+      expectViewport(container, wholeMapFit(false))
+    })
+
+    it('opening the panel mid-ease freezes the fit being eased to, not a partial frame', () => {
+      const { container } = render(<Harness />)
+      act(() => void useMapStore.getState().addHexagon('h1', { context: 'same' }))
+      frames(100)
+      openPanel()
+      frames(400)
+      expectViewport(container, wholeMapFit(false))
+    })
+
+    it('a manual zoom made while the panel is open survives closing it', () => {
+      const { container } = render(<Harness />)
+      openPanel()
+      fireEvent.wheel(container.querySelector('main')!, { deltaY: 300, clientX: 500, clientY: 400 })
+      const zoomed = viewBoxOf(container)
+      closePanel()
+      frames(400)
+      expect(viewBoxOf(container)).toBe(zoomed)
+    })
+
+    it('a grow made while the panel is open that would leave a hexagon off screen falls back to the whole-map fit', () => {
+      const { container } = render(<Harness />)
+      openPanel()
+      act(() => void useMapStore.getState().addHexagon('h1', { context: 'same' }))
+      frames(400)
+      expectViewport(container, wholeMapFit(true))
+    })
   })
 })

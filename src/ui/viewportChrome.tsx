@@ -4,7 +4,9 @@ import { useMapStore } from '../model/store'
 import { Icon } from './Icon'
 import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
-import { MIN_SCALE, panBy, pinch, zoomAt, type Viewport } from './viewport'
+import { useEasedViewport } from './useEasedViewport'
+import type { Box } from '../layout/geometry'
+import { contains, MIN_SCALE, panBy, pinch, zoomAt, type Viewport } from './viewport'
 
 /** A press starting on a floating island, a "+" affordance or an inline name field never pans — shared by Stage
  * and RingedStage (ADR-01: neither's chrome differs here). */
@@ -38,12 +40,47 @@ export function useElementSize(ref: RefObject<HTMLElement | null>): { width: num
   return size
 }
 
+/** While the editor panel is open, an 'auto' view that still shows `interest` in the area the panel leaves is frozen
+ * as it is, instead of refitting around the panel (which snaps the canvas when an element is revealed). Closing the
+ * panel restores 'auto' unless the author has panned or zoomed since — the frozen object's identity tells. A map
+ * change that moves something off screen still drops a frozen view back to 'auto' (FIT-02.2), as for any manual view.
+ * `viewport` is the view to freeze, normally the interactions' `heading`. `visible` is the diagram box the NEW free area shows under the current view. Called from the stage's own render:
+ * the update below is a render-phase one. */
+export function useFreezeWhilePanelOpen({
+  panelOpen,
+  view,
+  viewport,
+  setView,
+  visible,
+  interest,
+}: {
+  panelOpen: boolean
+  view: 'auto' | Viewport
+  viewport: Viewport
+  setView: Dispatch<SetStateAction<'auto' | Viewport>>
+  visible: Box
+  interest: Box
+}) {
+  const [seen, setSeen] = useState({ panelOpen, frozen: null as Viewport | null })
+  if (panelOpen === seen.panelOpen) return
+  let frozen: Viewport | null = null
+  if (panelOpen) {
+    if (view === 'auto' && contains(visible, interest)) {
+      frozen = viewport
+      setView(viewport)
+    }
+  } else if (seen.frozen && view === seen.frozen) setView('auto')
+  setSeen({ panelOpen, frozen })
+}
+
 export interface ViewportInteractions {
   /** The raw state ('auto' tracks the caller's own `autoFit` on every render; a concrete `Viewport` is whatever
    * the author last panned/zoomed to) — exposed alongside the resolved `viewport` for a caller (Stage) that
    * itself needs to tell the two apart, e.g. to freeze an 'auto' view before a focus switch. */
   view: 'auto' | Viewport
   viewport: Viewport
+  /** Where the view was last heading, for freezing it: unlike `viewport` it is never a frame partway through an ease. */
+  heading: RefObject<Viewport>
   setView: Dispatch<SetStateAction<'auto' | Viewport>>
   zoomFloor: number
   dragging: boolean
@@ -66,12 +103,15 @@ export function useViewportInteractions({
   autoFit,
   wholeFitScale,
   fitKey,
+  settleKey,
   onPanStart,
 }: {
   mainRef: RefObject<HTMLElement | null>
   autoFit: Viewport
   wholeFitScale: number
   fitKey: string
+  /** A change snaps the view to its fit instead of easing — pass the stage's size, so a resize is never animated. */
+  settleKey?: string
   /** Fires the instant a press becomes a real pan or pinch (not a plain click) — Stage clears its hovered layer here. */
   onPanStart?: () => void
 }): ViewportInteractions {
@@ -90,7 +130,8 @@ export function useViewportInteractions({
     setView('auto')
   }
 
-  const viewport = view === 'auto' ? autoFit : view
+  // Only an 'auto' view eases: a manual one is the author's own pan/zoom and must track the pointer exactly.
+  const { viewport, heading } = useEasedViewport(view === 'auto' ? autoFit : view, view === 'auto', settleKey)
   // The floor a manual zoom (wheel or button) can reach: never above MIN_SCALE, but never above what fitting the
   // whole diagram itself needs either, so a view already fitted to it never snaps back in.
   const zoomFloor = Math.min(MIN_SCALE, wholeFitScale)
@@ -197,7 +238,7 @@ export function useViewportInteractions({
     drag.current = { x: e.clientX, y: e.clientY, panning: true }
   }
 
-  return { view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp: liftPointer, onPointerCancel: liftPointer }
+  return { view, viewport, heading, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp: liftPointer, onPointerCancel: liftPointer }
 }
 
 /** The zoom island's buttons (out, reset, in, fit, view only, fullscreen, plus expand and collapse all when the map can
