@@ -129,7 +129,7 @@ describe('dependency fences', () => {
     expect(violations).toEqual([])
   })
 
-  const allowed = new Set(['./model/store.ts', './model/onionStore.ts', './model/cleanStore.ts', './model/persistence.ts', './ui/state/preferencesStore.ts'])
+  const allowed = new Set(['./model/store.ts', './model/onionStore.ts', './model/cleanStore.ts', './model/persistence.ts', './ui/state/preferencesStore.ts', './ui/state/viewStore.ts'])
 
   it('allows zustand only in files that exist', () => {
     expect([...allowed].filter((p) => !(p in files))).toEqual([])

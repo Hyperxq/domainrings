@@ -3,13 +3,12 @@ import type { CleanLayoutModel } from '../layout/clean'
 import type { CleanFile } from '../model/schema'
 import type { LegendModel } from '../layout/legend'
 import { usePreferencesStore } from './state/preferencesStore'
+import { useViewStore } from './state/viewStore'
 import { Legend } from './Legend'
 import { CleanEditor } from './CleanEditor'
 import { CleanStage } from './CleanStage'
 
 interface CleanWorkspaceProps {
-  editorOpen: boolean
-  onToggleEditor: () => void
   legend: LegendModel
   model: CleanLayoutModel
   doc: CleanFile
@@ -20,12 +19,13 @@ interface CleanWorkspaceProps {
   onCancelMutate: () => void
 }
 
-export function CleanWorkspace({ editorOpen, onToggleEditor, legend, model, doc, svgRef, onReject, onMutate, onNamed, onCancelMutate }: CleanWorkspaceProps) {
+export function CleanWorkspace({ legend, model, doc, svgRef, onReject, onMutate, onNamed, onCancelMutate }: CleanWorkspaceProps) {
+  const editorOpen = useViewStore((s) => s.editorOpen)
   const mode = usePreferencesStore((s) => s.mode)
   const legendOpen = usePreferencesStore((s) => s.legendOpen)
   return (
     <>
-      <CleanEditor open={editorOpen} onToggle={onToggleEditor} onMutate={onMutate} />
+      <CleanEditor open={editorOpen} onToggle={() => useViewStore.setState({ editorOpen: !editorOpen })} onMutate={onMutate} />
       <Legend legend={legend} />
       <CleanStage
         model={model}

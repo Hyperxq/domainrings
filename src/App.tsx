@@ -1,5 +1,4 @@
 import { useMemo, useRef, useState } from 'react'
-import { flushSync } from 'react-dom'
 import { canCompact } from './layout/compactHexagon'
 import { hexagonBounds } from './layout/lattice'
 import { currentHexagon, layoutMap } from './layout/map'
@@ -13,14 +12,14 @@ import { useCleanStore } from './model/cleanStore'
 import { useOnionStore } from './model/onionStore'
 import { useSaveFailed, type Recovery } from './model/persistence'
 import type { StoredFile } from './model/fileFormat'
-import type { CleanFile, HexaMap, OnionFile } from './model/schema'
+import type { CleanFile, OnionFile } from './model/schema'
 import { useMapStore } from './model/store'
 import { ArchitectureChoiceDialog } from './ui/ArchitectureChoiceDialog'
-import { revealInEditor } from './ui/revealInEditor'
 import { useExport } from './ui/useExport'
 import { useOpenDocument } from './ui/useOpenDocument'
 import { useUndoHistory } from './ui/useUndoHistory'
 import { usePreferencesStore } from './ui/state/preferencesStore'
+import { useViewStore } from './ui/state/viewStore'
 import { encodeSharePayload, isOversizedShareLink, shareLinkURL } from './ui/shareLink'
 import { useShareLinkOnMount } from './ui/useShareLinkOnMount'
 import type { Notice, UndoSnapshot } from './ui/notice'
@@ -29,7 +28,7 @@ import { HexagonalWorkspace } from './ui/HexagonalWorkspace'
 import { NoticeColumn } from './ui/NoticeColumn'
 import { OnionWorkspace } from './ui/OnionWorkspace'
 import { Toast } from './ui/Toast'
-import { Toolbar, type ExportScope } from './ui/Toolbar'
+import { Toolbar } from './ui/Toolbar'
 
 
 const RECOVERY_MESSAGE: Record<'kept' | 'not-kept', string> = {
@@ -37,7 +36,6 @@ const RECOVERY_MESSAGE: Record<'kept' | 'not-kept', string> = {
   'not-kept': "Your last session couldn't be restored and a copy couldn't be kept, so autosave is off.",
 }
 
-const NONE_EXPANDED: ReadonlySet<string> = new Set()
 const { restore, setMeta } = useMapStore.getState()
 
 interface AppProps {
@@ -65,16 +63,8 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const multiHexagon = map.hexagons.length > 1
   const mode = usePreferencesStore((s) => s.mode)
   const legendInExport = usePreferencesStore((s) => s.legendInExport)
-  // View state, not part of the document: which hexagons the author expanded, kept for the document they were chosen in.
-  const [viewed, setViewed] = useState<{ revision: number; expanded: ReadonlySet<string> }>({ revision, expanded: new Set() })
-  const expanded = viewed.revision === revision ? viewed.expanded : NONE_EXPANDED
+  const expanded = useViewStore((s) => s.expanded)
   const model = layoutMap(map, { mode, current: hexId, expanded })
-  const [editorOpen, setEditorOpen] = useState(() => !matchMedia('(max-width: 720px)').matches)
-  const reveal = (ref: string, focus: boolean) => {
-    // The card only exists to scroll to once the collapsed editor has rendered open.
-    flushSync(() => setEditorOpen(true))
-    revealInEditor(ref, focus)
-  }
   const [notice, setNotice] = useState<Notice | null>(null)
   // Its own slot, never touched by show()/startLinking: it stays until the user dismisses it (REQ-03.2),
   // whatever status toasts or link-mode hints come and go in the meantime.
@@ -85,11 +75,10 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   )
   const saveFailed = useSaveFailed((s) => s.failed)
   const noticeSeq = useRef(0)
-  // Grow: the just-added hexagon's own inline title field is open until it commits (onNamed) or is undone
-  // (onNamingCancel, or the toast's own Undo — either restores `before`, exactly as a one-step undo (GROW-03)).
-  const [growing, setGrowing] = useState<{ hexId: string; before: { map: HexaMap; focus: string } } | null>(null)
-  const [exportScope, setExportScope] = useState<ExportScope>('map')
-  const [choosingArchitecture, setChoosingArchitecture] = useState(false)
+  const growing = useViewStore((s) => s.growing)
+  const exportScope = useViewStore((s) => s.exportScope)
+  const choosingArchitecture = useViewStore((s) => s.choosingArchitecture)
+  const linking = useViewStore((s) => s.linking)
   // Export scope (Hexagon vs Map) only exists for a multi-hexagon Hexagonal map (EXPORT-03.1) — Onion and Clean
   // are always one diagram, so neither scopes or carries a legend (neither has a legend panel at all). Resolved
   // once, here, so a third kind only ever touches this one branch instead of every read below it.
@@ -112,7 +101,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       setActiveKind(entry.map.kind)
       setNotice((n) => (n?.undo === entry ? null : n))
       // Undoing a grow is the same restore as Esc-while-naming — close the field too.
-      setGrowing(null)
+      useViewStore.setState({ growing: null })
     },
   })
   const show = (next: Omit<Notice, 'id'>) => {
@@ -138,7 +127,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // `undo.map.kind`, so the view returns with it. One snapshot, one restore path, for every swap direction.
   const beforeSwap: UndoSnapshot = activeKind === 'onion' ? { map: onionMap, swap: true } : activeKind === 'clean' ? { map: cleanMap, swap: true } : { ...before, swap: true }
 
-  const { swap, completeNew, parseSource, parseFile, importFile } = useOpenDocument({ beforeSwap, show, setActiveKind, setExportScope, setChoosingArchitecture })
+  const { swap, completeNew, parseSource, parseFile, importFile } = useOpenDocument({ beforeSwap, show, setActiveKind })
 
   const nameOf = (ref: string) => {
     const collection = collectionOf(diagram, ref)
@@ -149,18 +138,10 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // A sticky toast (DEL-02) clears itself the moment the map next changes for any OTHER reason — not on a timer.
   if (notice?.sticky && notice.staleWhenMapIsnt && map !== notice.staleWhenMapIsnt) setNotice(null)
 
-  // Link mode: the element being linked. It ends when that element goes, or the whole map is swapped.
-  const [linking, setLinking] = useState<string | null>(null)
-  const [linkRevision, setLinkRevision] = useState(revision)
-  if (revision !== linkRevision) {
-    setLinkRevision(revision)
-    setLinking(null)
-  }
-  if (linking && !collectionOf(diagram, linking)) setLinking(null)
   const startLinking = (ref: string | null) => {
     // The hint replaces any status toast; an error stays until it is read.
     if (ref) setNotice((n) => (n?.tone === 'error' ? n : null))
-    setLinking(ref)
+    useViewStore.setState({ linking: ref })
   }
   useShareLinkOnMount({ parseSource, swap, showError: (message) => show({ tone: 'error', message }) })
 
@@ -182,9 +163,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     <>
       <Toolbar
         showScope={canScopeExport}
-        exportScope={exportScope}
-        onExportScope={setExportScope}
-        onNew={() => setChoosingArchitecture(true)}
+        onNew={() => useViewStore.setState({ choosingArchitecture: true })}
         onExample={(id) => {
           const example = EXAMPLES.find((x) => x.id === id)!
           swap(example.map, `Loaded the ${example.label} example.`)
@@ -192,18 +171,14 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         onOpen={importFile}
         onCopyLink={handleCopyLink}
         onExport={exportAs}
-        onExpandAll={activeKind === 'hexagonal' && canCompact(map.hexagons.length) ? (expand) => setViewed({ revision, expanded: new Set(expand ? map.hexagons.map((h) => h.id) : []) }) : undefined}
+        canExpandAll={activeKind === 'hexagonal' && canCompact(map.hexagons.length)}
       />
       {activeKind === 'hexagonal' && (
         <HexagonalWorkspace
-          editorOpen={editorOpen}
-          onToggleEditor={() => setEditorOpen(!editorOpen)}
           legend={legend}
           fieldSession={{ begin: beginField, end: () => endField() }}
           show={show}
           nameOf={nameOf}
-          setGrowing={setGrowing}
-          setLinking={setLinking}
           parseFile={parseFile}
           onRecord={record}
           model={model}
@@ -213,28 +188,22 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           revision={revision}
           title={diagram.title}
           svgRef={svgRef}
-          onReveal={reveal}
-          linking={linking}
           onLinking={startLinking}
-          naming={!!growing}
           onNamed={(title) => {
             absorbEdit()
             setMeta(growing!.hexId, { title })
-            setGrowing(null)
+            useViewStore.setState({ growing: null })
           }}
           onNamingCancel={() => {
             dropUndo(growing!.before)
             restore(growing!.before)
-            setGrowing(null)
+            useViewStore.setState({ growing: null })
             setNotice(null)
           }}
-          onToggleExpanded={(id) => setViewed({ revision, expanded: new Set(expanded.has(id) ? [...expanded].filter((x) => x !== id) : [...expanded, id]) })}
         />
       )}
       {activeKind === 'onion' && (
         <OnionWorkspace
-          editorOpen={editorOpen}
-          onToggleEditor={() => setEditorOpen(!editorOpen)}
           legend={legend}
           model={onionModel!}
           doc={onionMap}
@@ -247,8 +216,6 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       )}
       {activeKind === 'clean' && (
         <CleanWorkspace
-          editorOpen={editorOpen}
-          onToggleEditor={() => setEditorOpen(!editorOpen)}
           legend={legend}
           model={cleanModel!}
           doc={cleanMap}
@@ -259,8 +226,8 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           onCancelMutate={clearNotice}
         />
       )}
-      {choosingArchitecture && <ArchitectureChoiceDialog onChoose={completeNew} onCancel={() => setChoosingArchitecture(false)} />}
-      {linking && <Toast key={`link:${linking}`} sticky message={`Choose a target for ${nameOf(linking)} · Esc to cancel`} onClose={() => setLinking(null)} />}
+      {choosingArchitecture && <ArchitectureChoiceDialog onChoose={completeNew} onCancel={() => useViewStore.setState({ choosingArchitecture: false })} />}
+      {linking && <Toast key={`link:${linking}`} sticky message={`Choose a target for ${nameOf(linking)} · Esc to cancel`} onClose={() => useViewStore.setState({ linking: null })} />}
       {!linking && notice?.tone === 'status' && (
         <Toast
           key={notice.id}

@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { createRef, useState } from 'react'
+import { createRef } from 'react'
 import { Stage } from './Stage'
 import { hexagonBounds } from '../layout/lattice'
 import { currentHexagon, layoutMap } from '../layout/map'
@@ -10,6 +10,7 @@ import { toMap } from '../model/hexa'
 import { contextName, diagramOf, freeSides, neighbour, SIDE_ORDER } from '../model/map'
 import { useMapStore } from '../model/store'
 import { usePreferencesStore } from './state/preferencesStore'
+import { useViewStore } from './state/viewStore'
 import type { HexaMap } from '../model/schema'
 import { parseHexa } from '../model/hexa'
 import { hexGroup, linkedTwoHexMap, manyHexagonMap, twoHexMap } from '../test/fixtures'
@@ -60,7 +61,7 @@ function Harness({
   const hexId = useMapStore((s) => s.focus)
   const diagram = diagramOf(map, hexId)
   const svgRef = createRef<SVGSVGElement>()
-  const [linking, setLinking] = useState<string | null>(null)
+  useViewStore.setState({ editorOpen: panelOpen, growing: naming ? { hexId, before: { map, focus: hexId } } : null, reveal: onReveal, toggleExpanded: onToggleExpanded })
   const currentContextId = map.hexagons.find((h) => h.id === hexId)!.contextId
   return (
     <Stage
@@ -72,19 +73,14 @@ function Harness({
       revision={0}
       title="Test"
       svgRef={svgRef}
-      panelOpen={panelOpen}
-      onReveal={onReveal}
       onDelete={() => false}
       onRecord={() => {}}
-      linking={linking}
-      onLinking={setLinking}
+      onLinking={(linking) => useViewStore.setState({ linking })}
       onLink={onLink}
       contextLabel={contextName(map, currentContextId)}
       onGrow={onGrow}
-      naming={naming}
       onNamed={onNamed}
       onNamingCancel={onNamingCancel}
-      onToggleExpanded={onToggleExpanded}
     />
   )
 }

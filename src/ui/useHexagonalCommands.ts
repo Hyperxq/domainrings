@@ -2,6 +2,7 @@ import { collectionOf, type LinkChoice } from '../model/links'
 import { contextName, linkEndLabel, occupiedContexts, UNTITLED_HEXAGON, type Destination, type LinkPatch } from '../model/map'
 import type { Diagram as DiagramModel, HexaMap, Link, LinkEnd, Wall } from '../model/schema'
 import { useMapStore } from '../model/store'
+import { useViewStore } from './state/viewStore'
 import { CHOICES } from './ArchitectureChoiceDialog'
 import type { Notice } from './notice'
 
@@ -17,14 +18,12 @@ interface HexagonalCommandsContext {
   diagram: DiagramModel
   show: (next: Omit<Notice, 'id'>) => void
   nameOf: (ref: string) => string
-  setGrowing: (growing: { hexId: string; before: { map: HexaMap; focus: string } }) => void
-  setLinking: (ref: null) => void
   /** Structural, so this module never names the document-root union (ADR-01). */
   parseFile: (file: File) => Promise<HexaMap | { kind: 'onion' | 'clean' } | undefined>
 }
 
 /** The Hexagonal edits that toast an undoable step: each captures the undo snapshot `before` as this render saw it. */
-export function useHexagonalCommands({ map, hexId, diagram, show, nameOf, setGrowing, setLinking, parseFile }: HexagonalCommandsContext) {
+export function useHexagonalCommands({ map, hexId, diagram, show, nameOf, parseFile }: HexagonalCommandsContext) {
   // The undo snapshot every command below restores on request.
   const before = { map, focus: hexId }
 
@@ -64,7 +63,7 @@ export function useHexagonalCommands({ map, hexId, diagram, show, nameOf, setGro
     const grownMap = useMapStore.getState().map
     const label = contextName(grownMap, grownMap.hexagons.find((h) => h.id === newHexId)!.contextId)
     show({ tone: 'status', message: `Added ${UNTITLED_HEXAGON} to ${label}. It is now the current hexagon.`, undo: before })
-    setGrowing({ hexId: newHexId, before })
+    useViewStore.setState({ growing: { hexId: newHexId, before } })
   }
 
   // Renaming a bounded context (NAME-01..03): the store already updated live (Editor calls setContextName on
@@ -127,7 +126,7 @@ export function useHexagonalCommands({ map, hexId, diagram, show, nameOf, setGro
       // The same store action the editor's link dropdowns use. linkTargets only returns fields of the source's own
       // collection, which the store's per-collection typing cannot see through a union.
       updateItem(hexId, collection, source, patch as never)
-      setLinking(null)
+      useViewStore.setState({ linking: null })
       return
     }
     // REQ-LNK-01.1b: the driven end is always `from`, regardless of which end the author started the chip from.
@@ -135,7 +134,7 @@ export function useHexagonalCommands({ map, hexId, diagram, show, nameOf, setGro
     const sourceEnd: LinkEnd = { hexagonId: hexId, portId: source }
     const chosenEnd: LinkEnd = { hexagonId: choice.hexagonId, portId: choice.portId }
     createLink(...(sourceSide === 'driven' ? ([sourceEnd, chosenEnd] as const) : ([chosenEnd, sourceEnd] as const)))
-    setLinking(null)
+    useViewStore.setState({ linking: null })
   }
 
   const completeImport = (file: HexaMap, context: Destination, fileName: string) => {

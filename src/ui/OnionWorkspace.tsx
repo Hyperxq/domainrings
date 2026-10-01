@@ -3,13 +3,12 @@ import type { OnionLayoutModel } from '../layout/onion'
 import type { OnionFile } from '../model/schema'
 import type { LegendModel } from '../layout/legend'
 import { usePreferencesStore } from './state/preferencesStore'
+import { useViewStore } from './state/viewStore'
 import { Legend } from './Legend'
 import { OnionEditor } from './OnionEditor'
 import { OnionStage } from './OnionStage'
 
 interface OnionWorkspaceProps {
-  editorOpen: boolean
-  onToggleEditor: () => void
   legend: LegendModel
   model: OnionLayoutModel
   doc: OnionFile
@@ -20,12 +19,13 @@ interface OnionWorkspaceProps {
   onCancelMutate: () => void
 }
 
-export function OnionWorkspace({ editorOpen, onToggleEditor, legend, model, doc, svgRef, onReject, onMutate, onNamed, onCancelMutate }: OnionWorkspaceProps) {
+export function OnionWorkspace({ legend, model, doc, svgRef, onReject, onMutate, onNamed, onCancelMutate }: OnionWorkspaceProps) {
+  const editorOpen = useViewStore((s) => s.editorOpen)
   const mode = usePreferencesStore((s) => s.mode)
   const legendOpen = usePreferencesStore((s) => s.legendOpen)
   return (
     <>
-      <OnionEditor open={editorOpen} onToggle={onToggleEditor} onMutate={onMutate} />
+      <OnionEditor open={editorOpen} onToggle={() => useViewStore.setState({ editorOpen: !editorOpen })} onMutate={onMutate} />
       <Legend legend={legend} />
       <OnionStage
         model={model}

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { FULL_TOOLBAR, ROOMY_TOOLBAR, Toolbar } from './Toolbar'
 import { usePreferencesStore } from './state/preferencesStore'
+import { useViewStore } from './state/viewStore'
 
 type Listener = () => void
 const minWidth = (query: string) => Number(/min-width: (\d+)px/.exec(query)![1])
@@ -65,17 +66,21 @@ function renderToolbar(
     onExportScope: vi.fn(),
     ...overrides,
   }
-  const { mode, guides, highlight, dependents, themeChoice: theme, palette, onMode, onGuides, onHighlight, onDependents, onTheme, onPalette, ...toolbar } = props
-  usePreferencesStore.setState({ mode, guides, highlight, dependents, theme, palette })
-  // The toolbar writes its choices straight to the store; the handlers the tests read record those writes.
-  const handlers = { mode: onMode, guides: onGuides, highlight: onHighlight, dependents: onDependents, theme: onTheme, palette: onPalette } as Record<string, (value: unknown) => void>
+  const { mode, guides, highlight, dependents, themeChoice: theme, palette, exportScope, onMode, onGuides, onHighlight, onDependents, onTheme, onPalette, onExportScope, onExpandAll, ...toolbar } = props
   vi.restoreAllMocks()
-  const setState = usePreferencesStore.setState
-  vi.spyOn(usePreferencesStore, 'setState').mockImplementation(((partial: object) => {
-    for (const [field, value] of Object.entries(partial)) handlers[field](value)
-    setState(partial)
-  }) as typeof setState)
-  render(<Toolbar {...toolbar} />)
+  usePreferencesStore.setState({ mode, guides, highlight, dependents, theme, palette })
+  useViewStore.setState({ exportScope, expandAll: (ids) => onExpandAll?.(ids.length > 0) })
+  // The toolbar writes its choices straight to the stores; the handlers the tests read record those writes.
+  const record = (store: { setState: (partial: never) => void }, handlers: Record<string, (value: unknown) => void>) => {
+    const setState = store.setState
+    vi.spyOn(store, 'setState').mockImplementation(((partial: object) => {
+      for (const [field, value] of Object.entries(partial)) handlers[field](value)
+      setState(partial as never)
+    }) as typeof setState)
+  }
+  record(usePreferencesStore as never, { mode: onMode, guides: onGuides, highlight: onHighlight, dependents: onDependents, theme: onTheme, palette: onPalette } as never)
+  record(useViewStore as never, { exportScope: onExportScope } as never)
+  render(<Toolbar {...toolbar} canExpandAll={onExpandAll !== undefined} />)
   return props
 }
 

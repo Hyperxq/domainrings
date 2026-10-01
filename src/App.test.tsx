@@ -30,6 +30,7 @@ import { useOnionStore } from './model/onionStore'
 import { useCleanStore } from './model/cleanStore'
 import { fileSlug } from './ui/exporters'
 import { usePreferencesStore } from './ui/state/preferencesStore'
+import { useViewStore } from './ui/state/viewStore'
 import { decodeSharePayload, encodeSharePayload, SHARE_HASH_PREFIX } from './ui/shareLink'
 import { card, currentDiagram, hexGroup, installCompressionStreamPolyfill, installDialogPolyfill, linkedTwoHexMap, manyHexagonMap, twoHexagonMap, twoHexMap } from './test/fixtures'
 import v1Minimal from './model/fixtures/v1-minimal.hexa?raw'
@@ -59,6 +60,7 @@ beforeAll(() => {
 beforeEach(() => {
   useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM))
   scrollIntoView.mockClear()
+  useViewStore.setState({ editorOpen: false })
 })
 afterEach(cleanup)
 

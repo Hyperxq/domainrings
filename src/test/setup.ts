@@ -1,8 +1,10 @@
 import { afterEach } from 'vitest'
 import { usePreferencesStore } from '../ui/state/preferencesStore'
+import { useViewStore } from '../ui/state/viewStore'
 
-// The preferences store reads storage once, so each test starts from an empty one and a freshly rehydrated store.
+// The stores outlive a test: each one starts from an empty storage and its initial state.
 afterEach(() => {
   localStorage.clear()
   usePreferencesStore.persist.rehydrate()
+  useViewStore.setState(useViewStore.getInitialState(), true)
 })

@@ -4,28 +4,28 @@ import { Editor } from './Editor'
 import type { FieldSession } from './editor/fieldSession'
 import { Legend } from './Legend'
 import { Stage } from './Stage'
+import { useViewStore } from './state/viewStore'
 import { useHexagonalCommands } from './useHexagonalCommands'
 
 type CommandsContext = Parameters<typeof useHexagonalCommands>[0]
 type StageProps = ComponentProps<typeof Stage>
 
-type HexagonalWorkspaceProps = Omit<StageProps, 'panelOpen' | 'contextLabel' | 'onDelete' | 'onLink' | 'onGrow'> &
+type HexagonalWorkspaceProps = Omit<StageProps, 'contextLabel' | 'onDelete' | 'onLink' | 'onGrow'> &
   CommandsContext & {
-    editorOpen: boolean
-    onToggleEditor: () => void
     fieldSession: FieldSession
   }
 
 /** Editor, legend and stage for a Hexagonal map, wired to the edit commands that toast an undoable step. */
-export function HexagonalWorkspace({ editorOpen, onToggleEditor, fieldSession, show, nameOf, setGrowing, setLinking, parseFile, ...stage }: HexagonalWorkspaceProps) {
+export function HexagonalWorkspace({ fieldSession, show, nameOf, parseFile, ...stage }: HexagonalWorkspaceProps) {
   const { map, hexId, diagram, onRecord } = stage
-  const commands = useHexagonalCommands({ map, hexId, diagram, show, nameOf, setGrowing, setLinking, parseFile })
+  const commands = useHexagonalCommands({ map, hexId, diagram, show, nameOf, parseFile })
+  const editorOpen = useViewStore((s) => s.editorOpen)
   const contextLabel = contextName(map, map.hexagons.find((h) => h.id === hexId)!.contextId)
   return (
     <>
       <Editor
         open={editorOpen}
-        onToggle={onToggleEditor}
+        onToggle={() => useViewStore.setState({ editorOpen: !editorOpen })}
         onPrune={commands.pruneToast}
         onRecord={onRecord}
         fieldSession={fieldSession}
@@ -42,7 +42,6 @@ export function HexagonalWorkspace({ editorOpen, onToggleEditor, fieldSession, s
       <Legend legend={stage.legend} />
       <Stage
         {...stage}
-        panelOpen={editorOpen}
         contextLabel={contextLabel}
         onDelete={commands.deleteItem}
         onLink={commands.link}
