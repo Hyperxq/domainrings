@@ -1,12 +1,14 @@
 import type { LayoutNode } from '../../layout/layout'
-import type { Point } from '../../layout/geometry'
+import { unionBox, type Box, type Point } from '../../layout/geometry'
 import { canCompact } from '../../layout/compactHexagon'
 import { hexagonBounds } from '../../layout/lattice'
-import { growAnchor, hexagonTitle, type MapHexagonLayout, type MapLayout } from '../../layout/map'
+import { growAnchor, hexagonTitle, type MapContextLayout, type MapHexagonLayout, type MapLayout } from '../../layout/map'
 import { freeSides, UNTITLED_HEXAGON, type Destination } from '../../model/map'
 import type { Wall } from '../../model/schema'
+import { hullPath } from '../../render/Diagram'
 import { ChoiceMenu } from '../ChoiceMenu'
 import { Icon } from '../Icon'
+import type { Reveal } from './useContextReveal'
 
 /** Half the side "+" button's 24px circle. */
 const SIDE_PLUS_RADIUS = 12
@@ -21,6 +23,26 @@ const growChoices = (context: string) => [
   { id: 'same' as const, label: `Hexagon in ${context}` },
   { id: 'new' as const, label: 'Hexagon in a new bounded context' },
 ]
+
+/** The name of each revealed context, centred on its region. A blur reveal also frosts the region itself: an HTML
+ * `backdrop-filter` clipped to the hull's own path, since SVG elements get no backdrop-filter in Firefox or Safari
+ * and a `foreignObject` inside a transformed, scaled SVG is unreliable in WebKit. */
+export function ContextReveals({ contexts, reveals, mapToScreen }: { contexts: MapContextLayout[]; reveals: (contextId: string) => Reveal | undefined; mapToScreen: ToScreen }) {
+  return contexts.map((c) => {
+    const reveal = reveals(c.id)
+    if (!reveal) return null
+    const box = unionBox(c.loops.flat().map((p): Box => ({ x: p.x, y: p.y, width: 0, height: 0 })))
+    const at = mapToScreen({ x: box.x + box.width / 2, y: box.y + box.height / 2 })
+    return (
+      <div key={c.id} className="context-reveal" data-context-reveal={c.id} aria-hidden="true">
+        {reveal === 'blur' && <div className="context-blur" style={{ clipPath: `path(evenodd, '${hullPath(c.loops.map((loop) => loop.map(mapToScreen)))}')` }} />}
+        <span className="context-name" style={{ left: at.x, top: at.y }}>
+          {c.label}
+        </span>
+      </div>
+    )
+  })
+}
 
 /** One "+" per free side of the current hexagon, each opening the choice of context to grow into. */
 export function GrowButtons({

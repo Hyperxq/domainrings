@@ -12,9 +12,10 @@ import type { CollectionKey, Diagram as DiagramModel, DomainType, HexaMap, Wall 
 import { useMapStore } from '../model/store'
 import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
-import { hexIdOf, layerOf, refOf } from './canvasTarget'
-import { ExpandToggles, GrowButtons, LinkChip } from './stage/overlays'
+import { hexIdOf, hullIdOf, layerOf, refOf } from './canvasTarget'
+import { ContextReveals, ExpandToggles, GrowButtons, LinkChip } from './stage/overlays'
 import { useCanvasShortcuts } from './stage/useCanvasShortcuts'
+import { useContextReveal } from './stage/useContextReveal'
 import { useHexagonFocus } from './stage/useHexagonFocus'
 import { useStageViewport } from './stage/useStageViewport'
 import { usePreferencesStore } from './state/preferencesStore'
@@ -87,6 +88,8 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   // hexId records which hexagon the edit started on, so a commit that lands after the current hexagon switches still targets it (ADR-05).
   const [editing, setEditing] = useState<{ id: string; collection: CollectionKey; name: string; at: Point; hexId: string; before: { map: HexaMap; focus: string } } | null>(null)
 
+  const reveal = useContextReveal(model.hexagons)
+
   const { size, centre, view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useStageViewport({
     model,
     hex,
@@ -94,7 +97,10 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
     revision,
     legendOpen,
     panelOpen,
-    onPanStart: () => setHovered(null),
+    onPanStart: () => {
+      setHovered(null)
+      reveal.rest(null)
+    },
   })
 
   useCanvasShortcuts({ selected, linking, hexId, map, diagram, onDelete, onLinking, setSelected, setHovered })
@@ -175,9 +181,20 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
           if (hexIdOf(target) !== hexId) return setHovered(null)
           setHovered(layerOf(target))
         }}
-        onPointerLeave={(e) => !(e.relatedTarget as Element | null)?.closest?.('[data-plus]') && setHovered(null)}
-        onFocus={(e) => !pointerPressed.current && setHovered(layerOf(e.target as Element))}
-        onBlur={(e) => !(e.relatedTarget as Element | null)?.closest?.('[data-plus]') && setHovered(null)}
+        onPointerMove={(e) => reveal.rest(dragging ? null : hullIdOf(e.target as Element))}
+        onPointerLeave={(e) => {
+          reveal.rest(null)
+          if (!(e.relatedTarget as Element | null)?.closest?.('[data-plus]')) setHovered(null)
+        }}
+        onFocus={(e) => {
+          if (pointerPressed.current) return
+          setHovered(layerOf(e.target as Element))
+          reveal.focus(hexIdOf(e.target as Element))
+        }}
+        onBlur={(e) => {
+          reveal.focus(null)
+          if (!(e.relatedTarget as Element | null)?.closest?.('[data-plus]')) setHovered(null)
+        }}
         data-link-mode={linking ? '' : undefined}
         data-emphasis={chain ? (dependents ? 'dependents' : '') : undefined}
         onClick={(e) => {
@@ -251,6 +268,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
         {announcement}
       </p>
 
+      <ContextReveals contexts={model.contexts} reveals={reveal.reveals} mapToScreen={mapToScreen} />
       <Affordances points={visiblePoints} toScreen={toScreen} onPick={pick} onLayer={setHovered} />
       <GrowButtons model={model} hex={hex} scale={viewport.scale} mapToScreen={mapToScreen} title={title} contextLabel={contextLabel} onGrow={onGrow} />
       <ExpandToggles model={model} currentId={hexId} mapToScreen={mapToScreen} onToggle={onToggleExpanded} />

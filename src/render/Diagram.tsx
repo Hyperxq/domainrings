@@ -28,7 +28,7 @@ const NO_TARGETS = new Set<string>()
 
 /** One `M...Z` subpath per loop — several loops in one `<path>` drawn `fill-rule="evenodd"` is exactly how a
  * split context or a hole around a foreign hexagon is meant to paint (ADR-04). */
-function hullPath(loops: Point[][]): string {
+export function hullPath(loops: Point[][]): string {
   return loops.map((loop) => `M${loop.map((p) => `${p.x} ${p.y}`).join('L')}Z`).join(' ')
 }
 
