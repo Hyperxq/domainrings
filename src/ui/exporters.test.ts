@@ -149,6 +149,24 @@ describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {
     expect(markup).not.toMatch(/data-hull|data-chip|data-hulls/)
   })
 
+  it('keeps a chip the canvas hides: the exported picture still names every context', async () => {
+    const styleTag = document.createElement('style')
+    styleTag.textContent = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf-8')
+    document.head.appendChild(styleTag)
+    try {
+      const svg = mapCanvas()
+      svg.classList.add('canvas')
+      expect(getComputedStyle(svg.querySelector('[data-chip]')!).display).toBe('none')
+      const markup = await svgMarkup(svg, bounds, 'Map title', { legend: false, legendHeight: 0 })
+      expect(markup).toContain('>Context 1<')
+      expect(markup).not.toMatch(/display/)
+      expect(svg.classList.contains('exporting')).toBe(false)
+      expect(getComputedStyle(svg.querySelector('[data-chip]')!).display).toBe('none')
+    } finally {
+      styleTag.remove()
+    }
+  })
+
   it('hexagon scope drops every context hull and chip entirely (EXPORT-02.1)', async () => {
     const markup = await svgMarkup(mapCanvas(), bounds, 'H2', { legend: true, legendHeight: 40, only: 'h2' })
     expect(markup).not.toMatch(/<path/)

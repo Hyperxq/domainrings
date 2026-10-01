@@ -6,5 +6,8 @@ export const layerOf = (target: Element) =>
 /** The specific element/endpoint a target is (`data-ref`) — for the per-element endpoint "+"s. */
 export const refOf = (target: Element) => target.closest('[data-ref]')?.getAttribute('data-ref') ?? null
 
+/** The context whose outlined region a target is (`data-hull`) — the empty area between and around its hexagons. */
+export const hullIdOf = (target: Element) => target.closest('[data-hull]')?.getAttribute('data-hull') ?? null
+
 /** The hexagon group a target sits in (`data-hex`). */
 export const hexIdOf = (target: Element) => target.closest('[data-hex]')?.getAttribute('data-hex') ?? null
