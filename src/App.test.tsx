@@ -522,7 +522,7 @@ describe('the Example menu — learning path (CANVAS-01/02/04, FOCUS-02)', () =>
   it('groups the menu into 3 architectures of 3 levels each, in basic/stress/advanced order', () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'File' }))
-    const groups = ['Hexagonal', 'Onion', 'Clean'].map((name) => screen.getByRole('group', { name }))
+    const groups = ['Hexagonal', 'Onion', 'Clean'].map((architecture) => screen.getByRole('group', { name: `Load example · ${architecture}` }))
     for (const group of groups) expect(group.querySelectorAll('[role="menuitem"]')).toHaveLength(3)
   })
 

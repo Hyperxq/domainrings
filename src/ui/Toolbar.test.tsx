@@ -207,14 +207,14 @@ describe.each([
 
   const open = (name: 'File' | 'Share') => fireEvent.click(screen.getByRole('button', { name }))
 
-  it('File lists New, the examples under their architecture, Open… and Save (.hexa), with icons on the actions', () => {
+  it('File lists New, Open… and Save (.hexa) together, then the examples to load under their architecture', () => {
     renderToolbar()
     open('File')
     const menu = screen.getByRole('menu', { name: 'File' })
     const names = (root: Element) => [...root.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)
-    expect(names(menu)).toEqual(['New', ...EXAMPLES.map((x) => x.label), 'Open…', 'Save (.hexa)'])
+    expect(names(menu)).toEqual(['New', 'Open…', 'Save (.hexa)', ...EXAMPLES.map((x) => x.label)])
     for (const architecture of ['Hexagonal', 'Onion', 'Clean']) {
-      expect(names(within(menu).getByRole('group', { name: architecture }))).toEqual(EXAMPLES.filter((x) => x.architecture === architecture).map((x) => x.label))
+      expect(names(within(menu).getByRole('group', { name: `Load example · ${architecture}` }))).toEqual(EXAMPLES.filter((x) => x.architecture === architecture).map((x) => x.label))
     }
     for (const name of ['New', 'Open…', 'Save (.hexa)']) expect(within(menu).getByRole('menuitem', { name }).querySelector('svg')).not.toBeNull()
   })
