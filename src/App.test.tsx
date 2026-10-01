@@ -3430,3 +3430,30 @@ describe('move a hexagon to another bounded context', () => {
     expect(useMapStore.getState().focus).toBe('h1')
   })
 })
+
+describe('view-only mode', () => {
+  const choose = (kind: 'Onion' | 'Clean') => {
+    fireEvent.click(screen.getByRole('button', { name: 'New diagram' }))
+    fireEvent.click(screen.getByRole('button', { name: kind }))
+  }
+
+  it.each(['Hexagonal', 'Onion', 'Clean'] as const)('hides the editor panel in %s and brings it back when turned off', (kind) => {
+    render(<App />)
+    if (kind !== 'Hexagonal') choose(kind)
+    expect(screen.getByLabelText('Diagram editor')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'View only' }))
+    expect(screen.queryByLabelText('Diagram editor')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'View only' }))
+    expect(screen.getByLabelText('Diagram editor')).toBeTruthy()
+  })
+
+  it('keeps Undo for an edit made before the switch', () => {
+    const useCaseId = EXAMPLE_DIAGRAM.useCases[0].id
+    const { container } = render(<App />)
+    fireEvent.click(onCanvas(container, useCaseId))
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+    fireEvent.click(screen.getByRole('button', { name: 'View only' }))
+    fireEvent.keyDown(document.body, { key: 'z', ctrlKey: true })
+    expect(currentDiagram().useCases.some((u) => u.id === useCaseId)).toBe(true)
+  })
+})

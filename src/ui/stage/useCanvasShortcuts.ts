@@ -4,13 +4,14 @@ import type { Diagram, HexaMap } from '../../model/schema'
 import { keyOnCanvas } from '../keys'
 
 /** The canvas's document-level keyboard and pointer handling: Escape leaves link mode, then clears the selection;
- * Delete removes it; `L` starts linking it; a press outside the canvas ends link mode. */
+ * Delete removes it; `L` starts linking it (both inert in view-only mode); a press outside the canvas ends link mode. */
 export function useCanvasShortcuts({
   selected,
   linking,
   hexId,
   map,
   diagram,
+  viewOnly,
   onDelete,
   onLinking,
   setSelected,
@@ -21,6 +22,7 @@ export function useCanvasShortcuts({
   hexId: string
   map: HexaMap
   diagram: Diagram
+  viewOnly: boolean
   onDelete: (ref: string) => boolean
   onLinking: (ref: string | null) => void
   setSelected: Dispatch<SetStateAction<string | null>>
@@ -34,7 +36,7 @@ export function useCanvasShortcuts({
         setHovered(null)
         setSelected(null)
       }
-      if (!selected || linking || !keyOnCanvas(e.target)) return
+      if (!selected || linking || viewOnly || !keyOnCanvas(e.target)) return
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault()
         if (onDelete(selected)) setSelected(null)
@@ -47,7 +49,7 @@ export function useCanvasShortcuts({
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, onDelete, linking, onLinking, diagram, map])
+  }, [selected, onDelete, linking, onLinking, diagram, map, viewOnly])
 
   useEffect(() => {
     if (!linking) return

@@ -16,6 +16,8 @@ export interface Preferences {
   dependents: boolean
   legendOpen: boolean
   legendInExport: boolean
+  /** Reading mode: every editing affordance is gone, while viewing, selecting and exporting stay. */
+  viewOnly: boolean
   theme: ThemeChoice
   palette: PaletteId
 }
@@ -27,6 +29,7 @@ const DEFAULTS: Preferences = {
   dependents: false,
   legendOpen: false,
   legendInExport: true,
+  viewOnly: false,
   theme: 'system',
   palette: 'default',
 }
@@ -49,6 +52,7 @@ const CODECS: { [K in keyof Preferences]: Codec<Preferences[K]> } = {
   dependents: flag('domainrings:dependents'),
   legendOpen: flag('domainrings:legend-open'),
   legendInExport: flag('domainrings:legend-export'),
+  viewOnly: flag('domainrings:view-only'),
   theme: { key: 'domainrings:theme', decode: (raw) => (raw === 'light' || raw === 'dark' ? raw : undefined), encode: (theme) => (theme === 'system' ? undefined : theme) },
   palette: { key: 'domainrings:palette', decode: (raw) => (Object.hasOwn(PALETTES, raw) ? (raw as PaletteId) : undefined), encode: (palette) => (palette === 'default' ? undefined : palette) },
 }

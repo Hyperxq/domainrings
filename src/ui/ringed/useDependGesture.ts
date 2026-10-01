@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { isInwardOrSame } from '../../model/rings'
+import { usePreferencesStore } from '../state/preferencesStore'
 
 const NO_TARGETS = new Set<string>()
 
@@ -32,6 +33,11 @@ export function useDependGesture({
 }) {
   const [selected, setSelected] = useState<string | null>(null)
   const [linking, setLinking] = useState(false)
+  const viewOnly = usePreferencesStore((s) => s.viewOnly)
+
+  useEffect(() => {
+    if (viewOnly) setLinking(false)
+  }, [viewOnly])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

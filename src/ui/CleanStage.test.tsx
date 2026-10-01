@@ -6,6 +6,7 @@ import { newCleanMap } from '../model/hexa'
 import { useCleanStore } from '../model/cleanStore'
 import type { CleanFile } from '../model/schema'
 import { CleanStage } from './CleanStage'
+import { usePreferencesStore } from './state/preferencesStore'
 
 const state = () => useCleanStore.getState()
 
@@ -242,5 +243,39 @@ describe('CleanStage — deleting the canvas selection with Delete/Backspace', (
     fireEvent.keyDown(document.body, { key: 'Escape' })
     fireEvent.keyDown(document.body, { key: 'Delete' })
     expect(state().map.elements).toHaveLength(1)
+  })
+})
+
+describe('CleanStage in view-only mode', () => {
+  beforeEach(() => usePreferencesStore.setState({ viewOnly: true }))
+
+  it('reveals no "+" on a hovered ring', () => {
+    const { container } = renderStage()
+    hoverRing(container, 'domain')
+    expect(container.querySelectorAll('[data-plus]')).toHaveLength(0)
+  })
+
+  it('still selects an element, with no "Depend on…" chip', () => {
+    const outerSector = state().addSector({ name: 'API', ringRole: 'outer' })
+    const domainSector = state().addSector({ name: 'Core', ringRole: 'domain' })
+    state().addElement({ name: 'Controller', sectorId: outerSector })
+    state().addElement({ name: 'Order', sectorId: domainSector })
+    renderStage()
+    const element = screen.getByRole('button', { name: 'Controller (outer)' })
+    fireEvent.click(element)
+    expect(element.hasAttribute('data-selected')).toBe(true)
+    expect(screen.queryByRole('button', { name: /Depend on…/ })).toBeNull()
+  })
+
+  it('leaves the document alone on Delete and Backspace', () => {
+    const sectorId = state().addSector({ name: 'Billing', ringRole: 'domain' })
+    state().addElement({ name: 'Invoice', sectorId })
+    const onMutate = vi.fn()
+    renderStage({ onMutate })
+    fireEvent.click(screen.getByRole('button', { name: 'Invoice (domain)' }))
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+    fireEvent.keyDown(document.body, { key: 'Backspace' })
+    expect(state().map.elements).toHaveLength(1)
+    expect(onMutate).not.toHaveBeenCalled()
   })
 })

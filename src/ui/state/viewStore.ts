@@ -7,6 +7,7 @@ import { useMapStore } from '../../model/store'
 import { revealInEditor } from '../revealInEditor'
 import { useHistoryStore } from './historyStore'
 import { useNoticeStore } from './noticeStore'
+import { usePreferencesStore } from './preferencesStore'
 
 export type ExportScope = 'map' | 'hexagon'
 
@@ -49,6 +50,7 @@ const initialView = (): ViewData => ({
 export const useViewStore = create<ViewStore>()((set, get) => ({
   ...initialView(),
   reveal: (ref, focus) => {
+    if (usePreferencesStore.getState().viewOnly) return
     // The card only exists to scroll to once the collapsed editor has rendered open.
     flushSync(() => set({ editorOpen: true }))
     revealInEditor(ref, focus)

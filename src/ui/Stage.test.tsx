@@ -38,7 +38,9 @@ afterEach(() => {
 function Harness({
   onGrow = () => {},
   onLink = () => {},
+  onDelete = () => false,
 }: {
+  onDelete?: (ref: string) => boolean
   onGrow?: (side: import('../model/schema').Wall, context: 'same' | 'new') => void
   onLink?: (source: string, choice: import('../model/links').LinkChoice) => void
 }) {
@@ -59,7 +61,7 @@ function Harness({
       revision={0}
       title="Test"
       svgRef={svgRef}
-      onDelete={() => false}
+      onDelete={onDelete}
       onLink={onLink}
       contextLabel={contextName(map, currentContextId)}
       onGrow={onGrow}
@@ -1456,5 +1458,72 @@ describe('Stage — dependency chain emphasis', () => {
       expect(svg(container).hasAttribute('data-emphasis')).toBe(false)
       expect(container.querySelector('[data-chain]')).toBeNull()
     })
+  })
+})
+
+describe('Stage in view-only mode', () => {
+  const drivenAdapter = () => EXAMPLE_DIAGRAM.adapters.find((a) => EXAMPLE_DIAGRAM.ports.find((p) => p.id === a.portId)?.side === 'driven')!
+  beforeEach(() => usePreferencesStore.setState({ viewOnly: true }))
+
+  it('offers no "+" on a hovered layer and no side "+" to grow from', () => {
+    const { container } = render(<Harness />)
+    hover(container, 'application')
+    expect(container.querySelectorAll('.plus')).toHaveLength(0)
+    expect(container.querySelectorAll('.side-plus')).toHaveLength(0)
+  })
+
+  it('still selects an element and emphasizes its dependency chain, without a "Link to…" chip', () => {
+    const { container } = render(<Harness />)
+    const node = container.querySelector(`svg.canvas [data-ref="${drivenAdapter().id}"]`)!
+    fireEvent.click(node)
+    expect(node.hasAttribute('data-selected')).toBe(true)
+    expect(svg(container).hasAttribute('data-emphasis')).toBe(true)
+    expect(screen.queryByRole('button', { name: /Link .* to…/ })).toBeNull()
+  })
+
+  it('ignores L and Delete on a selection, but Esc still clears it', () => {
+    const onDelete = vi.fn(() => true)
+    const { container } = render(<Harness onDelete={onDelete} />)
+    const node = container.querySelector(`svg.canvas [data-ref="${drivenAdapter().id}"]`)!
+    fireEvent.click(node)
+    fireEvent.keyDown(document.body, { key: 'l' })
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+    fireEvent.keyDown(document.body, { key: 'Backspace' })
+    expect(svg(container).hasAttribute('data-link-mode')).toBe(false)
+    expect(onDelete).not.toHaveBeenCalled()
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(container.querySelectorAll('[data-selected]')).toHaveLength(0)
+  })
+
+  it('does not open the editor on a double-click, but still switches the current hexagon', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+    fireEvent.doubleClick(hexGroup(container, 'h2'))
+    expect(useMapStore.getState().focus).toBe('h2')
+    expect(useViewStore.getState().editorOpen).toBe(false)
+  })
+
+  it('ends a link mode that was already on', () => {
+    useMapStore.getState().replace(twoHexMap())
+    usePreferencesStore.setState({ viewOnly: false })
+    const { container } = render(<Harness />)
+    fireEvent.click(hexGroup(container, 'h1').querySelector(`[data-ref="${drivenAdapter().id}"]`)!)
+    fireEvent.keyDown(document.body, { key: 'l' })
+    expect(svg(container).hasAttribute('data-link-mode')).toBe(true)
+    act(() => usePreferencesStore.setState({ viewOnly: true }))
+    expect(svg(container).hasAttribute('data-link-mode')).toBe(false)
+  })
+
+  it('keeps the expand and collapse toggles', () => {
+    useMapStore.getState().replace(manyHexagonMap(6))
+    render(<Harness />)
+    expect(screen.getAllByRole('button', { name: /^Expand Slice / })).toHaveLength(5)
+  })
+
+  it('keeps the zoom controls working', () => {
+    const { container } = render(<Harness />)
+    const before = viewportOf(container).scale
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    expect(viewportOf(container).scale).toBeGreaterThan(before)
   })
 })

@@ -3,6 +3,7 @@ import { cleanup, render } from '@testing-library/react'
 import { EXAMPLE_DIAGRAM } from '../../model/example'
 import { toMap } from '../../model/hexa'
 import { useMapStore } from '../../model/store'
+import { usePreferencesStore } from './preferencesStore'
 import { useViewStore } from './viewStore'
 
 beforeEach(() => useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM)))
@@ -21,6 +22,13 @@ describe('view store', () => {
     useViewStore.getState().reveal('card', false)
 
     expect(document.querySelector('[data-item-id="card"]')).not.toBeNull()
+  })
+
+  it('reveal leaves the editor closed while view-only is on', () => {
+    useViewStore.setState({ editorOpen: false })
+    usePreferencesStore.setState({ viewOnly: true })
+    useViewStore.getState().reveal('card', false)
+    expect(useViewStore.getState().editorOpen).toBe(false)
   })
 
   it('toggles a hexagon in and out of the expanded set', () => {
