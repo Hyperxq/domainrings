@@ -642,6 +642,7 @@ label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
 .choice-menu .text-button[data-control='switch'][aria-checked] { background: transparent; color: inherit; }
 .choice-menu .segmented { display: flex; }
 .choice-menu .segmented-option { flex: 1; height: 32px; }
+.choice-heading { padding: 4px 8px 2px; color: var(--muted); font-size: 12px; font-weight: 600; }
 .choice-separator { height: 1px; margin: 2px 4px; background: var(--line); }
 .choice-description { color: var(--muted); font-size: 12px; font-weight: 400; }
 

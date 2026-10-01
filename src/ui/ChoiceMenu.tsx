@@ -11,6 +11,8 @@ export interface Choice<Id extends string> {
   control?: 'radio' | 'switch' | 'action'
   /** The icon an `action` shows beside its label. */
   icon?: IconName
+  /** Consecutive choices sharing a group sit under one labelled heading, set apart from the choices around them. */
+  group?: string
 }
 
 type MenuAt = { top: number; left?: number; right?: number }
@@ -65,12 +67,21 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
   const menuId = useId()
   const items = () => [...(root.current?.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]') ?? [])]
 
-  const runs = choices.reduce<Choice<Id>[][]>((acc, choice) => {
-    const last = acc.at(-1)
-    if (last && last[0].control === choice.control) last.push(choice)
-    else acc.push([choice])
-    return acc
-  }, [])
+  const chunk = <T,>(list: readonly T[], same: (a: T, b: T) => boolean) =>
+    list.reduce<T[][]>((acc, entry) => {
+      const last = acc.at(-1)
+      if (last && same(last[0], entry)) last.push(entry)
+      else acc.push([entry])
+      return acc
+    }, [])
+  const sections = chunk(choices, (a, b) => a.group === b.group).map((section) => chunk(section, (a, b) => a.control === b.control))
+  const runsOf = (runs: Choice<Id>[][]) =>
+    runs.map((run, i) => (
+      <Fragment key={run[0].id}>
+        {i > 0 && <div role="separator" className="choice-separator" />}
+        {run[0].control === 'radio' ? <div role="group" className="segmented">{run.map(item)}</div> : run.map(item)}
+      </Fragment>
+    ))
   const item = (choice: Choice<Id>) => (
     <button
       key={choice.id}
@@ -178,12 +189,23 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
             }
           }}
         >
-          {runs.map((run, i) => (
-            <Fragment key={run[0].id}>
-              {i > 0 && <div role="separator" className="choice-separator" />}
-              {run[0].control === 'radio' ? <div role="group" className="segmented">{run.map(item)}</div> : run.map(item)}
-            </Fragment>
-          ))}
+          {sections.map((runs, i) => {
+            const group = runs[0][0].group
+            const headingId = `${menuId}-${i}`
+            return (
+              <Fragment key={runs[0][0].id}>
+                {i > 0 && <div role="separator" className="choice-separator" />}
+                {group ? (
+                  <div role="group" aria-labelledby={headingId}>
+                    <div id={headingId} className="choice-heading">{group}</div>
+                    {runsOf(runs)}
+                  </div>
+                ) : (
+                  runsOf(runs)
+                )}
+              </Fragment>
+            )
+          })}
         </div>
       )}
     </span>
