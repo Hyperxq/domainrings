@@ -120,9 +120,9 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
         }
         choices={[
           { id: 'new', label: 'New', control: 'action', icon: 'new' },
-          ...EXAMPLES.map((x) => ({ id: x.id, label: x.label, control: 'action' as const, group: x.architecture })),
           { id: 'open', label: 'Open…', control: 'action', icon: 'upload' },
           { id: 'save', label: 'Save (.hexa)', control: 'action', icon: 'download' },
+          ...EXAMPLES.map((x) => ({ id: x.id, label: x.label, control: 'action' as const, group: `Load example · ${x.architecture}` })),
         ]}
         onChoose={(id) => (id === 'new' ? onNew() : id === 'open' ? openFile.current?.click() : id === 'save' ? onExport('hexa') : onExample(id))}
       />

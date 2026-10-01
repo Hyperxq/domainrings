@@ -56,6 +56,18 @@ describe('ZoomControls expand and collapse all', () => {
     expect(names.slice(at - 1, at + 3)).toEqual(['Fit diagram to screen', 'Expand all', 'Collapse all', 'View only'])
   })
 
+  it('stands apart from the view controls: a divider on each side and an icon no other zoom button uses', () => {
+    renderControls(true)
+    const expand = screen.getByRole('button', { name: 'Expand all' })
+    const collapse = screen.getByRole('button', { name: 'Collapse all' })
+    expect(expand.previousElementSibling?.className).toBe('divider')
+    expect(collapse.nextElementSibling?.className).toBe('divider')
+    const iconOf = (b: Element) => b.querySelector('svg')?.innerHTML
+    const others = [...screen.getByRole('group', { name: 'Zoom' }).querySelectorAll('button')].filter((b) => b !== expand && b !== collapse).map(iconOf)
+    expect(others).not.toContain(iconOf(expand))
+    expect(others).not.toContain(iconOf(collapse))
+  })
+
   it('shows neither when the map has nothing to expand', () => {
     renderControls()
     expect(screen.queryByRole('button', { name: 'Expand all' })).toBeNull()
