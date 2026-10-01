@@ -1527,3 +1527,66 @@ describe('Stage in view-only mode', () => {
     expect(viewportOf(container).scale).toBeGreaterThan(before)
   })
 })
+
+describe('Stage — smooth fit changes (animated refit, panel open/close)', () => {
+  const SCREEN = { width: 2000, height: 800 }
+  let restoreSize: () => void
+  const originalMatchMedia = window.matchMedia
+  const viewBoxOf = (container: HTMLElement) => svg(container).getAttribute('viewBox')
+  const frames = (ms: number) => act(() => void vi.advanceTimersByTime(ms))
+  const allowMotion = () => {
+    window.matchMedia = ((media: string) => ({ matches: false, media, addEventListener() {}, removeEventListener() {} })) as unknown as typeof matchMedia
+  }
+  beforeEach(() => {
+    vi.useFakeTimers()
+    restoreSize = stubFixedSize(SCREEN.width, SCREEN.height)
+    useViewStore.setState({ editorOpen: false })
+  })
+  afterEach(() => {
+    restoreSize()
+    window.matchMedia = originalMatchMedia
+    vi.useRealTimers()
+  })
+
+  it('eases to the new fit after a grow instead of snapping, and reaches it after the duration', () => {
+    allowMotion()
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+    const before = viewBoxOf(container)
+
+    act(() => void useMapStore.getState().addHexagon('h1', { context: 'same' }))
+    expect(viewBoxOf(container)).toBe(before)
+    frames(48)
+    const mid = viewBoxOf(container)
+    expect(mid).not.toBe(before)
+
+    frames(400)
+    const settled = viewBoxOf(container)
+    expect(settled).not.toBe(mid)
+    const model = layoutMap(useMapStore.getState().map)
+    const expected = fitTo(model.bounds, SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false), 0)
+    expectViewport(container, expected)
+  })
+
+  it('changes instantly under prefers-reduced-motion', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+    const before = viewBoxOf(container)
+    act(() => void useMapStore.getState().addHexagon('h1', { context: 'same' }))
+    expect(viewBoxOf(container)).not.toBe(before)
+    const model = layoutMap(useMapStore.getState().map)
+    expectViewport(container, fitTo(model.bounds, SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false), 0))
+  })
+
+  it('a wheel zoom is immediate and cancels a running ease', () => {
+    allowMotion()
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+    act(() => void useMapStore.getState().addHexagon('h1', { context: 'same' }))
+    frames(48)
+    fireEvent.wheel(container.querySelector('main')!, { deltaY: -300, clientX: 500, clientY: 400 })
+    const zoomed = viewBoxOf(container)
+    frames(400)
+    expect(viewBoxOf(container)).toBe(zoomed)
+  })
+})

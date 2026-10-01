@@ -4,6 +4,7 @@ import { useMapStore } from '../model/store'
 import { Icon } from './Icon'
 import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
+import { useEasedViewport } from './useEasedViewport'
 import { MIN_SCALE, panBy, pinch, zoomAt, type Viewport } from './viewport'
 
 /** A press starting on a floating island, a "+" affordance or an inline name field never pans — shared by Stage
@@ -66,12 +67,15 @@ export function useViewportInteractions({
   autoFit,
   wholeFitScale,
   fitKey,
+  settleKey,
   onPanStart,
 }: {
   mainRef: RefObject<HTMLElement | null>
   autoFit: Viewport
   wholeFitScale: number
   fitKey: string
+  /** A change snaps the view to its fit instead of easing — pass the stage's size, so a resize is never animated. */
+  settleKey?: string
   /** Fires the instant a press becomes a real pan or pinch (not a plain click) — Stage clears its hovered layer here. */
   onPanStart?: () => void
 }): ViewportInteractions {
@@ -90,7 +94,8 @@ export function useViewportInteractions({
     setView('auto')
   }
 
-  const viewport = view === 'auto' ? autoFit : view
+  // Only an 'auto' view eases: a manual one is the author's own pan/zoom and must track the pointer exactly.
+  const viewport = useEasedViewport(view === 'auto' ? autoFit : view, view === 'auto', settleKey)
   // The floor a manual zoom (wheel or button) can reach: never above MIN_SCALE, but never above what fitting the
   // whole diagram itself needs either, so a view already fitted to it never snaps back in.
   const zoomFloor = Math.min(MIN_SCALE, wholeFitScale)

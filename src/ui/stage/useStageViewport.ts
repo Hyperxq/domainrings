@@ -40,6 +40,7 @@ export function useStageViewport({
     autoFit,
     wholeFitScale: wholeFit.scale,
     fitKey,
+    settleKey: `${size.width}x${size.height}`,
     onPanStart,
   })
   const { view, setView } = interactions

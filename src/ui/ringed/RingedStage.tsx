@@ -76,6 +76,7 @@ export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, selec
     autoFit,
     wholeFitScale: wholeFit.scale,
     fitKey,
+    settleKey: `${size.width}x${size.height}`,
   })
 
   // Delete/Backspace act on the selection — mirrors Hexagonal's own Stage.tsx, sharing the same `keyOnCanvas`
