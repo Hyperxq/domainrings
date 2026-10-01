@@ -12,6 +12,7 @@ const PATHS = {
   expand: 'M14 10l6-6M15 4h5v5M10 10L4 4M4 9V4h5M10 14l-6 6M4 15v5h5M14 14l6 6M20 15v5h-5',
   // Exit fullscreen: arrows from the corners back to the centre, no frame.
   shrink: 'M4 4l6 6M10 5v5H5M20 4l-6 6M14 5v5h5M4 20l6-6M5 14h5v5M20 20l-6-6M14 19v-5h5',
+  eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z',
   panel: 'M4 4h16v16H4zM10 4v16',
   close: 'M18 6 6 18M6 6l12 12',
   chevron: 'M9 6l6 6-6 6',

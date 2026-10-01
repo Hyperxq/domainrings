@@ -1,11 +1,12 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createRef } from 'react'
 import { layoutOnion } from '../layout/onion'
 import { newOnionMap } from '../model/hexa'
 import { useOnionStore } from '../model/onionStore'
 import type { OnionFile } from '../model/schema'
 import { OnionStage } from './OnionStage'
+import { usePreferencesStore } from './state/preferencesStore'
 
 const state = () => useOnionStore.getState()
 
@@ -231,5 +232,48 @@ describe('OnionStage — deleting the canvas selection with Delete/Backspace', (
     fireEvent.keyDown(document.body, { key: 'Escape' })
     fireEvent.keyDown(document.body, { key: 'Delete' })
     expect(state().map.elements).toHaveLength(1)
+  })
+})
+
+describe('OnionStage in view-only mode', () => {
+  beforeEach(() => usePreferencesStore.setState({ viewOnly: true }))
+
+  it('reveals no "+" on a hovered ring', () => {
+    const { container } = renderStage()
+    hoverRing(container, 'domain')
+    expect(container.querySelectorAll('[data-plus]')).toHaveLength(0)
+  })
+
+  it('still selects an element, with no "Depend on…" chip', () => {
+    state().addElement({ name: 'Controller', ringRole: 'outer' })
+    state().addElement({ name: 'Order', ringRole: 'domain' })
+    renderStage()
+    const element = screen.getByRole('button', { name: 'Controller (outer)' })
+    fireEvent.click(element)
+    expect(element.hasAttribute('data-selected')).toBe(true)
+    expect(screen.queryByRole('button', { name: /Depend on…/ })).toBeNull()
+  })
+
+  it('leaves the document alone on Delete and Backspace', () => {
+    state().addElement({ name: 'Order', ringRole: 'domain' })
+    const onMutate = vi.fn()
+    renderStage({ onMutate })
+    fireEvent.click(screen.getByRole('button', { name: 'Order (domain)' }))
+    fireEvent.keyDown(document.body, { key: 'Delete' })
+    fireEvent.keyDown(document.body, { key: 'Backspace' })
+    expect(state().map.elements).toHaveLength(1)
+    expect(onMutate).not.toHaveBeenCalled()
+  })
+
+  it('ends a depend gesture that was already on', () => {
+    state().addElement({ name: 'Controller', ringRole: 'outer' })
+    state().addElement({ name: 'Order', ringRole: 'domain' })
+    usePreferencesStore.setState({ viewOnly: false })
+    const { container } = renderStage()
+    fireEvent.click(screen.getByRole('button', { name: 'Controller (outer)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Depend on… from Controller' }))
+    expect(container.querySelector('svg.canvas')!.hasAttribute('data-link-mode')).toBe(true)
+    act(() => usePreferencesStore.setState({ viewOnly: true }))
+    expect(container.querySelector('svg.canvas')!.hasAttribute('data-link-mode')).toBe(false)
   })
 })

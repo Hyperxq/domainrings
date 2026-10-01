@@ -20,12 +20,13 @@ interface OnionWorkspaceProps {
 }
 
 export function OnionWorkspace({ legend, model, doc, svgRef, onReject, onMutate, onNamed, onCancelMutate }: OnionWorkspaceProps) {
-  const editorOpen = useViewStore((s) => s.editorOpen)
+  const viewOnly = usePreferencesStore((s) => s.viewOnly)
+  const editorOpen = useViewStore((s) => s.editorOpen) && !viewOnly
   const mode = usePreferencesStore((s) => s.mode)
   const legendOpen = usePreferencesStore((s) => s.legendOpen)
   return (
     <>
-      <OnionEditor open={editorOpen} onToggle={() => useViewStore.setState({ editorOpen: !editorOpen })} onMutate={onMutate} />
+      {!viewOnly && <OnionEditor open={editorOpen} onToggle={() => useViewStore.setState({ editorOpen: !editorOpen })} onMutate={onMutate} />}
       <Legend legend={legend} />
       <OnionStage
         model={model}

@@ -10,6 +10,7 @@ import { OnionDiagram } from '../render/OnionDiagram'
 import { affordanceVisible, DependChip, InlineNameField, PlusGlyph } from './ringed/RingedAffordances'
 import { RingedStage } from './ringed/RingedStage'
 import { useDependGesture } from './ringed/useDependGesture'
+import { usePreferencesStore } from './state/preferencesStore'
 
 const { addElement, updateElement, removeElement, removeEndpoint, addDependency, addEndpoint } = useOnionStore.getState()
 
@@ -48,6 +49,7 @@ const REJECT_MESSAGE = 'A dependency can only point to the same ring or a more i
  * (same convention Hexagonal's own link mode uses), and choosing one that is not valid cancels the gesture and
  * reports why via `onReject`, leaving the document unchanged either way. */
 export function OnionStage({ model, doc, mode, svgRef, onReject, onMutate = () => {}, onCancelMutate = () => {}, onNamed = () => {}, panelOpen = false, legendOpen = false }: OnionStageProps) {
+  const viewOnly = usePreferencesStore((s) => s.viewOnly)
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
   const legend = legendForOnion(doc)
   const { selected, linking, setLinking, selectedElement, validTargets, linkTargetRefs, clickTarget } = useDependGesture({
@@ -99,7 +101,7 @@ export function OnionStage({ model, doc, mode, svgRef, onReject, onMutate = () =
       svgRef={svgRef}
       linking={linking}
       selected={selected}
-      onDelete={deleteSelected}
+      onDelete={viewOnly ? undefined : deleteSelected}
       panelOpen={panelOpen}
       legendOpen={legendOpen}
       onClick={(e) => clickTarget((e.target as Element).closest('.node')?.getAttribute('data-ref') ?? null)}
@@ -125,12 +127,13 @@ export function OnionStage({ model, doc, mode, svgRef, onReject, onMutate = () =
       {(hover) => (
         <>
           <OnionDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} legend={legend} mode={mode} hoverRef={hover.ref} />
-          {onionInsertionPoints(model, doc)
+          {!viewOnly &&
+            onionInsertionPoints(model, doc)
             .filter((point) => affordanceVisible(point, hover))
             .map((point) => (
               <PlusGlyph key={point.key} point={point} onPick={() => pick(point)} />
             ))}
-          {selectedElement && !linking && validTargets.length > 0 && (
+          {selectedElement && !linking && !viewOnly && validTargets.length > 0 && (
             <DependChip x={selectedElement.x} y={selectedElement.y} name={selectedElement.name} onLink={() => setLinking(true)} />
           )}
         </>

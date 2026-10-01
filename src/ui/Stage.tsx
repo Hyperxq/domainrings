@@ -1,4 +1,4 @@
-import { useRef, useState, type Ref } from 'react'
+import { useEffect, useRef, useState, type Ref } from 'react'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
 import type { LayoutNode } from '../layout/layout'
 import type { Point } from '../layout/geometry'
@@ -61,7 +61,8 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   const showGuides = usePreferencesStore((s) => s.guides)
   // The open legend island takes the right column, so the fit leaves it free.
   const legendOpen = usePreferencesStore((s) => s.legendOpen)
-  const panelOpen = useViewStore((s) => s.editorOpen)
+  const viewOnly = usePreferencesStore((s) => s.viewOnly)
+  const panelOpen = useViewStore((s) => s.editorOpen) && !viewOnly
   const linking = useViewStore((s) => s.linking)
   // True right after growing: the current hexagon's title field is open inline (GROW-02.1).
   const naming = useViewStore((s) => s.growing !== null)
@@ -103,7 +104,12 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
     },
   })
 
-  useCanvasShortcuts({ selected, linking, hexId, map, diagram, onDelete, onLinking, setSelected, setHovered })
+  useCanvasShortcuts({ selected, linking, hexId, map, diagram, viewOnly, onDelete, onLinking, setSelected, setHovered })
+
+  // Link mode was started before the switch: nothing may finish it now.
+  useEffect(() => {
+    if (viewOnly) onLinking(null)
+  }, [viewOnly, onLinking])
 
   const { announcement, focusHexagon } = useHexagonFocus({ hexId, model, mainRef, view, viewport, setView, setSelected, onLinking })
 
@@ -131,10 +137,10 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   // — either a same-hexagon field target or a cross-hexagon port (ADR-02). A port is laid out twice under one ref
   // (its declaration in the domain and the box on the wall): anchor to the box.
   const linkable =
-    selected && !linking && canLink(map, diagram, hexId, selected)
+    selected && !linking && !viewOnly && canLink(map, diagram, hexId, selected)
       ? hexModel.nodes.find((n) => n.ref === selected && n.kind === NODE_KIND[collectionOf(diagram, selected)!])
       : undefined
-  const visiblePoints = hovered ? insertionPoints(hexModel, diagram, mode).filter((p) => p.layer === hovered) : []
+  const visiblePoints = hovered && !viewOnly ? insertionPoints(hexModel, diagram, mode).filter((p) => p.layer === hovered) : []
   const pick = (point: InsertionPoint, choice?: DomainType) => {
     const { collection, patch } = insertionItem(point.action, choice)
     const before = { map, focus: hexId }
@@ -270,7 +276,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
 
       <ContextReveals contexts={model.contexts} reveals={reveal.reveals} mapToScreen={mapToScreen} />
       <Affordances points={visiblePoints} toScreen={toScreen} onPick={pick} onLayer={setHovered} />
-      <GrowButtons model={model} hex={hex} scale={viewport.scale} mapToScreen={mapToScreen} title={title} contextLabel={contextLabel} onGrow={onGrow} />
+      {!viewOnly && <GrowButtons model={model} hex={hex} scale={viewport.scale} mapToScreen={mapToScreen} title={title} contextLabel={contextLabel} onGrow={onGrow} />}
       <ExpandToggles model={model} currentId={hexId} mapToScreen={mapToScreen} onToggle={onToggleExpanded} />
       {linkable && <LinkChip node={linkable} name={nameOf(linkable.ref)} toScreen={toScreen} onLink={() => onLinking(linkable.ref)} />}
       {editing && (

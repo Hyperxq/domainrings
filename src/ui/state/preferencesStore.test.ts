@@ -17,6 +17,18 @@ describe('preferences store', () => {
     expect(root.dataset.palette).toBe('moss')
   })
 
+  it('keeps view-only off by default and persists it under its own raw key', () => {
+    expect(usePreferencesStore.getState().viewOnly).toBe(false)
+    usePreferencesStore.setState({ viewOnly: true })
+    expect(localStorage.getItem('domainrings:view-only')).toBe('true')
+    usePreferencesStore.setState({ viewOnly: false, highlight: true })
+    rehydrate()
+    expect(usePreferencesStore.getState().viewOnly).toBe(false)
+    localStorage.setItem('domainrings:view-only', 'true')
+    rehydrate()
+    expect(usePreferencesStore.getState().viewOnly).toBe(true)
+  })
+
   it('ignores a stored theme or palette it does not know', () => {
     localStorage.setItem('domainrings:theme', 'sepia')
     localStorage.setItem('domainrings:palette', 'toString')

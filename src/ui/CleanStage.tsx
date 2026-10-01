@@ -10,6 +10,7 @@ import { CleanDiagram } from '../render/CleanDiagram'
 import { affordanceVisible, DependChip, InlineNameField, PlusGlyph } from './ringed/RingedAffordances'
 import { RingedStage } from './ringed/RingedStage'
 import { useDependGesture } from './ringed/useDependGesture'
+import { usePreferencesStore } from './state/preferencesStore'
 
 const { addSector, addElement, updateElement, removeElement, removeEndpoint, addDependency, addEndpoint } = useCleanStore.getState()
 
@@ -47,6 +48,7 @@ const REJECT_MESSAGE = 'A dependency can only point to the same ring or a more i
  * dividers, REQ-08) — renaming one happens in `CleanEditor`; only a new ELEMENT opens inline here, same as
  * Onion's own "+" does. */
 export function CleanStage({ model, doc, mode, svgRef, onReject, onMutate = () => {}, onCancelMutate = () => {}, onNamed = () => {}, panelOpen = false, legendOpen = false }: CleanStageProps) {
+  const viewOnly = usePreferencesStore((s) => s.viewOnly)
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
   const legend = legendForClean(doc)
   const { selected, linking, setLinking, selectedElement, validTargets, linkTargetRefs, clickTarget } = useDependGesture({
@@ -103,7 +105,7 @@ export function CleanStage({ model, doc, mode, svgRef, onReject, onMutate = () =
       svgRef={svgRef}
       linking={linking}
       selected={selected}
-      onDelete={deleteSelected}
+      onDelete={viewOnly ? undefined : deleteSelected}
       panelOpen={panelOpen}
       legendOpen={legendOpen}
       onClick={(e) => clickTarget((e.target as Element).closest('.node')?.getAttribute('data-ref') ?? null)}
@@ -129,12 +131,13 @@ export function CleanStage({ model, doc, mode, svgRef, onReject, onMutate = () =
       {(hover) => (
         <>
           <CleanDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} legend={legend} mode={mode} hoverRef={hover.ref} />
-          {cleanInsertionPoints(model, doc)
+          {!viewOnly &&
+            cleanInsertionPoints(model, doc)
             .filter((point) => affordanceVisible(point, hover))
             .map((point) => (
               <PlusGlyph key={point.key} point={point} onPick={() => pick(point)} />
             ))}
-          {selectedElement && !linking && validTargets.length > 0 && (
+          {selectedElement && !linking && !viewOnly && validTargets.length > 0 && (
             <DependChip x={selectedElement.x} y={selectedElement.y} name={selectedElement.name} onLink={() => setLinking(true)} />
           )}
         </>
