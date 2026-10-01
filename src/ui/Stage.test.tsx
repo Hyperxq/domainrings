@@ -25,43 +25,29 @@ beforeAll(() => {
     disconnect() {}
   } as unknown as typeof ResizeObserver
 })
-beforeEach(() => useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM)))
-afterEach(cleanup)
+beforeEach(() => {
+  useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM))
+  useViewStore.setState({ editorOpen: false })
+})
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
 
-/** The stage as the app wires it: laid out from the live store. */
+/** The stage as the app wires it: laid out from the live stores; view state and preferences are seeded through them. */
 function Harness({
-  highlight = true,
-  dependents = false,
-  onReveal = () => {},
   onGrow = () => {},
   onLink = () => {},
-  naming = false,
-  onNamed = () => {},
-  onNamingCancel = () => {},
-  mode = 'detailed',
-  panelOpen = false,
-  expanded,
-  onToggleExpanded = () => {},
 }: {
-  highlight?: boolean
-  dependents?: boolean
-  onReveal?: (ref: string, focus: boolean) => void
   onGrow?: (side: import('../model/schema').Wall, context: 'same' | 'new') => void
   onLink?: (source: string, choice: import('../model/links').LinkChoice) => void
-  naming?: boolean
-  onNamed?: (title: string) => void
-  onNamingCancel?: () => void
-  mode?: import('../layout/layout').LayoutMode
-  panelOpen?: boolean
-  expanded?: ReadonlySet<string>
-  onToggleExpanded?: (id: string) => void
 }) {
-  usePreferencesStore.setState({ mode, highlight, dependents, guides: true, legendOpen: false })
+  const mode = usePreferencesStore((s) => s.mode)
+  const expanded = useViewStore((s) => s.expanded)
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   const diagram = diagramOf(map, hexId)
   const svgRef = createRef<SVGSVGElement>()
-  useViewStore.setState({ editorOpen: panelOpen, growing: naming ? { hexId, before: { map, focus: hexId } } : null, reveal: onReveal, toggleExpanded: onToggleExpanded, commitGrow: onNamed, cancelGrow: onNamingCancel })
   const currentContextId = map.hexagons.find((h) => h.id === hexId)!.contextId
   return (
     <Stage
@@ -79,6 +65,12 @@ function Harness({
       onGrow={onGrow}
     />
   )
+}
+
+/** Opens the current hexagon's inline title field, as growing the map does. */
+const startNaming = () => {
+  const { map, focus } = useMapStore.getState()
+  useViewStore.setState({ growing: { hexId: focus, before: { map, focus } } })
 }
 
 const svg = (container: HTMLElement) => container.querySelector('svg.canvas')!
@@ -151,7 +143,8 @@ describe('Stage layer hover', () => {
   })
 
   it('with highlighting off, styles nothing but still offers the layer "+" buttons', () => {
-    const { container } = render(<Harness highlight={false} />)
+    usePreferencesStore.setState({ highlight: false })
+ const { container } = render(<Harness />)
     hover(container, 'application')
     expect(svg(container).hasAttribute('data-hover')).toBe(false)
     expect(screen.getByRole('button', { name: 'Add a use case' })).toBeTruthy()
@@ -285,26 +278,29 @@ describe('Stage hexagon-naming field (GROW-02, ADR-02)', () => {
   })
 
   it('renders an inline title field for the current hexagon, labelled "Hexagon title", when naming is true', () => {
-    render(<Harness naming />)
+    startNaming()
+    render(<Harness />)
     const input = screen.getByRole('textbox', { name: 'Hexagon title' }) as HTMLInputElement
     expect(input.value).toBe('Chat feedback slice')
   })
 
-  it('commits the typed title via onNamed on Enter', () => {
-    const onNamed = vi.fn()
-    render(<Harness naming onNamed={onNamed} />)
+  it('commits the typed title as the hexagon title and closes the field on Enter', () => {
+    startNaming()
+    render(<Harness />)
     const input = screen.getByRole('textbox', { name: 'Hexagon title' })
     fireEvent.change(input, { target: { value: 'Billing' } })
     fireEvent.keyDown(input, { key: 'Enter' })
-    expect(onNamed).toHaveBeenCalledWith('Billing')
+    expect(useMapStore.getState().map.hexagons.find((h) => h.id === useMapStore.getState().focus)!.title).toBe('Billing')
+    expect(useViewStore.getState().growing).toBeNull()
   })
 
-  it('calls onNamingCancel on Esc', () => {
-    const onNamingCancel = vi.fn()
-    render(<Harness naming onNamingCancel={onNamingCancel} />)
+  it('closes the field on Esc', () => {
+    startNaming()
+    render(<Harness />)
     const input = screen.getByRole('textbox', { name: 'Hexagon title' })
     fireEvent.keyDown(input, { key: 'Escape' })
-    expect(onNamingCancel).toHaveBeenCalledOnce()
+    expect(useViewStore.getState().growing).toBeNull()
+    expect(screen.queryByRole('textbox', { name: 'Hexagon title' })).toBeNull()
   })
 })
 
@@ -624,14 +620,14 @@ describe('Stage — the whole-map auto view survives a canvas focus switch (FIT-
 
   it('a switch on a two-hexagon map does not freeze the view — it still tracks a later inset change from the side panel opening', () => {
     useMapStore.getState().replace(twoHexMap())
-    const { container, rerender } = render(<Harness />)
+    const { container } = render(<Harness />)
     const insetClosed = islandInset({ width: 0, height: 0 }, false, false)
     const insetOpen = islandInset({ width: 0, height: 0 }, true, false)
     // Premise: opening the panel actually moves the inset in this (width:0) environment, or the assertion below is vacuous.
     expect(insetOpen).not.toEqual(insetClosed)
 
     fireEvent.click(hexGroup(container, 'h2'))
-    rerender(<Harness panelOpen />)
+    act(() => useViewStore.setState({ editorOpen: true }))
 
     const model = layoutMap(useMapStore.getState().map)
     expect(model.hexagons).toHaveLength(2)
@@ -835,7 +831,8 @@ describe('Stage — the honeycomb fixture stays disjoint with every hexagon curr
     it(`every pair of hexagon boxes stays separated by MAP_GAP with each hexagon current in turn (${mode})`, () => {
       const map = honeycombMap()
       useMapStore.getState().replace(map)
-      const { container } = render(<Harness mode={mode} />)
+      usePreferencesStore.setState({ mode })
+      const { container } = render(<Harness />)
 
       for (const hexagon of map.hexagons) {
         act(() => useMapStore.getState().setFocus(hexagon.id))
@@ -941,8 +938,8 @@ describe('Stage current-hexagon focus (FOCUS-01, 03, 04, 05, CANVAS-03)', () => 
 
   it('double-clicking a non-current hexagon makes it current and opens its editor card (FOCUS-03.1)', () => {
     useMapStore.getState().replace(twoHexMap())
-    const onReveal = vi.fn()
-    const { container } = render(<Harness onReveal={onReveal} />)
+    const onReveal = vi.spyOn(useViewStore.getState(), 'reveal')
+    const { container } = render(<Harness />)
 
     fireEvent.doubleClick(hexGroup(container, 'h2'))
 
@@ -952,8 +949,8 @@ describe('Stage current-hexagon focus (FOCUS-01, 03, 04, 05, CANVAS-03)', () => 
 
   it('a real double-click gesture on a non-current hexagon still reveals the hexagon card, not the item the pointer lands on (FOCUS-03.1)', () => {
     useMapStore.getState().replace(twoHexMap())
-    const onReveal = vi.fn()
-    const { container } = render(<Harness onReveal={onReveal} />)
+    const onReveal = vi.spyOn(useViewStore.getState(), 'reveal')
+    const { container } = render(<Harness />)
     // A real gesture: click, click, dblclick — the first click already switches the current hexagon via
     // flushSync, so by the time dblclick fires, clickedHexId === hexId unless the code remembers which
     // hexagon was current when the gesture began.
@@ -1189,30 +1186,28 @@ describe('Stage — compact neighbours on a large map', () => {
 
     it('offers Collapse on an expanded hexagon and a disabled Collapse on the current one', () => {
       useMapStore.getState().replace(manyHexagonMap(6))
-      render(<Harness expanded={new Set(['h3'])} />)
+      useViewStore.setState({ expanded: new Set(['h3']) })
+      render(<Harness />)
       expect(screen.getByRole('button', { name: 'Collapse Slice 3' })).toHaveProperty('disabled', false)
       expect(screen.getByRole('button', { name: 'Collapse Slice 1' })).toHaveProperty('disabled', true)
       expect(screen.queryByRole('button', { name: 'Expand Slice 3' })).toBeNull()
     })
 
-    it('reports the hexagon pressed, and leaves the current hexagon and the selection alone', () => {
+    it('toggles the hexagon pressed, and leaves the current hexagon and the selection alone', () => {
       useMapStore.getState().replace(manyHexagonMap(6))
-      const onToggleExpanded = vi.fn()
-      render(<Harness onToggleExpanded={onToggleExpanded} />)
+      render(<Harness />)
 
       fireEvent.click(screen.getByRole('button', { name: 'Expand Slice 4' }))
 
-      expect(onToggleExpanded).toHaveBeenCalledTimes(1)
-      expect(onToggleExpanded).toHaveBeenCalledWith('h4')
+      expect([...useViewStore.getState().expanded]).toEqual(['h4'])
       expect(useMapStore.getState().focus).toBe('h1')
     })
 
-    it('never reports the current hexagon', () => {
+    it('never toggles the current hexagon', () => {
       useMapStore.getState().replace(manyHexagonMap(6))
-      const onToggleExpanded = vi.fn()
-      render(<Harness onToggleExpanded={onToggleExpanded} />)
+      render(<Harness />)
       fireEvent.click(screen.getByRole('button', { name: 'Collapse Slice 1' }))
-      expect(onToggleExpanded).not.toHaveBeenCalled()
+      expect(useViewStore.getState().expanded.size).toBe(0)
     })
 
     it('sits at the top-right corner of its hexagon', () => {
@@ -1235,14 +1230,14 @@ describe('Stage — compact neighbours on a large map', () => {
       useMapStore.getState().replace(manyHexagonMap(6))
       const restore = stubFixedSize(1200, 900)
       try {
-        const { container, rerender } = render(<Harness />)
+        const { container } = render(<Harness />)
         const main = container.querySelector('main') as HTMLElement
         main.setPointerCapture = () => {}
         fireEvent.pointerDown(svg(container), { button: 0, buttons: 1, clientX: 0, clientY: 0 })
         fireEvent.pointerMove(main, { buttons: 1, clientX: 100000, clientY: 100000 })
         fireEvent.pointerUp(main)
 
-        rerender(<Harness expanded={new Set(['h6'])} />)
+        act(() => useViewStore.setState({ expanded: new Set(['h6']) }))
 
         const model = layoutMap(useMapStore.getState().map, { current: 'h1', expanded: new Set(['h6']) })
         expectViewport(container, fitTo(model.bounds, 1200, 900, islandInset({ width: 1200, height: 900 }, false, false), 0))
@@ -1375,11 +1370,13 @@ describe('Stage — dependency chain emphasis', () => {
   })
 
   it('is off with Highlight off, and while linking', () => {
-    const off = render(<Harness highlight={false} />)
+    usePreferencesStore.setState({ highlight: false })
+    const off = render(<Harness />)
     select(off.container, 'a-http')
     expect(svg(off.container).hasAttribute('data-emphasis')).toBe(false)
     expect(off.container.querySelector('[data-chain]')).toBeNull()
     cleanup()
+    usePreferencesStore.setState({ highlight: true })
 
     const { container } = render(<Harness />)
     select(container, 'a-knex')
@@ -1412,7 +1409,8 @@ describe('Stage — dependency chain emphasis', () => {
 
   describe('as dependents', () => {
     it('emphasizes what depends on the selection, and marks the canvas as showing dependents', () => {
-      const { container } = render(<Harness dependents />)
+      usePreferencesStore.setState({ dependents: true })
+      const { container } = render(<Harness />)
 
       select(container, 'd-rating')
 
@@ -1430,7 +1428,8 @@ describe('Stage — dependency chain emphasis', () => {
     it('follows a link backwards into the caller hexagon', () => {
       useMapStore.getState().replace(linkedTwoHexMap())
       act(() => useMapStore.getState().setFocus('h2'))
-      const { container } = render(<Harness dependents />)
+      usePreferencesStore.setState({ dependents: true })
+      const { container } = render(<Harness />)
 
       select(container, 'p-submit', 'h2')
 
@@ -1442,7 +1441,8 @@ describe('Stage — dependency chain emphasis', () => {
     it('stops at the port of a compact caller', () => {
       useMapStore.getState().replace(manyHexagonMap(6))
       act(() => useMapStore.getState().setFocus('h2'))
-      const { container } = render(<Harness dependents />)
+      usePreferencesStore.setState({ dependents: true })
+      const { container } = render(<Harness />)
 
       select(container, 'p-submit', 'h2')
 
@@ -1450,7 +1450,8 @@ describe('Stage — dependency chain emphasis', () => {
     })
 
     it('is off with Highlight off', () => {
-      const { container } = render(<Harness dependents highlight={false} />)
+      usePreferencesStore.setState({ dependents: true, highlight: false })
+      const { container } = render(<Harness />)
       select(container, 'd-rating')
       expect(svg(container).hasAttribute('data-emphasis')).toBe(false)
       expect(container.querySelector('[data-chain]')).toBeNull()
