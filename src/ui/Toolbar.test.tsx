@@ -41,7 +41,7 @@ function renderToolbar(
     showScope?: boolean
     exportScope?: 'map' | 'hexagon'
     themeChoice?: 'light' | 'dark' | 'system'
-    palette?: 'default' | 'ink' | 'moss'
+    palette?: 'default' | 'purple' | 'terracotta' | 'cool'
   } = {},
 ) {
   const { mode = 'detailed', guides = true, highlight = true, dependents = false, themeChoice = 'system', palette = 'default', exportScope = 'map', showScope = false } = overrides
@@ -346,7 +346,7 @@ describe('Toolbar appearance menu', () => {
   })
 
   it('lists the theme choices and then the palettes, checking the stored theme and the active palette', () => {
-    renderToolbar({ themeChoice: 'dark', palette: 'ink' })
+    renderToolbar({ themeChoice: 'dark', palette: 'terracotta' })
     openAppearance()
     const state = screen.getAllByRole('menuitemcheckbox').map((item) => [item.firstChild!.textContent, item.getAttribute('aria-checked')])
     expect(state).toEqual([
@@ -354,8 +354,9 @@ describe('Toolbar appearance menu', () => {
       ['Dark', 'true'],
       ['System', 'false'],
       ['Default', 'false'],
-      ['Ink', 'true'],
-      ['Moss', 'false'],
+      ['Purple', 'false'],
+      ['Terracotta', 'true'],
+      ['Cool', 'false'],
     ])
   })
 
@@ -371,9 +372,9 @@ describe('Toolbar appearance menu', () => {
     ['Dark', 'theme', 'dark'],
     ['System', 'theme', 'system'],
     ['Default', 'palette', 'default'],
-    ['Moss', 'palette', 'moss'],
+    ['Cool', 'palette', 'cool'],
   ] as const)('choosing %s sets %s to %s and nothing else', (name, field, value) => {
-    renderToolbar({ themeChoice: 'light', palette: 'ink' })
+    renderToolbar({ themeChoice: 'light', palette: 'terracotta' })
     const before = usePreferencesStore.getState()
     openAppearance()
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: new RegExp(`^${name}`) }))
