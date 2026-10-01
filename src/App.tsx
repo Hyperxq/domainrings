@@ -143,10 +143,8 @@ export function App({ boot = {} }: AppProps = {}) {
       {activeKind === 'hexagonal' && (
         <HexagonalWorkspace
           legend={legend}
-          fieldSession={{ begin: useHistoryStore.getState().beginField, end: () => useHistoryStore.getState().endField() }}
           nameOf={nameOf}
           parseFile={parseFile}
-          onRecord={useHistoryStore.getState().record}
           model={model}
           map={map}
           hexId={hexId}
@@ -154,9 +152,6 @@ export function App({ boot = {} }: AppProps = {}) {
           revision={revision}
           title={diagram.title}
           svgRef={svgRef}
-          onLinking={useViewStore.getState().startLinking}
-          onNamed={useViewStore.getState().commitGrow}
-          onNamingCancel={useViewStore.getState().cancelGrow}
         />
       )}
       {activeKind === 'onion' && (

@@ -18,6 +18,7 @@ import { useCanvasShortcuts } from './stage/useCanvasShortcuts'
 import { useHexagonFocus } from './stage/useHexagonFocus'
 import { useStageViewport } from './stage/useStageViewport'
 import { usePreferencesStore } from './state/preferencesStore'
+import { useHistoryStore } from './state/historyStore'
 import { useViewStore } from './state/viewStore'
 import { gridBackgroundStyle, ZoomControls } from './viewportChrome'
 
@@ -35,19 +36,15 @@ interface StageProps {
   svgRef: Ref<SVGSVGElement>
   /** Removes the element `ref` names; false when it is not a model item (a note, the composition root). */
   onDelete: (ref: string) => boolean
-  /** Records the map/focus from before an edit that raises no toast: a canvas "+" and the name typed into it. */
-  onRecord: (before: { map: HexaMap; focus: string }) => void
-  onLinking: (ref: string | null) => void
   onLink: (source: string, choice: LinkChoice) => void
   /** The current hexagon's own context display name, for the grow menu's "Hexagon in {context}" choice. */
   contextLabel: string
   /** Grows the map from the current hexagon's given free side, into its own context or a new one (GROW-01). */
   onGrow: (side: Wall, context: Destination) => void
-  onNamed: (title: string) => void
-  onNamingCancel: () => void
 }
 
 const { addItem, updateItem, removeItem } = useMapStore.getState()
+const { record } = useHistoryStore.getState()
 const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
   domain: 'domainItem',
   useCases: 'useCase',
@@ -56,7 +53,7 @@ const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
   actors: 'actor',
   externals: 'external',
 }
-export function Stage({ model, map, hexId, diagram, legend, revision, title, svgRef, onDelete, onRecord, onLinking, onLink, contextLabel, onGrow, onNamed, onNamingCancel }: StageProps) {
+export function Stage({ model, map, hexId, diagram, legend, revision, title, svgRef, onDelete, onLink, contextLabel, onGrow }: StageProps) {
   const mode = usePreferencesStore((s) => s.mode)
   const highlight = usePreferencesStore((s) => s.highlight)
   const dependents = usePreferencesStore((s) => s.dependents)
@@ -69,6 +66,9 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   const naming = useViewStore((s) => s.growing !== null)
   const onReveal = useViewStore((s) => s.reveal)
   const onToggleExpanded = useViewStore((s) => s.toggleExpanded)
+  const onLinking = useViewStore((s) => s.startLinking)
+  const onNamed = useViewStore((s) => s.commitGrow)
+  const onNamingCancel = useViewStore((s) => s.cancelGrow)
   const hex = currentHexagon(model, hexId)
   const hexModel = hex.model
   const mainRef = useRef<HTMLElement>(null)
@@ -262,7 +262,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
           initial={editing.name}
           onCommit={(name) => {
             updateItem(editing.hexId, editing.collection, editing.id, { name })
-            onRecord(editing.before)
+            record(editing.before)
             setEditing(null)
             onReveal(editing.id, false)
           }}

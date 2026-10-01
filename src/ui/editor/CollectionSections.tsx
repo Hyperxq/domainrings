@@ -4,7 +4,7 @@ import { parentCandidates } from '../../model/links'
 import { defaultWall, DomainTypeSchema, DRIVING_WALLS, SideSchema, WallSchema, type Diagram, type HexaMap, type Side, type Wall } from '../../model/schema'
 import { useMapStore } from '../../model/store'
 import { revealInEditor } from '../revealInEditor'
-import type { FieldSession, OnPrune, OnRecord } from './fieldSession'
+import { useHistoryStore } from '../state/historyStore'
 import { ItemSection } from './ItemSection'
 import { LinkSelect } from './LinkSelect'
 
@@ -37,16 +37,10 @@ export function CollectionSections({
   hexId,
   map,
   diagram,
-  onPrune,
-  onRecord,
-  fieldSession,
 }: {
   hexId: string
   map: HexaMap
   diagram: Diagram
-  onPrune: OnPrune
-  onRecord: OnRecord
-  fieldSession: FieldSession
 }) {
   const labels = HEXAGONAL_KIND.labels
   const adaptersOn = adaptersBySide(diagram)
@@ -56,9 +50,6 @@ export function CollectionSections({
       <ItemSection
         hexId={hexId}
         map={map}
-        onPrune={onPrune}
-        onRecord={onRecord}
-        fieldSession={fieldSession}
         collection="domain"
         items={diagram.domain}
         title="Domain"
@@ -80,9 +71,6 @@ export function CollectionSections({
       <ItemSection
         hexId={hexId}
         map={map}
-        onPrune={onPrune}
-        onRecord={onRecord}
-        fieldSession={fieldSession}
         collection="useCases"
         items={diagram.useCases}
         title="Use cases"
@@ -102,9 +90,6 @@ export function CollectionSections({
       <ItemSection
         hexId={hexId}
         map={map}
-        onPrune={onPrune}
-        onRecord={onRecord}
-        fieldSession={fieldSession}
         collection="ports"
         items={diagram.ports}
         title="Ports"
@@ -117,7 +102,7 @@ export function CollectionSections({
             aria-label={`Add ${article(sideLabel[side])} ${sideLabel[side]}`}
             title={`Add ${article(sideLabel[side])} ${sideLabel[side]}`}
             onClick={() => {
-              onRecord({ map, focus: hexId })
+              useHistoryStore.getState().record({ map, focus: hexId })
               addPort(hexId, side)
             }}
           >
@@ -151,9 +136,6 @@ export function CollectionSections({
       <ItemSection
         hexId={hexId}
         map={map}
-        onPrune={onPrune}
-        onRecord={onRecord}
-        fieldSession={fieldSession}
         collection="adapters"
         items={diagram.adapters}
         title="Adapters"
@@ -167,9 +149,6 @@ export function CollectionSections({
       <ItemSection
         hexId={hexId}
         map={map}
-        onPrune={onPrune}
-        onRecord={onRecord}
-        fieldSession={fieldSession}
         collection="actors"
         items={diagram.actors}
         title="Actors"
@@ -183,9 +162,6 @@ export function CollectionSections({
       <ItemSection
         hexId={hexId}
         map={map}
-        onPrune={onPrune}
-        onRecord={onRecord}
-        fieldSession={fieldSession}
         collection="externals"
         items={diagram.externals}
         title="External systems"

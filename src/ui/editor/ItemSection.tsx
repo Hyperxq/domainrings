@@ -3,18 +3,18 @@ import type { CollectionKey, HexaMap, Link } from '../../model/schema'
 import { useMapStore, type Item } from '../../model/store'
 import { Fold } from '../Fold'
 import { Icon } from '../Icon'
-import { sessionOf, type FieldSession, type OnPrune, type OnRecord } from './fieldSession'
+import { pruneToast } from '../pruneNotice'
+import { useHistoryStore } from '../state/historyStore'
+import { session } from './fieldSession'
 
 const { addItem, updateItem, removeItem } = useMapStore.getState()
+const { record } = useHistoryStore.getState()
 
 type Patch<K extends CollectionKey> = Partial<Omit<Item<K>, 'id'>>
 
 interface ItemSectionProps<K extends CollectionKey> {
   hexId: string
   map: HexaMap
-  onPrune: OnPrune
-  onRecord: OnRecord
-  fieldSession: FieldSession
   collection: K
   items: Item<K>[]
   title: string
@@ -27,11 +27,10 @@ interface ItemSectionProps<K extends CollectionKey> {
   groups?: { key: string; title: string; items: Item<K>[] }[]
 }
 
-export function ItemSection<K extends CollectionKey>({ hexId, map, onPrune, onRecord, fieldSession, collection, items, title, noun, empty, fields, actions, groups }: ItemSectionProps<K>) {
-  const session = sessionOf(fieldSession)
+export function ItemSection<K extends CollectionKey>({ hexId, map, collection, items, title, noun, empty, fields, actions, groups }: ItemSectionProps<K>) {
   const before = { map, focus: hexId }
   // A discrete edit is its own step: the prune toast when it broke links, a silent step otherwise.
-  const report = (pruned: Link[]) => (pruned.length ? onPrune(pruned, before) : onRecord(before))
+  const report = (pruned: Link[]) => (pruned.length ? pruneToast(pruned, before) : record(before))
   const add = (
     <button
       type="button"
@@ -39,7 +38,7 @@ export function ItemSection<K extends CollectionKey>({ hexId, map, onPrune, onRe
       aria-label={`Add ${noun}`}
       title={`Add ${noun}`}
       onClick={() => {
-        onRecord(before)
+        record(before)
         addItem(hexId, collection)
       }}
     >

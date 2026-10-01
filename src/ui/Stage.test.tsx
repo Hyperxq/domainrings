@@ -61,7 +61,7 @@ function Harness({
   const hexId = useMapStore((s) => s.focus)
   const diagram = diagramOf(map, hexId)
   const svgRef = createRef<SVGSVGElement>()
-  useViewStore.setState({ editorOpen: panelOpen, growing: naming ? { hexId, before: { map, focus: hexId } } : null, reveal: onReveal, toggleExpanded: onToggleExpanded })
+  useViewStore.setState({ editorOpen: panelOpen, growing: naming ? { hexId, before: { map, focus: hexId } } : null, reveal: onReveal, toggleExpanded: onToggleExpanded, commitGrow: onNamed, cancelGrow: onNamingCancel })
   const currentContextId = map.hexagons.find((h) => h.id === hexId)!.contextId
   return (
     <Stage
@@ -74,13 +74,9 @@ function Harness({
       title="Test"
       svgRef={svgRef}
       onDelete={() => false}
-      onRecord={() => {}}
-      onLinking={(linking) => useViewStore.setState({ linking })}
       onLink={onLink}
       contextLabel={contextName(map, currentContextId)}
       onGrow={onGrow}
-      onNamed={onNamed}
-      onNamingCancel={onNamingCancel}
     />
   )
 }
