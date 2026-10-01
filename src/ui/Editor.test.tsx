@@ -6,6 +6,7 @@ import { EXAMPLE_DIAGRAM } from '../model/example'
 import { toMap } from '../model/hexa'
 import { neighbour, SIDE_ORDER } from '../model/map'
 import { useMapStore } from '../model/store'
+import { useViewStore } from './state/viewStore'
 import type { HexaMap } from '../model/schema'
 import { card, currentDiagram, linkedTwoHexMap, twoHexMap } from '../test/fixtures'
 import type { LinkEnd } from '../model/schema'
@@ -15,6 +16,7 @@ const SECTIONS_KEY = 'domainrings:editor-sections'
 beforeEach(() => {
   localStorage.clear()
   useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM))
+  useViewStore.setState({ editorOpen: true })
 })
 afterEach(cleanup)
 
@@ -31,11 +33,6 @@ const renderEditor = (
 ) =>
   render(
     <Editor
-      open
-      onToggle={() => {}}
-      onPrune={() => {}}
-      onRecord={() => {}}
-      fieldSession={{ begin: () => {}, end: () => {} }}
       onAddHexagon={onAddHexagon}
       onDeleteHexagon={onDeleteHexagon}
       onAddFromFile={onAddFromFile}

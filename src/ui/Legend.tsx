@@ -1,16 +1,12 @@
 import { legendSections, type LegendModel } from '../layout/legend'
 import { Icon } from './Icon'
-
-export interface LegendProps {
-  legend: LegendModel
-  open: boolean
-  onOpen: (open: boolean) => void
-  includeInExport: boolean
-  onIncludeInExport: (include: boolean) => void
-}
+import { usePreferencesStore } from './state/preferencesStore'
 
 /** A help panel in the corner: the header row opens and closes it, and Esc inside it closes it. */
-export function Legend({ legend, open, onOpen, includeInExport, onIncludeInExport }: LegendProps) {
+export function Legend({ legend }: { legend: LegendModel }) {
+  const open = usePreferencesStore((s) => s.legendOpen)
+  const includeInExport = usePreferencesStore((s) => s.legendInExport)
+  const onOpen = (legendOpen: boolean) => usePreferencesStore.setState({ legendOpen })
   return (
     <section
       className="island legend"
@@ -74,7 +70,7 @@ export function Legend({ legend, open, onOpen, includeInExport, onIncludeInExpor
           ))}
           <footer className="legend-footer">
             <label className="legend-export">
-              <input type="checkbox" checked={includeInExport} onChange={(e) => onIncludeInExport(e.currentTarget.checked)} />
+              <input type="checkbox" checked={includeInExport} onChange={(e) => usePreferencesStore.setState({ legendInExport: e.currentTarget.checked })} />
               Include legend in export
             </label>
           </footer>

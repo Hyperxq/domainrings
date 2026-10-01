@@ -1,18 +1,14 @@
 import { download } from './exporters'
 import { Icon } from './Icon'
-import type { Notice } from './notice'
+import { useSaveFailed } from '../model/persistence'
+import { useNoticeStore } from './state/noticeStore'
 
 const SAVE_FAILED_MESSAGE = "Your latest changes couldn't be saved in this browser and may be lost if you reload. This notice clears after the next successful save."
 
-interface NoticeColumnProps {
-  notice: Notice | null
-  saveFailed: boolean
-  recoveryNotice: Notice | null
-  onDismiss: () => void
-  onDismissRecovery: () => void
-}
-
-export function NoticeColumn({ notice, saveFailed, recoveryNotice, onDismiss, onDismissRecovery }: NoticeColumnProps) {
+export function NoticeColumn() {
+  const notice = useNoticeStore((s) => s.notice)
+  const recoveryNotice = useNoticeStore((s) => s.recovery)
+  const saveFailed = useSaveFailed((s) => s.failed)
   return (
     // One positioned column for all of them — independently fixed-position notices could sit at the same spot.
     <div className="notices">
@@ -25,7 +21,7 @@ export function NoticeColumn({ notice, saveFailed, recoveryNotice, onDismiss, on
             </ul>
           )}
           <div className="notice-actions">
-            <button type="button" className="icon-button small" aria-label="Dismiss" onClick={onDismiss}>
+            <button type="button" className="icon-button small" aria-label="Dismiss" onClick={() => useNoticeStore.setState({ notice: null })}>
               <Icon name="close" />
             </button>
           </div>
@@ -45,7 +41,7 @@ export function NoticeColumn({ notice, saveFailed, recoveryNotice, onDismiss, on
                 Download saved copy
               </button>
             )}
-            <button type="button" className="icon-button small" aria-label="Dismiss" onClick={onDismissRecovery}>
+            <button type="button" className="icon-button small" aria-label="Dismiss" onClick={() => useNoticeStore.setState({ recovery: null })}>
               <Icon name="close" />
             </button>
           </div>

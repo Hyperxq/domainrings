@@ -1,6 +1,6 @@
 import { useRef, useState, type Ref } from 'react'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
-import type { LayoutMode, LayoutNode } from '../layout/layout'
+import type { LayoutNode } from '../layout/layout'
 import type { Point } from '../layout/geometry'
 import type { LegendModel } from '../layout/legend'
 import { currentHexagon, type MapLayout } from '../layout/map'
@@ -17,6 +17,9 @@ import { ExpandToggles, GrowButtons, LinkChip } from './stage/overlays'
 import { useCanvasShortcuts } from './stage/useCanvasShortcuts'
 import { useHexagonFocus } from './stage/useHexagonFocus'
 import { useStageViewport } from './stage/useStageViewport'
+import { usePreferencesStore } from './state/preferencesStore'
+import { useHistoryStore } from './state/historyStore'
+import { useViewStore } from './state/viewStore'
 import { gridBackgroundStyle, ZoomControls } from './viewportChrome'
 
 interface StageProps {
@@ -27,42 +30,21 @@ interface StageProps {
   /** The hexagon `diagram` is the view of; every point insertion/editing works in belongs to it. */
   hexId: string
   diagram: DiagramModel
-  mode: LayoutMode
-  /** Off: hovering still reveals the "+" buttons, but nothing dims, glows or retitles. */
-  highlight: boolean
-  /** Emphasize what depends on the selection instead of what it depends on. */
-  dependents: boolean
   legend: LegendModel
   revision: number
   title: string
   svgRef: Ref<SVGSVGElement>
-  panelOpen: boolean
-  /** The open legend island takes the right column, so the fit leaves it free. */
-  legendOpen: boolean
-  showGuides: boolean
-  /** Opens the editor at the card for `ref` (an item id, `composition` or `layer:<role>`); `focus` selects its first field. */
-  onReveal: (ref: string, focus: boolean) => void
   /** Removes the element `ref` names; false when it is not a model item (a note, the composition root). */
   onDelete: (ref: string) => boolean
-  /** Records the map/focus from before an edit that raises no toast: a canvas "+" and the name typed into it. */
-  onRecord: (before: { map: HexaMap; focus: string }) => void
-  /** The element being linked while in link mode, null otherwise. */
-  linking: string | null
-  onLinking: (ref: string | null) => void
   onLink: (source: string, choice: LinkChoice) => void
   /** The current hexagon's own context display name, for the grow menu's "Hexagon in {context}" choice. */
   contextLabel: string
   /** Grows the map from the current hexagon's given free side, into its own context or a new one (GROW-01). */
   onGrow: (side: Wall, context: Destination) => void
-  /** True right after growing: the current hexagon's title field is open inline (GROW-02.1). */
-  naming: boolean
-  onNamed: (title: string) => void
-  onNamingCancel: () => void
-  /** Expands a compact hexagon in full, or compacts an expanded one back; never asked for the current hexagon. */
-  onToggleExpanded: (id: string) => void
 }
 
 const { addItem, updateItem, removeItem } = useMapStore.getState()
+const { record } = useHistoryStore.getState()
 const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
   domain: 'domainItem',
   useCases: 'useCase',
@@ -71,7 +53,22 @@ const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
   actors: 'actor',
   externals: 'external',
 }
-export function Stage({ model, map, hexId, diagram, mode, highlight, dependents, legend, revision, title, svgRef, panelOpen, legendOpen, showGuides, onReveal, onDelete, onRecord, linking, onLinking, onLink, contextLabel, onGrow, naming, onNamed, onNamingCancel, onToggleExpanded }: StageProps) {
+export function Stage({ model, map, hexId, diagram, legend, revision, title, svgRef, onDelete, onLink, contextLabel, onGrow }: StageProps) {
+  const mode = usePreferencesStore((s) => s.mode)
+  const highlight = usePreferencesStore((s) => s.highlight)
+  const dependents = usePreferencesStore((s) => s.dependents)
+  const showGuides = usePreferencesStore((s) => s.guides)
+  // The open legend island takes the right column, so the fit leaves it free.
+  const legendOpen = usePreferencesStore((s) => s.legendOpen)
+  const panelOpen = useViewStore((s) => s.editorOpen)
+  const linking = useViewStore((s) => s.linking)
+  // True right after growing: the current hexagon's title field is open inline (GROW-02.1).
+  const naming = useViewStore((s) => s.growing !== null)
+  const onReveal = useViewStore((s) => s.reveal)
+  const onToggleExpanded = useViewStore((s) => s.toggleExpanded)
+  const onLinking = useViewStore((s) => s.startLinking)
+  const onNamed = useViewStore((s) => s.commitGrow)
+  const onNamingCancel = useViewStore((s) => s.cancelGrow)
   const hex = currentHexagon(model, hexId)
   const hexModel = hex.model
   const mainRef = useRef<HTMLElement>(null)
@@ -265,7 +262,7 @@ export function Stage({ model, map, hexId, diagram, mode, highlight, dependents,
           initial={editing.name}
           onCommit={(name) => {
             updateItem(editing.hexId, editing.collection, editing.id, { name })
-            onRecord(editing.before)
+            record(editing.before)
             setEditing(null)
             onReveal(editing.id, false)
           }}

@@ -4,16 +4,14 @@ import { useSyncExternalStore } from 'react'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
 import { PALETTES, type PaletteId } from './palette'
+import { useMapStore } from '../model/store'
+import { usePreferencesStore, type ThemeChoice } from './state/preferencesStore'
+import { useViewStore, type ExportScope } from './state/viewStore'
 
 const REPOSITORY_URL = 'https://github.com/Hyperxq/domainrings'
 
-export type ExportScope = 'map' | 'hexagon'
-/** `system` means no stored preference: the OS decides. */
-export type ThemeChoice = 'light' | 'dark' | 'system'
 
 interface ToolbarProps {
-  themeChoice: ThemeChoice
-  palette: PaletteId
   onNew: () => void
   onExample: (id: (typeof EXAMPLES)[number]['id']) => void
   /** Replaces the whole map — distinct from Editor's "Add hexagon from file…", which adds one hexagon. */
@@ -21,22 +19,10 @@ interface ToolbarProps {
   /** Always copies the whole map (REQ-05), regardless of the export scope selection. */
   onCopyLink: () => void
   onExport: (format: 'hexa' | 'svg' | 'png') => void
-  onTheme: (choice: ThemeChoice) => void
-  onPalette: (id: PaletteId) => void
-  mode: LayoutMode
-  onMode: (mode: LayoutMode) => void
-  guides: boolean
-  onGuides: (show: boolean) => void
-  highlight: boolean
-  onHighlight: (on: boolean) => void
-  dependents: boolean
-  onDependents: (on: boolean) => void
-  /** Only a map large enough to compact has hexagons to expand: present, it adds Expand all (true) and Collapse all (false). */
-  onExpandAll?: (expand: boolean) => void
+  /** Only a map large enough to compact has hexagons to expand: true adds Expand all and Collapse all. */
+  canExpandAll: boolean
   /** Only a multi-hexagon map has more than one thing to export (EXPORT-03) — a single hexagon has nothing to choose between. */
   showScope: boolean
-  exportScope: ExportScope
-  onExportScope: (scope: ExportScope) => void
 }
 
 const SCOPE_LABEL: Record<ExportScope, string> = { map: 'Map', hexagon: 'Hexagon' }
@@ -66,7 +52,10 @@ const fullMedia = media(FULL_TOOLBAR)
 const roomyMedia = media(ROOMY_TOOLBAR)
 const darkMedia = media('(prefers-color-scheme: dark)')
 
-export function Toolbar({ themeChoice, palette, onNew, onExample, onOpen, onCopyLink, onExport, onTheme, onPalette, mode, onMode, guides, onGuides, highlight, onHighlight, dependents, onDependents, onExpandAll, showScope, exportScope, onExportScope }: ToolbarProps) {
+export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, canExpandAll, showScope }: ToolbarProps) {
+  const { mode, guides, highlight, dependents, theme: themeChoice, palette } = usePreferencesStore()
+  const exportScope = useViewStore((s) => s.exportScope)
+  const onExpandAll = (expand: boolean) => useViewStore.getState().expandAll(expand ? useMapStore.getState().map.hexagons.map((h) => h.id) : [])
   const full = useSyncExternalStore(fullMedia.subscribe, fullMedia.matches)
   const roomy = useSyncExternalStore(roomyMedia.subscribe, roomyMedia.matches)
   const systemDark = useSyncExternalStore(darkMedia.subscribe, darkMedia.matches)
@@ -84,21 +73,21 @@ export function Toolbar({ themeChoice, palette, onNew, onExample, onOpen, onCopy
             <legend className="visually-hidden">Detail level</legend>
             {(['overview', 'detailed'] as const).map((m) => (
               <label key={m} className="kind">
-                <input type="radio" name="mode" value={m} checked={mode === m} onChange={() => onMode(m)} />
+                <input type="radio" name="mode" value={m} checked={mode === m} onChange={() => usePreferencesStore.setState({ mode: m })} />
                 <span>{MODE_LABEL[m]}</span>
               </label>
             ))}
           </fieldset>
-          <button type="button" className="text-button" aria-pressed={guides} title="Show the dashed guide spokes" onClick={() => onGuides(!guides)}>
+          <button type="button" className="text-button" aria-pressed={guides} title="Show the dashed guide spokes" onClick={() => usePreferencesStore.setState({ guides: !guides })}>
             Guides
           </button>
-          <button type="button" className="text-button" aria-pressed={highlight} title="Highlight the layer under the pointer" onClick={() => onHighlight(!highlight)}>
+          <button type="button" className="text-button" aria-pressed={highlight} title="Highlight the layer under the pointer" onClick={() => usePreferencesStore.setState({ highlight: !highlight })}>
             Highlight
           </button>
-          <button type="button" className="text-button" aria-pressed={dependents} title="Emphasize what depends on the selection, not what it depends on" onClick={() => onDependents(!dependents)}>
+          <button type="button" className="text-button" aria-pressed={dependents} title="Emphasize what depends on the selection, not what it depends on" onClick={() => usePreferencesStore.setState({ dependents: !dependents })}>
             Dependents
           </button>
-          {onExpandAll && (
+          {canExpandAll && (
             <>
               <button type="button" className="text-button" title="Show every hexagon in full" onClick={() => onExpandAll(true)}>
                 Expand all
@@ -123,14 +112,14 @@ export function Toolbar({ themeChoice, palette, onNew, onExample, onOpen, onCopy
             { id: 'guides', label: 'Guides', checked: guides },
             { id: 'highlight', label: 'Highlight', checked: highlight },
             { id: 'dependents', label: 'Dependents', checked: dependents },
-            ...(onExpandAll ? [{ id: 'expand-all' as const, label: 'Expand all' }, { id: 'collapse-all' as const, label: 'Collapse all' }] : []),
+            ...(canExpandAll ? [{ id: 'expand-all' as const, label: 'Expand all' }, { id: 'collapse-all' as const, label: 'Collapse all' }] : []),
           ]}
           onChoose={(id) => {
-            if (id === 'guides') onGuides(!guides)
-            else if (id === 'highlight') onHighlight(!highlight)
-            else if (id === 'dependents') onDependents(!dependents)
-            else if (id === 'expand-all' || id === 'collapse-all') onExpandAll?.(id === 'expand-all')
-            else onMode(id)
+            if (id === 'guides') usePreferencesStore.setState({ guides: !guides })
+            else if (id === 'highlight') usePreferencesStore.setState({ highlight: !highlight })
+            else if (id === 'dependents') usePreferencesStore.setState({ dependents: !dependents })
+            else if (id === 'expand-all' || id === 'collapse-all') onExpandAll(id === 'expand-all')
+            else usePreferencesStore.setState({ mode: id })
           }}
         />
       )}
@@ -196,7 +185,7 @@ export function Toolbar({ themeChoice, palette, onNew, onExample, onOpen, onCopy
               <legend className="visually-hidden">Export scope</legend>
               {(['map', 'hexagon'] as const).map((s) => (
                 <label key={s} className="kind">
-                  <input type="radio" name="export-scope" value={s} checked={exportScope === s} onChange={() => onExportScope(s)} />
+                  <input type="radio" name="export-scope" value={s} checked={exportScope === s} onChange={() => useViewStore.setState({ exportScope: s })} />
                   <span>{SCOPE_LABEL[s]}</span>
                 </label>
               ))}
@@ -220,7 +209,7 @@ export function Toolbar({ themeChoice, palette, onNew, onExample, onOpen, onCopy
             ...(showScope ? (['map', 'hexagon'] as const).map((s) => ({ id: s, label: SCOPE_LABEL[s], checked: exportScope === s })) : []),
             ...EXPORT_CHOICES,
           ]}
-          onChoose={(id) => (id === 'map' || id === 'hexagon' ? onExportScope(id) : onExport(id))}
+          onChoose={(id) => (id === 'map' || id === 'hexagon' ? useViewStore.setState({ exportScope: id }) : onExport(id))}
         />
       )}
 
@@ -235,7 +224,7 @@ export function Toolbar({ themeChoice, palette, onNew, onExample, onOpen, onCopy
           ...(['light', 'dark', 'system'] as const).map((id) => ({ id, label: THEME_LABEL[id], checked: themeChoice === id })),
           ...(Object.keys(PALETTES) as PaletteId[]).map((id) => ({ id, label: PALETTES[id].label, description: PALETTES[id].description, checked: palette === id })),
         ]}
-        onChoose={(id) => (id === 'light' || id === 'dark' || id === 'system' ? onTheme(id) : onPalette(id))}
+        onChoose={(id) => usePreferencesStore.setState(id === 'light' || id === 'dark' || id === 'system' ? { theme: id } : { palette: id })}
       />
       <a className="icon-button" href={REPOSITORY_URL} target="_blank" rel="noreferrer" aria-label="View the source on GitHub" title="Source on GitHub">
         <Icon name="github" />

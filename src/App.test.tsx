@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import { StrictMode } from 'react'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { App } from './App'
-import { UNDO_LIMIT } from './ui/useUndoHistory'
+import { UNDO_LIMIT } from './ui/state/historyStore'
 import { EXAMPLE_DIAGRAM, EXAMPLES, STRESS_DIAGRAM } from './model/example'
 import { layoutDiagram } from './layout/layout'
 import { layoutOnion } from './layout/onion'
@@ -29,6 +29,9 @@ import { useMapStore } from './model/store'
 import { useOnionStore } from './model/onionStore'
 import { useCleanStore } from './model/cleanStore'
 import { fileSlug } from './ui/exporters'
+import { useNoticeStore } from './ui/state/noticeStore'
+import { usePreferencesStore } from './ui/state/preferencesStore'
+import { useViewStore } from './ui/state/viewStore'
 import { decodeSharePayload, encodeSharePayload, SHARE_HASH_PREFIX } from './ui/shareLink'
 import { card, currentDiagram, hexGroup, installCompressionStreamPolyfill, installDialogPolyfill, linkedTwoHexMap, manyHexagonMap, twoHexagonMap, twoHexMap } from './test/fixtures'
 import v1Minimal from './model/fixtures/v1-minimal.hexa?raw'
@@ -58,6 +61,7 @@ beforeAll(() => {
 beforeEach(() => {
   useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM))
   scrollIntoView.mockClear()
+  useViewStore.setState({ editorOpen: false })
 })
 afterEach(cleanup)
 
@@ -594,7 +598,8 @@ describe('refused imports leave the current map untouched (MIG-02, MIG-03)', () 
 
 describe('notices never overlap', () => {
   it('stacks the recovery and error notices as siblings in one positioned column instead of overlapping', async () => {
-    render(<App boot={{ recovery: 'kept', unreadableText: '{not valid json' }} />)
+    useNoticeStore.getState().reportRecovery('kept', '{not valid json')
+    render(<App />)
     const broken = JSON.stringify({ app: 'domainrings', version: 2, kind: 'hexagonal', title: 'Bad', contexts: [{ id: 'c1' }], hexagons: [], links: [] })
     const file = new File([broken], 'broken.hexa', { type: 'application/json' })
     fireEvent.change(screen.getByLabelText('Open a .hexa file, replacing the map'), { target: { files: [file] } })
@@ -647,6 +652,7 @@ describe('legend island', () => {
 
   it('explains the glyphs present in the diagram even in Overview, where the canvas hides them', () => {
     localStorage.setItem('domainrings:overview', 'true')
+    usePreferencesStore.persist.rehydrate()
     render(<App />)
     fireEvent.click(legendButton())
     expect(headings()).toContain('Glyph · type')
@@ -692,8 +698,9 @@ describe('appearance menu', () => {
   })
 
   it('starts from what the boot script applied to the document', () => {
-    root.dataset.theme = 'light'
-    root.dataset.palette = 'moss'
+    localStorage.setItem('domainrings:theme', 'light')
+    localStorage.setItem('domainrings:palette', 'moss')
+    usePreferencesStore.persist.rehydrate()
     render(<App />)
     expect(checked(/^Light/)).toBe('true')
     expect(checked(/^Moss/)).toBe('true')
@@ -708,8 +715,8 @@ describe('appearance menu', () => {
   })
 
   it('choosing System drops both the attribute and the stored theme, so the OS decides again', () => {
-    root.dataset.theme = 'light'
     localStorage.setItem('domainrings:theme', 'light')
+    usePreferencesStore.persist.rehydrate()
     render(<App />)
     choose(/^System/)
     expect(root.dataset.theme).toBeUndefined()
@@ -1111,7 +1118,8 @@ describe('boot recovery notice', () => {
   })
 
   it('shows the kept-copy notice as a status region, with a working Download saved copy action', async () => {
-    render(<App boot={{ recovery: 'kept', unreadableText: '{not valid json' }} />)
+    useNoticeStore.getState().reportRecovery('kept', '{not valid json')
+    render(<App />)
     const status = recoveryEl()!
     expect(status.querySelector('p')!.textContent).toBe(KEPT_MESSAGE)
 
@@ -1134,14 +1142,16 @@ describe('boot recovery notice', () => {
   })
 
   it('shows the not-kept notice with no download action', () => {
-    render(<App boot={{ recovery: 'not-kept' }} />)
+    useNoticeStore.getState().reportRecovery('not-kept')
+    render(<App />)
     expect(recoveryEl()!.textContent).toBe(NOT_KEPT_MESSAGE)
     expect(screen.queryByRole('button', { name: 'Download saved copy' })).toBeNull()
   })
 
   it('stays on screen until dismissed, unlike an ordinary status toast', () => {
     vi.useFakeTimers()
-    render(<App boot={{ recovery: 'kept', unreadableText: '{x' }} />)
+    useNoticeStore.getState().reportRecovery('kept', '{x')
+    render(<App />)
     act(() => vi.advanceTimersByTime(20000))
     expect(recoveryEl()!.textContent).toContain(KEPT_MESSAGE)
 
@@ -1151,7 +1161,8 @@ describe('boot recovery notice', () => {
   })
 
   it('keeps the recovery notice on screen through a later status toast and starting a link (REQ-03.2)', () => {
-    const { container } = render(<App boot={{ recovery: 'kept', unreadableText: '{x' }} />)
+    useNoticeStore.getState().reportRecovery('kept', '{x')
+    const { container } = render(<App />)
     expect(screen.getByRole('button', { name: 'Download saved copy' })).toBeInstanceOf(HTMLButtonElement)
 
     // An ordinary status toast (here: an edit) must not replace the recovery notice.

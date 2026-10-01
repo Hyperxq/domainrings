@@ -5,6 +5,7 @@ import { EXAMPLE_DIAGRAM } from './model/example'
 import { toHexa, toMap } from './model/hexa'
 import { useCleanStore } from './model/cleanStore'
 import { useMapStore } from './model/store'
+import { useViewStore } from './ui/state/viewStore'
 import { useOnionStore } from './model/onionStore'
 import { installDialogPolyfill, twoHexMap } from './test/fixtures'
 
@@ -21,6 +22,7 @@ beforeAll(() => {
 })
 beforeEach(() => {
   useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM))
+  useViewStore.setState({ editorOpen: false })
 })
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => {

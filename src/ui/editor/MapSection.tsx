@@ -3,7 +3,7 @@ import type { Destination } from '../../model/map'
 import { useMapStore } from '../../model/store'
 import { ChoiceMenu } from '../ChoiceMenu'
 import { Fold } from '../Fold'
-import type { sessionOf } from './fieldSession'
+import type { session as fieldSession } from './fieldSession'
 
 const { setMapMeta } = useMapStore.getState()
 
@@ -19,7 +19,7 @@ export function MapSection({
   /** Reads the picked file (IMP-01): resolves to the step that finishes the import once the author picks a
    * destination when the file holds one hexagon, or to nothing when it needed no question or was refused. */
   onAddFromFile: (file: File) => Promise<((context: Destination) => void) | undefined>
-  session: ReturnType<typeof sessionOf>
+  session: typeof fieldSession
 }) {
   const [pendingImport, setPendingImport] = useState<((context: Destination) => void) | null>(null)
   const importInputRef = useRef<HTMLInputElement>(null)

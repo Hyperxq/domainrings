@@ -3,10 +3,11 @@ import { HEXAGONAL_KIND } from '../model/kinds'
 import type { Diagram, HexaMap, LinkEnd } from '../model/schema'
 import { contextName, diagramOf, freeSides, occupiedContexts, UNTITLED_HEXAGON, type Destination, type LinkPatch } from '../model/map'
 import { useMapStore } from '../model/store'
+import { useViewStore } from './state/viewStore'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Fold } from './Fold'
 import { Icon } from './Icon'
-import { sessionOf, type FieldSession, type OnPrune, type OnRecord } from './editor/fieldSession'
+import { session } from './editor/fieldSession'
 import { CollectionSections } from './editor/CollectionSections'
 import { ContextsSection } from './editor/ContextsSection'
 import { LinksSection } from './editor/LinksSection'
@@ -46,11 +47,6 @@ function Hint({ id, children }: { id: string; children: ReactNode }) {
 }
 
 export function Editor({
-  open,
-  onToggle,
-  onPrune,
-  onRecord,
-  fieldSession,
   onAddHexagon,
   onDeleteHexagon,
   onMoveToContext,
@@ -61,11 +57,6 @@ export function Editor({
   onUpdateLink,
   onDeleteLink,
 }: {
-  open: boolean
-  onToggle: () => void
-  onPrune: OnPrune
-  onRecord: OnRecord
-  fieldSession: FieldSession
   onAddHexagon: () => void
   onDeleteHexagon: () => void
   /** Moves the current hexagon into the given context, or a new one when `undefined`. */
@@ -97,13 +88,13 @@ export function Editor({
     ...occupiedContexts(map).filter((c) => c.id !== ownContext).map((c) => ({ id: c.id, label: contextName(map, c.id) })),
     ...(map.hexagons.filter((h) => h.contextId === ownContext).length > 1 ? [{ id: NEW_CONTEXT, label: 'New bounded context' }] : []),
   ]
-  const session = sessionOf(fieldSession)
+  const open = useViewStore((s) => s.editorOpen)
 
   return (
     <aside className={`island editor${open ? '' : ' is-collapsed'}`} aria-label="Diagram editor">
       <header className="editor-head">
         <h2>{d.title || UNTITLED_HEXAGON}</h2>
-        <button type="button" className="icon-button" aria-expanded={open} aria-controls="editor-body" aria-label={open ? 'Collapse editor' : 'Expand editor'} title={open ? 'Collapse editor' : 'Expand editor'} onClick={onToggle}>
+        <button type="button" className="icon-button" aria-expanded={open} aria-controls="editor-body" aria-label={open ? 'Collapse editor' : 'Expand editor'} title={open ? 'Collapse editor' : 'Expand editor'} onClick={() => useViewStore.setState({ editorOpen: !open })}>
           <Icon name="panel" />
         </button>
       </header>
@@ -184,7 +175,7 @@ export function Editor({
           </ul>
         </Fold>
 
-        <CollectionSections hexId={hexId} map={map} diagram={d} onPrune={onPrune} onRecord={onRecord} fieldSession={fieldSession} />
+        <CollectionSections hexId={hexId} map={map} diagram={d} />
       </div>
     </aside>
   )

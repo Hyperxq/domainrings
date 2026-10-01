@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { FULL_TOOLBAR, ROOMY_TOOLBAR, Toolbar } from './Toolbar'
+import { usePreferencesStore } from './state/preferencesStore'
+import { useMapStore } from '../model/store'
+import { manyHexagonMap } from '../test/fixtures'
+import { useViewStore } from './state/viewStore'
 
 type Listener = () => void
 const minWidth = (query: string) => Number(/min-width: (\d+)px/.exec(query)![1])
@@ -23,8 +27,12 @@ beforeEach(() => {
     removeEventListener: (_: string, l: Listener) => listeners.delete(l),
   })) as unknown as typeof matchMedia
 })
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
 
+/** Seeds the stores the toolbar reads, then renders it; its choices land in those stores. */
 function renderToolbar(
   overrides: {
     mode?: 'overview' | 'detailed'
@@ -35,46 +43,27 @@ function renderToolbar(
     exportScope?: 'map' | 'hexagon'
     themeChoice?: 'light' | 'dark' | 'system'
     palette?: 'default' | 'ink' | 'moss'
-    onExpandAll?: (expand: boolean) => void
+    canExpandAll?: boolean
   } = {},
 ) {
-  const props = {
-    themeChoice: 'system' as 'light' | 'dark' | 'system',
-    palette: 'default' as 'default' | 'ink' | 'moss',
-    onNew: vi.fn(),
-    onExample: vi.fn(),
-    onOpen: vi.fn(),
-    onCopyLink: vi.fn(),
-    onExport: vi.fn(),
-    onTheme: vi.fn(),
-    onPalette: vi.fn(),
-    mode: 'detailed' as const,
-    onMode: vi.fn(),
-    guides: true,
-    onGuides: vi.fn(),
-    highlight: true,
-    onHighlight: vi.fn(),
-    dependents: false,
-    onDependents: vi.fn(),
-    showScope: false,
-    exportScope: 'map' as 'map' | 'hexagon',
-    onExportScope: vi.fn(),
-    ...overrides,
-  }
-  render(<Toolbar {...props} />)
+  const { mode = 'detailed', guides = true, highlight = true, dependents = false, themeChoice = 'system', palette = 'default', exportScope = 'map', showScope = false, canExpandAll = false } = overrides
+  usePreferencesStore.setState({ mode, guides, highlight, dependents, theme: themeChoice, palette })
+  useViewStore.setState({ exportScope })
+  const props = { onNew: vi.fn(), onExample: vi.fn(), onOpen: vi.fn(), onCopyLink: vi.fn(), onExport: vi.fn() }
+  render(<Toolbar {...props} showScope={showScope} canExpandAll={canExpandAll} />)
   return props
 }
 
 describe('Toolbar at full width', () => {
   it('has a Dependents toggle that shows its state, explains itself and flips on click', () => {
-    const props = renderToolbar({ dependents: false })
+    renderToolbar({ dependents: false })
     const toggle = screen.getByRole('button', { name: 'Dependents' })
     expect(toggle.getAttribute('aria-pressed')).toBe('false')
     expect(toggle.getAttribute('title')).toMatch(/what depends on the selection/i)
 
     fireEvent.click(toggle)
 
-    expect(props.onDependents).toHaveBeenCalledWith(true)
+    expect(usePreferencesStore.getState().dependents).toBe(true)
     cleanup()
     renderToolbar({ dependents: true })
     expect(screen.getByRole('button', { name: 'Dependents' }).getAttribute('aria-pressed')).toBe('true')
@@ -137,12 +126,13 @@ describe('Toolbar below the full-width breakpoint', () => {
 })
 
 describe('Toolbar expand and collapse all', () => {
-  it('shows Expand all and Collapse all beside the view toggles, each reporting its own direction', () => {
-    const onExpandAll = vi.fn()
-    renderToolbar({ onExpandAll })
+  it('shows Expand all and Collapse all beside the view toggles, each setting its own direction', () => {
+    useMapStore.getState().replace(manyHexagonMap(6))
+    renderToolbar({ canExpandAll: true })
     fireEvent.click(screen.getByRole('button', { name: 'Expand all' }))
+    expect([...useViewStore.getState().expanded]).toEqual(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
     fireEvent.click(screen.getByRole('button', { name: 'Collapse all' }))
-    expect(onExpandAll.mock.calls).toEqual([[true], [false]])
+    expect(useViewStore.getState().expanded.size).toBe(0)
   })
 
   it('shows neither when the map has nothing to expand', () => {
@@ -153,16 +143,16 @@ describe('Toolbar expand and collapse all', () => {
 
   it('folds both into the View menu below the roomy breakpoint', () => {
     viewport = ROOMY - 1
-    const onExpandAll = vi.fn()
-    renderToolbar({ onExpandAll })
+    useMapStore.getState().replace(manyHexagonMap(6))
+    renderToolbar({ canExpandAll: true })
     expect(screen.queryByRole('button', { name: 'Expand all' })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'View' }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Expand all' }))
+    expect(useViewStore.getState().expanded.size).toBe(6)
     fireEvent.click(screen.getByRole('button', { name: 'View' }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Collapse all' }))
-
-    expect(onExpandAll.mock.calls).toEqual([[true], [false]])
+    expect(useViewStore.getState().expanded.size).toBe(0)
   })
 })
 
@@ -180,7 +170,7 @@ describe('Toolbar between the two breakpoints', () => {
   })
 
   it('folds the export scope into the Export menu as soon as the formats are a menu', () => {
-    const { onExportScope } = renderToolbar({ showScope: true, exportScope: 'map' })
+    renderToolbar({ showScope: true, exportScope: 'map' })
     expect(screen.queryByRole('radio', { name: 'Hexagon' })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Export' }))
@@ -194,7 +184,7 @@ describe('Toolbar between the two breakpoints', () => {
     ])
 
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Hexagon' }))
-    expect(onExportScope).toHaveBeenCalledWith('hexagon')
+    expect(useViewStore.getState().exportScope).toBe('hexagon')
   })
 })
 
@@ -233,18 +223,17 @@ describe('Toolbar below the compact breakpoint', () => {
   })
 
   it.each([
-    ['Overview', 'onMode', 'overview'],
-    ['Detailed', 'onMode', 'detailed'],
-    ['Guides', 'onGuides', true],
-    ['Highlight', 'onHighlight', false],
-    ['Dependents', 'onDependents', true],
-  ] as const)('choosing %s in the View menu calls %s with %s', (name, handler, value) => {
-    const props = renderToolbar({ mode: 'detailed', guides: false, highlight: true })
+    ['Overview', 'mode', 'overview'],
+    ['Detailed', 'mode', 'detailed'],
+    ['Guides', 'guides', true],
+    ['Highlight', 'highlight', false],
+    ['Dependents', 'dependents', true],
+  ] as const)('choosing %s in the View menu sets %s to %s and nothing else', (name, field, value) => {
+    renderToolbar({ mode: 'detailed', guides: false, highlight: true })
+    const before = usePreferencesStore.getState()
     openView()
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name }))
-    expect(props[handler]).toHaveBeenCalledTimes(1)
-    expect(props[handler]).toHaveBeenCalledWith(value)
-    for (const other of (['onMode', 'onGuides', 'onHighlight', 'onDependents'] as const).filter((h) => h !== handler)) expect(props[other]).not.toHaveBeenCalled()
+    expect(usePreferencesStore.getState()).toEqual({ ...before, [field]: value })
   })
 
   it('keeps the Export menu, with no kind select anywhere (REQ-01)', () => {
@@ -274,21 +263,20 @@ describe('Toolbar below the compact breakpoint', () => {
   })
 
   it('choosing a scope in the Export menu sets the scope and exports nothing', () => {
-    const { onExport, onExportScope } = renderToolbar({ showScope: true, exportScope: 'map' })
+    const { onExport } = renderToolbar({ showScope: true, exportScope: 'map' })
     openExport()
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Hexagon' }))
-    expect(onExportScope).toHaveBeenCalledTimes(1)
-    expect(onExportScope).toHaveBeenCalledWith('hexagon')
+    expect(useViewStore.getState().exportScope).toBe('hexagon')
     expect(onExport).not.toHaveBeenCalled()
   })
 
   it('choosing a format in the Export menu exports it and leaves the scope alone', () => {
-    const { onExport, onExportScope } = renderToolbar({ showScope: true, exportScope: 'hexagon' })
+    const { onExport } = renderToolbar({ showScope: true, exportScope: 'hexagon' })
     openExport()
     fireEvent.click(screen.getByRole('menuitem', { name: 'PNG' }))
     expect(onExport).toHaveBeenCalledTimes(1)
     expect(onExport).toHaveBeenCalledWith('png')
-    expect(onExportScope).not.toHaveBeenCalled()
+    expect(useViewStore.getState().exportScope).toBe('hexagon')
   })
 
   it('lists no scope items for a single-hexagon map', () => {
@@ -354,18 +342,17 @@ describe('Toolbar appearance menu', () => {
   })
 
   it.each([
-    ['Light', 'onTheme', 'light'],
-    ['Dark', 'onTheme', 'dark'],
-    ['System', 'onTheme', 'system'],
-    ['Default', 'onPalette', 'default'],
-    ['Moss', 'onPalette', 'moss'],
-  ] as const)('choosing %s calls %s with %s and nothing else', (name, handler, value) => {
-    const props = renderToolbar({ themeChoice: 'light', palette: 'ink' })
+    ['Light', 'theme', 'light'],
+    ['Dark', 'theme', 'dark'],
+    ['System', 'theme', 'system'],
+    ['Default', 'palette', 'default'],
+    ['Moss', 'palette', 'moss'],
+  ] as const)('choosing %s sets %s to %s and nothing else', (name, field, value) => {
+    renderToolbar({ themeChoice: 'light', palette: 'ink' })
+    const before = usePreferencesStore.getState()
     openAppearance()
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: new RegExp(`^${name}`) }))
-    expect(props[handler]).toHaveBeenCalledTimes(1)
-    expect(props[handler]).toHaveBeenCalledWith(value)
-    expect(props[handler === 'onTheme' ? 'onPalette' : 'onTheme']).not.toHaveBeenCalled()
+    expect(usePreferencesStore.getState()).toEqual({ ...before, [field]: value })
   })
 
   it('shows the moon on a light page and the sun on a dark one, resolving System from the OS', () => {

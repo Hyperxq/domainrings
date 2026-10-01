@@ -3,6 +3,7 @@ import type { Box } from '../layout/geometry'
 import { legendSize, type LegendModel } from '../layout/legend'
 import type { StoredFile } from '../model/fileFormat'
 import { toHexa } from '../model/hexa'
+import { useNoticeStore } from './state/noticeStore'
 import { download, exportBounds, fileSlug, legendDrawn, pngBlob, svgMarkup } from './exporters'
 
 export interface ActiveDocument {
@@ -14,7 +15,9 @@ export interface ActiveDocument {
 }
 
 /** Builds and downloads the active document as `.hexa`, SVG or PNG. Owns the ref the stages hand their `<svg>` to. */
-export function useExport(active: ActiveDocument, legend: LegendModel, hexId: string, show: (next: { tone: 'status' | 'error'; message: string }) => void) {
+const { show } = useNoticeStore.getState()
+
+export function useExport(active: ActiveDocument, legend: LegendModel, hexId: string) {
   const svgRef = useRef<SVGSVGElement>(null)
   const exportAs = async (format: 'hexa' | 'svg' | 'png') => {
     try {

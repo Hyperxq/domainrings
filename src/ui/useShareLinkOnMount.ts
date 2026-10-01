@@ -1,16 +1,18 @@
 import { useEffect, useRef } from 'react'
 import type { StoredFile } from '../model/fileFormat'
 import { decodeSharePayload, SHARE_HASH_PREFIX } from './shareLink'
+import { useNoticeStore } from './state/noticeStore'
+
+const showError = (message: string) => useNoticeStore.getState().show({ tone: 'error', message })
 
 interface ShareLinkActions {
   parseSource: (text: string, label: string) => Promise<StoredFile | undefined>
   swap: (file: StoredFile, message: string) => void
-  showError: (message: string) => void
 }
 
 /** REQ-01/02/03/04: a share link in the address is consumed once, on mount. The ref is set before any await so
  * React StrictMode's double-invoke of this effect never re-enters the async branch below. */
-export function useShareLinkOnMount({ parseSource, swap, showError }: ShareLinkActions) {
+export function useShareLinkOnMount({ parseSource, swap }: ShareLinkActions) {
   const linkHandled = useRef(false)
   useEffect(() => {
     if (linkHandled.current) return
