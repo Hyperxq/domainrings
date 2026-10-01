@@ -25,6 +25,12 @@ interface ToolbarProps {
   showScope: boolean
 }
 
+const MODES = ['overview', 'detailed'] as const
+const SWITCHES = [
+  { id: 'guides', label: 'Guides', title: 'Show the dashed guide spokes' },
+  { id: 'highlight', label: 'Highlight', title: 'Highlight the layer under the pointer' },
+  { id: 'dependents', label: 'Dependents', title: 'Emphasize what depends on the selection, not what it depends on' },
+] as const
 const SCOPE_LABEL: Record<ExportScope, string> = { map: 'Map', hexagon: 'Hexagon' }
 const MODE_LABEL: Record<LayoutMode, string> = { overview: 'Overview', detailed: 'Detailed' }
 const THEME_LABEL: Record<ThemeChoice, string> = { light: 'Light', dark: 'Dark', system: 'System' }
@@ -53,7 +59,8 @@ const roomyMedia = media(ROOMY_TOOLBAR)
 const darkMedia = media('(prefers-color-scheme: dark)')
 
 export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, canExpandAll, showScope }: ToolbarProps) {
-  const { mode, guides, highlight, dependents, theme: themeChoice, palette } = usePreferencesStore()
+  const preferences = usePreferencesStore()
+  const { mode, theme: themeChoice, palette } = preferences
   const exportScope = useViewStore((s) => s.exportScope)
   const onExpandAll = (expand: boolean) => useViewStore.getState().expandAll(expand ? useMapStore.getState().map.hexagons.map((h) => h.id) : [])
   const full = useSyncExternalStore(fullMedia.subscribe, fullMedia.matches)
@@ -69,30 +76,44 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, canExp
 
       {roomy ? (
         <>
-          <fieldset className="kinds">
-            <legend className="visually-hidden">Detail level</legend>
-            {(['overview', 'detailed'] as const).map((m) => (
-              <label key={m} className="kind">
-                <input type="radio" name="mode" value={m} checked={mode === m} onChange={() => usePreferencesStore.setState({ mode: m })} />
-                <span>{MODE_LABEL[m]}</span>
-              </label>
+          <span
+            className="segmented"
+            role="radiogroup"
+            aria-label="Detail level"
+            onKeyDown={(e) => {
+              if (!e.key.startsWith('Arrow')) return
+              e.preventDefault()
+              const next = MODES[(MODES.indexOf(mode) + (e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1) + MODES.length) % MODES.length]
+              usePreferencesStore.setState({ mode: next })
+              e.currentTarget.querySelector<HTMLElement>(`[data-mode="${next}"]`)?.focus()
+            }}
+          >
+            {MODES.map((m) => (
+              <button key={m} type="button" role="radio" aria-checked={mode === m} tabIndex={mode === m ? 0 : -1} data-mode={m} className="segmented-option" onClick={() => usePreferencesStore.setState({ mode: m })}>
+                {MODE_LABEL[m]}
+              </button>
             ))}
-          </fieldset>
-          <button type="button" className="text-button" aria-pressed={guides} title="Show the dashed guide spokes" onClick={() => usePreferencesStore.setState({ guides: !guides })}>
-            Guides
-          </button>
-          <button type="button" className="text-button" aria-pressed={highlight} title="Highlight the layer under the pointer" onClick={() => usePreferencesStore.setState({ highlight: !highlight })}>
-            Highlight
-          </button>
-          <button type="button" className="text-button" aria-pressed={dependents} title="Emphasize what depends on the selection, not what it depends on" onClick={() => usePreferencesStore.setState({ dependents: !dependents })}>
-            Dependents
-          </button>
+          </span>
+
+          <span className="divider" aria-hidden="true" />
+
+          {SWITCHES.map(({ id, label, title }) => (
+            <button key={id} type="button" role="switch" aria-checked={preferences[id]} className="switch" title={title} onClick={() => usePreferencesStore.setState({ [id]: !preferences[id] })}>
+              <span className="switch-track" aria-hidden="true">
+                <span className="switch-knob" />
+              </span>
+              {label}
+            </button>
+          ))}
           {canExpandAll && (
             <>
-              <button type="button" className="text-button" title="Show every hexagon in full" onClick={() => onExpandAll(true)}>
+              <span className="divider" aria-hidden="true" />
+              <button type="button" className="tool" title="Show every hexagon in full" onClick={() => onExpandAll(true)}>
+                <Icon name="expand" />
                 Expand all
               </button>
-              <button type="button" className="text-button" title="Show only the current hexagon in full" onClick={() => onExpandAll(false)}>
+              <button type="button" className="tool" title="Show only the current hexagon in full" onClick={() => onExpandAll(false)}>
+                <Icon name="shrink" />
                 Collapse all
               </button>
             </>
@@ -107,19 +128,19 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, canExp
             </>
           }
           choices={[
-            { id: 'overview', label: MODE_LABEL.overview, checked: mode === 'overview' },
-            { id: 'detailed', label: MODE_LABEL.detailed, checked: mode === 'detailed' },
-            { id: 'guides', label: 'Guides', checked: guides },
-            { id: 'highlight', label: 'Highlight', checked: highlight },
-            { id: 'dependents', label: 'Dependents', checked: dependents },
-            ...(canExpandAll ? [{ id: 'expand-all' as const, label: 'Expand all' }, { id: 'collapse-all' as const, label: 'Collapse all' }] : []),
+            ...MODES.map((m) => ({ id: m, label: MODE_LABEL[m], checked: mode === m, control: 'radio' as const })),
+            ...SWITCHES.map(({ id, label }) => ({ id, label, checked: preferences[id], control: 'switch' as const })),
+            ...(canExpandAll
+              ? [
+                  { id: 'expand-all' as const, label: 'Expand all', control: 'action' as const, icon: 'expand' as const },
+                  { id: 'collapse-all' as const, label: 'Collapse all', control: 'action' as const, icon: 'shrink' as const },
+                ]
+              : []),
           ]}
           onChoose={(id) => {
-            if (id === 'guides') usePreferencesStore.setState({ guides: !guides })
-            else if (id === 'highlight') usePreferencesStore.setState({ highlight: !highlight })
-            else if (id === 'dependents') usePreferencesStore.setState({ dependents: !dependents })
+            if (id === 'overview' || id === 'detailed') usePreferencesStore.setState({ mode: id })
             else if (id === 'expand-all' || id === 'collapse-all') onExpandAll(id === 'expand-all')
-            else usePreferencesStore.setState({ mode: id })
+            else usePreferencesStore.setState({ [id]: !preferences[id] })
           }}
         />
       )}

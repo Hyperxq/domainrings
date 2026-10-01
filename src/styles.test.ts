@@ -102,3 +102,14 @@ describe('dependents emphasis', () => {
     expect(css.split(`stroke-dasharray: ${pattern}`)).toHaveLength(2)
   })
 })
+
+describe('toolbar controls', () => {
+  const rule = (selector: string) => {
+    const open = css.indexOf('{', css.indexOf(`\n${selector} {`))
+    return css.slice(open, css.indexOf('}', open))
+  }
+
+  it.each(['.switch', '.segmented-option', '.tool'])('never wraps the label of %s', (selector) => {
+    expect(rule(selector)).toMatch(/white-space:\s*nowrap/)
+  })
+})
