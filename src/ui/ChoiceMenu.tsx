@@ -11,7 +11,7 @@ export interface Choice<Id extends string> {
   control?: 'radio' | 'switch' | 'action'
   /** The icon an `action` shows beside its label. */
   icon?: IconName
-  /** Consecutive choices sharing a group sit under one labelled heading, set apart from the choices around them. */
+  /** Choices sharing a group sit under one labelled heading, placed where the group's first choice is, set apart from the choices around them. */
   group?: string
 }
 
@@ -74,7 +74,14 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
       else acc.push([entry])
       return acc
     }, [])
-  const sections = chunk(choices, (a, b) => a.group === b.group).map((section) => chunk(section, (a, b) => a.control === b.control))
+  const gathered = choices.reduce<Choice<Id>[][]>((acc, entry) => {
+    const last = acc.at(-1)
+    const home = entry.group === undefined ? (last?.[0].group === undefined ? last : undefined) : acc.find((s) => s[0].group === entry.group)
+    if (home) home.push(entry)
+    else acc.push([entry])
+    return acc
+  }, [])
+  const sections = gathered.map((section) => chunk(section, (a, b) => a.control === b.control))
   const runsOf = (runs: Choice<Id>[][]) =>
     runs.map((run, i) => (
       <Fragment key={run[0].id}>

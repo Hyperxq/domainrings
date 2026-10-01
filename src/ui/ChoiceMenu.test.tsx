@@ -271,9 +271,24 @@ describe('ChoiceMenu group headings', () => {
 
   it('sets the group apart from the choices before it with a separator, and keeps every item in arrow-key order', () => {
     open()
-    expect(screen.getAllByRole('separator').length).toBeGreaterThan(0)
+    const group = screen.getByRole('group', { name: 'Export image' })
+    const menuSeparators = [...screen.getByRole('menu').children].filter((child) => child.getAttribute('role') === 'separator')
+    expect(menuSeparators).toEqual([group.previousElementSibling])
+    expect(group.previousElementSibling?.previousElementSibling?.textContent).toBe('Copy link')
     const names = [...screen.getByRole('menu').querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)
     expect(names).toEqual(['Copy link', 'Only the current hexagon', 'SVG', 'PNG'])
+  })
+
+  it('renders a group once, at its first choice, even when its choices are not consecutive', () => {
+    const scattered = [
+      { id: 'basic', label: 'Basic', control: 'action', group: 'Hexagonal' },
+      { id: 'onion', label: 'Onion basic', control: 'action', group: 'Onion' },
+      { id: 'stress', label: 'Stress', control: 'action', group: 'Hexagonal' },
+    ] as const
+    render(<ChoiceMenu label="File" choices={scattered} onChoose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'File' }))
+    expect(screen.getAllByRole('group').map((g) => g.getAttribute('aria-labelledby') && document.getElementById(g.getAttribute('aria-labelledby')!)?.textContent)).toEqual(['Hexagonal', 'Onion'])
+    expect(within(screen.getByRole('group', { name: 'Hexagonal' })).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Basic', 'Stress'])
   })
 
   it('does not count the heading as an item', () => {
