@@ -5,6 +5,8 @@ import { diagramOf } from '../../model/map'
 import type { HexaMap } from '../../model/schema'
 import { useMapStore } from '../../model/store'
 import { revealInEditor } from '../revealInEditor'
+import { useHistoryStore } from './historyStore'
+import { useNoticeStore } from './noticeStore'
 
 export type ExportScope = 'map' | 'hexagon'
 
@@ -27,6 +29,12 @@ interface ViewStore extends ViewData {
   /** Expands a compact hexagon in full, or compacts an expanded one back. */
   toggleExpanded: (id: string) => void
   expandAll: (ids: string[]) => void
+  /** Enters link mode on `ref`, or leaves it with `null`. */
+  startLinking: (ref: string | null) => void
+  /** Names the just-grown hexagon, which completes the add step Undo already covers. */
+  commitGrow: (title: string) => void
+  /** Esc while naming: the grow is undone, exactly as a one-step undo. */
+  cancelGrow: () => void
 }
 
 const initialView = (): ViewData => ({
@@ -38,7 +46,7 @@ const initialView = (): ViewData => ({
   growing: null,
 })
 
-export const useViewStore = create<ViewStore>()((set) => ({
+export const useViewStore = create<ViewStore>()((set, get) => ({
   ...initialView(),
   reveal: (ref, focus) => {
     // The card only exists to scroll to once the collapsed editor has rendered open.
@@ -47,6 +55,22 @@ export const useViewStore = create<ViewStore>()((set) => ({
   },
   toggleExpanded: (id) => set(({ expanded }) => ({ expanded: new Set(expanded.has(id) ? [...expanded].filter((x) => x !== id) : [...expanded, id]) })),
   expandAll: (ids) => set({ expanded: new Set(ids) }),
+  startLinking: (ref) => {
+    if (ref) useNoticeStore.getState().clearStatus()
+    set({ linking: ref })
+  },
+  commitGrow: (title) => {
+    useHistoryStore.getState().absorbEdit()
+    useMapStore.getState().setMeta(get().growing!.hexId, { title })
+    set({ growing: null })
+  },
+  cancelGrow: () => {
+    const { before } = get().growing!
+    useHistoryStore.getState().dropUndo(before)
+    useMapStore.getState().restore(before)
+    set({ growing: null })
+    useNoticeStore.setState({ notice: null })
+  },
 }))
 
 // The expanded set and link mode belong to the document they were chosen in: a swapped map ends both, and

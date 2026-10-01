@@ -3,6 +3,7 @@ import { contextName } from '../model/map'
 import { Editor } from './Editor'
 import type { FieldSession } from './editor/fieldSession'
 import { Legend } from './Legend'
+import { pruneToast } from './pruneNotice'
 import { Stage } from './Stage'
 import { useViewStore } from './state/viewStore'
 import { useHexagonalCommands } from './useHexagonalCommands'
@@ -16,9 +17,9 @@ type HexagonalWorkspaceProps = Omit<StageProps, 'contextLabel' | 'onDelete' | 'o
   }
 
 /** Editor, legend and stage for a Hexagonal map, wired to the edit commands that toast an undoable step. */
-export function HexagonalWorkspace({ fieldSession, show, nameOf, parseFile, ...stage }: HexagonalWorkspaceProps) {
+export function HexagonalWorkspace({ fieldSession, nameOf, parseFile, ...stage }: HexagonalWorkspaceProps) {
   const { map, hexId, diagram, onRecord } = stage
-  const commands = useHexagonalCommands({ map, hexId, diagram, show, nameOf, parseFile })
+  const commands = useHexagonalCommands({ map, hexId, diagram, nameOf, parseFile })
   const editorOpen = useViewStore((s) => s.editorOpen)
   const contextLabel = contextName(map, map.hexagons.find((h) => h.id === hexId)!.contextId)
   return (
@@ -26,7 +27,7 @@ export function HexagonalWorkspace({ fieldSession, show, nameOf, parseFile, ...s
       <Editor
         open={editorOpen}
         onToggle={() => useViewStore.setState({ editorOpen: !editorOpen })}
-        onPrune={commands.pruneToast}
+        onPrune={pruneToast}
         onRecord={onRecord}
         fieldSession={fieldSession}
         onAddHexagon={() => commands.completeGrow(undefined, 'same')}

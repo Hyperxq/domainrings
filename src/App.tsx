@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { canCompact } from './layout/compactHexagon'
 import { hexagonBounds } from './layout/lattice'
 import { currentHexagon, layoutMap } from './layout/map'
@@ -10,7 +10,6 @@ import { collectionOf } from './model/links'
 import { diagramOf, UNTITLED_HEXAGON } from './model/map'
 import { useCleanStore } from './model/cleanStore'
 import { useOnionStore } from './model/onionStore'
-import { useSaveFailed, type Recovery } from './model/persistence'
 import type { StoredFile } from './model/fileFormat'
 import type { CleanFile, OnionFile } from './model/schema'
 import { useMapStore } from './model/store'
@@ -18,12 +17,13 @@ import { ArchitectureChoiceDialog } from './ui/ArchitectureChoiceDialog'
 import { useExport } from './ui/useExport'
 import { useOpenDocument } from './ui/useOpenDocument'
 import { useHistoryStore } from './ui/state/historyStore'
+import { useNoticeStore } from './ui/state/noticeStore'
 import { useUndoHistory } from './ui/useUndoHistory'
 import { usePreferencesStore } from './ui/state/preferencesStore'
 import { useViewStore } from './ui/state/viewStore'
 import { encodeSharePayload, isOversizedShareLink, shareLinkURL } from './ui/shareLink'
 import { useShareLinkOnMount } from './ui/useShareLinkOnMount'
-import type { Notice, UndoSnapshot } from './ui/notice'
+import type { UndoSnapshot } from './ui/notice'
 import { CleanWorkspace } from './ui/CleanWorkspace'
 import { HexagonalWorkspace } from './ui/HexagonalWorkspace'
 import { NoticeColumn } from './ui/NoticeColumn'
@@ -32,18 +32,13 @@ import { Toast } from './ui/Toast'
 import { Toolbar } from './ui/Toolbar'
 
 
-const RECOVERY_MESSAGE: Record<'kept' | 'not-kept', string> = {
-  kept: "Your last session couldn't be restored, so the example is open. Your saved work is kept in this browser; nothing was deleted.",
-  'not-kept': "Your last session couldn't be restored and a copy couldn't be kept, so autosave is off.",
-}
-
-const { restore, setMeta } = useMapStore.getState()
+const { show } = useNoticeStore.getState()
 
 interface AppProps {
-  boot?: { recovery: Recovery; unreadableText?: string; kind?: StoredFile['kind'] }
+  boot?: { kind?: StoredFile['kind'] }
 }
 
-export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
+export function App({ boot = {} }: AppProps = {}) {
   // The sole branch point (ADR-02): both stores are read unconditionally — the inactive one never mutates,
   // since its UI never mounts — and `activeKind` (flipped by the chooser and by swap()) decides which renders.
   const [activeKind, setActiveKind] = useState<StoredFile['kind']>(() => boot.kind ?? 'hexagonal')
@@ -66,17 +61,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const legendInExport = usePreferencesStore((s) => s.legendInExport)
   const expanded = useViewStore((s) => s.expanded)
   const model = layoutMap(map, { mode, current: hexId, expanded })
-  const [notice, setNotice] = useState<Notice | null>(null)
-  // Its own slot, never touched by show()/startLinking: it stays until the user dismisses it (REQ-03.2),
-  // whatever status toasts or link-mode hints come and go in the meantime.
-  const [recoveryNotice, setRecoveryNotice] = useState<Notice | null>(() =>
-    boot.recovery === 'none'
-      ? null
-      : { id: 0, tone: 'recovery', message: RECOVERY_MESSAGE[boot.recovery], download: boot.recovery === 'kept' ? boot.unreadableText : undefined },
-  )
-  const saveFailed = useSaveFailed((s) => s.failed)
-  const noticeSeq = useRef(0)
-  const growing = useViewStore((s) => s.growing)
+  const notice = useNoticeStore((s) => s.notice)
   const exportScope = useViewStore((s) => s.exportScope)
   const choosingArchitecture = useViewStore((s) => s.choosingArchitecture)
   const linking = useViewStore((s) => s.linking)
@@ -99,26 +84,16 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
       // The restored document's own kind IS the view to bring back (REQ-09) — a same-kind edit's undo
       // just re-sets the kind already on screen, a no-op render.
       setActiveKind(entry.map.kind)
-      setNotice((n) => (n?.undo === entry ? null : n))
+      useNoticeStore.getState().clearUndone(entry)
       // Undoing a grow is the same restore as Esc-while-naming — close the field too.
       useViewStore.setState({ growing: null })
     },
   })
-  const show = (next: Omit<Notice, 'id'>) => {
-    if (next.undo) useHistoryStore.getState().record(next.undo)
-    setNotice({ ...next, id: ++noticeSeq.current })
-  }
   // The one undo mechanism (REQ-09), instantiated once per kind: OnionEditor/OnionStage and CleanEditor/CleanStage
   // each get the SAME callback for every action they offer, so a dependency created from the canvas gesture
   // toasts identically to one created from the editor's own form (ADR-02).
   const mutateOnion = (message: string, before: OnionFile) => show({ tone: 'status', message, undo: { map: before } })
   const mutateClean = (message: string, before: CleanFile) => show({ tone: 'status', message, undo: { map: before } })
-  // Retracts the toast for an add that was immediately cancelled (naming Esc'd out) without offering it as an
-  // undo step — the add already unwound itself; mirrors onNamingCancel's own setNotice(null) below.
-  const clearNotice = () => {
-    useHistoryStore.getState().dropUndo(notice?.undo)
-    setNotice(null)
-  }
   // Onion and Clean have no ports or adapters — each kind builds the legend it actually draws (ADR-01), all
   // three sharing the one open/close and "include in export" state above.
   const legend = activeKind === 'onion' ? legendForOnion(onionMap) : activeKind === 'clean' ? legendForClean(cleanMap) : legendFor(diagram)
@@ -127,7 +102,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // `undo.map.kind`, so the view returns with it. One snapshot, one restore path, for every swap direction.
   const beforeSwap: UndoSnapshot = activeKind === 'onion' ? { map: onionMap, swap: true } : activeKind === 'clean' ? { map: cleanMap, swap: true } : { ...before, swap: true }
 
-  const { swap, completeNew, parseSource, parseFile, importFile } = useOpenDocument({ beforeSwap, show, setActiveKind })
+  const { swap, completeNew, parseSource, parseFile, importFile } = useOpenDocument({ beforeSwap, setActiveKind })
 
   const nameOf = (ref: string) => {
     const collection = collectionOf(diagram, ref)
@@ -135,15 +110,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     return items.find((i) => i.id === ref)?.name ?? ''
   }
 
-  // A sticky toast (DEL-02) clears itself the moment the map next changes for any OTHER reason — not on a timer.
-  if (notice?.sticky && notice.staleWhenMapIsnt && map !== notice.staleWhenMapIsnt) setNotice(null)
-
-  const startLinking = (ref: string | null) => {
-    // The hint replaces any status toast; an error stays until it is read.
-    if (ref) setNotice((n) => (n?.tone === 'error' ? n : null))
-    useViewStore.setState({ linking: ref })
-  }
-  useShareLinkOnMount({ parseSource, swap, showError: (message) => show({ tone: 'error', message }) })
+  useShareLinkOnMount({ parseSource, swap })
 
   // REQ-05/06: the ACTIVE document's whole file (`active.file`, the same single resolution `exportAs` uses) —
   // not always the Hexagonal map, and never scoped to one hexagon, which "Copy link" never promises.
@@ -157,7 +124,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     show({ tone: 'status', message: 'Copied a link to this map.' })
   }
 
-  const { svgRef, exportAs } = useExport(active, legend, hexId, show)
+  const { svgRef, exportAs } = useExport(active, legend, hexId)
 
   return (
     <>
@@ -177,7 +144,6 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         <HexagonalWorkspace
           legend={legend}
           fieldSession={{ begin: useHistoryStore.getState().beginField, end: () => useHistoryStore.getState().endField() }}
-          show={show}
           nameOf={nameOf}
           parseFile={parseFile}
           onRecord={useHistoryStore.getState().record}
@@ -188,18 +154,9 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           revision={revision}
           title={diagram.title}
           svgRef={svgRef}
-          onLinking={startLinking}
-          onNamed={(title) => {
-            useHistoryStore.getState().absorbEdit()
-            setMeta(growing!.hexId, { title })
-            useViewStore.setState({ growing: null })
-          }}
-          onNamingCancel={() => {
-            useHistoryStore.getState().dropUndo(growing!.before)
-            restore(growing!.before)
-            useViewStore.setState({ growing: null })
-            setNotice(null)
-          }}
+          onLinking={useViewStore.getState().startLinking}
+          onNamed={useViewStore.getState().commitGrow}
+          onNamingCancel={useViewStore.getState().cancelGrow}
         />
       )}
       {activeKind === 'onion' && (
@@ -211,7 +168,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           onReject={(message) => show({ tone: 'error', message })}
           onMutate={mutateOnion}
           onNamed={useHistoryStore.getState().absorbEdit}
-          onCancelMutate={clearNotice}
+          onCancelMutate={useNoticeStore.getState().retract}
         />
       )}
       {activeKind === 'clean' && (
@@ -223,7 +180,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           onReject={(message) => show({ tone: 'error', message })}
           onMutate={mutateClean}
           onNamed={useHistoryStore.getState().absorbEdit}
-          onCancelMutate={clearNotice}
+          onCancelMutate={useNoticeStore.getState().retract}
         />
       )}
       {choosingArchitecture && <ArchitectureChoiceDialog onChoose={completeNew} onCancel={() => useViewStore.setState({ choosingArchitecture: false })} />}
@@ -234,10 +191,10 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
           message={notice.message}
           sticky={notice.sticky}
           onUndo={notice.undo && undoLast}
-          onClose={() => setNotice(null)}
+          onClose={() => useNoticeStore.setState({ notice: null })}
         />
       )}
-      <NoticeColumn notice={notice} saveFailed={saveFailed} recoveryNotice={recoveryNotice} onDismiss={() => setNotice(null)} onDismissRecovery={() => setRecoveryNotice(null)} />
+      <NoticeColumn />
     </>
   )
 }

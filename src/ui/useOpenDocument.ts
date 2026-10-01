@@ -5,22 +5,23 @@ import { useOnionStore } from '../model/onionStore'
 import { useMapStore } from '../model/store'
 import type { StoredFile } from '../model/fileFormat'
 import type { ArchitectureChoice } from './ArchitectureChoiceDialog'
-import type { Notice, UndoSnapshot } from './notice'
+import type { UndoSnapshot } from './notice'
+import { useNoticeStore } from './state/noticeStore'
 import { useViewStore } from './state/viewStore'
 
 const { replace } = useMapStore.getState()
 const { replace: replaceOnion } = useOnionStore.getState()
 const { replace: replaceClean } = useCleanStore.getState()
+const { show } = useNoticeStore.getState()
 
 interface OpenDocumentContext {
   /** The document being replaced, captured before any store mutation whatever kind is active. */
   beforeSwap: UndoSnapshot
-  show: (next: Omit<Notice, 'id'>) => void
   setActiveKind: Dispatch<SetStateAction<StoredFile['kind']>>
 }
 
 /** Turns a new, opened or loaded document into the active one: routes it to the store of its own kind and flips the view. */
-export function useOpenDocument({ beforeSwap, show, setActiveKind }: OpenDocumentContext) {
+export function useOpenDocument({ beforeSwap, setActiveKind }: OpenDocumentContext) {
   // The one kind-dispatch outside the render fork (ADR-02): routes a newly created/opened/loaded document to
   // whichever store matches its own kind and flips the active view.
   const swap = (file: StoredFile, message: string) => {
