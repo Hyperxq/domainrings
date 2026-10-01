@@ -334,10 +334,24 @@ svg[data-emphasis='dependents'] .compact-port[data-chain] circle { stroke-dashar
 .context-name {
   position: absolute;
   translate: -50% -50%;
-  white-space: nowrap;
-  font: 600 16px var(--font-mono);
+  /* `max-content` keeps an absolutely placed name from shrinking to the room left of its anchor; the inline
+     max-width (the region's on-screen width) is what wraps it. */
+  width: max-content;
+  padding: 0.15em 0.5em;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: anywhere;
   color: var(--ink);
-  text-shadow: 0 0 4px var(--card), 0 0 4px var(--card), 0 0 8px var(--card);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
   animation: enter var(--motion-base) var(--motion-ease);
 }
 /* Two-tone so the dots read on both the solid domain and the application band. */
@@ -479,6 +493,7 @@ a.icon-button { color: inherit; text-decoration: none; }
 .icon-button:hover,
 .text-button:hover,
 .zoom-level:hover { background: var(--hover); }
+.icon-button[aria-pressed='true'] { background: var(--teal); color: var(--card); }
 label.icon-button:focus-within,
 label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
 /* Toolbar actions carry a short word next to the icon; below ROOMY_TOOLBAR they render as icon buttons instead. */
