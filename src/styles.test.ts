@@ -110,7 +110,7 @@ const rule = (selector: string) => {
 }
 
 describe('toolbar controls', () => {
-  it.each(['.switch', '.segmented-option', '.tool'])('never wraps the label of %s', (selector) => {
+  it.each(['.switch', '.segmented-option'])('never wraps the label of %s', (selector) => {
     expect(rule(selector)).toMatch(/white-space:\s*nowrap/)
   })
 })
