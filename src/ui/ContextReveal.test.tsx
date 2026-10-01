@@ -156,6 +156,16 @@ describe('context name reveal', () => {
     expect(overlays(container)).toHaveLength(0)
   })
 
+  it('draws the Alt names over the canvas controls, so no "+" or expand toggle covers a label', () => {
+    const { container } = render(<Harness />)
+    fireEvent.keyDown(window, { key: 'Alt', altKey: true })
+    const controls = [...container.querySelectorAll('.affordances, .side-plus, .expand-toggle')]
+    expect(controls.length).toBeGreaterThan(1)
+    for (const overlay of overlays(container)) {
+      for (const control of controls) expect(control.compareDocumentPosition(overlay) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+  })
+
   it('hides the Alt overlays when the window loses focus mid-hold', () => {
     const { container } = render(<Harness />)
     fireEvent.keyDown(window, { key: 'Alt', altKey: true })

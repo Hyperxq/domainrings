@@ -275,10 +275,11 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
         {announcement}
       </p>
 
-      <ContextReveals contexts={model.contexts} reveals={reveal.reveals} mapToScreen={mapToScreen} scale={viewport.scale} />
       <Affordances points={visiblePoints} toScreen={toScreen} onPick={pick} onLayer={setHovered} />
       {!viewOnly && <GrowButtons model={model} hex={hex} scale={viewport.scale} mapToScreen={mapToScreen} title={title} contextLabel={contextLabel} onGrow={onGrow} />}
       <ExpandToggles model={model} currentId={hexId} mapToScreen={mapToScreen} onToggle={onToggleExpanded} />
+      {/* After the canvas controls so a name is never covered; it takes no pointer, so the controls stay clickable. */}
+      <ContextReveals contexts={model.contexts} reveals={reveal.reveals} mapToScreen={mapToScreen} scale={viewport.scale} />
       {linkable && <LinkChip node={linkable} name={nameOf(linkable.ref)} toScreen={toScreen} onLink={() => onLinking(linkable.ref)} />}
       {editing && (
         <InlineName
