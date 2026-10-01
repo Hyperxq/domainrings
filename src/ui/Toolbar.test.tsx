@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { FULL_TOOLBAR, ROOMY_TOOLBAR, Toolbar } from './Toolbar'
 import { usePreferencesStore } from './state/preferencesStore'
 import { useMapStore } from '../model/store'
@@ -55,10 +55,10 @@ function renderToolbar(
 }
 
 describe('Toolbar at full width', () => {
-  it('has a Dependents toggle that shows its state, explains itself and flips on click', () => {
+  it('has a Dependents switch that shows its state, explains itself and flips on click', () => {
     renderToolbar({ dependents: false })
-    const toggle = screen.getByRole('button', { name: 'Dependents' })
-    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    const toggle = screen.getByRole('switch', { name: 'Dependents' })
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
     expect(toggle.getAttribute('title')).toMatch(/what depends on the selection/i)
 
     fireEvent.click(toggle)
@@ -66,7 +66,58 @@ describe('Toolbar at full width', () => {
     expect(usePreferencesStore.getState().dependents).toBe(true)
     cleanup()
     renderToolbar({ dependents: true })
-    expect(screen.getByRole('button', { name: 'Dependents' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('switch', { name: 'Dependents' }).getAttribute('aria-checked')).toBe('true')
+  })
+
+  it('draws every switch as a track with a knob, activated by Space and Enter because it is a native button', () => {
+    renderToolbar()
+    for (const name of ['Guides', 'Highlight', 'Dependents']) {
+      const toggle = screen.getByRole('switch', { name })
+      expect(toggle.tagName).toBe('BUTTON')
+      expect(toggle.querySelector('.switch-track > .switch-knob')).not.toBeNull()
+    }
+    expect(screen.queryByRole('button', { name: 'Guides' })).toBeNull()
+  })
+
+  it('offers the detail level as one radio group whose selected half is checked', () => {
+    renderToolbar({ mode: 'overview' })
+    const group = screen.getByRole('radiogroup', { name: 'Detail level' })
+    const radios = within(group).getAllByRole('radio')
+    expect(radios.map((r) => [r.textContent, r.getAttribute('aria-checked'), r.getAttribute('tabindex')])).toEqual([
+      ['Overview', 'true', '0'],
+      ['Detailed', 'false', '-1'],
+    ])
+  })
+
+  it.each([
+    ['Overview', 'ArrowRight', 'detailed'],
+    ['Overview', 'ArrowDown', 'detailed'],
+    ['Overview', 'ArrowLeft', 'detailed'],
+    ['Detailed', 'ArrowLeft', 'overview'],
+    ['Detailed', 'ArrowUp', 'overview'],
+    ['Detailed', 'ArrowRight', 'overview'],
+  ] as const)('moves the choice and the focus from %s on %s', (from, key, mode) => {
+    renderToolbar({ mode: from === 'Overview' ? 'overview' : 'detailed' })
+    const radio = screen.getByRole('radio', { name: from })
+    radio.focus()
+    fireEvent.keyDown(radio, { key })
+    expect(usePreferencesStore.getState().mode).toBe(mode)
+    expect(document.activeElement).toBe(screen.getByRole('radio', { checked: true }))
+  })
+
+  it('separates the detail level, the switches and the actions with dividers', () => {
+    useMapStore.getState().replace(manyHexagonMap(6))
+    renderToolbar({ canExpandAll: true })
+    const dividers = [...document.querySelectorAll('.toolbar .divider')]
+    const before = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    const between = (a: Element, b: Element) => dividers.some((d) => before(a, d) && before(d, b))
+    const mode = screen.getByRole('radiogroup', { name: 'Detail level' })
+    const guides = screen.getByRole('switch', { name: 'Guides' })
+    const dependents = screen.getByRole('switch', { name: 'Dependents' })
+    const expand = screen.getByRole('button', { name: 'Expand all' })
+    expect(between(mode, guides)).toBe(true)
+    expect(between(dependents, expand)).toBe(true)
+    expect(between(guides, dependents)).toBe(false)
   })
 
   it('shows the three export buttons and no compact controls — no kind switcher anywhere (REQ-01)', () => {
@@ -129,6 +180,8 @@ describe('Toolbar expand and collapse all', () => {
   it('shows Expand all and Collapse all beside the view toggles, each setting its own direction', () => {
     useMapStore.getState().replace(manyHexagonMap(6))
     renderToolbar({ canExpandAll: true })
+    expect(screen.getByRole('button', { name: 'Expand all' }).querySelector('svg')).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Collapse all' }).querySelector('svg')).not.toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Expand all' }))
     expect([...useViewStore.getState().expanded]).toEqual(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
     fireEvent.click(screen.getByRole('button', { name: 'Collapse all' }))
@@ -165,7 +218,7 @@ describe('Toolbar between the two breakpoints', () => {
     renderToolbar()
     for (const text of ['New', 'Example', 'Open…']) expect(screen.getByText(text)).toBeTruthy()
     expect(screen.getByRole('radio', { name: 'Overview' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Guides' })).toBeTruthy()
+    expect(screen.getByRole('switch', { name: 'Guides' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
   })
 
@@ -206,13 +259,13 @@ describe('Toolbar below the compact breakpoint', () => {
   it('moves the detail level and the toggles into a View menu that shows their state', () => {
     renderToolbar({ mode: 'overview', guides: false, highlight: true })
     expect(screen.queryByRole('radio', { name: 'Overview' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Guides' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Highlight' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Dependents' })).toBeNull()
+    expect(screen.queryByRole('switch', { name: 'Guides' })).toBeNull()
+    expect(screen.queryByRole('switch', { name: 'Highlight' })).toBeNull()
+    expect(screen.queryByRole('switch', { name: 'Dependents' })).toBeNull()
 
     openView()
 
-    const state = screen.getAllByRole('menuitemcheckbox').map((item) => [item.textContent, item.getAttribute('aria-checked')])
+    const state = [...screen.getAllByRole('menuitemradio'), ...screen.getAllByRole('menuitemcheckbox')].map((item) => [item.textContent, item.getAttribute('aria-checked')])
     expect(state).toEqual([
       ['Overview', 'true'],
       ['Detailed', 'false'],
@@ -232,8 +285,21 @@ describe('Toolbar below the compact breakpoint', () => {
     renderToolbar({ mode: 'detailed', guides: false, highlight: true })
     const before = usePreferencesStore.getState()
     openView()
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name }))
+    fireEvent.click(screen.getByRole(field === 'mode' ? 'menuitemradio' : 'menuitemcheckbox', { name }))
     expect(usePreferencesStore.getState()).toEqual({ ...before, [field]: value })
+  })
+
+  it('shows the same three kinds of control in the View menu: a segmented mode, switches and icon actions, set apart', () => {
+    useMapStore.getState().replace(manyHexagonMap(6))
+    renderToolbar({ canExpandAll: true })
+    openView()
+    const menu = screen.getByRole('menu')
+    const pill = within(menu).getAllByRole('menuitemradio')[0].parentElement!
+    expect(pill.classList.contains('segmented')).toBe(true)
+    expect(within(pill).getAllByRole('menuitemradio')).toHaveLength(2)
+    for (const item of within(menu).getAllByRole('menuitemcheckbox')) expect(item.querySelector('.switch-track > .switch-knob')).not.toBeNull()
+    for (const name of ['Expand all', 'Collapse all']) expect(within(menu).getByRole('menuitem', { name }).querySelector('svg')).not.toBeNull()
+    expect(within(menu).getAllByRole('separator')).toHaveLength(2)
   })
 
   it('keeps the Export menu, with no kind select anywhere (REQ-01)', () => {

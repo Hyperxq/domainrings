@@ -96,7 +96,6 @@
 .canvas .sector-label.on-domain { fill: var(--domain-ink); }
 .guide { stroke: var(--muted); stroke-opacity: var(--guide-opacity); stroke-width: 1; stroke-dasharray: 6 5; }
 .canvas .line-name { font-family: var(--font-mono); font-weight: 500; }
-.text-button[aria-pressed='true'] { background: var(--teal-soft); color: var(--teal); }
 .canvas .ring-subtitle.on-domain { fill: var(--domain-ink); fill-opacity: 0.75; }
 .aggregate-outline { fill: none; stroke: var(--domain-ink); stroke-opacity: 0.5; stroke-width: 1.2; }
 .canvas .line-tag,
@@ -533,10 +532,58 @@ label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
 
 .export { display: inline-flex; align-items: center; gap: 6px; flex: none; padding-left: 4px; }
 .export-label { color: var(--muted); font-size: 13px; }
-/* One bordered pill, so the three formats read as one Export control. */
-.segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+/* One bordered pill, so the halves read as one control: the three export formats, or the detail level with its
+   selected half filled. */
+.segmented { display: inline-flex; flex: none; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .segmented .text-button { height: 28px; border-radius: 0; color: var(--ink); font-size: 13px; }
 .segmented .text-button + .text-button { border-left: 1px solid var(--line); }
+.segmented-option { height: 28px; padding: 0 12px; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 13px; white-space: nowrap; cursor: pointer; }
+.segmented-option + .segmented-option { border-left: 1px solid var(--line); }
+.segmented-option:hover { background: var(--hover); }
+.segmented .segmented-option[aria-checked='true'] { background: var(--teal); color: var(--card); }
+.segmented-option:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
+/* A switch is a track with a knob: the off track is an outline, the on track is filled and the knob slides across. */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.switch:hover { background: var(--hover); }
+.switch:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+.switch-track {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: 28px;
+  height: 16px;
+  border: 1.5px solid var(--muted);
+  border-radius: 999px;
+  transition: background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
+}
+.switch-knob {
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: 9px;
+  height: 9px;
+  margin-top: -4.5px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease);
+}
+[aria-checked='true'] > .switch-track { background: var(--teal); border-color: var(--teal); }
+[aria-checked='true'] > .switch-track > .switch-knob { background: var(--card); transform: translateX(12px); }
 .choice-trigger { display: inline-flex; align-items: center; gap: 4px; flex: none; font-size: 13px; }
 .choice-trigger .icon { width: 14px; height: 14px; color: var(--muted); transform: rotate(90deg); }
 /* An icon-only trigger (Appearance) sizes like an .icon-button and shows its icon upright. */
@@ -552,6 +599,12 @@ label.tool:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
 }
 .choice-menu .text-button { justify-items: start; height: auto; min-height: 32px; padding: 4px 8px; font-size: 13px; }
 .choice-menu [aria-checked='true'] { background: var(--teal-soft); color: var(--teal); }
+.choice-menu .text-button[data-control] { display: flex; align-items: center; gap: 8px; }
+.choice-menu .text-button[data-control='switch'] { justify-content: space-between; }
+.choice-menu .text-button[data-control='switch'][aria-checked] { background: transparent; color: inherit; }
+.choice-menu .segmented { display: flex; }
+.choice-menu .segmented-option { flex: 1; height: 32px; }
+.choice-separator { height: 1px; margin: 2px 4px; background: var(--line); }
 .choice-description { color: var(--muted); font-size: 12px; font-weight: 400; }
 
 .architecture-choice-dialog {

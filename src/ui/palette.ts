@@ -163,6 +163,7 @@ export const TEXT_PAIRS: [Token, Token][] = [
   ['ink', 'ring-custom'],
   ['ink', 'slate-soft'],
   ['ink', 'teal-soft'],
+  ['card', 'teal'],
   ['driving-ink', 'driving-fill'],
   ['driven-ink', 'driven-fill'],
   ['domain-ink', 'teal-deep'],

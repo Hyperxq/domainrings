@@ -1,4 +1,5 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Icon, type IconName } from './Icon'
 
 export interface Choice<Id extends string> {
   id: Id
@@ -6,6 +7,10 @@ export interface Choice<Id extends string> {
   description?: string
   /** Present only on a toggle: the item becomes a `menuitemcheckbox` showing this state. */
   checked?: boolean
+  /** Draws the item as a segment (`radio`, with `checked`), a track and knob (`switch`) or an icon button (`action`). Runs of one kind sit together, set apart from the next run. */
+  control?: 'radio' | 'switch' | 'action'
+  /** The icon an `action` shows beside its label. */
+  icon?: IconName
 }
 
 type MenuAt = { top: number; left?: number; right?: number }
@@ -59,6 +64,37 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
   const triggerId = useId()
   const menuId = useId()
   const items = () => [...(root.current?.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]') ?? [])]
+
+  const runs = choices.reduce<Choice<Id>[][]>((acc, choice) => {
+    const last = acc.at(-1)
+    if (last && last[0].control === choice.control) last.push(choice)
+    else acc.push([choice])
+    return acc
+  }, [])
+  const item = (choice: Choice<Id>) => (
+    <button
+      key={choice.id}
+      type="button"
+      role={choice.control === 'radio' ? 'menuitemradio' : choice.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+      aria-checked={choice.checked}
+      tabIndex={-1}
+      className={choice.control === 'radio' ? 'segmented-option' : 'text-button'}
+      data-control={choice.control}
+      onClick={() => {
+        close()
+        onChoose(choice.id)
+      }}
+    >
+      {choice.icon && <Icon name={choice.icon} />}
+      {choice.label}
+      {choice.description && <span className="choice-description">{choice.description}</span>}
+      {choice.control === 'switch' && (
+        <span className="switch-track" aria-hidden="true">
+          <span className="switch-knob" />
+        </span>
+      )}
+    </button>
+  )
 
   useEffect(() => {
     if (!at) return
@@ -142,22 +178,11 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
             }
           }}
         >
-          {choices.map((choice) => (
-            <button
-              key={choice.id}
-              type="button"
-              role={choice.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
-              aria-checked={choice.checked}
-              tabIndex={-1}
-              className="text-button"
-              onClick={() => {
-                close()
-                onChoose(choice.id)
-              }}
-            >
-              {choice.label}
-              {choice.description && <span className="choice-description">{choice.description}</span>}
-            </button>
+          {runs.map((run, i) => (
+            <Fragment key={run[0].id}>
+              {i > 0 && <div role="separator" className="choice-separator" />}
+              {run[0].control === 'radio' ? <div role="group" className="segmented">{run.map(item)}</div> : run.map(item)}
+            </Fragment>
           ))}
         </div>
       )}

@@ -21,6 +21,12 @@ describe('palette', () => {
     expect(failing).toEqual([])
   })
 
+  it.each(CASES)('keeps a filled switch track and segment at 3:1 against the card in the %s palette, %s theme', (id, theme) => {
+    const table = PALETTES[id][theme]
+    expect(contrast(table.teal, table.card)).toBeGreaterThanOrEqual(3)
+    expect(contrast(table.muted, table.card)).toBeGreaterThanOrEqual(3)
+  })
+
   it('draws a user-added ring from its own token, with a hover step and readable ring titles on it', () => {
     expect(TEXT_PAIRS).toContainEqual(['muted', 'ring-custom'])
     const css = paletteCss()
