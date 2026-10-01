@@ -44,7 +44,7 @@ export function useElementSize(ref: RefObject<HTMLElement | null>): { width: num
  * as it is, instead of refitting around the panel (which snaps the canvas when an element is revealed). Closing the
  * panel restores 'auto' unless the author has panned or zoomed since — the frozen object's identity tells. A map
  * change that moves something off screen still drops a frozen view back to 'auto' (FIT-02.2), as for any manual view.
- * `visible` is the diagram box the NEW free area shows under the current view. Called from the stage's own render:
+ * `viewport` is the view to freeze, normally the interactions' `heading`. `visible` is the diagram box the NEW free area shows under the current view. Called from the stage's own render:
  * the update below is a render-phase one. */
 export function useFreezeWhilePanelOpen({
   panelOpen,
@@ -79,6 +79,8 @@ export interface ViewportInteractions {
    * itself needs to tell the two apart, e.g. to freeze an 'auto' view before a focus switch. */
   view: 'auto' | Viewport
   viewport: Viewport
+  /** Where the view was last heading, for freezing it: unlike `viewport` it is never a frame partway through an ease. */
+  heading: RefObject<Viewport>
   setView: Dispatch<SetStateAction<'auto' | Viewport>>
   zoomFloor: number
   dragging: boolean
@@ -129,7 +131,7 @@ export function useViewportInteractions({
   }
 
   // Only an 'auto' view eases: a manual one is the author's own pan/zoom and must track the pointer exactly.
-  const viewport = useEasedViewport(view === 'auto' ? autoFit : view, view === 'auto', settleKey)
+  const { viewport, heading } = useEasedViewport(view === 'auto' ? autoFit : view, view === 'auto', settleKey)
   // The floor a manual zoom (wheel or button) can reach: never above MIN_SCALE, but never above what fitting the
   // whole diagram itself needs either, so a view already fitted to it never snaps back in.
   const zoomFloor = Math.min(MIN_SCALE, wholeFitScale)
@@ -236,7 +238,7 @@ export function useViewportInteractions({
     drag.current = { x: e.clientX, y: e.clientY, panning: true }
   }
 
-  return { view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp: liftPointer, onPointerCancel: liftPointer }
+  return { view, viewport, heading, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp: liftPointer, onPointerCancel: liftPointer }
 }
 
 /** The zoom island's buttons (out, reset, in, fit, view only, fullscreen, plus expand and collapse all when the map can

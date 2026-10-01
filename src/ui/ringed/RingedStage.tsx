@@ -71,7 +71,7 @@ export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, selec
   // the bounds' own rounded size) or the legend opening/closing refits — the same "unfreeze back to auto"
   // convention Hexagonal's own Stage uses for its own fitKey.
   const fitKey = `${Math.round(bounds.width)}:${Math.round(bounds.height)}:${legendOpen}`
-  const { view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useViewportInteractions({
+  const { view, viewport, heading, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useViewportInteractions({
     mainRef,
     autoFit,
     wholeFitScale: wholeFit.scale,
@@ -79,7 +79,7 @@ export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, selec
     settleKey: `${size.width}x${size.height}`,
   })
 
-  useFreezeWhilePanelOpen({ panelOpen, view, viewport, setView, visible: visibleRect(viewport, effectiveSize, inset), interest: bounds })
+  useFreezeWhilePanelOpen({ panelOpen, view, viewport: heading.current, setView, visible: visibleRect(heading.current, effectiveSize, inset), interest: bounds })
 
   // Delete/Backspace act on the selection — mirrors Hexagonal's own Stage.tsx, sharing the same `keyOnCanvas`
   // guard: ignored while a field (the inline rename) has the keyboard, and while linking (a stray Delete during

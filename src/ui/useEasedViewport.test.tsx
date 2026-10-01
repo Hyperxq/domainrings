@@ -22,51 +22,59 @@ const frames = (ms: number) => act(() => void vi.advanceTimersByTime(ms))
 
 describe('useEasedViewport', () => {
   it('starts on the target', () => {
-    expect(render({ target: A }).result.current).toEqual(A)
+    expect(render({ target: A }).result.current.viewport).toEqual(A)
   })
 
   it('keeps the old view on the render a new target arrives and does not jump on the next frame', () => {
     const { result, rerender } = render({ target: A })
     rerender({ target: B })
-    expect(result.current).toEqual(A)
+    expect(result.current.viewport).toEqual(A)
     frames(48)
-    expect(result.current.scale).toBeLessThan(1)
-    expect(result.current.scale).toBeGreaterThan(B.scale)
-    expect(result.current.x).toBeLessThan(B.x)
+    expect(result.current.viewport.scale).toBeLessThan(1)
+    expect(result.current.viewport.scale).toBeGreaterThan(B.scale)
+    expect(result.current.viewport.x).toBeLessThan(B.x)
   })
 
   it('eases out: past the halfway point of the time it has covered more than half the distance', () => {
     const { result, rerender } = render({ target: A })
     rerender({ target: B })
     frames(EASE_MS / 2)
-    expect(result.current.x).toBeGreaterThan(B.x / 2)
+    expect(result.current.viewport.x).toBeGreaterThan(B.x / 2)
   })
 
   it('reaches the target after the duration and stays there', () => {
     const { result, rerender } = render({ target: A })
     rerender({ target: B })
     frames(EASE_MS + 32)
-    expect(result.current).toEqual(B)
+    expect(result.current.viewport).toEqual(B)
     frames(100)
-    expect(result.current).toEqual(B)
+    expect(result.current.viewport).toEqual(B)
   })
 
   it('retargets from the displayed view when the target moves mid-ease', () => {
     const { result, rerender } = render({ target: A })
     rerender({ target: B })
     frames(100)
-    const mid = result.current
+    const mid = result.current.viewport
     rerender({ target: A })
-    expect(result.current).toEqual(mid)
+    expect(result.current.viewport).toEqual(mid)
     frames(EASE_MS + 32)
-    expect(result.current).toEqual(A)
+    expect(result.current.viewport).toEqual(A)
+  })
+
+  it('heading holds the previous destination until the render that follows a new target commits', () => {
+    const { result, rerender } = render({ target: A })
+    rerender({ target: B })
+    frames(100)
+    expect(result.current.heading.current).toEqual(B)
+    expect(result.current.viewport).not.toEqual(B)
   })
 
   it('snaps under prefers-reduced-motion', () => {
     setReducedMotion(true)
     const { result, rerender } = render({ target: A })
     rerender({ target: B })
-    expect(result.current).toEqual(B)
+    expect(result.current.viewport).toEqual(B)
   })
 
   it('follows the target immediately, cancelling a running ease, when not animating', () => {
@@ -75,14 +83,14 @@ describe('useEasedViewport', () => {
     frames(50)
     const manual = { x: 7, y: 8, scale: 2 }
     rerender({ target: manual, animate: false })
-    expect(result.current).toEqual(manual)
+    expect(result.current.viewport).toEqual(manual)
     frames(EASE_MS * 2)
-    expect(result.current).toEqual(manual)
+    expect(result.current.viewport).toEqual(manual)
   })
 
   it('snaps when the settle key changes, such as a resize', () => {
     const { result, rerender } = render({ target: A, settleKey: '800x600' })
     rerender({ target: B, settleKey: '1000x600' })
-    expect(result.current).toEqual(B)
+    expect(result.current.viewport).toEqual(B)
   })
 })

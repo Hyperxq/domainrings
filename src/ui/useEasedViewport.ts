@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import type { Viewport } from './viewport'
 
 export const EASE_MS = 250
@@ -17,17 +17,21 @@ const between = (from: Viewport, to: Viewport, t: number): Viewport => ({
 /** The viewport to draw: eases from the view on screen to `target` whenever the target moves, unless `animate` is
  * off (a manual pan or zoom must track the pointer) or the user prefers reduced motion. A change of `settleKey`
  * (the stage's size) snaps, since a resize is not a fit the user should watch. Drawing only; exports read the
- * model's own bounds, never this value. */
-export function useEasedViewport(target: Viewport, animate: boolean, settleKey = ''): Viewport {
+ * model's own bounds, never this value. `heading` is where the view is going as of the last committed render: during
+ * the render a new target arrives it still holds the previous destination, which is what a caller freezing the view
+ * at that moment wants rather than a frame partway there. */
+export function useEasedViewport(target: Viewport, animate: boolean, settleKey = ''): { viewport: Viewport; heading: RefObject<Viewport> } {
   const [shown, setShown] = useState(target)
   // What is actually on screen, kept current while a tween runs so a retarget starts from it.
   const onScreen = useRef(target)
+  const heading = useRef(target)
   const seenSettleKey = useRef(settleKey)
 
   // Layout effect: a snap must land before paint, or the stale `shown` would flash for a frame.
   useLayoutEffect(() => {
     const settled = seenSettleKey.current !== settleKey
     seenSettleKey.current = settleKey
+    heading.current = target
     if (!animate) {
       onScreen.current = target
       return
@@ -55,5 +59,5 @@ export function useEasedViewport(target: Viewport, animate: boolean, settleKey =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target.x, target.y, target.scale, animate, settleKey])
 
-  return animate ? shown : target
+  return { viewport: animate ? shown : target, heading }
 }

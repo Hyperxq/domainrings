@@ -1660,6 +1660,15 @@ describe('Stage — smooth fit changes (animated refit, panel open/close)', () =
       expectViewport(container, wholeMapFit(false))
     })
 
+    it('opening the panel mid-ease freezes the fit being eased to, not a partial frame', () => {
+      const { container } = render(<Harness />)
+      act(() => void useMapStore.getState().addHexagon('h1', { context: 'same' }))
+      frames(100)
+      openPanel()
+      frames(400)
+      expectViewport(container, wholeMapFit(false))
+    })
+
     it('a manual zoom made while the panel is open survives closing it', () => {
       const { container } = render(<Harness />)
       openPanel()
