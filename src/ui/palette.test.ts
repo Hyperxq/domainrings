@@ -9,8 +9,8 @@ describe('palette', () => {
     expect(contrast('#777777', '#777777')).toBeCloseTo(1, 5)
   })
 
-  it('offers the default and two curated alternatives', () => {
-    expect(Object.keys(PALETTES)).toEqual(['default', 'ink', 'moss'])
+  it('offers the default and three curated alternatives', () => {
+    expect(Object.keys(PALETTES)).toEqual(['default', 'purple', 'terracotta', 'cool'])
   })
 
   it.each(CASES)('reaches 4.5:1 for every text-on-fill pair in the %s palette, %s theme', (id, theme) => {
@@ -52,7 +52,7 @@ describe('palette', () => {
     expect(css.indexOf('data-palette')).toBeGreaterThan(css.indexOf(":root[data-theme='dark'] {"))
   })
 
-  it.each(['ink', 'moss'] as const)('keys the %s palette to data-palette, one selector more specific than each default block', (id) => {
+  it.each(['purple', 'terracotta', 'cool'] as const)('keys the %s palette to data-palette, one selector more specific than each default block', (id) => {
     const css = paletteCss()
     const sel = `:root[data-palette='${id}']`
     // Light: beats bare :root; dark (system or explicit): one attribute more than the default dark selectors.

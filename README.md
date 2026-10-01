@@ -120,7 +120,7 @@ The legend shows only the types your diagram uses, and it is drawn into SVG and 
 
 **View only** (the eye in the zoom controls) is for reading an architecture without editing it by accident. While it is on, every editing affordance is gone in Hexagonal, Onion and Clean: the "+" buttons, inline naming, Delete and Backspace, link mode (`L` and the **Link to…** chip, or **Depend on…**) and the editor panel. Pan, zoom, fit, selecting an element to see its dependency chain, switching the current hexagon, expanding and collapsing, undoing earlier edits and exports all keep working. The choice is remembered.
 
-The **Appearance** menu (the moon or sun at the end of the toolbar) switches between light, dark and your system's theme, and offers two alternative palettes, Ink and Moss, if you'd rather not draw in indigo and rust. Both are remembered in this browser, and exports use the palette on screen.
+The **Appearance** menu (the moon or sun at the end of the toolbar) switches between light, dark and your system's theme, and offers three alternative palettes, Purple, Terracotta and Cool, if you'd rather not draw in indigo and rust. Both are remembered in this browser, and exports use the palette on screen.
 
 ### Layer hover
 

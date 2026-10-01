@@ -10,11 +10,11 @@ describe('preferences store', () => {
     localStorage.setItem('domainrings:guides', 'false')
     localStorage.setItem('domainrings:legend-open', 'true')
     localStorage.setItem('domainrings:theme', 'dark')
-    localStorage.setItem('domainrings:palette', 'moss')
+    localStorage.setItem('domainrings:palette', 'purple')
     rehydrate()
-    expect(usePreferencesStore.getState()).toMatchObject({ mode: 'overview', guides: false, legendOpen: true, theme: 'dark', palette: 'moss', highlight: true, legendInExport: true })
+    expect(usePreferencesStore.getState()).toMatchObject({ mode: 'overview', guides: false, legendOpen: true, theme: 'dark', palette: 'purple', highlight: true, legendInExport: true })
     expect(root.dataset.theme).toBe('dark')
-    expect(root.dataset.palette).toBe('moss')
+    expect(root.dataset.palette).toBe('purple')
   })
 
   it('keeps view-only off by default and persists it under its own raw key', () => {
@@ -38,6 +38,13 @@ describe('preferences store', () => {
     expect(root.dataset.palette).toBeUndefined()
   })
 
+  it('falls back to the default palette for a stored palette that no longer exists', () => {
+    localStorage.setItem('domainrings:palette', 'ink')
+    rehydrate()
+    expect(usePreferencesStore.getState().palette).toBe('default')
+    expect(root.dataset.palette).toBeUndefined()
+  })
+
   it('writes only the preference that changed, as raw text', () => {
     usePreferencesStore.setState({ dependents: true })
     expect(localStorage.getItem('domainrings:dependents')).toBe('true')
@@ -47,7 +54,7 @@ describe('preferences store', () => {
   })
 
   it('removes the stored theme and palette when they return to their defaults', () => {
-    usePreferencesStore.setState({ theme: 'light', palette: 'ink' })
+    usePreferencesStore.setState({ theme: 'light', palette: 'cool' })
     expect(localStorage.getItem('domainrings:theme')).toBe('light')
     usePreferencesStore.setState({ theme: 'system', palette: 'default' })
     expect(localStorage).toHaveLength(0)

@@ -705,11 +705,11 @@ describe('appearance menu', () => {
 
   it('starts from what the boot script applied to the document', () => {
     localStorage.setItem('domainrings:theme', 'light')
-    localStorage.setItem('domainrings:palette', 'moss')
+    localStorage.setItem('domainrings:palette', 'purple')
     usePreferencesStore.persist.rehydrate()
     render(<App />)
     expect(checked(/^Light/)).toBe('true')
-    expect(checked(/^Moss/)).toBe('true')
+    expect(checked(/^Purple/)).toBe('true')
   })
 
   it('choosing Dark sets data-theme and remembers it', () => {
@@ -732,10 +732,10 @@ describe('appearance menu', () => {
 
   it('choosing a palette sets data-palette and remembers it; Default drops both', () => {
     render(<App />)
-    choose(/^Ink/)
-    expect(root.dataset.palette).toBe('ink')
-    expect(localStorage.getItem('domainrings:palette')).toBe('ink')
-    expect(checked(/^Ink/)).toBe('true')
+    choose(/^Terracotta/)
+    expect(root.dataset.palette).toBe('terracotta')
+    expect(localStorage.getItem('domainrings:palette')).toBe('terracotta')
+    expect(checked(/^Terracotta/)).toBe('true')
 
     choose(/^Default/)
     expect(root.dataset.palette).toBeUndefined()
