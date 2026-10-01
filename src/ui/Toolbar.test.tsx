@@ -2,8 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { FULL_TOOLBAR, ROOMY_TOOLBAR, Toolbar } from './Toolbar'
 import { usePreferencesStore } from './state/preferencesStore'
-import { useMapStore } from '../model/store'
-import { manyHexagonMap } from '../test/fixtures'
 import { useViewStore } from './state/viewStore'
 
 type Listener = () => void
@@ -43,14 +41,13 @@ function renderToolbar(
     exportScope?: 'map' | 'hexagon'
     themeChoice?: 'light' | 'dark' | 'system'
     palette?: 'default' | 'ink' | 'moss'
-    canExpandAll?: boolean
   } = {},
 ) {
-  const { mode = 'detailed', guides = true, highlight = true, dependents = false, themeChoice = 'system', palette = 'default', exportScope = 'map', showScope = false, canExpandAll = false } = overrides
+  const { mode = 'detailed', guides = true, highlight = true, dependents = false, themeChoice = 'system', palette = 'default', exportScope = 'map', showScope = false } = overrides
   usePreferencesStore.setState({ mode, guides, highlight, dependents, theme: themeChoice, palette })
   useViewStore.setState({ exportScope })
   const props = { onNew: vi.fn(), onExample: vi.fn(), onOpen: vi.fn(), onCopyLink: vi.fn(), onExport: vi.fn() }
-  render(<Toolbar {...props} showScope={showScope} canExpandAll={canExpandAll} />)
+  render(<Toolbar {...props} showScope={showScope} />)
   return props
 }
 
@@ -106,15 +103,14 @@ describe('Toolbar at full width', () => {
   })
 
   it('separates the detail level, the switches and the actions with dividers', () => {
-    useMapStore.getState().replace(manyHexagonMap(6))
-    renderToolbar({ canExpandAll: true })
+    renderToolbar()
     const dividers = [...document.querySelectorAll('.toolbar .divider')]
     const before = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
     const between = (a: Element, b: Element) => dividers.some((d) => before(a, d) && before(d, b))
     const mode = screen.getByRole('radiogroup', { name: 'Detail level' })
     const guides = screen.getByRole('switch', { name: 'Guides' })
     const dependents = screen.getByRole('switch', { name: 'Dependents' })
-    const expand = screen.getByRole('button', { name: 'Expand all' })
+    const expand = screen.getByRole('button', { name: 'New diagram' })
     expect(between(mode, guides)).toBe(true)
     expect(between(dependents, expand)).toBe(true)
     expect(between(guides, dependents)).toBe(false)
@@ -173,39 +169,6 @@ describe('Toolbar below the full-width breakpoint', () => {
     act(() => listeners.forEach((l) => l()))
 
     expect(screen.getByRole('button', { name: 'Export as SVG' })).toBeTruthy()
-  })
-})
-
-describe('Toolbar expand and collapse all', () => {
-  it('shows Expand all and Collapse all beside the view toggles, each setting its own direction', () => {
-    useMapStore.getState().replace(manyHexagonMap(6))
-    renderToolbar({ canExpandAll: true })
-    expect(screen.getByRole('button', { name: 'Expand all' }).querySelector('svg')).not.toBeNull()
-    expect(screen.getByRole('button', { name: 'Collapse all' }).querySelector('svg')).not.toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Expand all' }))
-    expect([...useViewStore.getState().expanded]).toEqual(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse all' }))
-    expect(useViewStore.getState().expanded.size).toBe(0)
-  })
-
-  it('shows neither when the map has nothing to expand', () => {
-    renderToolbar()
-    expect(screen.queryByRole('button', { name: 'Expand all' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Collapse all' })).toBeNull()
-  })
-
-  it('folds both into the View menu below the roomy breakpoint', () => {
-    viewport = ROOMY - 1
-    useMapStore.getState().replace(manyHexagonMap(6))
-    renderToolbar({ canExpandAll: true })
-    expect(screen.queryByRole('button', { name: 'Expand all' })).toBeNull()
-
-    fireEvent.click(screen.getByRole('button', { name: 'View' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Expand all' }))
-    expect(useViewStore.getState().expanded.size).toBe(6)
-    fireEvent.click(screen.getByRole('button', { name: 'View' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Collapse all' }))
-    expect(useViewStore.getState().expanded.size).toBe(0)
   })
 })
 
@@ -289,17 +252,16 @@ describe('Toolbar below the compact breakpoint', () => {
     expect(usePreferencesStore.getState()).toEqual({ ...before, [field]: value })
   })
 
-  it('shows the same three kinds of control in the View menu: a segmented mode, switches and icon actions, set apart', () => {
-    useMapStore.getState().replace(manyHexagonMap(6))
-    renderToolbar({ canExpandAll: true })
+  it('shows two kinds of control in the View menu: a segmented mode and switches, set apart', () => {
+    renderToolbar()
     openView()
     const menu = screen.getByRole('menu')
     const pill = within(menu).getAllByRole('menuitemradio')[0].parentElement!
     expect(pill.classList.contains('segmented')).toBe(true)
     expect(within(pill).getAllByRole('menuitemradio')).toHaveLength(2)
     for (const item of within(menu).getAllByRole('menuitemcheckbox')) expect(item.querySelector('.switch-track > .switch-knob')).not.toBeNull()
-    for (const name of ['Expand all', 'Collapse all']) expect(within(menu).getByRole('menuitem', { name }).querySelector('svg')).not.toBeNull()
-    expect(within(menu).getAllByRole('separator')).toHaveLength(2)
+    expect(within(menu).queryByRole('menuitem')).toBeNull()
+    expect(within(menu).getAllByRole('separator')).toHaveLength(1)
   })
 
   it('keeps the Export menu, with no kind select anywhere (REQ-01)', () => {

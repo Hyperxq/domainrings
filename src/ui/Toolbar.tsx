@@ -4,7 +4,6 @@ import { useSyncExternalStore } from 'react'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
 import { PALETTES, type PaletteId } from './palette'
-import { useMapStore } from '../model/store'
 import { usePreferencesStore, type ThemeChoice } from './state/preferencesStore'
 import { useViewStore, type ExportScope } from './state/viewStore'
 
@@ -19,8 +18,6 @@ interface ToolbarProps {
   /** Always copies the whole map (REQ-05), regardless of the export scope selection. */
   onCopyLink: () => void
   onExport: (format: 'hexa' | 'svg' | 'png') => void
-  /** Only a map large enough to compact has hexagons to expand: true adds Expand all and Collapse all. */
-  canExpandAll: boolean
   /** Only a multi-hexagon map has more than one thing to export (EXPORT-03) — a single hexagon has nothing to choose between. */
   showScope: boolean
 }
@@ -58,11 +55,10 @@ const fullMedia = media(FULL_TOOLBAR)
 const roomyMedia = media(ROOMY_TOOLBAR)
 const darkMedia = media('(prefers-color-scheme: dark)')
 
-export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, canExpandAll, showScope }: ToolbarProps) {
+export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showScope }: ToolbarProps) {
   const preferences = usePreferencesStore()
   const { mode, theme: themeChoice, palette } = preferences
   const exportScope = useViewStore((s) => s.exportScope)
-  const onExpandAll = (expand: boolean) => useViewStore.getState().expandAll(expand ? useMapStore.getState().map.hexagons.map((h) => h.id) : [])
   const full = useSyncExternalStore(fullMedia.subscribe, fullMedia.matches)
   const roomy = useSyncExternalStore(roomyMedia.subscribe, roomyMedia.matches)
   const systemDark = useSyncExternalStore(darkMedia.subscribe, darkMedia.matches)
@@ -105,19 +101,6 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, canExp
               {label}
             </button>
           ))}
-          {canExpandAll && (
-            <>
-              <span className="divider" aria-hidden="true" />
-              <button type="button" className="tool" title="Show every hexagon in full" onClick={() => onExpandAll(true)}>
-                <Icon name="expand" />
-                Expand all
-              </button>
-              <button type="button" className="tool" title="Show only the current hexagon in full" onClick={() => onExpandAll(false)}>
-                <Icon name="shrink" />
-                Collapse all
-              </button>
-            </>
-          )}
         </>
       ) : (
         <ChoiceMenu
@@ -130,16 +113,9 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, canExp
           choices={[
             ...MODES.map((m) => ({ id: m, label: MODE_LABEL[m], checked: mode === m, control: 'radio' as const })),
             ...SWITCHES.map(({ id, label }) => ({ id, label, checked: preferences[id], control: 'switch' as const })),
-            ...(canExpandAll
-              ? [
-                  { id: 'expand-all' as const, label: 'Expand all', control: 'action' as const, icon: 'expand' as const },
-                  { id: 'collapse-all' as const, label: 'Collapse all', control: 'action' as const, icon: 'shrink' as const },
-                ]
-              : []),
           ]}
           onChoose={(id) => {
             if (id === 'overview' || id === 'detailed') usePreferencesStore.setState({ mode: id })
-            else if (id === 'expand-all' || id === 'collapse-all') onExpandAll(id === 'expand-all')
             else usePreferencesStore.setState({ [id]: !preferences[id] })
           }}
         />

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type Dispatch, type PointerEvent as ReactPointerEvent, type RefObject, type SetStateAction } from 'react'
 import type { Point } from '../layout/geometry'
+import { useMapStore } from '../model/store'
 import { Icon } from './Icon'
 import { usePreferencesStore } from './state/preferencesStore'
+import { useViewStore } from './state/viewStore'
 import { MIN_SCALE, panBy, pinch, zoomAt, type Viewport } from './viewport'
 
 /** A press starting on a floating island, a "+" affordance or an inline name field never pans — shared by Stage
@@ -198,9 +200,10 @@ export function useViewportInteractions({
   return { view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp: liftPointer, onPointerCancel: liftPointer }
 }
 
-/** The zoom island's six buttons (out, reset, in, fit, view only, fullscreen) — identical markup Stage's and RingedStage's
- * own JSX both carried before the extraction. */
+/** The zoom island's buttons (out, reset, in, fit, view only, fullscreen, plus expand and collapse all when the map can
+ * compact) — identical markup Stage's and RingedStage's own JSX both carried before the extraction. */
 export function ZoomControls({
+  canExpandAll,
   viewport,
   zoomFloor,
   centre,
@@ -208,6 +211,8 @@ export function ZoomControls({
   fullscreen,
   setFullscreen,
 }: {
+  /** Only a map large enough to compact has hexagons to expand; a ringed stage never does. */
+  canExpandAll?: boolean
   viewport: Viewport
   zoomFloor: number
   centre: Point
@@ -216,6 +221,7 @@ export function ZoomControls({
   setFullscreen: (next: boolean) => void
 }) {
   const viewOnly = usePreferencesStore((s) => s.viewOnly)
+  const expandAll = (expand: boolean) => useViewStore.getState().expandAll(expand ? useMapStore.getState().map.hexagons.map((h) => h.id) : [])
   return (
     <div className="island zoom" role="group" aria-label="Zoom">
       <button type="button" className="icon-button" aria-label="Zoom out" title="Zoom out" onClick={() => setView(zoomAt(viewport, 1 / 1.2, centre, zoomFloor))}>
@@ -230,6 +236,16 @@ export function ZoomControls({
       <button type="button" className="icon-button" aria-label="Fit diagram to screen" title="Fit to screen" onClick={() => setView('auto')}>
         <Icon name="fit" />
       </button>
+      {canExpandAll && (
+        <>
+          <button type="button" className="icon-button" aria-label="Expand all" title="Show every hexagon in full" onClick={() => expandAll(true)}>
+            <Icon name="expand" />
+          </button>
+          <button type="button" className="icon-button" aria-label="Collapse all" title="Show only the current hexagon in full" onClick={() => expandAll(false)}>
+            <Icon name="shrink" />
+          </button>
+        </>
+      )}
       <button
         type="button"
         className="icon-button"
