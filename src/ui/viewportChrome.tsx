@@ -238,12 +238,14 @@ export function ZoomControls({
       </button>
       {canExpandAll && (
         <>
+          <span className="divider" aria-hidden="true" />
           <button type="button" className="icon-button" aria-label="Expand all" title="Show every hexagon in full" onClick={() => expandAll(true)}>
-            <Icon name="expand" />
+            <Icon name="hexagonPlus" />
           </button>
           <button type="button" className="icon-button" aria-label="Collapse all" title="Show only the current hexagon in full" onClick={() => expandAll(false)}>
-            <Icon name="shrink" />
+            <Icon name="hexagonMinus" />
           </button>
+          <span className="divider" aria-hidden="true" />
         </>
       )}
       <button
