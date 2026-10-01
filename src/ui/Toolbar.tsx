@@ -4,12 +4,11 @@ import { useSyncExternalStore } from 'react'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
 import { PALETTES, type PaletteId } from './palette'
+import type { ThemeChoice } from './state/preferencesStore'
 
 const REPOSITORY_URL = 'https://github.com/Hyperxq/domainrings'
 
 export type ExportScope = 'map' | 'hexagon'
-/** `system` means no stored preference: the OS decides. */
-export type ThemeChoice = 'light' | 'dark' | 'system'
 
 interface ToolbarProps {
   themeChoice: ThemeChoice

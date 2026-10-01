@@ -29,6 +29,7 @@ import { useMapStore } from './model/store'
 import { useOnionStore } from './model/onionStore'
 import { useCleanStore } from './model/cleanStore'
 import { fileSlug } from './ui/exporters'
+import { usePreferencesStore } from './ui/state/preferencesStore'
 import { decodeSharePayload, encodeSharePayload, SHARE_HASH_PREFIX } from './ui/shareLink'
 import { card, currentDiagram, hexGroup, installCompressionStreamPolyfill, installDialogPolyfill, linkedTwoHexMap, manyHexagonMap, twoHexagonMap, twoHexMap } from './test/fixtures'
 import v1Minimal from './model/fixtures/v1-minimal.hexa?raw'
@@ -647,6 +648,7 @@ describe('legend island', () => {
 
   it('explains the glyphs present in the diagram even in Overview, where the canvas hides them', () => {
     localStorage.setItem('domainrings:overview', 'true')
+    usePreferencesStore.persist.rehydrate()
     render(<App />)
     fireEvent.click(legendButton())
     expect(headings()).toContain('Glyph · type')
@@ -692,8 +694,9 @@ describe('appearance menu', () => {
   })
 
   it('starts from what the boot script applied to the document', () => {
-    root.dataset.theme = 'light'
-    root.dataset.palette = 'moss'
+    localStorage.setItem('domainrings:theme', 'light')
+    localStorage.setItem('domainrings:palette', 'moss')
+    usePreferencesStore.persist.rehydrate()
     render(<App />)
     expect(checked(/^Light/)).toBe('true')
     expect(checked(/^Moss/)).toBe('true')
@@ -708,8 +711,8 @@ describe('appearance menu', () => {
   })
 
   it('choosing System drops both the attribute and the stored theme, so the OS decides again', () => {
-    root.dataset.theme = 'light'
     localStorage.setItem('domainrings:theme', 'light')
+    usePreferencesStore.persist.rehydrate()
     render(<App />)
     choose(/^System/)
     expect(root.dataset.theme).toBeUndefined()

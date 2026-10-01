@@ -1,13 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createStore } from 'zustand/vanilla'
 import { autosave, browserStorage, loadMap, LEGACY_KEY, MAP_KEY, UNREADABLE_KEY, V1_KEY } from './persistence'
-import { readPref } from '../ui/prefs'
 import { newCleanMap, parseHexa, toHexa, toMap } from './hexa'
 import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, SEED_VERSION, TWO_SLICES_MAP } from './example'
 import { useMapStore } from './store'
 import { twoHexagonMap } from '../test/fixtures'
 import type { CleanFile, Diagram, HexaMap } from './schema'
 import v3OnionExample from './fixtures/v3-onion-example.hexa?raw'
+
+const readPref = (key: string, fallback: boolean) => {
+  const value = localStorage.getItem(key)
+  return value === null ? fallback : value === 'true'
+}
 
 const memoryStorage = (initial: Record<string, string> = {}) => {
   const data = new Map(Object.entries(initial))

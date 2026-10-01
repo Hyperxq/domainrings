@@ -129,13 +129,13 @@ describe('dependency fences', () => {
     expect(violations).toEqual([])
   })
 
-  const allowed = new Set(['./model/store.ts', './model/onionStore.ts', './model/cleanStore.ts', './model/persistence.ts'])
+  const allowed = new Set(['./model/store.ts', './model/onionStore.ts', './model/cleanStore.ts', './model/persistence.ts', './ui/state/preferencesStore.ts'])
 
   it('allows zustand only in files that exist', () => {
     expect([...allowed].filter((p) => !(p in files))).toEqual([])
   })
 
-  it('zustand is imported only from model/store.ts, model/onionStore.ts, model/cleanStore.ts, or model/persistence.ts', () => {
+  it('zustand is imported only from model/store.ts, model/onionStore.ts, model/cleanStore.ts, model/persistence.ts, or ui/state/', () => {
     const violations = productionPaths.filter((p) => !allowed.has(p) && importsOf(files[p]).some((s) => s === 'zustand' || s.startsWith('zustand/')))
     expect(violations).toEqual([])
   })
@@ -153,5 +153,18 @@ describe('Hexagonal-only modules never import StoredFile/OnionFile/CleanFile (AD
   it('never mention StoredFile, OnionFile, or CleanFile by name', () => {
     const violations = HEXAGONAL_ONLY_MODULES.filter((p) => /\bStoredFile\b|\bOnionFile\b|\bCleanFile\b/.test(files[p]))
     expect(violations).toEqual([])
+  })
+})
+
+describe('ui/state stores', () => {
+  const stores = productionPaths.filter((p) => p.startsWith('./ui/state/'))
+
+  it('exist, so the rule below is not vacuous', () => {
+    expect(stores.length).toBeGreaterThan(0)
+  })
+
+  it('never import a .tsx file', () => {
+    const violations = edges.filter((e) => stores.includes(e.path) && e.resolved.endsWith('.tsx'))
+    expect(violations.map((v) => `${v.path} -> ${v.specifier}`)).toEqual([])
   })
 })

@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import type { LayoutMode } from './layout/layout'
 import { canCompact } from './layout/compactHexagon'
 import { hexagonBounds } from './layout/lattice'
 import { currentHexagon, layoutMap } from './layout/map'
@@ -21,8 +20,7 @@ import { revealInEditor } from './ui/revealInEditor'
 import { useExport } from './ui/useExport'
 import { useOpenDocument } from './ui/useOpenDocument'
 import { useUndoHistory } from './ui/useUndoHistory'
-import type { PaletteId } from './ui/palette'
-import { readPref, setRootPref, writePref } from './ui/prefs'
+import { usePreferencesStore } from './ui/state/preferencesStore'
 import { encodeSharePayload, isOversizedShareLink, shareLinkURL } from './ui/shareLink'
 import { useShareLinkOnMount } from './ui/useShareLinkOnMount'
 import type { Notice, UndoSnapshot } from './ui/notice'
@@ -31,7 +29,7 @@ import { HexagonalWorkspace } from './ui/HexagonalWorkspace'
 import { NoticeColumn } from './ui/NoticeColumn'
 import { OnionWorkspace } from './ui/OnionWorkspace'
 import { Toast } from './ui/Toast'
-import { Toolbar, type ExportScope, type ThemeChoice } from './ui/Toolbar'
+import { Toolbar, type ExportScope } from './ui/Toolbar'
 
 
 const RECOVERY_MESSAGE: Record<'kept' | 'not-kept', string> = {
@@ -39,12 +37,6 @@ const RECOVERY_MESSAGE: Record<'kept' | 'not-kept', string> = {
   'not-kept': "Your last session couldn't be restored and a copy couldn't be kept, so autosave is off.",
 }
 
-const LEGEND_EXPORT_KEY = 'domainrings:legend-export'
-const OVERVIEW_KEY = 'domainrings:overview'
-const GUIDES_KEY = 'domainrings:guides'
-const HIGHLIGHT_KEY = 'domainrings:highlight'
-const DEPENDENTS_KEY = 'domainrings:dependents'
-const LEGEND_OPEN_KEY = 'domainrings:legend-open'
 const NONE_EXPANDED: ReadonlySet<string> = new Set()
 const { restore, setMeta } = useMapStore.getState()
 
@@ -71,10 +63,7 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const revision = useMapStore((s) => s.revision)
   const diagram = diagramOf(map, hexId)
   const multiHexagon = map.hexagons.length > 1
-  const [mode, setMode] = useState<LayoutMode>(() => (readPref(OVERVIEW_KEY, false) ? 'overview' : 'detailed'))
-  const [guides, setGuides] = useState(() => readPref(GUIDES_KEY, true))
-  const [highlight, setHighlight] = useState(() => readPref(HIGHLIGHT_KEY, true))
-  const [dependents, setDependents] = useState(() => readPref(DEPENDENTS_KEY, false))
+  const { mode, guides, highlight, dependents, legendOpen, legendInExport, theme: themeChoice, palette } = usePreferencesStore()
   // View state, not part of the document: which hexagons the author expanded, kept for the document they were chosen in.
   const [viewed, setViewed] = useState<{ revision: number; expanded: ReadonlySet<string> }>({ revision, expanded: new Set() })
   const expanded = viewed.revision === revision ? viewed.expanded : NONE_EXPANDED
@@ -85,9 +74,6 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
     flushSync(() => setEditorOpen(true))
     revealInEditor(ref, focus)
   }
-  // main.tsx applies only valid stored values to the document before the first render.
-  const [themeChoice, setThemeChoice] = useState(() => (document.documentElement.dataset.theme ?? 'system') as ThemeChoice)
-  const [palette, setPalette] = useState(() => (document.documentElement.dataset.palette ?? 'default') as PaletteId)
   const [notice, setNotice] = useState<Notice | null>(null)
   // Its own slot, never touched by show()/startLinking: it stays until the user dismisses it (REQ-03.2),
   // whatever status toasts or link-mode hints come and go in the meantime.
@@ -101,8 +87,6 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   // Grow: the just-added hexagon's own inline title field is open until it commits (onNamed) or is undone
   // (onNamingCancel, or the toast's own Undo — either restores `before`, exactly as a one-step undo (GROW-03)).
   const [growing, setGrowing] = useState<{ hexId: string; before: { map: HexaMap; focus: string } } | null>(null)
-  const [legendInExport, setLegendInExport] = useState(() => readPref(LEGEND_EXPORT_KEY, true))
-  const [legendOpen, setLegendOpen] = useState(() => readPref(LEGEND_OPEN_KEY, false))
   const [exportScope, setExportScope] = useState<ExportScope>('map')
   const [choosingArchitecture, setChoosingArchitecture] = useState(false)
   // Export scope (Hexagon vs Map) only exists for a multi-hexagon Hexagonal map (EXPORT-03.1) — Onion and Clean
@@ -152,15 +136,9 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
   const legendPanel = {
     legend,
     open: legendOpen,
-    onOpen: (open: boolean) => {
-      writePref(LEGEND_OPEN_KEY, open)
-      setLegendOpen(open)
-    },
+    onOpen: (open: boolean) => usePreferencesStore.setState({ legendOpen: open }),
     includeInExport: legendInExport,
-    onIncludeInExport: (include: boolean) => {
-      writePref(LEGEND_EXPORT_KEY, include)
-      setLegendInExport(include)
-    },
+    onIncludeInExport: (include: boolean) => usePreferencesStore.setState({ legendInExport: include }),
   }
   // The document being replaced (REQ-09), captured before any store mutation whatever kind is currently active —
   // Undo restores it into its own store (`restoreUndo`) and the toast's onUndo below flips `activeKind` back from
@@ -223,34 +201,16 @@ export function App({ boot = { recovery: 'none' } }: AppProps = {}) {
         onOpen={importFile}
         onCopyLink={handleCopyLink}
         onExport={exportAs}
-        onTheme={(choice) => {
-          setRootPref('theme', choice === 'system' ? undefined : choice)
-          setThemeChoice(choice)
-        }}
-        onPalette={(id) => {
-          setRootPref('palette', id === 'default' ? undefined : id)
-          setPalette(id)
-        }}
+        onTheme={(theme) => usePreferencesStore.setState({ theme })}
+        onPalette={(palette) => usePreferencesStore.setState({ palette })}
         mode={mode}
-        onMode={(next) => {
-          writePref(OVERVIEW_KEY, next === 'overview')
-          setMode(next)
-        }}
+        onMode={(mode) => usePreferencesStore.setState({ mode })}
         guides={guides}
-        onGuides={(show) => {
-          writePref(GUIDES_KEY, show)
-          setGuides(show)
-        }}
+        onGuides={(guides) => usePreferencesStore.setState({ guides })}
         highlight={highlight}
-        onHighlight={(on) => {
-          writePref(HIGHLIGHT_KEY, on)
-          setHighlight(on)
-        }}
+        onHighlight={(highlight) => usePreferencesStore.setState({ highlight })}
         dependents={dependents}
-        onDependents={(on) => {
-          writePref(DEPENDENTS_KEY, on)
-          setDependents(on)
-        }}
+        onDependents={(dependents) => usePreferencesStore.setState({ dependents })}
         onExpandAll={activeKind === 'hexagonal' && canCompact(map.hexagons.length) ? (expand) => setViewed({ revision, expanded: new Set(expand ? map.hexagons.map((h) => h.id) : []) }) : undefined}
       />
       {activeKind === 'hexagonal' && (
