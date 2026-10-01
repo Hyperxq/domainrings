@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { TEXT_PAIRS } from './ui/palette'
 
 const css = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf-8')
 const motion = [...css.matchAll(/(?<![-\w])(?:transition|animation)(?:-duration|-timing-function)?\s*:\s*([^;}]+)/g)]
@@ -103,13 +104,30 @@ describe('dependents emphasis', () => {
   })
 })
 
-describe('toolbar controls', () => {
-  const rule = (selector: string) => {
-    const open = css.indexOf('{', css.indexOf(`\n${selector} {`))
-    return css.slice(open, css.indexOf('}', open))
-  }
+const rule = (selector: string) => {
+  const open = css.indexOf('{', css.indexOf(`\n${selector} {`))
+  return css.slice(open, css.indexOf('}', open))
+}
 
+describe('toolbar controls', () => {
   it.each(['.switch', '.segmented-option', '.tool'])('never wraps the label of %s', (selector) => {
     expect(rule(selector)).toMatch(/white-space:\s*nowrap/)
+  })
+})
+
+describe('a pressed icon button', () => {
+  it('fills with the teal the selected segment and the switches use, in the ink that already clears AA on it', () => {
+    expect(rule(".icon-button[aria-pressed='true']")).toMatch(/background:\s*var\(--teal\)[\s\S]*color:\s*var\(--card\)/)
+    expect(TEXT_PAIRS).toContainEqual(['card', 'teal'])
+  })
+})
+
+describe('a revealed context name', () => {
+  it('reads as a pill over the blur: the card fill, the line border, the chip\'s mono face, wrapping to two lines', () => {
+    const name = rule('.context-name')
+    expect(name).toMatch(/background:\s*var\(--card\)/)
+    expect(name).toMatch(/border:\s*1px solid var\(--line\)/)
+    expect(name).toMatch(/font-family:\s*var\(--font-mono\)/)
+    expect(name).toMatch(/line-clamp:\s*2/)
   })
 })

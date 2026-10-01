@@ -176,6 +176,25 @@ describe('context name reveal', () => {
     expect(overlays(container)).toHaveLength(0)
   })
 
+  it('caps each label at its region\'s on-screen width, sizes it like the chip, and keeps the full name in the DOM', () => {
+    const { container } = render(<Harness />)
+    fireEvent.keyDown(window, { key: 'Alt', altKey: true })
+    for (const overlay of overlays(container)) {
+      const id = overlay.getAttribute('data-context-reveal')!
+      const clip = overlay.querySelector<HTMLElement>('.context-blur')!.getAttribute('style')!
+      const xs = [...clip.matchAll(/(-?[\d.]+) -?[\d.]+/g)].map((m) => Number(m[1]))
+      const screenWidth = Math.max(...xs) - Math.min(...xs)
+      const name = overlay.querySelector<HTMLElement>('.context-name')!
+      expect(name.style.maxWidth).toBe(`${screenWidth}px`)
+
+      const hullXs = [...hull(container, id).getAttribute('d')!.matchAll(/(-?[\d.]+) -?[\d.]+/g)].map((m) => Number(m[1]))
+      const scale = screenWidth / (Math.max(...hullXs) - Math.min(...hullXs))
+      const chipSize = Number(container.querySelector(`[data-chip="${id}"]`)!.getAttribute('font-size'))
+      expect(parseFloat(name.style.fontSize)).toBeCloseTo(chipSize * scale, 3)
+      expect(name.textContent).toBe(contextName(useMapStore.getState().map, id))
+    }
+  })
+
   it('shows nothing on a single-context map', () => {
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<Harness />)

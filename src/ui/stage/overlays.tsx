@@ -24,19 +24,31 @@ const growChoices = (context: string) => [
   { id: 'new' as const, label: 'Hexagon in a new bounded context' },
 ]
 
-/** The name of each revealed context, centred on its region. A blur reveal also frosts the region itself: an HTML
- * `backdrop-filter` clipped to the hull's own path, since SVG elements get no backdrop-filter in Firefox or Safari
- * and a `foreignObject` inside a transformed, scaled SVG is unreliable in WebKit. */
-export function ContextReveals({ contexts, reveals, mapToScreen }: { contexts: MapContextLayout[]; reveals: (contextId: string) => Reveal | undefined; mapToScreen: ToScreen }) {
+/** The name of each revealed context, centred on its region and held to the region's on-screen width (two lines at
+ * most, then an ellipsis) so neighbouring names can't overlap. It is set like the context chip: the same face, and a
+ * size that follows the map's zoom. A blur reveal also frosts the region itself: an HTML `backdrop-filter` clipped to
+ * the hull's own path, since SVG elements get no backdrop-filter in Firefox or Safari and a `foreignObject` inside a
+ * transformed, scaled SVG is unreliable in WebKit. */
+export function ContextReveals({
+  contexts,
+  reveals,
+  mapToScreen,
+  scale,
+}: {
+  contexts: MapContextLayout[]
+  reveals: (contextId: string) => Reveal | undefined
+  mapToScreen: ToScreen
+  scale: number
+}) {
   return contexts.map((c) => {
     const reveal = reveals(c.id)
     if (!reveal) return null
-    const box = unionBox(c.loops.flat().map((p): Box => ({ x: p.x, y: p.y, width: 0, height: 0 })))
-    const at = mapToScreen({ x: box.x + box.width / 2, y: box.y + box.height / 2 })
+    const loops = c.loops.map((loop) => loop.map(mapToScreen))
+    const box = unionBox(loops.flat().map((p): Box => ({ x: p.x, y: p.y, width: 0, height: 0 })))
     return (
       <div key={c.id} className="context-reveal" data-context-reveal={c.id} aria-hidden="true">
-        {reveal === 'blur' && <div className="context-blur" style={{ clipPath: `path(evenodd, '${hullPath(c.loops.map((loop) => loop.map(mapToScreen)))}')` }} />}
-        <span className="context-name" style={{ left: at.x, top: at.y }}>
+        {reveal === 'blur' && <div className="context-blur" style={{ clipPath: `path(evenodd, '${hullPath(loops)}')` }} />}
+        <span className="context-name" style={{ left: box.x + box.width / 2, top: box.y + box.height / 2, maxWidth: box.width, fontSize: c.size * scale }}>
           {c.label}
         </span>
       </div>
