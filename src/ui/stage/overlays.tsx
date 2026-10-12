@@ -2,6 +2,7 @@ import type { LayoutNode } from '../../layout/layout'
 import { unionBox, type Box, type Point } from '../../layout/geometry'
 import { canCompact } from '../../layout/compactHexagon'
 import { hexagonBounds } from '../../layout/lattice'
+import { TITLE } from '../../layout/text'
 import { growAnchor, hexagonTitle, type MapContextLayout, type MapHexagonLayout, type MapLayout } from '../../layout/map'
 import { freeSides, UNTITLED_HEXAGON, type Destination } from '../../model/map'
 import type { Wall } from '../../model/schema'
@@ -16,6 +17,11 @@ const SIDE_PLUS_RADIUS = 12
 const EXPAND_TOGGLE_RADIUS = 12
 /** Lowercase, hyphenated compass names for the grow "+" aria-label ("Add hexagon to the {…} of {title}"). */
 const SIDE_NAME: Record<Wall, string> = { e: 'east', se: 'south-east', sw: 'south-west', w: 'west', nw: 'north-west', ne: 'north-east' }
+
+/** The smallest on-screen size a hexagon's title is read at, in px. */
+export const TITLE_FLOOR_PX = 12
+/** Whether the SVG titles are too small to read at `scale`, so the overlay draws them instead. */
+export const titlesOverlaid = (scale: number) => TITLE.size * scale < TITLE_FLOOR_PX
 
 type ToScreen = (p: Point) => Point
 
@@ -52,6 +58,27 @@ export function ContextReveals({
           {c.label}
         </span>
       </div>
+    )
+  })
+}
+
+/** Every hexagon's title at a readable size over the map, once zoomed out far enough that the SVG ones are not. A title
+ * wider than its hexagon on screen is left out rather than piled onto its neighbours. */
+export function HexagonTitles({ model, mapToScreen, scale }: { model: MapLayout; mapToScreen: ToScreen; scale: number }) {
+  if (!titlesOverlaid(scale)) return null
+  return model.hexagons.map((h) => {
+    const box = hexagonBounds(h)
+    const title = h.model.texts.find((t) => t.key === 'title')
+    const label = h.compact ? h.compact.label : title?.text
+    if (!label) return null
+    // Full hexagons anchor at the heading's own spot (its left edge), compact ones on their centre.
+    const at = mapToScreen(h.compact ? { x: h.centre.x, y: h.centre.y - h.compact.size * 0.4 } : { x: h.centre.x + title!.x, y: h.centre.y + title!.y })
+    const width = box.width * scale
+    if (label.length * TITLE_FLOOR_PX * 0.6 > width) return null
+    return (
+      <span key={h.id} className="hexagon-title" data-hexagon-title-overlay={h.id} aria-hidden="true" style={{ left: at.x, top: at.y, maxWidth: width, fontSize: TITLE_FLOOR_PX, ...(!h.compact && { transform: 'translate(0, -100%)' }) }}>
+        {label}
+      </span>
     )
   })
 }

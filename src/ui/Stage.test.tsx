@@ -16,6 +16,7 @@ import { parseHexa } from '../model/hexa'
 import { hexGroup, linkedTwoHexMap, manyHexagonMap, twoHexMap } from '../test/fixtures'
 import { contains, fitMap, fitTo, islandInset, MIN_FIT_SCALE, MIN_SCALE, pinch, visibleRect, zoomAt } from './viewport'
 import type { Box, Point } from '../layout/geometry'
+import { readFileSync } from 'node:fs'
 import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
 
 beforeAll(() => {
@@ -1707,5 +1708,49 @@ describe('Stage — smooth fit changes (animated refit, panel open/close)', () =
       frames(400)
       expectViewport(container, wholeMapFit(true))
     })
+  })
+})
+
+describe('Stage — hexagon titles stay readable when zoomed out', () => {
+  const titleOverlays = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>('[data-hexagon-title-overlay]')]
+  const withSize = (width: number, height: number, run: () => void) => {
+    const restore = stubFixedSize(width, height)
+    try {
+      useMapStore.getState().replace(twoHexMap())
+      run()
+    } finally {
+      restore()
+    }
+  }
+
+  it('draws a 12px label per hexagon once the title would render smaller on screen', () => {
+    withSize(700, 360, () => {
+      const { container } = render(<Harness />)
+      expect(viewportOf(container).scale * 24).toBeLessThan(12)
+      const labels = titleOverlays(container)
+      expect(labels.length).toBeGreaterThan(0)
+      for (const label of labels) expect(label.style.fontSize).toBe('12px')
+      expect(svg(container).classList.contains('titles-overlaid')).toBe(true)
+    })
+  })
+
+  it('draws no label, and keeps the SVG titles, while they already render at 12px or more', () => {
+    withSize(9000, 6000, () => {
+      const { container } = render(<Harness />)
+      expect(viewportOf(container).scale * 24).toBeGreaterThanOrEqual(12)
+      expect(titleOverlays(container)).toHaveLength(0)
+      expect(svg(container).classList.contains('titles-overlaid')).toBe(false)
+    })
+  })
+
+  it('never lets a label run wider than its hexagon on screen', () => {
+    withSize(700, 360, () => {
+      const { container } = render(<Harness />)
+      for (const label of titleOverlays(container)) expect(parseFloat(label.style.maxWidth)).toBeGreaterThan(0)
+    })
+  })
+
+  it('hides the SVG titles only on the canvas, never in an export', () => {
+    expect(readFileSync('src/styles.css', 'utf8')).toMatch(/\.canvas\.titles-overlaid:not\(\.exporting\) \[data-hexagon-title\]\s*\{\s*display:\s*none/)
   })
 })

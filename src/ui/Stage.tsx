@@ -14,7 +14,7 @@ import { useMapStore } from '../model/store'
 import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
 import { hexIdOf, hullIdOf, layerOf, refOf } from './canvasTarget'
-import { ContextReveals, ExpandToggles, GrowButtons, LinkChip } from './stage/overlays'
+import { ContextReveals, ExpandToggles, GrowButtons, HexagonTitles, LinkChip, titlesOverlaid } from './stage/overlays'
 import { useCanvasShortcuts } from './stage/useCanvasShortcuts'
 import { useContextReveal } from './stage/useContextReveal'
 import { useHexagonFocus } from './stage/useHexagonFocus'
@@ -184,7 +184,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
     >
       <svg
         ref={svgRef}
-        className="canvas"
+        className={titlesOverlaid(viewport.scale) ? 'canvas titles-overlaid' : 'canvas'}
         role="figure"
         aria-label={title || 'Architecture diagram'}
         onPointerOver={(e) => {
@@ -282,6 +282,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
 
       <Affordances points={visiblePoints} toScreen={toScreen} onPick={pick} onLayer={setHovered} />
       {!viewOnly && <GrowButtons model={model} hex={hex} scale={viewport.scale} mapToScreen={mapToScreen} title={title} contextLabel={contextLabel} onGrow={onGrow} />}
+      <HexagonTitles model={model} mapToScreen={mapToScreen} scale={viewport.scale} />
       <ExpandToggles model={model} currentId={hexId} mapToScreen={mapToScreen} onToggle={onToggleExpanded} />
       {/* After the canvas controls so a name is never covered; it takes no pointer, so the controls stay clickable. */}
       <ContextReveals contexts={model.contexts} reveals={reveal.reveals} mapToScreen={mapToScreen} scale={viewport.scale} />

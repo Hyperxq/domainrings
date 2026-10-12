@@ -63,7 +63,7 @@ const CANVAS_ONLY = ['class', 'style', 'tabindex', 'role', 'aria-label', 'data-r
 // Map-scoping attributes (SEAM-07): stripped in a SECOND pass, after the `only` filter and the cue removal have
 // used `data-hex`/`data-map-link`/`data-map-title`/`data-hull`/`data-chip`/`data-hulls`/`data-link-pattern` as
 // selectors — stripping them earlier would leave nothing to select.
-const SCOPE_ONLY = ['data-hex', 'aria-current', 'aria-hidden', 'data-map-link', 'data-map-title', 'data-hover', 'data-hull', 'data-chip', 'data-hulls', 'data-link-pattern']
+const SCOPE_ONLY = ['data-hex', 'aria-current', 'aria-hidden', 'data-map-link', 'data-map-title', 'data-hover', 'data-hull', 'data-chip', 'data-hulls', 'data-link-pattern', 'data-hexagon-title']
 
 export async function svgMarkup(svg: SVGSVGElement, bounds: Box, title: string, options: ExportOptions): Promise<string> {
   // Exports ignore hover: drop it from the svg root and from whichever hexagon group carries it (CANVAS-03 scopes

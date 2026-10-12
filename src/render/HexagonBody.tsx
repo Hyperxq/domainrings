@@ -111,7 +111,7 @@ function Node({ node, selected, target, chained, interactive }: { node: LayoutNo
 
 function Heading({ text }: { text: LayoutText }) {
   return (
-    <text className={`diagram-${text.style}`} x={text.x} y={text.y} fontSize={text.style === 'title' ? TITLE.size : SUBTITLE.size}>
+    <text className={`diagram-${text.style}`} data-hexagon-title={text.style === 'title' ? '' : undefined} x={text.x} y={text.y} fontSize={text.style === 'title' ? TITLE.size : SUBTITLE.size}>
       {text.text}
     </text>
   )
@@ -150,7 +150,7 @@ export function CompactBody({ compact, title, linkTargets, chain }: { compact: C
   return (
     <>
       <path className="ring ring-outer" d={bandPath('hexagon', outline)} />
-      <text className="compact-title" y={-size * 0.4} fontSize={size}>{label}</text>
+      <text className="compact-title" data-hexagon-title="" y={-size * 0.4} fontSize={size}>{label}</text>
       <text className="compact-count" y={size * 0.8} fontSize={size * 0.85}>{elements} {elements === 1 ? 'element' : 'elements'}</text>
       {compact.ports.map((port) => {
         const target = linkTargets.has(port.id)

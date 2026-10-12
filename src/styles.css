@@ -319,6 +319,9 @@ svg[data-emphasis='dependents'] .compact-port[data-chain] circle { stroke-dashar
 }
 /* The name shows on hover instead (`.context-reveal`); an export still draws it, since it is read with `.exporting` on. */
 .canvas:not(.exporting) .chip { display: none; }
+/* Titles that would render under 12px on screen are drawn by the `HexagonTitles` overlay instead; an export keeps the SVG ones. */
+.canvas.titles-overlaid:not(.exporting) [data-hexagon-title] { display: none; }
+.hexagon-title { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; pointer-events: none; font-family: var(--font-mono); font-weight: 600; color: var(--muted); }
 /* A context's name over its region: the blur is clipped to the hull's own path (inline), the name sits on its centre.
    Neither takes the pointer, so a click always reaches the canvas below. */
 .context-reveal, .context-reveal * { pointer-events: none; }
