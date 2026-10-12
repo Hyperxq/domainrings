@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type Ref } from 'react'
+import { useEffect, useMemo, useRef, useState, type Ref } from 'react'
 import { canCompact } from '../layout/compactHexagon'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
 import type { LayoutNode } from '../layout/layout'
@@ -122,13 +122,18 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   })
   // The grow-menu anchors are already in map space (cell centres), unlike hexagon-local insertion points.
   const mapToScreen = (p: Point) => ({ x: (p.x - viewport.x) * viewport.scale, y: (p.y - viewport.y) * viewport.scale })
-  const targets = linking ? linkTargets(diagram, linking) : []
+  // Referentially stable across viewport-only renders, so the memoized MapDiagram skips them.
+  const targets = useMemo(() => (linking ? linkTargets(diagram, linking) : []), [diagram, linking])
+  const linkTargetRefs = useMemo(() => new Set(targets.map((t) => t.targetRef)), [targets])
   // ADR-02: the ports of another hexagon a link-mode selection can connect to — empty unless `linking` is a port.
-  const crossTargets = linking ? crossPortTargets(map, diagram, hexId, linking) : []
-  const crossLinkTargets = targetsByHexagon(crossTargets)
+  const crossTargets = useMemo(() => (linking ? crossPortTargets(map, diagram, hexId, linking) : []), [map, diagram, hexId, linking])
+  const crossLinkTargets = useMemo(() => targetsByHexagon(crossTargets), [crossTargets])
   // Only what is drawn can be followed, so the chain ends at the ports of a compact hexagon.
-  const chain =
-    highlight && !linking && selected ? dependencyChain(map, hexId, selected, new Set(model.hexagons.filter((h) => !h.compact).map((h) => h.id)), dependents ? 'dependents' : 'dependencies') : undefined
+  const chain = useMemo(
+    () =>
+      highlight && !linking && selected ? dependencyChain(map, hexId, selected, new Set(model.hexagons.filter((h) => !h.compact).map((h) => h.id)), dependents ? 'dependents' : 'dependencies') : undefined,
+    [highlight, linking, selected, map, hexId, model, dependents],
+  )
   const nameOf = (ref: string) => {
     const collection = collectionOf(diagram, ref)
     const items: { id: string; name: string }[] = collection ? diagram[collection] : []
@@ -262,7 +267,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
           showGuides={showGuides}
           focus={hexId}
           selected={selected}
-          linkTargets={new Set(targets.map((t) => t.targetRef))}
+          linkTargets={linkTargetRefs}
           crossLinkTargets={crossLinkTargets}
           hovered={highlight ? hovered : null}
           chain={chain}
