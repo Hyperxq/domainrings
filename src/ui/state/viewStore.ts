@@ -20,13 +20,17 @@ interface ViewData {
   choosingArchitecture: boolean
   /** Link mode: the element being linked. It ends when that element goes, or the whole map is swapped. */
   linking: string | null
+  /** Editor tree branches (`context:<id>`, `subdomain:<id>`) that are open. */
+  openNodes: ReadonlySet<string>
   /** Grow: the just-added hexagon's own inline title field is open until it commits or is undone (GROW-03). */
   growing: { hexId: string; before: { map: HexaMap; focus: string } } | null
 }
 
 interface ViewStore extends ViewData {
-  /** Opens the editor at the card for `ref` (an item id, `composition` or `layer:<role>`); `focus` selects its first field. */
-  reveal: (ref: string, focus: boolean) => void
+  /** Opens the editor at the card for `ref` (an item id, `composition` or `layer:<role>`); `focus` selects its first field.
+   * `hexId` is the subdomain the card belongs to: its branch opens first, and the search stays inside it. */
+  reveal: (ref: string, focus: boolean, hexId?: string) => void
+  toggleNode: (key: string) => void
   /** Expands a compact hexagon in full, or compacts an expanded one back. */
   toggleExpanded: (id: string) => void
   expandAll: (ids: string[]) => void
@@ -38,7 +42,13 @@ interface ViewStore extends ViewData {
   cancelGrow: () => void
 }
 
+const branchOf = (map: HexaMap, hexId: string) => {
+  const contextId = map.hexagons.find((h) => h.id === hexId)?.contextId
+  return contextId ? [`context:${contextId}`, `subdomain:${hexId}`] : []
+}
+
 const initialView = (): ViewData => ({
+  openNodes: new Set(branchOf(useMapStore.getState().map, useMapStore.getState().focus)),
   editorOpen: typeof matchMedia === 'function' ? !matchMedia('(max-width: 720px)').matches : true,
   expanded: new Set(),
   exportScope: 'map',
@@ -49,12 +59,13 @@ const initialView = (): ViewData => ({
 
 export const useViewStore = create<ViewStore>()((set, get) => ({
   ...initialView(),
-  reveal: (ref, focus) => {
+  reveal: (ref, focus, hexId) => {
     if (usePreferencesStore.getState().viewOnly) return
     // The card only exists to scroll to once the collapsed editor has rendered open.
-    flushSync(() => set({ editorOpen: true }))
-    revealInEditor(ref, focus)
+    flushSync(() => set(({ openNodes }) => ({ editorOpen: true, openNodes: hexId ? new Set([...openNodes, ...branchOf(useMapStore.getState().map, hexId)]) : openNodes })))
+    revealInEditor(ref, focus, hexId)
   },
+  toggleNode: (key) => set(({ openNodes }) => ({ openNodes: new Set(openNodes.has(key) ? [...openNodes].filter((k) => k !== key) : [...openNodes, key]) })),
   toggleExpanded: (id) => set(({ expanded }) => ({ expanded: new Set(expanded.has(id) ? [...expanded].filter((x) => x !== id) : [...expanded, id]) })),
   expandAll: (ids) => set({ expanded: new Set(ids) }),
   startLinking: (ref) => {
@@ -79,6 +90,9 @@ export const useViewStore = create<ViewStore>()((set, get) => ({
 // link mode also ends once the element being linked is gone.
 useMapStore.subscribe(({ map, focus, revision }, prev) => {
   const { linking } = useViewStore.getState()
-  if (revision !== prev.revision) useViewStore.setState({ expanded: new Set(), linking: null })
-  else if (linking && !collectionOf(diagramOf(map, focus), linking)) useViewStore.setState({ linking: null })
+  if (revision !== prev.revision) useViewStore.setState({ expanded: new Set(), linking: null, openNodes: new Set(branchOf(map, focus)) })
+  else {
+    if (linking && !collectionOf(diagramOf(map, focus), linking)) useViewStore.setState({ linking: null })
+    if (focus !== prev.focus) useViewStore.setState(({ openNodes }) => ({ openNodes: new Set([...openNodes, ...branchOf(map, focus)]) }))
+  }
 })

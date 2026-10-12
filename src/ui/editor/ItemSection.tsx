@@ -73,7 +73,7 @@ export function ItemSection<K extends CollectionKey>({ hexId, map, collection, i
         </ul>
   )
   return (
-    <Fold id={collection} title={title} count={items.length} actions={actions ?? add}>
+    <Fold id={`${hexId}:${collection}`} title={title} count={items.length} actions={actions ?? add}>
       {!items.length ? (
         <p className="empty">{empty}</p>
       ) : groups ? (

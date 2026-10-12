@@ -58,7 +58,7 @@ const recordOlderStep = (container: HTMLElement) => {
 describe('Hexagonal editor field sessions', () => {
   const fields: [string, () => HTMLElement][] = [
     ['map title', () => screen.getByLabelText('Map title')],
-    ['hexagon title', () => screen.getByLabelText('Hexagon title')],
+    ['hexagon title', () => screen.getByLabelText('Subdomain title')],
     ['hexagon subtitle', () => screen.getAllByLabelText('Subtitle')[0]],
     ['composition root', () => screen.getByLabelText('Composition root')],
     ['ring title', () => screen.getAllByLabelText('Ring title')[0]],
@@ -98,7 +98,7 @@ describe('Hexagonal editor field sessions', () => {
     expandEditor()
     session(screen.getByLabelText('Map title'), 'One')
     const afterFirst = doc()
-    session(screen.getByLabelText('Hexagon title'), 'Two')
+    session(screen.getByLabelText('Subdomain title'), 'Two')
 
     undoKey()
     expect(doc()).toBe(afterFirst)

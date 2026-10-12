@@ -978,7 +978,20 @@ describe('Stage current-hexagon focus (FOCUS-01, 03, 04, 05, CANVAS-03)', () => 
     fireEvent.doubleClick(hexGroup(container, 'h2'))
 
     expect(useMapStore.getState().focus).toBe('h2')
-    expect(onReveal).toHaveBeenCalledWith('hexagon', true)
+    expect(onReveal).toHaveBeenCalledWith('hexagon', true, 'h2')
+  })
+
+  it('double-clicking an element or a hexagon title reveals its field in that hexagon’s own subdomain', () => {
+    useMapStore.getState().replace(twoHexMap())
+    const onReveal = vi.spyOn(useViewStore.getState(), 'reveal')
+    const { container } = render(<Harness />)
+    const element = hexGroup(container, 'h1').querySelector('.node')!
+
+    fireEvent.doubleClick(element)
+    expect(onReveal).toHaveBeenLastCalledWith(element.getAttribute('data-ref'), true, 'h1')
+
+    fireEvent.doubleClick(hexGroup(container, 'h1').querySelector('[data-hexagon-title]')!)
+    expect(onReveal).toHaveBeenLastCalledWith('hexagon', true, 'h1')
   })
 
   it('a real double-click gesture on a non-current hexagon still reveals the hexagon card, not the item the pointer lands on (FOCUS-03.1)', () => {
@@ -995,7 +1008,7 @@ describe('Stage current-hexagon focus (FOCUS-01, 03, 04, 05, CANVAS-03)', () => 
     fireEvent.doubleClick(target)
 
     expect(useMapStore.getState().focus).toBe('h2')
-    expect(onReveal).toHaveBeenCalledWith('hexagon', true)
+    expect(onReveal).toHaveBeenCalledWith('hexagon', true, 'h2')
     expect(onReveal).not.toHaveBeenCalledWith(target.getAttribute('data-ref'), true)
   })
 

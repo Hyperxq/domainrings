@@ -154,8 +154,8 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
     setEditing({ id, collection, name: patch.name, at: point.at, hexId, before })
   }
   const revealFrom = (target: Element) => {
-    const ref = refOf(target)
-    if (ref) onReveal(ref, true)
+    const ref = refOf(target) ?? (target.closest('[data-hexagon-title]') ? 'hexagon' : null)
+    if (ref) onReveal(ref, true, hexIdOf(target) ?? hexId)
   }
   // The inline name field sits over the new element once it is laid out, over its "+" until then.
   const editingNode = editing && hexModel.nodes.find((n) => n.ref === editing.id && n.kind === NODE_KIND[editing.collection])
@@ -239,7 +239,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
           const clickedHexId = hexIdOf(target)
           if (clickedHexId && clickedHexId !== gestureAnchorHexId.current) {
             focusHexagon(clickedHexId)
-            onReveal('hexagon', true)
+            onReveal('hexagon', true, clickedHexId)
             return
           }
           revealFrom(target)

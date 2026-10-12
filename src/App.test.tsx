@@ -920,7 +920,7 @@ describe('Links: edit and delete from the Links section (REQ-LNK-02, REQ-LNK-04)
 })
 
 describe('current hexagon (FOCUS-03, FOCUS-06)', () => {
-  it('double-clicking a non-current hexagon focuses it and puts the caret in its Hexagon title field (FOCUS-03.1)', () => {
+  it('double-clicking a non-current hexagon focuses it and puts the caret in its Subdomain title field (FOCUS-03.1)', () => {
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<App />)
 
@@ -928,11 +928,11 @@ describe('current hexagon (FOCUS-03, FOCUS-06)', () => {
 
     expect(useMapStore.getState().focus).toBe('h2')
     const input = document.activeElement as HTMLInputElement
-    expect(card(container, 'hexagon').contains(input)).toBe(true)
+    expect(container.querySelector('[data-subdomain="h2"] [data-item-id="hexagon"]')!.contains(input)).toBe(true)
     expect(input.value).toBe('Second slice')
   })
 
-  it('a real double-click gesture (click, click, dblclick) on a non-current hexagon reveals the Hexagon title field, not the item under the pointer (FOCUS-03.1)', () => {
+  it('a real double-click gesture (click, click, dblclick) on a non-current hexagon reveals the Subdomain title field, not the item under the pointer (FOCUS-03.1)', () => {
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<App />)
     const target = hexGroup(container, 'h2').querySelector('.node[data-ref]')!
@@ -942,7 +942,7 @@ describe('current hexagon (FOCUS-03, FOCUS-06)', () => {
     fireEvent.doubleClick(target)
 
     expect(useMapStore.getState().focus).toBe('h2')
-    const input = screen.getByLabelText('Hexagon title') as HTMLInputElement
+    const input = within(container.querySelector<HTMLElement>('[data-subdomain="h2"]')!).getByLabelText('Subdomain title') as HTMLInputElement
     expect(document.activeElement).toBe(input)
     expect(input.value).toBe('Second slice')
     expect(container.querySelectorAll('[data-selected]')).toHaveLength(0)
@@ -1679,7 +1679,7 @@ describe('grow the map (GROW-01..04, ADR-02)', () => {
     const { container } = render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add hexagon' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add subdomain' }))
 
     expect(useMapStore.getState().map.hexagons).toHaveLength(2)
     expect(useMapStore.getState().map.hexagons[1].contextId).toBe(useMapStore.getState().map.hexagons[0].contextId)
@@ -1789,7 +1789,7 @@ describe('renaming a bounded context (NAME-01..03)', () => {
 
 describe('delete a hexagon (DEL-01..06)', () => {
   const openEditor = () => fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
-  const deleteButton = () => screen.getByRole('button', { name: 'Delete hexagon' })
+  const deleteButton = () => screen.getByRole('button', { name: 'Delete subdomain' })
 
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
@@ -1882,12 +1882,12 @@ describe('delete a hexagon (DEL-01..06)', () => {
 
 describe('import a hexagon from file (IMP-01..07)', () => {
   const openEditor = () => fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
-  const openImportMenu = () => fireEvent.click(screen.getByRole('button', { name: 'Add hexagon from file…' }))
+  const openImportMenu = () => fireEvent.click(screen.getByRole('button', { name: 'Add subdomain from file…' }))
   // toMap always yields kind hexagonal now (REQ-06) — no `kind` param left to vary.
   const oneHexFile = () => toHexa(toMap({ ...EXAMPLE_DIAGRAM, title: 'Legacy System' }))
   const pickFile = async (text: string, name = 'legacy.hexa') => {
     const file = new File([text], name, { type: 'application/json' })
-    fireEvent.change(screen.getByLabelText('Add hexagon from a .hexa file'), { target: { files: [file] } })
+    fireEvent.change(screen.getByLabelText('Add subdomain from a .hexa file'), { target: { files: [file] } })
     await act(async () => {
       await Promise.resolve()
     })
@@ -2057,10 +2057,10 @@ describe('import a hexagon from file (IMP-01..07)', () => {
 
 describe('journey', () => {
   const openEditor = () => fireEvent.click(screen.getByRole('button', { name: 'Expand editor' }))
-  const openImportMenu = () => fireEvent.click(screen.getByRole('button', { name: 'Add hexagon from file…' }))
+  const openImportMenu = () => fireEvent.click(screen.getByRole('button', { name: 'Add subdomain from file…' }))
   const pickFile = async (text: string, name: string) => {
     const file = new File([text], name, { type: 'application/json' })
-    fireEvent.change(screen.getByLabelText('Add hexagon from a .hexa file'), { target: { files: [file] } })
+    fireEvent.change(screen.getByLabelText('Add subdomain from a .hexa file'), { target: { files: [file] } })
     await act(async () => {
       await Promise.resolve()
     })
