@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { LayoutMode } from '../layout/layout'
 import type { OnionLayoutModel } from '../layout/onion'
 import type { LegendModel } from '../layout/legend'
@@ -30,7 +31,7 @@ interface OnionDiagramProps {
  * systems outside the outer ring with a direct arrow to their target (REQ-05) — no ports or adapters. Node/edge
  * primitives are shared with Clean via `RingedNodes.tsx` (ADR-01); only this file's own `<defs>` (the arrow
  * marker Clean draws its own copy of, under its own id) and ring/model wiring are Onion-specific. */
-export function OnionDiagram({ model, selected, interactive, validTargets, legend, mode, hoverRef }: OnionDiagramProps) {
+export const OnionDiagram = memo(function OnionDiagram({ model, selected, interactive, validTargets, legend, mode, hoverRef }: OnionDiagramProps) {
   const activeRefs = new Set([hoverRef, selected].filter((r): r is string => r !== null))
   return (
     <>
@@ -54,4 +55,4 @@ export function OnionDiagram({ model, selected, interactive, validTargets, legen
       <SvgLegend legend={legend} bounds={model.bounds} />
     </>
   )
-}
+})

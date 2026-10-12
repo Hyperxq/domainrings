@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { CleanLayoutModel, CleanSectorWedge } from '../layout/clean'
 import type { LayoutMode, LayoutRing } from '../layout/layout'
 import type { LegendModel } from '../layout/legend'
@@ -63,7 +64,7 @@ function SectorLabel({ sector, ring, inner, innermost }: { sector: CleanSectorWe
  * each ring's own sectors drawn as wedge dividers (REQ-08), its elements spread inside their own sector's wedge,
  * inward-only dependency arrows (REQ-06), and actors/external systems outside the outer ring with a direct arrow
  * to a Frameworks & Drivers element (REQ-07) — node/edge primitives shared with Onion via `RingedNodes.tsx`. */
-export function CleanDiagram({ model, selected, interactive, validTargets, legend, mode, hoverRef }: CleanDiagramProps) {
+export const CleanDiagram = memo(function CleanDiagram({ model, selected, interactive, validTargets, legend, mode, hoverRef }: CleanDiagramProps) {
   const activeRefs = new Set([hoverRef, selected].filter((r): r is string => r !== null))
   return (
     <>
@@ -94,4 +95,4 @@ export function CleanDiagram({ model, selected, interactive, validTargets, legen
       <SvgLegend legend={legend} bounds={model.bounds} />
     </>
   )
-}
+})

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { Chain } from '../model/chain'
 import { hexagonBounds } from '../layout/lattice'
 import { currentHexagon, hexagonTitle, type MapContextLayout, type MapLayout } from '../layout/map'
@@ -77,7 +78,7 @@ interface MapDiagramProps {
 
 /** Composes every hexagon of a map into one SVG: one `<defs>`, one `<g data-hex>` per hexagon, the map's links
  * drawn above them, an optional map title, and the legend once — under the current hexagon. */
-export function MapDiagram({ map, legend, showGuides, focus, selected, linkTargets, crossLinkTargets, hovered, chain }: MapDiagramProps) {
+export const MapDiagram = memo(function MapDiagram({ map, legend, showGuides, focus, selected, linkTargets, crossLinkTargets, hovered, chain }: MapDiagramProps) {
   const first = map.hexagons[0]
   const current = currentHexagon(map, focus)
   return (
@@ -143,7 +144,7 @@ export function MapDiagram({ map, legend, showGuides, focus, selected, linkTarge
       <SvgLegend legend={legend} bounds={hexagonBounds(current)} />
     </>
   )
-}
+})
 
 
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type Dispatch, type PointerEvent as ReactPointerEvent, type RefObject, type SetStateAction } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type PointerEvent as ReactPointerEvent, type RefObject, type SetStateAction } from 'react'
 import type { Point } from '../layout/geometry'
 import { useMapStore } from '../model/store'
 import { Icon } from './Icon'
@@ -136,6 +136,27 @@ export function useViewportInteractions({
   // whole diagram itself needs either, so a view already fitted to it never snaps back in.
   const zoomFloor = Math.min(MIN_SCALE, wholeFitScale)
 
+  // Wheel, pinch and pan events arrive faster than frames: each composes onto `pending` (the view the last event
+  // asked for, which no render has shown yet) and one setView per animation frame commits it.
+  const latest = useRef({ viewport, zoomFloor })
+  const pending = useRef<Viewport | null>(null)
+  const frame = useRef(0)
+  useLayoutEffect(() => {
+    latest.current = { viewport, zoomFloor }
+    pending.current = null
+  }, [viewport, zoomFloor])
+  useEffect(() => () => cancelAnimationFrame(frame.current), [])
+  const queueView = (next: (from: Viewport, zoomFloor: number) => Viewport) => {
+    pending.current = next(pending.current ?? latest.current.viewport, latest.current.zoomFloor)
+    frame.current ||= requestAnimationFrame(() => {
+      frame.current = 0
+      if (pending.current) setView(pending.current)
+    })
+  }
+  // The wheel listener is attached once; it reaches the changing parts through `queueView`'s refs.
+  const queueRef = useRef(queueView)
+  queueRef.current = queueView
+
   useEffect(() => {
     const el = mainRef.current
     if (!el) return
@@ -144,12 +165,12 @@ export function useViewportInteractions({
       e.preventDefault()
       const rect = el.getBoundingClientRect()
       const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY
-      setView(zoomAt(viewport, Math.exp(-delta * 0.0015), { x: e.clientX - rect.left, y: e.clientY - rect.top }, zoomFloor))
+      queueRef.current((from, floor) => zoomAt(from, Math.exp(-delta * 0.0015), { x: e.clientX - rect.left, y: e.clientY - rect.top }, floor))
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewport, zoomFloor])
+  }, [])
 
   useEffect(() => {
     if (!fullscreen) return
@@ -211,9 +232,8 @@ export function useViewportInteractions({
         const from: [Point, Point] = [pointers.current.get(idA)!, pointers.current.get(idB)!]
         pointers.current.set(e.pointerId, point)
         const to: [Point, Point] = [pointers.current.get(idA)!, pointers.current.get(idB)!]
-        // The functional updater is required: the browser can dispatch each finger's pointermove synchronously
-        // in the same tick, and React batches both setView calls into one render.
-        setView((prev) => pinch(typeof prev === 'string' ? viewport : prev, from, to, zoomFloor))
+        // Each finger's pointermove is its own event; queueing composes them onto the same pending view.
+        queueView((v, floor) => pinch(v, from, to, floor))
         return
       }
       pointers.current.set(e.pointerId, point)
@@ -234,7 +254,8 @@ export function useViewportInteractions({
       setDragging(true)
       onPanStart?.()
     }
-    setView(panBy(viewport, e.clientX - d.x, e.clientY - d.y))
+    const [dx, dy] = [e.clientX - d.x, e.clientY - d.y]
+    queueView((v) => panBy(v, dx, dy))
     drag.current = { x: e.clientX, y: e.clientY, panning: true }
   }
 
