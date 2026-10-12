@@ -56,7 +56,7 @@ export function useOpenDocument({ beforeSwap, setActiveKind }: OpenDocumentConte
     swap(toMap({ version: 1, kind: 'hexagonal', title: 'Untitled architecture', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }), 'Started a new diagram.')
   }
 
-  // Shared by Open…, "Add hexagon from file…" and a share link: text that fails to parse is refused the same
+  // Shared by Open…, "Add subdomain from file…" and a share link: text that fails to parse is refused the same
   // way everywhere (IMP-07) — a newer-version source isn't broken (REQ-03.1), so it gets its own headline, no
   // fix-it framing. `label` names the source in the notice ("broken.hexa" for a file, "This link" for a link).
   const parseSource = async (text: string, label: string): Promise<StoredFile | undefined> => {

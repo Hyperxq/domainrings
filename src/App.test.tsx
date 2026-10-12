@@ -2037,7 +2037,7 @@ describe('import a hexagon from file (IMP-01..07)', () => {
 
     expect(useMapStore.getState().map).toBe(before)
     expect(screen.queryByRole('dialog')).toBeNull()
-    expect(screen.getByRole('alert').textContent).toBe('sample.hexa is an Onion file. Add hexagon from file… only accepts a Hexagonal map.')
+    expect(screen.getByRole('alert').textContent).toBe('sample.hexa is an Onion file. Add subdomain from file… only accepts a Hexagonal map.')
   })
 
   it('refuses a Clean file the same way, naming it by its own kind (REQ-05)', async () => {
@@ -2049,7 +2049,7 @@ describe('import a hexagon from file (IMP-01..07)', () => {
 
     expect(useMapStore.getState().map).toBe(before)
     expect(screen.queryByRole('dialog')).toBeNull()
-    expect(screen.getByRole('alert').textContent).toBe('sample.hexa is a Clean file. Add hexagon from file… only accepts a Hexagonal map.')
+    expect(screen.getByRole('alert').textContent).toBe('sample.hexa is a Clean file. Add subdomain from file… only accepts a Hexagonal map.')
   })
 })
 

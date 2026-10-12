@@ -13,7 +13,7 @@ const REPOSITORY_URL = 'https://github.com/Hyperxq/domainrings'
 interface ToolbarProps {
   onNew: () => void
   onExample: (id: (typeof EXAMPLES)[number]['id']) => void
-  /** Replaces the whole map — distinct from Editor's "Add hexagon from file…", which adds one hexagon. */
+  /** Replaces the whole map — distinct from Editor's "Add subdomain from file…", which adds one hexagon. */
   onOpen: (file: File) => void
   /** Always copies the whole map (REQ-05), regardless of the export scope selection. */
   onCopyLink: () => void
