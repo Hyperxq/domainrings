@@ -51,7 +51,7 @@ const port = EXAMPLE_DIAGRAM.ports[0]
 describe('collapsible editor sections', () => {
   it('starts with every section open, each summary showing its title and item count', () => {
     const { container } = renderEditor()
-    const titles = ['Map', 'Hexagon', 'Layers', 'Domain', 'Use cases', 'Ports', 'Adapters', 'Actors', 'External systems']
+    const titles = ['Map', 'Bounded context', 'Hexagon', 'Layers', 'Domain', 'Use cases', 'Ports', 'Adapters', 'Actors', 'External systems']
     for (const title of titles) expect(section(container, title).open).toBe(true)
     expect(section(container, 'Ports').querySelector('summary')!.textContent).toBe(`Ports· ${EXAMPLE_DIAGRAM.ports.length}`)
   })
@@ -91,9 +91,11 @@ describe('map and hexagon titles (TITLE-01, TITLE-02)', () => {
   it('shows distinct, clearly labelled Map and Hexagon title fields, and no field labelled plain "Title" (TITLE-02.1)', () => {
     const { container } = renderEditor()
     const mapSection = within(section(container, 'Map'))
+    const contextSection = within(section(container, 'Bounded context'))
     const hexagonSection = within(section(container, 'Hexagon'))
     expect(mapSection.getByLabelText('Map title')).toBeInstanceOf(HTMLInputElement)
-    expect(hexagonSection.getByLabelText('Hexagon title')).toBeInstanceOf(HTMLInputElement)
+    expect(contextSection.getAllByLabelText('Hexagon title')).toHaveLength(1)
+    expect(hexagonSection.queryByLabelText('Hexagon title')).toBeNull()
     expect(hexagonSection.getByLabelText('Subtitle')).toBeInstanceOf(HTMLInputElement)
     expect(mapSection.queryByText('Title', { selector: 'label > span' })).toBeNull()
     expect(hexagonSection.queryByText('Title', { selector: 'label > span' })).toBeNull()
@@ -198,26 +200,82 @@ describe('"Delete hexagon" button in the Hexagon section (DEL-01)', () => {
   })
 })
 
-describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
-  it('lists and counts only contexts that own a hexagon', () => {
-    const map = useMapStore.getState().map
-    useMapStore.getState().replace({ ...map, contexts: [...map.contexts, { id: 'c9' }] })
+describe('panel hierarchy', () => {
+  const twoContextsWithSiblings = () => {
+    const base = twoHexMap()
+    const h = base.hexagons[0]
+    useMapStore.getState().replace({
+      ...base,
+      contexts: [{ id: 'c1', name: 'Billing' }, { id: 'c2' }, { id: 'c9' }],
+      hexagons: [
+        { ...h, title: 'Invoices' },
+        { ...h, id: 'h2', cell: { q: 1, r: 0 }, title: 'Payments' },
+        { ...h, id: 'h3', cell: { q: 2, r: 0 }, title: 'Shipping', contextId: 'c2' },
+      ],
+    })
+    useMapStore.getState().setFocus(h.id)
+  }
+  const inDomOrder = (els: Element[]) => els.every((el, i) => i === 0 || !!(els[i - 1].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING))
+
+  it('reads top-down: map title, context name, hexagon titles, hexagon details, layers, elements, links', () => {
+    twoContextsWithSiblings()
     const { container } = renderEditor()
-    const fold = section(container, 'Bounded contexts')
-    expect(fold.querySelector('summary')!.textContent).toBe('Bounded contexts· 1')
-    expect(within(fold).queryByLabelText('Name for Context 9')).toBeNull()
+    const headings = (title: string) => section(container, title).querySelector('summary')!
+    expect(
+      inDomOrder([
+        screen.getByLabelText('Map title'),
+        screen.getByLabelText('Name for Context 1'),
+        screen.getByLabelText('Hexagon title'),
+        screen.getByRole('button', { name: 'Payments' }),
+        screen.getByLabelText('Composition root'),
+        screen.getByRole('button', { name: 'Delete hexagon' }),
+        headings('Layers'),
+        headings('Ports'),
+        headings('Other bounded contexts'),
+        headings('Links'),
+      ]),
+    ).toBe(true)
   })
+
+  it('lists the other hexagons of the context as buttons that move the focus, and keeps other contexts out of that list', () => {
+    twoContextsWithSiblings()
+    const { container } = renderEditor()
+    const own = within(section(container, 'Bounded context'))
+    expect(own.queryByRole('button', { name: 'Shipping' })).toBeNull()
+
+    fireEvent.click(own.getByRole('button', { name: 'Payments' }))
+
+    expect(useMapStore.getState().focus).toBe('h2')
+  })
+
+  it('keeps the other occupied contexts renamable in their own fold, counted without empty ones', () => {
+    twoContextsWithSiblings()
+    const { container } = renderEditor()
+    const fold = section(container, 'Other bounded contexts')
+    expect(fold.querySelector('summary')!.textContent).toBe('Other bounded contexts· 1')
+    expect(within(fold).getByLabelText('Name for Context 2')).toBeTruthy()
+    expect(within(fold).queryByLabelText('Name for Context 9')).toBeNull()
+    expect(within(fold).queryByLabelText('Name for Context 1')).toBeNull()
+  })
+
+  it('shows no other-contexts fold when the map has a single context', () => {
+    const { container } = renderEditor()
+    expect(section(container, 'Other bounded contexts')).toBeUndefined()
+  })
+})
+
+describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
 
   it('shows one input per context, labelled by its stable ordinal, with the name (or none) as its value', () => {
     const { container } = renderEditor()
-    const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1') as HTMLInputElement
+    const input = within(section(container, 'Bounded context')).getByLabelText('Name for Context 1') as HTMLInputElement
     expect(input.value).toBe('')
   })
 
   it('typing a name updates the store immediately, so the chip can follow live (NAME-02.1)', () => {
     const contextId = useMapStore.getState().map.contexts[0].id
     const { container } = renderEditor()
-    const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1')
+    const input = within(section(container, 'Bounded context')).getByLabelText('Name for Context 1')
 
     fireEvent.change(input, { target: { value: 'Billing' } })
 
@@ -229,7 +287,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
     const contextId = useMapStore.getState().map.contexts[0].id
     const beforeMap = useMapStore.getState().map
     const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', onRenameContext)
-    const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1')
+    const input = within(section(container, 'Bounded context')).getByLabelText('Name for Context 1')
 
     fireEvent.focus(input)
     fireEvent.change(input, { target: { value: 'Billing' } })
@@ -244,7 +302,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
   it('keeps a trailing space live while typing, trimming only when the rename commits on blur (NAME-02.3)', () => {
     const contextId = useMapStore.getState().map.contexts[0].id
     const { container } = renderEditor()
-    const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1') as HTMLInputElement
+    const input = within(section(container, 'Bounded context')).getByLabelText('Name for Context 1') as HTMLInputElement
 
     fireEvent.change(input, { target: { value: 'Order ' } })
     expect(input.value).toBe('Order ')
@@ -258,7 +316,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
   it('a whitespace-only name clears to the placeholder once the rename commits on blur (NAME-02.3)', () => {
     const contextId = useMapStore.getState().map.contexts[0].id
     const { container } = renderEditor()
-    const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1') as HTMLInputElement
+    const input = within(section(container, 'Bounded context')).getByLabelText('Name for Context 1') as HTMLInputElement
 
     fireEvent.change(input, { target: { value: '   ' } })
     fireEvent.blur(input)
@@ -272,7 +330,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
     const onRenameContext = vi.fn()
     const contextId = useMapStore.getState().map.contexts[0].id
     const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', onRenameContext)
-    const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1')
+    const input = within(section(container, 'Bounded context')).getByLabelText('Name for Context 1')
 
     fireEvent.focus(input)
     fireEvent.change(input, { target: { value: '  Billing ' } })
@@ -292,7 +350,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
       contexts: useMapStore.getState().map.contexts.map((c) => (c.id === contextId ? { id: c.id } : c)),
     })
     const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', onRenameContext)
-    const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1')
+    const input = within(section(container, 'Bounded context')).getByLabelText('Name for Context 1')
 
     fireEvent.focus(input)
     fireEvent.change(input, { target: { value: 'Context 1' } })
@@ -308,7 +366,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
   it('does not report a blur that never changed the name', () => {
     const onRenameContext = vi.fn()
     const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', onRenameContext)
-    const input = within(section(container, 'Bounded contexts')).getByLabelText('Name for Context 1')
+    const input = within(section(container, 'Bounded context')).getByLabelText('Name for Context 1')
 
     fireEvent.focus(input)
     fireEvent.blur(input)
@@ -316,11 +374,9 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
     expect(onRenameContext).not.toHaveBeenCalled()
   })
 
-  it('the Hexagon section shows the current hexagon’s bounded context as read-only text, with no rename input', () => {
+  it('the Hexagon section no longer repeats the bounded context', () => {
     const { container } = renderEditor(() => {}, () => {}, undefined, 'Billing')
-    const hexagonSection = section(container, 'Hexagon')
-    expect(within(hexagonSection).getByText('Billing')).toBeTruthy()
-    expect(within(hexagonSection).queryByLabelText('Name for Context 1')).toBeNull()
+    expect(within(section(container, 'Hexagon')).queryByText('Billing')).toBeNull()
   })
 })
 

@@ -9,7 +9,7 @@ import { Fold } from './Fold'
 import { Icon } from './Icon'
 import { session } from './editor/fieldSession'
 import { CollectionSections } from './editor/CollectionSections'
-import { ContextsSection } from './editor/ContextsSection'
+import { ContextSection, OtherContextsSection } from './editor/ContextsSection'
 import { LinksSection } from './editor/LinksSection'
 import { MapSection } from './editor/MapSection'
 
@@ -102,19 +102,9 @@ export function Editor({
       <div id="editor-body" className="editor-body" hidden={!open}>
         <MapSection title={map.title} contextLabel={contextLabel} onAddFromFile={onAddFromFile} session={session} />
 
-        <ContextsSection map={map} onRenameContext={onRenameContext} />
-
-        <LinksSection map={map} onCreateLink={onCreateLink} onUpdateLink={onUpdateLink} onDeleteLink={onDeleteLink} />
+        <ContextSection map={map} hexId={hexId} onRenameContext={onRenameContext} />
 
         <Fold id="hexagon" title="Hexagon">
-          <p className="field-static">
-            <span>Bounded context</span>
-            <span>{contextLabel}</span>
-          </p>
-          <label className="field" data-item-id="hexagon">
-            <span>Hexagon title</span>
-            <input value={d.title} onChange={(e) => setMeta(hexId, { title: e.target.value })} {...session} />
-          </label>
           <label className="field">
             <span>Subtitle</span>
             <input value={d.subtitle ?? ''} onChange={(e) => setMeta(hexId, { subtitle: e.target.value || undefined })} {...session} />
@@ -176,6 +166,10 @@ export function Editor({
         </Fold>
 
         <CollectionSections hexId={hexId} map={map} diagram={d} />
+
+        <OtherContextsSection map={map} hexId={hexId} onRenameContext={onRenameContext} />
+
+        <LinksSection map={map} onCreateLink={onCreateLink} onUpdateLink={onUpdateLink} onDeleteLink={onDeleteLink} />
       </div>
     </aside>
   )
