@@ -25,12 +25,19 @@ beforeAll(() => {
     disconnect() {}
   } as unknown as typeof ResizeObserver
 })
+let queuedFrames: FrameRequestCallback[] = []
+/** Wheel, pinch and pan commit once per animation frame: runs the frame (the fake clock's when it is faked). */
+const flushFrame = () => act(() => (vi.isFakeTimers() ? void vi.advanceTimersByTime(16) : void queuedFrames.splice(0).forEach((cb) => cb(performance.now()))))
 beforeEach(() => {
+  queuedFrames = []
+  vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => queuedFrames.push(cb))
+  vi.stubGlobal('cancelAnimationFrame', () => {})
   useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM))
   useViewStore.setState({ editorOpen: false })
 })
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
 
@@ -321,6 +328,7 @@ describe('Stage panning', () => {
     expect(main.classList.contains('is-dragging')).toBe(false)
 
     fireEvent.pointerMove(main, { buttons: 1, clientX: 140, clientY: 100 })
+    flushFrame()
     expect(origin(container)).not.toBe(start)
     expect(main.classList.contains('is-dragging')).toBe(true)
   })
@@ -418,13 +426,17 @@ describe('Stage — auto-fit after a map-shape change (FIT-02, ADR-05)', () => {
     main.setPointerCapture = () => {}
     fireEvent.pointerDown(svg(container), { button: 0, buttons: 1, clientX: 0, clientY: 0 })
     fireEvent.pointerMove(main, { buttons: 1, clientX: dx, clientY: dy })
+    flushFrame()
   }
   // A tight "fit" leaves zero margin by construction, so a genuine "still contains the change" scenario needs a
   // manual viewport with actual slack first: zoom out (positive deltaY) anchored at the visible area's own
   // top-left corner (screen `inset.left`/`inset.top`, not raw (0,0)) — zoomAt keeps whatever diagram point sits
   // under the anchor fixed, so anchoring there keeps the CURRENTLY visible top-left corner fixed while the
   // bottom-right one grows outward with the zoom, matching the direction real growth actually happens in.
-  const zoomOut = (container: HTMLElement) => fireEvent.wheel(container.querySelector('main')!, { deltaY: 600, clientX: inset.left, clientY: inset.top })
+  const zoomOut = (container: HTMLElement) => {
+    fireEvent.wheel(container.querySelector('main')!, { deltaY: 600, clientX: inset.left, clientY: inset.top })
+    flushFrame()
+  }
 
   const actions: [string, () => void][] = [
     ['grow', () => void useMapStore.getState().addHexagon('h1', { context: 'same' })],
@@ -473,6 +485,7 @@ describe('Stage — auto-fit after a map-shape change (FIT-02, ADR-05)', () => {
     /** Zooms out by `zoomDelta` wheel units, then pans so the visible area's top-left sits at `topLeft` in map space. */
     const frame = (container: HTMLElement, topLeft: Point, zoomDelta: number) => {
       fireEvent.wheel(container.querySelector('main')!, { deltaY: zoomDelta, clientX: inset.left, clientY: inset.top })
+      flushFrame()
       const vp = viewportOf(container)
       const visible = visibleRect(vp, SCREEN, islandInset(SCREEN, false, false))
       pan(container, (visible.x - topLeft.x) * vp.scale, (visible.y - topLeft.y) * vp.scale)
@@ -687,6 +700,7 @@ describe('Stage — wheel floor follows the whole-map fit, not a hardcoded MIN_S
 
     const main = container.querySelector('main')!
     fireEvent.wheel(main, { deltaY: 4000 }) // A hard zoom-out — would hit MIN_SCALE under the old hardcoded floor.
+    flushFrame()
     const zoomedOut = viewportOf(container)
     const expected = zoomAt(fitted, Math.exp(-4000 * 0.0015), { x: 0, y: 0 }, zoomFloor)
 
@@ -705,6 +719,7 @@ describe('Stage — pinch, wheel floor, and the whole-map auto fit', () => {
     main.setPointerCapture = () => {}
     fireEvent.pointerDown(svg(container), { button: 0, buttons: 1, clientX: 0, clientY: 0 })
     fireEvent.pointerMove(main, { buttons: 1, clientX: dx, clientY: dy })
+    flushFrame()
   }
   /** Two hexagons far enough apart (q=0, q=500) that the whole map's bounds dwarf any realistic screen — needed
    * to push wholeFit.scale genuinely below MIN_SCALE/MIN_FIT_SCALE, which jsdom's self-referencing effectiveSize
@@ -729,6 +744,7 @@ describe('Stage — pinch, wheel floor, and the whole-map auto fit', () => {
     const expectedAfter1 = pinch(before, from1, to1, MIN_SCALE)
 
     fireEvent.pointerMove(main, { pointerId: 2, buttons: 1, clientX: 250, clientY: 100 })
+    flushFrame()
     const to2: [Point, Point] = [{ x: 50, y: 100 }, { x: 250, y: 100 }]
     const expectedAfter2 = pinch(expectedAfter1, to1, to2, MIN_SCALE)
 
@@ -757,6 +773,7 @@ describe('Stage — pinch, wheel floor, and the whole-map auto fit', () => {
 
       const main = container.querySelector('main')!
       fireEvent.wheel(main, { deltaY: 4000 })
+      flushFrame()
       const zoomedOut = viewportOf(container)
       const expected = zoomAt(fitted, Math.exp(-4000 * 0.0015), { x: 0, y: 0 }, zoomFloor)
 
@@ -1251,6 +1268,7 @@ describe('Stage — compact neighbours on a large map', () => {
         main.setPointerCapture = () => {}
         fireEvent.pointerDown(svg(container), { button: 0, buttons: 1, clientX: 0, clientY: 0 })
         fireEvent.pointerMove(main, { buttons: 1, clientX: 100000, clientY: 100000 })
+        flushFrame()
         fireEvent.pointerUp(main)
 
         act(() => useViewStore.setState({ expanded: new Set(['h6']) }))
@@ -1327,6 +1345,7 @@ describe('Stage — compact neighbours on a large map', () => {
       main.setPointerCapture = () => {}
       fireEvent.pointerDown(svg(container), { button: 0, buttons: 1, clientX: 0, clientY: 0 })
       fireEvent.pointerMove(main, { buttons: 1, clientX: 100000, clientY: 100000 })
+      flushFrame()
       fireEvent.pointerUp(main)
 
       act(() => useMapStore.getState().setFocus('h4'))
@@ -1599,6 +1618,7 @@ describe('Stage — smooth fit changes (animated refit, panel open/close)', () =
     act(() => void useMapStore.getState().addHexagon('h1', { context: 'same' }))
     frames(48)
     fireEvent.wheel(container.querySelector('main')!, { deltaY: -300, clientX: 500, clientY: 400 })
+    flushFrame()
     const zoomed = viewBoxOf(container)
     frames(400)
     expect(viewBoxOf(container)).toBe(zoomed)
@@ -1673,6 +1693,7 @@ describe('Stage — smooth fit changes (animated refit, panel open/close)', () =
       const { container } = render(<Harness />)
       openPanel()
       fireEvent.wheel(container.querySelector('main')!, { deltaY: 300, clientX: 500, clientY: 400 })
+      flushFrame()
       const zoomed = viewBoxOf(container)
       closePanel()
       frames(400)

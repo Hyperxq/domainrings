@@ -1,8 +1,8 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
-import { useState } from 'react'
-import { useFreezeWhilePanelOpen, ZoomControls } from './viewportChrome'
-import type { Viewport } from './viewport'
+import { useRef, useState } from 'react'
+import { useFreezeWhilePanelOpen, useViewportInteractions, ZoomControls } from './viewportChrome'
+import { zoomAt, type Viewport } from './viewport'
 import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
 import { useMapStore } from '../model/store'
@@ -127,5 +127,53 @@ describe('useFreezeWhilePanelOpen', () => {
     rerender({ panelOpen: true, visible: visibleIn })
     rerender({ panelOpen: false, visible: visibleIn })
     expect(result.current.view).toBe(manual)
+  })
+})
+
+describe('useViewportInteractions wheel', () => {
+  const AUTO: Viewport = { x: 0, y: 0, scale: 1 }
+  let frames: FrameRequestCallback[]
+  beforeEach(() => {
+    frames = []
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => frames.push(cb))
+    vi.stubGlobal('cancelAnimationFrame', () => {})
+  })
+  afterEach(() => vi.unstubAllGlobals())
+  const nextFrame = () => act(() => frames.splice(0).forEach((cb) => cb(0)))
+
+  function Probe({ onRender }: { onRender: () => void }) {
+    const mainRef = useRef<HTMLElement>(null)
+    const { viewport } = useViewportInteractions({ mainRef, autoFit: AUTO, wholeFitScale: 0.1, fitKey: 'k' })
+    onRender()
+    return <main ref={mainRef} data-testid="stage" data-viewport={JSON.stringify(viewport)} />
+  }
+  const shown = () => JSON.parse(screen.getByTestId('stage').dataset.viewport!) as Viewport
+
+  it('folds a burst of wheel events into one view update per frame, each zooming from the previous one', () => {
+    let renders = 0
+    render(<Probe onRender={() => renders++} />)
+    const stage = screen.getByTestId('stage')
+    const before = renders
+    const cursor = { clientX: 40, clientY: 30 }
+    for (const deltaY of [-100, -100, -100]) fireEvent.wheel(stage, { deltaY, ...cursor })
+    expect(renders).toBe(before)
+    nextFrame()
+    expect(renders - before).toBeLessThanOrEqual(2) // the commit, plus the auto-to-manual settle; never one per event
+    let expected = AUTO
+    for (let i = 0; i < 3; i++) expected = zoomAt(expected, Math.exp(100 * 0.0015), { x: 40, y: 30 }, 0.1)
+    const actual = shown()
+    expect(actual.scale).toBeCloseTo(expected.scale, 9)
+    expect(actual.x).toBeCloseTo(expected.x, 9)
+    expect(actual.y).toBeCloseTo(expected.y, 9)
+  })
+
+  it('keeps composing from the pending view when a wheel event lands before the previous frame has rendered', () => {
+    render(<Probe onRender={() => {}} />)
+    const stage = screen.getByTestId('stage')
+    fireEvent.wheel(stage, { deltaY: -100 })
+    nextFrame()
+    fireEvent.wheel(stage, { deltaY: -100 })
+    nextFrame()
+    expect(shown().scale).toBeCloseTo(Math.exp(200 * 0.0015), 9)
   })
 })
