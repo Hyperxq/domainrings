@@ -17,14 +17,19 @@ interface FoldProps {
   count?: number
   /** Buttons over the summary row's right end, such as the section's "+". */
   actions?: ReactNode
+  /** Controlled by the caller (and not remembered) when given, such as the editor tree's branches. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
   children: ReactNode
 }
 
 /** A collapsible editor section, open by default; each one remembers whether it was left open — shared with
  * OnionEditor (its own sections follow the same fold/remember-state convention, not a parallel one). */
-export function Fold({ id, title, count, actions, children }: FoldProps) {
-  const [open, setOpen] = useState(() => readSections()[id] ?? true)
+export function Fold({ id, title, count, actions, open: controlled, onOpenChange, children }: FoldProps) {
+  const [remembered, setOpen] = useState(() => readSections()[id] ?? true)
+  const open = controlled ?? remembered
   const settle = (next: boolean) => {
+    if (onOpenChange) return onOpenChange(next)
     setOpen(next)
     try {
       localStorage.setItem(SECTIONS_KEY, JSON.stringify({ ...readSections(), [id]: next }))

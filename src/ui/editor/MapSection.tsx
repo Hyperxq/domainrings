@@ -7,7 +7,7 @@ import type { session as fieldSession } from './fieldSession'
 
 const { setMapMeta } = useMapStore.getState()
 
-/** The map's own title and the "Add hexagon from file…" import. */
+/** The map's own title and the "Add subdomain from file…" import. */
 export function MapSection({
   title,
   contextLabel,
@@ -30,7 +30,7 @@ export function MapSection({
         <input value={title} onChange={(e) => setMapMeta({ title: e.target.value })} {...session} />
       </label>
       <ChoiceMenu
-        label="Add hexagon from file…"
+        label="Add subdomain from file…"
         choices={[
           { id: 'same' as const, label: `Import into ${contextLabel}` },
           { id: 'new' as const, label: 'Import into a new bounded context' },
@@ -48,7 +48,7 @@ export function MapSection({
         type="file"
         accept=".hexa,application/json"
         className="visually-hidden"
-        aria-label="Add hexagon from a .hexa file"
+        aria-label="Add subdomain from a .hexa file"
         onChange={async (e) => {
           const input = e.currentTarget
           const file = input.files?.[0]

@@ -13,11 +13,11 @@ function renderMenu() {
   const onChoose = vi.fn()
   render(
     <>
-      <ChoiceMenu label="Add hexagon from file…" choices={CHOICES} onChoose={onChoose} />
+      <ChoiceMenu label="Add subdomain from file…" choices={CHOICES} onChoose={onChoose} />
       <button type="button">Elsewhere</button>
     </>,
   )
-  return { onChoose, trigger: screen.getByRole('button', { name: 'Add hexagon from file…' }) }
+  return { onChoose, trigger: screen.getByRole('button', { name: 'Add subdomain from file…' }) }
 }
 
 const items = () => screen.getAllByRole('menuitem')
@@ -31,7 +31,7 @@ describe('ChoiceMenu', () => {
 
     fireEvent.click(trigger)
 
-    const menu = screen.getByRole('menu', { name: 'Add hexagon from file…' })
+    const menu = screen.getByRole('menu', { name: 'Add subdomain from file…' })
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
     expect(trigger.getAttribute('aria-controls')).toBe(menu.id)
     expect(items().map((i) => i.textContent)).toEqual(['Import into Billing', 'Import into a new contextStarts its own context'])

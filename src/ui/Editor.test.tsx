@@ -46,12 +46,13 @@ const renderEditor = (
   )
 const section = (container: HTMLElement, title: string) =>
   [...container.querySelectorAll('details')].find((d) => d.querySelector(':scope > summary h2')?.textContent === title) as HTMLDetailsElement
+const subdomain = (container: HTMLElement) => container.querySelector<HTMLElement>('[data-subdomain]')!
 const port = EXAMPLE_DIAGRAM.ports[0]
 
 describe('collapsible editor sections', () => {
-  it('starts with every section open, each summary showing its title and item count', () => {
+  it('starts with the focused branch and its sections open, each summary showing its title and item count', () => {
     const { container } = renderEditor()
-    const titles = ['Map', 'Bounded context', 'Hexagon', 'Layers', 'Domain', 'Use cases', 'Ports', 'Adapters', 'Actors', 'External systems']
+    const titles = ['Map', 'Context 1', EXAMPLE_DIAGRAM.title, 'Layers', 'Domain', 'Use cases', 'Ports', 'Adapters', 'Actors', 'External systems']
     for (const title of titles) expect(section(container, title).open).toBe(true)
     expect(section(container, 'Ports').querySelector('summary')!.textContent).toBe(`Ports· ${EXAMPLE_DIAGRAM.ports.length}`)
   })
@@ -60,7 +61,7 @@ describe('collapsible editor sections', () => {
     const { container, unmount } = renderEditor()
     fireEvent.click(section(container, 'Ports').querySelector('summary')!)
     expect(section(container, 'Ports').open).toBe(false)
-    expect(JSON.parse(localStorage.getItem(SECTIONS_KEY)!)).toEqual({ ports: false })
+    expect(JSON.parse(localStorage.getItem(SECTIONS_KEY)!)).toEqual({ 'h1:ports': false })
 
     unmount()
     const again = renderEditor().container
@@ -76,7 +77,7 @@ describe('collapsible editor sections', () => {
   })
 
   it('opens a collapsed section before revealing a card in it', () => {
-    localStorage.setItem(SECTIONS_KEY, JSON.stringify({ ports: false }))
+    localStorage.setItem(SECTIONS_KEY, JSON.stringify({ 'h1:ports': false }))
     const { container } = renderEditor()
     expect(section(container, 'Ports').open).toBe(false)
 
@@ -88,15 +89,13 @@ describe('collapsible editor sections', () => {
 })
 
 describe('map and hexagon titles (TITLE-01, TITLE-02)', () => {
-  it('shows distinct, clearly labelled Map and Hexagon title fields, and no field labelled plain "Title" (TITLE-02.1)', () => {
+  it('shows distinct, clearly labelled Map and Subdomain title fields, and no field labelled plain "Title" (TITLE-02.1)', () => {
     const { container } = renderEditor()
     const mapSection = within(section(container, 'Map'))
-    const contextSection = within(section(container, 'Bounded context'))
-    const hexagonSection = within(section(container, 'Hexagon'))
+    const hexagonSection = within(subdomain(container))
     expect(mapSection.getByLabelText('Map title')).toBeInstanceOf(HTMLInputElement)
-    expect(contextSection.getAllByLabelText('Hexagon title')).toHaveLength(1)
-    expect(hexagonSection.queryByLabelText('Hexagon title')).toBeNull()
-    expect(hexagonSection.getByLabelText('Subtitle')).toBeInstanceOf(HTMLInputElement)
+    expect(hexagonSection.getAllByLabelText('Subdomain title')).toHaveLength(1)
+    expect(hexagonSection.getAllByLabelText('Subtitle')[0]).toBeInstanceOf(HTMLInputElement)
     expect(mapSection.queryByText('Title', { selector: 'label > span' })).toBeNull()
     expect(hexagonSection.queryByText('Title', { selector: 'label > span' })).toBeNull()
     expect(screen.queryByText('Title', { selector: 'label > span', exact: true })).toBeNull()
@@ -104,12 +103,13 @@ describe('map and hexagon titles (TITLE-01, TITLE-02)', () => {
 
   it('names the current hexagon in the panel header, falling back to "Untitled hexagon" (TITLE-02.1)', () => {
     renderEditor()
-    expect(screen.getByRole('heading', { level: 2, name: EXAMPLE_DIAGRAM.title })).toBeInstanceOf(HTMLHeadingElement)
+    expect(screen.getAllByRole('heading', { level: 2, name: EXAMPLE_DIAGRAM.title })[0]).toBeInstanceOf(HTMLHeadingElement)
 
     cleanup()
     useMapStore.getState().replace(toMap({ ...EXAMPLE_DIAGRAM, title: '' }))
     renderEditor()
     expect(screen.getByRole('heading', { level: 2, name: 'Untitled hexagon' })).toBeInstanceOf(HTMLHeadingElement)
+    expect(screen.getByRole('heading', { level: 2, name: 'Untitled subdomain' })).toBeInstanceOf(HTMLHeadingElement)
   })
 
   it('editing the map title updates only the map, leaving every hexagon untouched (TITLE-01.1)', () => {
@@ -132,12 +132,12 @@ describe('"Add hexagon" button in the Hexagon section (GROW-04)', () => {
   it('is enabled and calls onAddHexagon when the current hexagon has a free side', () => {
     const onAddHexagon = vi.fn()
     const { container } = renderEditor(onAddHexagon)
-    const button = within(section(container, 'Hexagon')).getByRole('button', { name: 'Add hexagon' })
+    const button = within(subdomain(container)).getByRole('button', { name: 'Add subdomain' })
     expect(button.hasAttribute('aria-disabled')).toBe(false)
 
     fireEvent.click(button)
 
-    expect(onAddHexagon).toHaveBeenCalledOnce()
+    expect(onAddHexagon).toHaveBeenCalledExactlyOnceWith('h1')
   })
 
   it('is aria-disabled, keyboard-reachable, and hinted when the current hexagon is surrounded (GROW-04.1)', () => {
@@ -147,12 +147,12 @@ describe('"Add hexagon" button in the Hexagon section (GROW-04)', () => {
     useMapStore.getState().replace({ ...base, hexagons: [centre, ...ring] })
     const onAddHexagon = vi.fn()
     const { container } = renderEditor(onAddHexagon)
-    const button = within(section(container, 'Hexagon')).getByRole('button', { name: 'Add hexagon' })
+    const button = within(subdomain(container)).getByRole('button', { name: 'Add subdomain' })
 
     expect(button.getAttribute('aria-disabled')).toBe('true')
     expect(button.hasAttribute('disabled')).toBe(false)
     const hint = document.getElementById(button.getAttribute('aria-describedby')!)
-    expect(hint?.textContent).toBe('No free side around this hexagon.')
+    expect(hint?.textContent).toBe('No free side around this subdomain.')
 
     fireEvent.click(button)
     expect(onAddHexagon).not.toHaveBeenCalled()
@@ -164,10 +164,10 @@ describe('"Add hexagon" button in the Hexagon section (GROW-04)', () => {
     const ring = SIDE_ORDER.map((s, i) => ({ ...centre, id: `ring${i}`, cell: neighbour(centre.cell, s) }))
     useMapStore.getState().replace({ ...base, hexagons: [centre, ...ring] })
     const { container } = renderEditor()
-    const hexagon = within(section(container, 'Hexagon'))
+    const hexagon = within(subdomain(container))
 
-    const add = hexagon.getByRole('button', { name: 'Add hexagon' })
-    expect(add.nextElementSibling).toBe(hexagon.getByRole('button', { name: 'Delete hexagon' }))
+    const add = hexagon.getByRole('button', { name: 'Add subdomain' })
+    expect(add.nextElementSibling).toBe(hexagon.getByRole('button', { name: 'Delete subdomain' }))
   })
 })
 
@@ -176,23 +176,23 @@ describe('"Delete hexagon" button in the Hexagon section (DEL-01)', () => {
     useMapStore.getState().replace(twoHexMap())
     const onDeleteHexagon = vi.fn()
     const { container } = renderEditor(() => {}, onDeleteHexagon)
-    const button = within(section(container, 'Hexagon')).getByRole('button', { name: 'Delete hexagon' })
+    const button = within(subdomain(container)).getByRole('button', { name: 'Delete subdomain' })
     expect(button.hasAttribute('aria-disabled')).toBe(false)
 
     fireEvent.click(button)
 
-    expect(onDeleteHexagon).toHaveBeenCalledOnce()
+    expect(onDeleteHexagon).toHaveBeenCalledExactlyOnceWith('h1')
   })
 
   it('is aria-disabled, keyboard-reachable, and hinted on the map’s last hexagon (DEL-01.2)', () => {
     const onDeleteHexagon = vi.fn()
     const { container } = renderEditor(() => {}, onDeleteHexagon)
-    const button = within(section(container, 'Hexagon')).getByRole('button', { name: 'Delete hexagon' })
+    const button = within(subdomain(container)).getByRole('button', { name: 'Delete subdomain' })
 
     expect(button.getAttribute('aria-disabled')).toBe('true')
     expect(button.hasAttribute('disabled')).toBe(false)
     const hint = document.getElementById(button.getAttribute('aria-describedby')!)
-    expect(hint?.textContent).toBe('A map needs at least one hexagon.')
+    expect(hint?.textContent).toBe('A map needs at least one subdomain.')
     expect(hint?.className).toBe('hint')
 
     fireEvent.click(button)
@@ -217,7 +217,7 @@ describe('panel hierarchy', () => {
   }
   const inDomOrder = (els: Element[]) => els.every((el, i) => i === 0 || !!(els[i - 1].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING))
 
-  it('reads top-down: map title, context name, hexagon titles, hexagon details, layers, elements, links', () => {
+  it('reads top-down: map title, context, subdomain headers and details, layers, elements, then links', () => {
     twoContextsWithSiblings()
     const { container } = renderEditor()
     const headings = (title: string) => section(container, title).querySelector('summary')!
@@ -225,40 +225,34 @@ describe('panel hierarchy', () => {
       inDomOrder([
         screen.getByLabelText('Map title'),
         screen.getByLabelText('Name for Context 1'),
-        screen.getByLabelText('Hexagon title'),
-        screen.getByRole('button', { name: 'Payments' }),
+        headings('Invoices'),
+        screen.getByLabelText('Subdomain title'),
         screen.getByLabelText('Composition root'),
-        screen.getByRole('button', { name: 'Delete hexagon' }),
+        screen.getByRole('button', { name: 'Delete subdomain' }),
         headings('Layers'),
         headings('Ports'),
-        headings('Other bounded contexts'),
+        headings('Payments'),
+        headings('Context 2'),
         headings('Links'),
       ]),
     ).toBe(true)
   })
 
-  it('lists the other hexagons of the context as buttons that move the focus, and keeps other contexts out of that list', () => {
+  it('lists every occupied context, none of the empty ones, and opens a context’s subdomains on demand', () => {
     twoContextsWithSiblings()
     const { container } = renderEditor()
-    const own = within(section(container, 'Bounded context'))
-    expect(own.queryByRole('button', { name: 'Shipping' })).toBeNull()
+    expect(section(container, 'Context 2')).toBeTruthy()
+    expect(section(container, 'Context 9')).toBeUndefined()
+    expect(section(container, 'Shipping')).toBeUndefined()
 
-    fireEvent.click(own.getByRole('button', { name: 'Payments' }))
+    fireEvent.click(section(container, 'Context 2').querySelector('summary')!)
 
-    expect(useMapStore.getState().focus).toBe('h2')
+    expect(within(section(container, 'Context 2')).getByLabelText('Name for Context 2')).toBeTruthy()
+    expect(section(container, 'Shipping')).toBeTruthy()
   })
 
-  it('keeps the other occupied contexts renamable in their own fold, counted without empty ones', () => {
+  it('has no separate other-contexts fold: the tree covers every context', () => {
     twoContextsWithSiblings()
-    const { container } = renderEditor()
-    const fold = section(container, 'Other bounded contexts')
-    expect(fold.querySelector('summary')!.textContent).toBe('Other bounded contexts· 1')
-    expect(within(fold).getByLabelText('Name for Context 2')).toBeTruthy()
-    expect(within(fold).queryByLabelText('Name for Context 9')).toBeNull()
-    expect(within(fold).queryByLabelText('Name for Context 1')).toBeNull()
-  })
-
-  it('shows no other-contexts fold when the map has a single context', () => {
     const { container } = renderEditor()
     expect(section(container, 'Other bounded contexts')).toBeUndefined()
   })
@@ -268,14 +262,14 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
 
   it('shows one input per context, labelled by its stable ordinal, with the name (or none) as its value', () => {
     const { container } = renderEditor()
-    const input = within(section(container, 'Bounded context')).getByLabelText('Name for Context 1') as HTMLInputElement
+    const input = within(section(container, 'Context 1')).getByLabelText('Name for Context 1') as HTMLInputElement
     expect(input.value).toBe('')
   })
 
   it('typing a name updates the store immediately, so the chip can follow live (NAME-02.1)', () => {
     const contextId = useMapStore.getState().map.contexts[0].id
     const { container } = renderEditor()
-    const input = within(section(container, 'Bounded context')).getByLabelText('Name for Context 1')
+    const input = within(section(container, 'Context 1')).getByLabelText('Name for Context 1')
 
     fireEvent.change(input, { target: { value: 'Billing' } })
 
@@ -287,7 +281,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
     const contextId = useMapStore.getState().map.contexts[0].id
     const beforeMap = useMapStore.getState().map
     const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', onRenameContext)
-    const input = within(section(container, 'Bounded context')).getByLabelText('Name for Context 1')
+    const input = within(section(container, 'Context 1')).getByLabelText('Name for Context 1')
 
     fireEvent.focus(input)
     fireEvent.change(input, { target: { value: 'Billing' } })
@@ -302,7 +296,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
   it('keeps a trailing space live while typing, trimming only when the rename commits on blur (NAME-02.3)', () => {
     const contextId = useMapStore.getState().map.contexts[0].id
     const { container } = renderEditor()
-    const input = within(section(container, 'Bounded context')).getByLabelText('Name for Context 1') as HTMLInputElement
+    const input = within(section(container, 'Context 1')).getByLabelText('Name for Context 1') as HTMLInputElement
 
     fireEvent.change(input, { target: { value: 'Order ' } })
     expect(input.value).toBe('Order ')
@@ -316,7 +310,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
   it('a whitespace-only name clears to the placeholder once the rename commits on blur (NAME-02.3)', () => {
     const contextId = useMapStore.getState().map.contexts[0].id
     const { container } = renderEditor()
-    const input = within(section(container, 'Bounded context')).getByLabelText('Name for Context 1') as HTMLInputElement
+    const input = within(section(container, 'Context 1')).getByLabelText('Name for Context 1') as HTMLInputElement
 
     fireEvent.change(input, { target: { value: '   ' } })
     fireEvent.blur(input)
@@ -330,7 +324,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
     const onRenameContext = vi.fn()
     const contextId = useMapStore.getState().map.contexts[0].id
     const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', onRenameContext)
-    const input = within(section(container, 'Bounded context')).getByLabelText('Name for Context 1')
+    const input = within(section(container, 'Context 1')).getByLabelText('Name for Context 1')
 
     fireEvent.focus(input)
     fireEvent.change(input, { target: { value: '  Billing ' } })
@@ -350,7 +344,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
       contexts: useMapStore.getState().map.contexts.map((c) => (c.id === contextId ? { id: c.id } : c)),
     })
     const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', onRenameContext)
-    const input = within(section(container, 'Bounded context')).getByLabelText('Name for Context 1')
+    const input = within(section(container, 'Context 1')).getByLabelText('Name for Context 1')
 
     fireEvent.focus(input)
     fireEvent.change(input, { target: { value: 'Context 1' } })
@@ -366,7 +360,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
   it('does not report a blur that never changed the name', () => {
     const onRenameContext = vi.fn()
     const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', onRenameContext)
-    const input = within(section(container, 'Bounded context')).getByLabelText('Name for Context 1')
+    const input = within(section(container, 'Context 1')).getByLabelText('Name for Context 1')
 
     fireEvent.focus(input)
     fireEvent.blur(input)
@@ -374,17 +368,17 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
     expect(onRenameContext).not.toHaveBeenCalled()
   })
 
-  it('the Hexagon section no longer repeats the bounded context', () => {
+  it('the subdomain section does not repeat the bounded context', () => {
     const { container } = renderEditor(() => {}, () => {}, undefined, 'Billing')
-    expect(within(section(container, 'Hexagon')).queryByText('Billing')).toBeNull()
+    expect(within(subdomain(container)).queryByText('Billing')).toBeNull()
   })
 })
 
-describe('"Add hexagon from file…" in the Map section (IMP-01, IMP-01.4)', () => {
-  const trigger = (container: HTMLElement) => within(section(container, 'Map')).getByRole('button', { name: 'Add hexagon from file…' })
+describe('"Add subdomain from file…" in the Map section (IMP-01, IMP-01.4)', () => {
+  const trigger = (container: HTMLElement) => within(section(container, 'Map')).getByRole('button', { name: 'Add subdomain from file…' })
   const pick = async (name = 'billing.hexa') => {
     const file = new File(['{}'], name, { type: 'application/json' })
-    const input = screen.getByLabelText('Add hexagon from a .hexa file') as HTMLInputElement
+    const input = screen.getByLabelText('Add subdomain from a .hexa file') as HTMLInputElement
     fireEvent.change(input, { target: { files: [file] } })
     await act(async () => {})
     return { file, input }
@@ -411,7 +405,7 @@ describe('"Add hexagon from file…" in the Map section (IMP-01, IMP-01.4)', () 
   it('does not call onAddFromFile when the file picker is cancelled (no file chosen)', () => {
     const onAddFromFile = vi.fn(async () => undefined)
     renderEditor(() => {}, () => {}, onAddFromFile)
-    fireEvent.change(screen.getByLabelText('Add hexagon from a .hexa file'), { target: { files: [] } })
+    fireEvent.change(screen.getByLabelText('Add subdomain from a .hexa file'), { target: { files: [] } })
     expect(onAddFromFile).not.toHaveBeenCalled()
   })
 
@@ -671,7 +665,7 @@ describe('"Move to context…" in the Hexagon section', () => {
     useMapStore.getState().replace({ ...base, contexts: [{ id: 'c1', name: 'Billing' }, { id: 'c2' }], hexagons: [base.hexagons[0], { ...base.hexagons[1], contextId: 'c2' }] })
   }
   const menu = (container: HTMLElement) => {
-    fireEvent.click(within(section(container, 'Hexagon')).getByRole('button', { name: 'Move to context…' }))
+    fireEvent.click(within(subdomain(container)).getByRole('button', { name: 'Move to context…' }))
     return screen.getAllByRole('menuitem').map((i) => i.textContent)
   }
 
@@ -695,16 +689,16 @@ describe('"Move to context…" in the Hexagon section', () => {
     const { container } = renderEditor(undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, onMove)
     menu(container)
     fireEvent.click(screen.getByRole('menuitem', { name: 'Context 2' }))
-    expect(onMove).toHaveBeenLastCalledWith('c2')
+    expect(onMove).toHaveBeenLastCalledWith('h1', 'c2')
     menu(container)
     fireEvent.click(screen.getByRole('menuitem', { name: 'New bounded context' }))
-    expect(onMove).toHaveBeenLastCalledWith(undefined)
+    expect(onMove).toHaveBeenLastCalledWith('h1', undefined)
   })
 
   it('is aria-disabled and hinted when there is nowhere to move the hexagon', () => {
     const { container } = renderEditor()
-    const button = within(section(container, 'Hexagon')).getByRole('button', { name: 'Move to context…' })
+    const button = within(subdomain(container)).getByRole('button', { name: 'Move to context…' })
     expect(button.getAttribute('aria-disabled')).toBe('true')
-    expect(document.getElementById(button.getAttribute('aria-describedby')!)?.textContent).toBe('This hexagon is alone in the only bounded context.')
+    expect(document.getElementById(button.getAttribute('aria-describedby')!)?.textContent).toBe('This subdomain is alone in the only bounded context.')
   })
 })

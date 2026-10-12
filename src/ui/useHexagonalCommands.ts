@@ -1,5 +1,5 @@
 import { collectionOf, type LinkChoice } from '../model/links'
-import { contextName, linkEndLabel, occupiedContexts, UNTITLED_HEXAGON, type Destination, type LinkPatch } from '../model/map'
+import { contextName, diagramOf, linkEndLabel, occupiedContexts, UNTITLED_HEXAGON, type Destination, type LinkPatch } from '../model/map'
 import type { Diagram as DiagramModel, HexaMap, LinkEnd, Wall } from '../model/schema'
 import { useMapStore } from '../model/store'
 import { useViewStore } from './state/viewStore'
@@ -37,8 +37,8 @@ export function useHexagonalCommands({ map, hexId, diagram, nameOf, parseFile }:
     return true
   }
 
-  const completeGrow = (side: Wall | undefined, context: Destination) => {
-    const newHexId = addHexagon(hexId, { side, context })
+  const completeGrow = (side: Wall | undefined, context: Destination, from = hexId) => {
+    const newHexId = addHexagon(from, { side, context })
     if (!newHexId) return
     const grownMap = useMapStore.getState().map
     const label = contextName(grownMap, grownMap.hexagons.find((h) => h.id === newHexId)!.contextId)
@@ -55,9 +55,9 @@ export function useHexagonalCommands({ map, hexId, diagram, nameOf, parseFile }:
     show({ tone: 'status', message: `Renamed ${oldLabel} to ${newLabel}.`, undo: { map: before, focus: hexId } })
   }
 
-  const handleDelete = () => {
-    const title = diagram.title || UNTITLED_HEXAGON
-    const pruned = removeHexagon(hexId)
+  const handleDelete = (target: string) => {
+    const title = diagramOf(map, target).title || UNTITLED_HEXAGON
+    const pruned = removeHexagon(target)
     const after = useMapStore.getState().map
     if (after === map) return // last hexagon — the Editor button is disabled, so this is defensive only
     const plural = pruned.length === 1 ? '' : 's'
@@ -65,12 +65,12 @@ export function useHexagonalCommands({ map, hexId, diagram, nameOf, parseFile }:
     show({ tone: 'status', message, undo: before, sticky: true, staleWhenMapIsnt: after })
   }
 
-  const handleMoveToContext = (contextId: string | undefined) => {
-    moveToContext(hexId, contextId)
+  const handleMoveToContext = (target: string, contextId: string | undefined) => {
+    moveToContext(target, contextId)
     const after = useMapStore.getState().map
     if (after === map) return
-    const label = contextName(after, after.hexagons.find((h) => h.id === hexId)!.contextId)
-    show({ tone: 'status', message: `Moved ${diagram.title || UNTITLED_HEXAGON} to ${label}.`, undo: before })
+    const label = contextName(after, after.hexagons.find((h) => h.id === target)!.contextId)
+    show({ tone: 'status', message: `Moved ${diagramOf(map, target).title || UNTITLED_HEXAGON} to ${label}.`, undo: before })
   }
 
   // Shared by the canvas "Link to…" chip and the Links editor section's create form (ADR-02): one write path,
@@ -130,7 +130,7 @@ export function useHexagonalCommands({ map, hexId, diagram, nameOf, parseFile }:
     show({ tone: 'status', message, undo: { map: beforeMap, focus: beforeFocus } })
   }
 
-  // "Add hexagon from file…" (IMP-01..07): only a Hexagonal source has hexagons to add; refuses an Onion source
+  // "Add subdomain from file…" (IMP-01..07): only a Hexagonal source has hexagons to add; refuses an Onion source
   // (REQ-03). A several-hexagon file merges at once; a one-hexagon file hands back the step that imports it once
   // the author has picked a destination, so the question is only asked of a file that needs it.
   const handleAddFromFile = async (file: File): Promise<((context: Destination) => void) | undefined> => {
@@ -138,7 +138,7 @@ export function useHexagonalCommands({ map, hexId, diagram, nameOf, parseFile }:
     if (!parsed) return undefined
     if (parsed.kind !== 'hexagonal') {
       const kindLabel = CHOICES.find((c) => c.kind === parsed.kind)!.label
-      show({ tone: 'error', message: `${file.name} is ${article(kindLabel)} ${kindLabel} file. Add hexagon from file… only accepts a Hexagonal map.` })
+      show({ tone: 'error', message: `${file.name} is ${article(kindLabel)} ${kindLabel} file. Add subdomain from file… only accepts a Hexagonal map.` })
       return undefined
     }
     if (parsed.hexagons.length > 1) {

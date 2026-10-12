@@ -23,7 +23,7 @@ function addPort(hexId: string, side: Side) {
   flushSync(() => {
     id = addItem(hexId, 'ports', { side, wall: defaultWall(side) })
   })
-  revealInEditor(id, true)
+  revealInEditor(id, true, hexId)
 }
 
 function adaptersBySide(d: Diagram) {

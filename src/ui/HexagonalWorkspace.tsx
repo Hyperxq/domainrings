@@ -23,7 +23,7 @@ export function HexagonalWorkspace({ nameOf, parseFile, ...stage }: HexagonalWor
     <>
       {!viewOnly && (
         <Editor
-          onAddHexagon={() => commands.completeGrow(undefined, 'same')}
+          onAddHexagon={(id) => commands.completeGrow(undefined, 'same', id)}
           onDeleteHexagon={commands.handleDelete}
           onMoveToContext={commands.handleMoveToContext}
           onAddFromFile={commands.handleAddFromFile}
