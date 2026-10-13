@@ -276,10 +276,16 @@ describe('layoutMap — REQ-LNK-05.1 holds when a port’s own wall faces away f
   })
 })
 
+/** A free cell well past the east end of the bottom row: rows are placed top-down, so a hexagon there moves no hexagon above it, and it stays clear of the routes. */
+const eastOfLastRow = (map: HexaMap): Hexagon['cell'] => {
+  const r = Math.max(...map.hexagons.map((h) => h.cell.r))
+  return { q: Math.max(...map.hexagons.filter((h) => h.cell.r === r).map((h) => h.cell.q)) + 4, r }
+}
+
 describe('layoutMap — a routed link is unaffected by a third, unrelated hexagon between its endpoints (REQ-LNK-05.2)', () => {
   it('produces the identical polyline whether or not an extra hexagon exists elsewhere on the map', () => {
     const withoutThird = seededLinkedMap(3, 6)
-    const extraCell = freeCell(withoutThird, withoutThird.hexagons[0].cell)
+    const extraCell = eastOfLastRow(withoutThird)
     const withThird: HexaMap = { ...withoutThird, hexagons: [...withoutThird.hexagons, emptyHexagon('h-extra', extraCell)] }
 
     const before = layoutMap(withoutThird).links[0]
@@ -308,7 +314,7 @@ describe('layoutMap — a routed link is unaffected by a third, unrelated hexago
 
   it('produces the identical polyline whether or not an extra hexagon exists, when both ends carry an adapter + sibling leaf (non-empty clear)', () => {
     const withoutThird = seededLinkedMapWithClear(3, 6)
-    const extraCell = freeCell(withoutThird, withoutThird.hexagons[0].cell)
+    const extraCell = eastOfLastRow(withoutThird)
     const withThird: HexaMap = { ...withoutThird, hexagons: [...withoutThird.hexagons, emptyHexagon('h-extra', extraCell)] }
 
     const before = layoutMap(withoutThird).links[0]
@@ -490,7 +496,7 @@ describe('layoutMap — two links sharing the same hexagon-pair gap get distinct
 
   it('lane assignment is unaffected by an unrelated third hexagon elsewhere on the map (REQ-LNK-05.2)', () => {
     const withoutThird = twoLinksSharedGapMap()
-    const extraCell = freeCell(withoutThird, withoutThird.hexagons[0].cell)
+    const extraCell = eastOfLastRow(withoutThird)
     const withThird: HexaMap = { ...withoutThird, hexagons: [...withoutThird.hexagons, emptyHexagon('h-extra', extraCell)] }
 
     const before = layoutMap(withoutThird).links

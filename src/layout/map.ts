@@ -62,8 +62,8 @@ export interface MapLayout {
   bounds: Box
   /** Only present when the map holds more than one hexagon, so a single-hexagon map's bounds equal `layoutDiagram`'s. */
   title?: LayoutText
-  /** The lattice spacing this layout used (ADR-01) — lets a caller place a not-yet-existing neighbour cell, such
-   * as the grow-menu anchor on a free side (SEAM-04). */
+  /** The lattice step (ADR-01) — gives the direction toward a not-yet-existing neighbour cell, such as the grow-menu
+   * anchor on a free side (SEAM-04). Hexagons are not placed at multiples of it unless the map is compact. */
   pitch: Point
   /** One entry per context, only from two contexts up (CB-01.1) — an empty array below that threshold. */
   contexts: MapContextLayout[]
@@ -110,11 +110,10 @@ export const currentHexagon = (layout: MapLayout, hexId: string): MapHexagonLayo
 
 /**
  * Composes N untouched `layoutDiagram` outputs onto one map, by translation only — `layout.ts` itself never
- * changes. Every hexagon sits at `cellCentre(cell, pitch)`; `pitch` is the map's own maximum left/right/top/bottom
- * extents over every hexagon (this mode) plus `MAP_GAP` — not each hexagon's own width — because a pitch sized
- * for the widest hexagon still overlaps when one hexagon's content reaches unusually far right (e.g. a long-named
- * external) while another's reaches unusually far left (e.g. a long-named actor): two cells one axial step apart
- * are then guaranteed at least `MAP_GAP` apart, for any N (ADR-01).
+ * changes. The cells give the topology (which hexagon is east, south-east, … of which); where a hexagon sits depends
+ * on the mode. With compact neighbours each sits at `cellCentre(cell, pitch)`, a pitch sized from the compact footprint
+ * and widened by `clearFull` around each full hexagon. With every hexagon in full, `packRows` places them by their
+ * own extents so lattice neighbours sit about `MAP_GAP` apart, never closer (ADR-01).
  */
 export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayout {
   const full = (id: string) => id === options.current || !!options.expanded?.has(id)

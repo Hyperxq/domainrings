@@ -1,3 +1,4 @@
+import type { Cell } from '../model/map'
 import type { Hexagon } from '../model/schema'
 import { CHIP_FLOOR_PX, CHIP_GAP, CHIP_LINE, REFERENCE_STAGE } from './chipFit'
 import { COMPACT_MAX_SHARE, COMPACT_RADIUS, COMPACT_TITLE, compactBounds } from './compactHexagon'
@@ -27,6 +28,63 @@ function clearFull(centres: Point[], owns: Box[], full: number): Point[] {
   return centres.map((p, i) => (i === full ? p : { x: p.x + (east(i) ? eastward : -westward), y: p.y }))
 }
 
+/** Where the hexagons go when every one is in full: each lattice row is packed on its own, so row neighbours sit exactly
+ * `MAP_GAP` apart whatever their sizes (a missing cell leaves a slot as wide as its two neighbours). A row is then
+ * shifted as a whole to interlock with the row above: a hexagon below sits at least half a gap past the right edge of
+ * its upper-left neighbour's centre and at most the same before its upper-right neighbour's, measured by the upper
+ * hexagon's extent alone so a large hexagon below never pushes its upper neighbours apart. When those bounds disagree the
+ * row takes their midpoint; a row with no upper neighbour keeps the lattice's spacing from the row above. Rows keep one
+ * centre y, spaced by the least that keeps every pair of boxes that are close in x at least `MAP_GAP` apart. A row is
+ * placed from the rows above it alone, so growing or adding a hexagon never moves a row above it. The first hexagon
+ * stays at the origin. */
+function packRows(owns: readonly Box[], cells: readonly Cell[]): Point[] {
+  const left = (i: number) => -owns[i].x
+  const right = (i: number) => owns[i].x + owns[i].width
+  const top = (i: number) => -owns[i].y
+  const bottom = (i: number) => owns[i].y + owns[i].height
+  const byRow = new Map<number, number[]>()
+  cells.forEach((cell, i) => byRow.set(cell.r, [...(byRow.get(cell.r) ?? []), i]))
+  const rows = [...byRow].sort(([a], [b]) => a - b).map(([r, members]) => ({ r, members: members.sort((a, b) => cells[a].q - cells[b].q || a - b) }))
+  const x: number[] = []
+  const rowY: number[] = []
+  rows.forEach(({ r, members }, k) => {
+    const packed = members.map(() => 0)
+    for (let j = 1; j < members.length; j++) {
+      const [a, b] = [members[j - 1], members[j]]
+      const slot = (owns[a].width + owns[b].width) / 2 + MAP_GAP
+      packed[j] = packed[j - 1] + right(a) + left(b) + MAP_GAP + (cells[b].q - cells[a].q - 1) * slot
+    }
+    const above = rows[k - 1]?.r === r - 1 ? rows[k - 1].members : []
+    let [lo, hi] = [-Infinity, Infinity]
+    members.forEach((l, j) => {
+      for (const u of above) {
+        if (cells[u].q === cells[l].q) lo = Math.max(lo, x[u] + right(u) + MAP_GAP / 2 - packed[j])
+        else if (cells[u].q === cells[l].q + 1) hi = Math.min(hi, x[u] - left(u) - MAP_GAP / 2 - packed[j])
+      }
+    })
+    const lattice = (i: number) => cells[i].q + cells[i].r / 2
+    const nominal = members.reduce((sum, i) => sum + left(i) + right(i) + MAP_GAP, 0) / members.length
+    const free = k === 0 ? 0 : x[rows[k - 1].members[0]] + (lattice(members[0]) - lattice(rows[k - 1].members[0])) * nominal - packed[0]
+    const shift = Number.isFinite(lo) && Number.isFinite(hi) ? (lo + hi) / 2 : Number.isFinite(lo) ? lo : Number.isFinite(hi) ? hi : free
+    members.forEach((i, j) => (x[i] = packed[j] + shift))
+
+    const gapX = (a: number, b: number) => Math.max(x[b] - left(b) - (x[a] + right(a)), x[a] - left(a) - (x[b] + right(b)))
+    let y = 0
+    if (k > 0) {
+      const prev = rows[k - 1]
+      // Rows never merge, even when nothing above is close in x.
+      y = rowY[k - 1] + (r - prev.r) * (Math.min(...prev.members.map(bottom)) + Math.min(...members.map(top)) + MAP_GAP)
+      rows.slice(0, k).forEach(({ members: upper }, m) => {
+        for (const a of upper) for (const b of members) if (gapX(a, b) < MAP_GAP) y = Math.max(y, rowY[m] + bottom(a) + top(b) + MAP_GAP)
+      })
+    }
+    rowY.push(y)
+  })
+  const at = (i: number): Point => ({ x: x[i], y: rowY[rows.findIndex(({ r }) => r === cells[i].r)] })
+  const origin = at(0)
+  return cells.map((_, i) => ({ x: at(i).x - origin.x, y: at(i).y - origin.y }))
+}
+
 /** A hexagon's own (untranslated) bounds — its silhouette when compact — shifted onto the map by its `centre` (ADR-04). */
 export const hexagonBounds = (hex: Pick<MapHexagonLayout, 'model' | 'centre' | 'compact'>): Box => {
   const own = hex.compact ? compactBounds(hex.compact.radius) : hex.model.bounds
@@ -44,22 +102,22 @@ export function layLattice(perHexagon: LaidOutHexagon[], compacting: boolean): {
   // The lattice and the hexagons' union for compact hexagons drawn at `unit` scale.
   const place = (unit: number) => {
     const owns = perHexagon.map(({ model, compact }) => (compact ? compactBounds(COMPACT_RADIUS * unit) : model.bounds))
-    // Every pair of hexagons that can sit in adjacent cells must clear each other by MAP_GAP on the pitch's axis. With
-    // compact neighbours the lattice is sized from the compact footprint alone: each full hexagon claims its room
-    // afterwards (`clearFull`) instead of inflating every cell.
+    // The lattice step: with compact neighbours it sizes the cells (each full hexagon claims its room afterwards with
+    // `clearFull` instead of inflating every cell); with every hexagon in full it only gives the direction of a grow "+",
+    // since `packRows` places the hexagons themselves.
     const extents = perHexagon.map(({ compact }, i) => ({ compact, left: -owns[i].x, right: owns[i].x + owns[i].width, top: -owns[i].y, bottom: owns[i].y + owns[i].height }))
     const small = extents.filter((e) => e.compact)
     const pairs = compacting ? [[small, small]] : [[extents, extents]]
     const span = (head: 'right' | 'bottom', tail: 'left' | 'top') =>
       Math.max(...pairs.map(([a, b]) => Math.max(...a.map((e) => e[head])) + Math.max(...b.map((e) => e[tail])))) + MAP_GAP
-    // Each axis keeps its box-derived minimum (no overlap); the lattice is never stretched to a regular ratio.
     const boxX = span('right', 'left')
     // A compact hexagon's chip sits above its hull and is as large as its title; two lines are kept free so chips wider
     // than their hexagons can stagger instead of running into each other.
     const boxY = span('bottom', 'top') + (compacting ? COMPACT_TITLE.size * unit * CHIP_LINE * 2 + 2 * CHIP_GAP : 0)
     const pitch: Point = { x: boxX, y: boxY }
-    const cells = perHexagon.map(({ hexagon }) => cellCentre(hexagon.cell, pitch))
-    const centres = compacting ? perHexagon.reduce((placed, { compact }, i) => (compact ? placed : clearFull(placed, owns, i)), cells) : cells
+    const centres = compacting
+      ? perHexagon.reduce((placed, { compact }, i) => (compact ? placed : clearFull(placed, owns, i)), perHexagon.map(({ hexagon }) => cellCentre(hexagon.cell, pitch)))
+      : packRows(owns, perHexagon.map(({ hexagon }) => hexagon.cell))
     const bounds = unionBox(owns.map((own, i) => ({ ...own, x: own.x + centres[i].x, y: own.y + centres[i].y })))
     return { pitch, centres, bounds }
   }

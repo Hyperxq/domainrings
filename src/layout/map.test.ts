@@ -226,6 +226,42 @@ describe('layoutMap — a pattern label stays inside the gap when its link is la
   })
 })
 
+describe('layoutMap — several lanes and a pattern label fit the MAP_GAP channel between row neighbours', () => {
+  const LANES = 5
+  const lanes = (from: 'driven' | 'driving', prefix: string) => Array.from({ length: LANES }, (_, i) => ({ id: `${prefix}${i}`, name: `${prefix}${i}`, side: from }))
+  const map = (): HexaMap => {
+    const base = twoHexagonMap()
+    return {
+      ...base,
+      contexts: [{ id: 'c1' }, { id: 'c2' }],
+      hexagons: [
+        { ...base.hexagons[0], ports: lanes('driven', 'o') },
+        { ...base.hexagons[1], contextId: 'c2', ports: lanes('driving', 'i') },
+      ],
+      links: Array.from({ length: LANES }, (_, i) => ({ id: `l${i}`, from: { hexagonId: 'h1', portId: `o${i}` }, to: { hexagonId: 'h2', portId: `i${i}` }, ...(i === 2 ? { pattern: 'acl' as const } : {}) })),
+    }
+  }
+
+  it.each(MODES)('routes every link between the two boxes and keeps the label outside both in %s', (mode) => {
+    const source = map()
+    expect(MapSchema.safeParse(source).success).toBe(true)
+    const { hexagons: [a, b], links } = layoutMap(source, { mode })
+    const [boxA, boxB] = [hexagonBounds(a), hexagonBounds(b)]
+    expect(boxB.x - (boxA.x + boxA.width)).toBeCloseTo(MAP_GAP, 6)
+    expect(links).toHaveLength(LANES)
+    for (const { id, points, label } of links) {
+      // The first and last segments leave the ports from inside their own box; everything between stays in the channel.
+      for (let i = 1; i < points.length - 2; i++) for (const box of [boxA, boxB]) expect(segmentHitsBox(points[i], points[i + 1], box), `${id} segment ${i}`).toBe(false)
+      for (const p of points.slice(1, -1)) for (const box of [boxA, boxB]) expect(p.x <= box.x || p.x >= box.x + box.width || p.y <= box.y || p.y >= box.y + box.height, `${id} vertex`).toBe(true)
+      if (label) {
+        expect(label.at.x).toBeGreaterThan(boxA.x + boxA.width)
+        expect(label.at.x).toBeLessThan(boxB.x)
+      }
+    }
+    expect(links.find((l) => l.id === 'l2')!.label).toBeDefined()
+  })
+})
+
 /** `twoHexagonMap`, with the given `end`'s hexagon's port moved onto `wall` and given an adapter — lets the
  * adapter-anchor case be exercised on every wall, not just the two default straight ones. */
 function mapWithAdapterOnWall(wall: Wall, end: 'from' | 'to'): HexaMap {
@@ -357,8 +393,6 @@ describe('layoutMap — honeycomb lattice placement (ADR-01)', () => {
     expect(b.centre).toStrictEqual({ x: pitch.x * 0.5, y: pitch.y })
   })
 
-  // Each axis is sized from its own extents, never stretched to a regular lattice: two row neighbours sit MAP_GAP
-  // apart plus only the slack left by their extents differing, however tall the hexagons are.
   describe.each(MODES)('two different-size hexagons side by side in %s', (mode) => {
     const diagramFields = ({ version: _version, kind: _kind, ...fields }: Diagram) => fields
     const pair = (): HexaMap => ({
@@ -373,19 +407,9 @@ describe('layoutMap — honeycomb lattice placement (ADR-01)', () => {
       links: [],
     })
 
-    it('keeps the horizontal gap at MAP_GAP plus the extents mismatch, with no aspect-ratio stretch', () => {
+    it('puts row neighbours MAP_GAP apart whatever their sizes', () => {
       const { hexagons: [a, b] } = layoutMap(pair(), { mode })
-      const [boxA, boxB] = [hexagonBounds(a), hexagonBounds(b)]
-      const [leftA, leftB] = [a.centre.x - boxA.x, b.centre.x - boxB.x]
-      const [rightA, rightB] = [boxA.x + boxA.width - a.centre.x, boxB.x + boxB.width - b.centre.x]
-      const slack = Math.max(rightA, rightB) - rightA + Math.max(leftA, leftB) - leftB
-      expect(boxB.x - (boxA.x + boxA.width)).toBeLessThanOrEqual(MAP_GAP + slack + 1e-6)
-    })
-
-    it('stacks row neighbours well under the stretched gap', () => {
-      const { hexagons: [a, b] } = layoutMap(pair(), { mode })
-      const gap = hexagonBounds(b).x - (hexagonBounds(a).x + hexagonBounds(a).width)
-      expect(gap).toBeLessThanOrEqual(mode === 'overview' ? 200 : 800)
+      expect(hexagonBounds(b).x - (hexagonBounds(a).x + hexagonBounds(a).width)).toBeCloseTo(MAP_GAP, 6)
     })
   })
 
@@ -404,11 +428,8 @@ describe('layoutMap — honeycomb lattice placement (ADR-01)', () => {
     expect(result.pitch).toStrictEqual({ x: b.centre.x * 2, y: b.centre.y })
   })
 
-  // The two prior tests use hexagons with IDENTICAL (empty) content, so a pitch computed from `perHexagon[0]`'s
-  // extents alone happens to match `Math.max(...)` over every hexagon — neither test can tell the two
-  // implementations apart. Here h1 (first in the array) is tiny and h2 is STRESS-sized, so a first-hexagon-only
-  // pitch would be far too small and the boxes would overlap.
-  it('derives pitch from the map-wide max extents, not the first hexagon’s own (CANVAS-01.4 hardening)', () => {
+  // A tiny first hexagon beside a STRESS-sized one must be spaced from the sizes of both, not from the first alone.
+  it('spaces a tiny first hexagon from a STRESS-sized neighbour by both sizes (CANVAS-01.4 hardening)', () => {
     const map: HexaMap = {
       version: VERSION,
       kind: 'hexagonal',
@@ -435,7 +456,7 @@ describe('layoutMap — honeycomb lattice placement (ADR-01)', () => {
     const [a, b] = result.hexagons
     const boxA = hexagonBounds(a)
     const boxB = hexagonBounds(b)
-    expect(boxB.x - (boxA.x + boxA.width)).toBeGreaterThanOrEqual(MAP_GAP)
+    expect(boxB.x - (boxA.x + boxA.width)).toBeGreaterThanOrEqual(MAP_GAP - 1e-6)
   })
 })
 
@@ -641,6 +662,56 @@ describe('layoutMap — full no-overlap property (CANVAS-01.2–01.4)', () => {
         expect(gap).toBeGreaterThanOrEqual(MAP_GAP - 1e-6)
       }
     }
+  })
+})
+
+describe('layoutMap — lattice neighbours sit MAP_GAP apart, not a pitch apart', () => {
+  const EPS = 1e-6
+  const adjacent = (a: Hexagon['cell'], b: Hexagon['cell']) => SIDE_ORDER.some((side) => neighbour(a, side).q === b.q && neighbour(a, side).r === b.r)
+  const corpus: Array<[string, HexaMap]> = [
+    ...[1, 2, 3, 4, 5, 6, 7, 8].flatMap((seed) => [5, 12, 30].map((n): [string, HexaMap] => [`seed ${seed} N=${n}`, seededHoneycomb(seed, n)])),
+    ['project-builder', projectBuilderMap()],
+    ...EXAMPLES.flatMap((e): Array<[string, HexaMap]> => (e.map.kind === 'hexagonal' && e.map.hexagons.length > 1 ? [[e.id, e.map]] : [])),
+  ]
+
+  it.each(MODES.flatMap((mode) => corpus.map(([name, map]) => [mode, name, map] as const)))('%s, %s: row neighbours are exactly MAP_GAP apart and every adjacent pair at least that', (mode, _name, map) => {
+    const { hexagons } = layoutMap(map, { mode })
+    for (const a of hexagons) {
+      for (const b of hexagons) {
+        if (a.id >= b.id || !adjacent(a.cell, b.cell)) continue
+        const gap = separation(hexagonBounds(a), hexagonBounds(b))
+        expect(gap, `${a.id}-${b.id}`).toBeGreaterThanOrEqual(MAP_GAP - EPS)
+        if (a.cell.r === b.cell.r) expect(gap, `${a.id}-${b.id}`).toBeLessThanOrEqual(MAP_GAP + EPS)
+      }
+    }
+  })
+
+  it.each(MODES)('%s: diagonal neighbours of equal size are MAP_GAP apart too', (mode) => {
+    const { hexagons } = layoutMap(HONEYCOMB, { mode })
+    for (const a of hexagons) {
+      for (const b of hexagons) {
+        if (a.id < b.id && adjacent(a.cell, b.cell)) expect(separation(hexagonBounds(a), hexagonBounds(b)), `${a.id}-${b.id}`).toBeCloseTo(MAP_GAP, 6)
+      }
+    }
+  })
+
+  it.each(MODES)('%s: hexagons of one lattice row share a centre y', (mode) => {
+    const { hexagons } = layoutMap(seededHoneycomb(3, 30), { mode })
+    for (const a of hexagons) for (const b of hexagons) if (a.cell.r === b.cell.r) expect(a.centre.y).toBe(b.centre.y)
+  })
+
+  it.each(MODES)('%s: a hexagon added to, or grown in, the last row leaves every other row where it was', (mode) => {
+    const base = seededHoneycomb(4, 12)
+    const lastRow = Math.max(...base.hexagons.map((h) => h.cell.r))
+    const before = layoutMap(base, { mode })
+    const stays = (after: typeof before) => {
+      for (const h of before.hexagons) if (h.cell.r < lastRow) expect(after.hexagons.find((o) => o.id === h.id)!.centre, h.id).toStrictEqual(h.centre)
+    }
+    const { version: _v, kind: _k, ...stress } = STRESS_DIAGRAM
+    const eastEnd = Math.max(...base.hexagons.filter((h) => h.cell.r === lastRow).map((h) => h.cell.q))
+    stays(layoutMap({ ...base, hexagons: [...base.hexagons, { id: 'added', contextId: 'c1', cell: { q: eastEnd + 1, r: lastRow }, ...stress }] }, { mode }))
+    const last = base.hexagons.find((h) => h.cell.r === lastRow)!
+    stays(layoutMap({ ...base, hexagons: base.hexagons.map((h) => (h === last ? { ...h, ...stress } : h)) }, { mode }))
   })
 })
 
