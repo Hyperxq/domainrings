@@ -13,8 +13,8 @@ domainrings (https://diagrams.pbuilder.dev/) draws a hexagonal architecture from
 2. **Map the code** of each slice onto the concepts below. Use the real names from the code. Never invent parts the code does not have; if something is only implied, say so in a `note`.
 3. **Write the `.hexa` file** following the format and rules below. Start from `references/single-hexagon.hexa` or `references/honeycomb.hexa`.
 4. **Check it** against the rules checklist. The link does not validate: the app refuses an invalid map when it opens.
-5. **Make the link.** Run `node <this skill>/scripts/share-link.mjs <file.hexa>` (Node 16+, no dependencies). It accepts hexagonal, onion and clean files and refuses anything else. It prints `https://diagrams.pbuilder.dev/#m=…`; give that to the user. Opening it loads the map straight away.
-6. **When there is no link.** If you cannot run Node, or the script warns that the link is over 8000 characters, give the user the `.hexa` file. They open it with **Open…** in the app's toolbar. Another option: the app also loads `https://diagrams.pbuilder.dev/?src=<https URL of a .hexa file>`, for example a raw GitHub gist.
+5. **Make the link.** Run `node <this skill>/scripts/share-link.mjs <file.hexa>` (Node 16+, no dependencies). It accepts hexagonal, onion and clean files and refuses anything else. It prints `https://diagrams.pbuilder.dev/#m=…`; give that to the user. Opening it loads the map straight away, view-only and in Overview, so readers get no editing controls. Add `--view detailed` to start in the Detailed view instead (the link then ends in `&view=detailed`).
+6. **When there is no link.** If you cannot run Node, or the script warns that the link is over 8000 characters, give the user the `.hexa` file. They open it with **Open…** in the app's toolbar. Another option: the app also loads `https://diagrams.pbuilder.dev/?src=<https URL of a .hexa file>`, for example a raw GitHub gist. It also opens view-only in Overview; append `&view=detailed` for the Detailed view.
 
 ## From code to concepts
 

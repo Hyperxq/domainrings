@@ -17,7 +17,7 @@ const appExamples = import.meta.glob('./examples/*.hexa', { query: '?raw', impor
 beforeEach(installCompressionStreamPolyfill)
 afterEach(() => vi.unstubAllGlobals())
 
-const shareLink = (file: string) => spawnSync('node', [SCRIPT, file], { encoding: 'utf8' })
+const shareLink = (file: string, ...args: string[]) => spawnSync('node', [SCRIPT, file, ...args], { encoding: 'utf8' })
 
 function tempHexa(json: unknown): string {
   const file = join(mkdtempSync(join(tmpdir(), 'skill-')), 'map.hexa')
@@ -56,6 +56,27 @@ describe('share-link script', () => {
     const decoded = parseHexa(text!)
     const original = parseHexa(examples[path])
     expect(decoded.ok && original.ok && decoded.map).toEqual(original.ok && original.map)
+  })
+
+  it('appends the starting view and still decodes back to the same map', async () => {
+    const [path, text] = Object.entries(examples)[0]
+    const run = shareLink(resolve(__dirname, path), '--view', 'detailed')
+    expect(run.status).toBe(0)
+    const link = run.stdout.trim()
+    expect(link.endsWith('&view=detailed')).toBe(true)
+    const payload = link.slice(link.indexOf(SHARE_HASH_PREFIX) + SHARE_HASH_PREFIX.length).split('&')[0]
+    const decoded = parseHexa((await decodeSharePayload(payload))!)
+    const original = parseHexa(text)
+    expect(decoded.ok && original.ok && decoded.map).toEqual(original.ok && original.map)
+  })
+
+  it('adds no view option by default and refuses an unknown one', () => {
+    const [path] = Object.keys(examples)
+    expect(shareLink(resolve(__dirname, path)).stdout).not.toContain('&view=')
+    const run = shareLink(resolve(__dirname, path), '--view', 'sideways')
+    expect(run.status).not.toBe(0)
+    expect(run.stdout).toBe('')
+    expect(run.stderr).toMatch(/--view/)
   })
 
   it('refuses a file that is not a domainrings map', () => {
