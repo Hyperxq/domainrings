@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type Ref } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type Ref } from 'react'
 import { canCompact } from '../layout/compactHexagon'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
 import type { LayoutNode } from '../layout/layout'
@@ -17,7 +17,7 @@ import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
 import { hexIdOf, hullIdOf, layerOf, nodeRefOf, refOf } from './canvasTarget'
 import { NotePopover } from './stage/NotePopover'
-import { ContextReveals, ExpandToggles, GrowButtons, HexagonTitles, LinkChip, MapTitle, mapTitleOverlaid, titlesOverlaid } from './stage/overlays'
+import { BoxLabels, boxLabelsOverlaid, ContextReveals, ExpandToggles, GrowButtons, HexagonTitles, LinkChip, MapTitle, mapTitleOverlaid, titlesOverlaid } from './stage/overlays'
 import { useCanvasShortcuts } from './stage/useCanvasShortcuts'
 import { useContextReveal } from './stage/useContextReveal'
 import { useHexagonFocus } from './stage/useHexagonFocus'
@@ -206,7 +206,8 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
     >
       <svg
         ref={svgRef}
-        className={['canvas', titlesOverlaid(viewport.scale) && 'titles-overlaid', model.title && mapTitleOverlaid(model.title, viewport.scale) && 'map-title-overlaid'].filter(Boolean).join(' ')}
+        className={['canvas', titlesOverlaid(viewport.scale) && 'titles-overlaid', boxLabelsOverlaid(viewport.scale) && 'box-labels-overlaid', model.title && mapTitleOverlaid(model.title, viewport.scale) && 'map-title-overlaid'].filter(Boolean).join(' ')}
+        style={{ '--zoom': viewport.scale } as CSSProperties}
         role="figure"
         aria-label={title || 'Architecture diagram'}
         onPointerOver={(e) => {
@@ -318,6 +319,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
       <Affordances points={visiblePoints} toScreen={toScreen} onPick={pick} onLayer={setHovered} />
       {!viewOnly && <GrowButtons model={model} hex={hex} scale={viewport.scale} mapToScreen={mapToScreen} title={title} contextLabel={contextLabel} onGrow={onGrow} />}
       <HexagonTitles model={model} mapToScreen={mapToScreen} scale={viewport.scale} />
+      <BoxLabels model={model} map={map} hexId={hexId} forced={[selected, hoveredRef]} mapToScreen={mapToScreen} scale={viewport.scale} size={size} />
       <MapTitle model={model} mapToScreen={mapToScreen} scale={viewport.scale} />
       <ExpandToggles model={model} currentId={hexId} mapToScreen={mapToScreen} onToggle={onToggleExpanded} />
       {/* After the canvas controls so a name is never covered; it takes no pointer, so the controls stay clickable. */}

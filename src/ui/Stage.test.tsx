@@ -1795,6 +1795,93 @@ describe('Stage — hexagon titles stay readable when zoomed out', () => {
   })
 })
 
+describe('Stage — box names stay readable when zoomed out', () => {
+  const labels = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>('[data-box-label]')]
+  const withSize = (width: number, height: number, run: () => void) => {
+    const restore = stubFixedSize(width, height)
+    try {
+      useMapStore.getState().replace(twoHexMap())
+      run()
+    } finally {
+      restore()
+    }
+  }
+
+  it('draws a pill with each box name at 11px once a 14px name would render under 10px', () => {
+    withSize(700, 360, () => {
+      const { container } = render(<Harness />)
+      expect(viewportOf(container).scale * 14).toBeLessThan(10)
+      const shown = labels(container)
+      expect(shown.length).toBeGreaterThan(0)
+      for (const label of shown) {
+        expect(label.style.fontSize).toBe('11px')
+        expect(label.getAttribute('aria-hidden')).toBe('true')
+      }
+      expect(svg(container).classList.contains('box-labels-overlaid')).toBe(true)
+    })
+  })
+
+  it('draws no label, and keeps the SVG text, while a 14px name renders at 10px or more', () => {
+    withSize(9000, 6000, () => {
+      const { container } = render(<Harness />)
+      expect(viewportOf(container).scale * 14).toBeGreaterThanOrEqual(10)
+      expect(labels(container)).toHaveLength(0)
+      expect(svg(container).classList.contains('box-labels-overlaid')).toBe(false)
+    })
+  })
+
+  it('shows no two labels on top of each other', () => {
+    withSize(700, 360, () => {
+      const { container } = render(<Harness />)
+      const rects = labels(container).map((l) => {
+        const [x, y] = [parseFloat(l.style.left), parseFloat(l.style.top)]
+        const w = l.textContent!.length * 11 * 0.6
+        return { x: x - w / 2, y: y - 7, w, h: 14 }
+      })
+      expect(rects.length).toBeGreaterThan(1)
+      for (const [i, a] of rects.entries())
+        for (const b of rects.slice(i + 1)) expect(a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h).toBe(false)
+    })
+  })
+
+  it('always shows the label of the hovered box, even where another label wins the spot', () => {
+    withSize(700, 360, () => {
+      const { container } = render(<Harness />)
+      const shown = new Set(labels(container).map((l) => l.textContent))
+      const hidden = [...container.querySelectorAll<SVGGElement>('[data-hex="h1"] .node-domainItem')].find((n) => !shown.has(n.textContent!.trim()))
+      expect(hidden).toBeDefined()
+      fireEvent.pointerOver(hidden!)
+      expect(labels(container).map((l) => l.textContent)).toContain(hidden!.textContent!.trim())
+    })
+  })
+
+  it('hides the SVG box text and enlarges the note marker only on the canvas, never in an export', () => {
+    const css = readFileSync('src/styles.css', 'utf8')
+    expect(css).toMatch(/\.canvas\.box-labels-overlaid:not\(\.exporting\) \.node text\s*\{\s*display:\s*none/)
+    expect(css).toMatch(/\.canvas:not\(\.exporting\) \.note-marker\s*\{\s*r:\s*max\(2\.5px,\s*calc\(3px \/ var\(--zoom\)\)\)/)
+  })
+
+  it('hands the zoom to CSS on the canvas', () => {
+    withSize(700, 360, () => {
+      const { container } = render(<Harness />)
+      expect(Number((svg(container) as SVGElement).style.getPropertyValue('--zoom'))).toBeCloseTo(viewportOf(container).scale, 3)
+    })
+  })
+
+  it('leaves compact hexagons to their own title', () => {
+    const restore = stubFixedSize(700, 360)
+    try {
+      useMapStore.getState().replace(manyHexagonMap(5))
+      const { container } = render(<Harness />)
+      expect(labels(container).length).toBeGreaterThan(0)
+      expect(container.querySelector('[data-hex="h4"] .compact-title')).not.toBeNull()
+      expect(labels(container).every((l) => l.dataset.boxLabel!.startsWith('h1:'))).toBe(true)
+    } finally {
+      restore()
+    }
+  })
+})
+
 describe('Stage note popover', () => {
   const node = (container: HTMLElement, ref: string) => container.querySelector(`[data-hex] .node[data-ref="${ref}"]`)!
   const popover = () => screen.queryByRole('tooltip')

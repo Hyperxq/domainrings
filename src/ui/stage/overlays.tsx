@@ -1,14 +1,17 @@
+import { useMemo } from 'react'
 import type { LayoutNode, LayoutText } from '../../layout/layout'
 import { unionBox, type Box, type Point } from '../../layout/geometry'
 import { canCompact } from '../../layout/compactHexagon'
 import { hexagonBounds } from '../../layout/lattice'
-import { TITLE } from '../../layout/text'
+import { boxLabels } from '../../layout/boxLabels'
+import { LINE_METRICS, measure, TITLE } from '../../layout/text'
 import { growAnchor, hexagonTitle, type MapContextLayout, type MapHexagonLayout, type MapLayout } from '../../layout/map'
 import { freeSides, UNTITLED_HEXAGON, type Destination } from '../../model/map'
-import type { Wall } from '../../model/schema'
+import type { HexaMap, Wall } from '../../model/schema'
 import { hullPath } from '../../render/Diagram'
 import { ChoiceMenu } from '../ChoiceMenu'
 import { Icon } from '../Icon'
+import { cullLabels } from './labelCulling'
 import type { Reveal } from './useContextReveal'
 
 /** Half the side "+" button's 24px circle. */
@@ -25,6 +28,17 @@ export const titlesOverlaid = (scale: number) => TITLE.size * scale < TITLE_FLOO
 
 /** Whether the map title, which grows with the context chips, renders under the floor at `scale`. */
 export const mapTitleOverlaid = (title: LayoutText, scale: number) => (title.size ?? TITLE.size) * scale < TITLE_FLOOR_PX
+
+/** The smallest on-screen size a box name is read at, in px. */
+export const BOX_NAME_FLOOR_PX = 10
+/** Below this viewport scale a box name (14px in the diagram) renders under the floor, so the labels replace it. */
+export const BOX_LABELS_BELOW_SCALE = BOX_NAME_FLOOR_PX / LINE_METRICS.name.size
+export const boxLabelsOverlaid = (scale: number) => scale < BOX_LABELS_BELOW_SCALE
+
+const BOX_LABEL_PX = 11
+const BOX_LABEL_PAD = { x: 5, y: 2 }
+const BOX_LABEL_GAP = 3
+const BOX_LABEL_HEIGHT = BOX_LABEL_PX * 1.3 + 2 * BOX_LABEL_PAD.y
 
 type ToScreen = (p: Point) => Point
 
@@ -84,6 +98,29 @@ export function HexagonTitles({ model, mapToScreen, scale }: { model: MapLayout;
       </span>
     )
   })
+}
+
+/** Every box's name at a readable size over the map, once the SVG text is too small to read. Names that would pile up
+ * are left out by priority (use cases and ports, then adapters, actors and externals, then the domain); the selected
+ * and hovered boxes of the current hexagon always keep theirs. Placement works on the layout and the viewport alone. */
+export function BoxLabels({ model, map, hexId, forced, mapToScreen, scale, size }: { model: MapLayout; map: HexaMap; hexId: string; forced: readonly (string | null)[]; mapToScreen: ToScreen; scale: number; size: { width: number; height: number } }) {
+  const labels = useMemo(() => boxLabels(model, map), [model, map])
+  if (!boxLabelsOverlaid(scale)) return null
+  const placed = labels.flatMap((label) => {
+    const at = mapToScreen(label)
+    const width = measure(label.text, { size: BOX_LABEL_PX, em: 0.6 }) + 2 * BOX_LABEL_PAD.x
+    const rect = { x: at.x - width / 2, y: at.y - BOX_LABEL_HEIGHT / 2, width, height: BOX_LABEL_HEIGHT }
+    const onScreen = !size.width || (rect.x < size.width && rect.x + width > 0 && rect.y < size.height && rect.y + rect.height > 0)
+    return onScreen ? [{ label, at, candidate: { key: label.key, rect, tier: label.tier, area: label.area, forced: label.hexagonId === hexId && forced.includes(label.ref) } }] : []
+  })
+  const shown = cullLabels(placed.map((p) => p.candidate), BOX_LABEL_GAP)
+  return placed
+    .filter((p) => shown.has(p.label.key))
+    .map(({ label, at }) => (
+      <span key={label.key} className="box-label" data-box-label={label.key} aria-hidden="true" style={{ left: at.x, top: at.y, fontSize: BOX_LABEL_PX }}>
+        {label.text}
+      </span>
+    ))
 }
 
 /** The map title at a readable size over the canvas, once the SVG one renders under the floor. It sits at the title's
