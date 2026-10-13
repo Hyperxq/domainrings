@@ -591,3 +591,40 @@ describe('map store', () => {
     })
   })
 })
+
+describe('planned status edits', () => {
+  beforeEach(() => state().replace(toMap(EXAMPLE_DIAGRAM)))
+  const useCase = () => state().map.hexagons[0].useCases[0]
+
+  it('marks an element planned, and unmarking removes the key rather than leaving it undefined', () => {
+    state().updateItem('h1', 'useCases', 'uc-submit', { status: 'planned' })
+    expect(useCase().status).toBe('planned')
+    state().updateItem('h1', 'useCases', 'uc-submit', { status: undefined })
+    expect('status' in useCase()).toBe(false)
+  })
+
+  it('does the same for the hexagon itself', () => {
+    state().setMeta('h1', { status: 'planned' })
+    expect(state().map.hexagons[0].status).toBe('planned')
+    state().setMeta('h1', { status: undefined })
+    expect('status' in state().map.hexagons[0]).toBe(false)
+  })
+
+  it('keeps a planned map valid, and unmarking returns the original map', () => {
+    const before = state().map
+    state().setMeta('h1', { status: 'planned' })
+    state().updateItem('h1', 'useCases', 'uc-submit', { status: 'planned' })
+    expect(MapSchema.safeParse(state().map).success).toBe(true)
+    state().setMeta('h1', { status: undefined })
+    state().updateItem('h1', 'useCases', 'uc-submit', { status: undefined })
+    expect(state().map).toStrictEqual(before)
+  })
+
+  it('marks and unmarks a link', () => {
+    state().replace(twoHexagonMap())
+    state().updateLink('l1', { status: 'planned' })
+    expect(state().map.links[0].status).toBe('planned')
+    state().updateLink('l1', { status: null })
+    expect('status' in state().map.links[0]).toBe(false)
+  })
+})

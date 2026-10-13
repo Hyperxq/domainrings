@@ -4,6 +4,7 @@ import { HexaFileV3Schema, HexaFileV4Schema } from './fileFormat'
 import { APP, CleanFileSchema, DiagramSchema, linkEndProblem, MapSchema, OnionFileSchema, VERSION } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
 import { newCleanMap, newOnionMap, toMap } from './hexa'
+import { twoHexagonMap } from '../test/fixtures'
 
 const issuePaths = (input: unknown) => {
   const result = DiagramSchema.safeParse(input)
@@ -446,5 +447,47 @@ describe('kindsFor', () => {
   it('answers a role the table does not name, or one an object inherits, with no kinds', () => {
     for (const role of ['ring-a1b2c3d4', 'constructor', 'hasOwnProperty', '']) expect(kindsFor(ONION_KINDS, role)).toEqual([])
     expect(kindsFor(ONION_KINDS, 'outer')).toContain('ui')
+  })
+})
+
+describe('planned status', () => {
+  const planned = { status: 'planned' } as const
+  const withPlanned = () => {
+    const map = toMap(EXAMPLE_DIAGRAM)
+    const [h] = map.hexagons
+    const hexagon = {
+      ...h,
+      ...planned,
+      domain: h.domain.map((d, i) => (i === 0 ? { ...d, ...planned } : d)),
+      useCases: h.useCases.map((u) => ({ ...u, ...planned })),
+      ports: h.ports.map((p) => ({ ...p, ...planned })),
+      adapters: h.adapters.map((a) => ({ ...a, ...planned })),
+      actors: h.actors.map((a) => ({ ...a, ...planned })),
+      externals: h.externals.map((e) => ({ ...e, ...planned })),
+    }
+    return { ...map, hexagons: [hexagon], links: [] }
+  }
+
+  it('is accepted, and kept, on a hexagon and every kind of element', () => {
+    const map = withPlanned()
+    expect(MapSchema.parse(map)).toEqual(map)
+  })
+
+  it('is accepted, and kept, on a link', () => {
+    const map = twoHexagonMap()
+    const linked = { ...map, links: [{ ...map.links[0], ...planned }] }
+    expect(MapSchema.parse(linked).links[0].status).toBe('planned')
+  })
+
+  it.each([['built'], [true], ['']])('rejects the status %j: absence is how an item is built', (status) => {
+    const map = withPlanned()
+    expect(MapSchema.safeParse({ ...map, hexagons: [{ ...map.hexagons[0], status }] }).success).toBe(false)
+    const [d] = map.hexagons[0].domain
+    expect(MapSchema.safeParse({ ...map, hexagons: [{ ...map.hexagons[0], domain: [{ ...d, status }] }] }).success).toBe(false)
+  })
+
+  it('leaves a file without any status identical on load', () => {
+    const map = toMap(EXAMPLE_DIAGRAM)
+    expect(JSON.stringify(MapSchema.parse(map))).not.toContain('status')
   })
 })

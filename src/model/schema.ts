@@ -4,6 +4,8 @@ import { CLEAN_KINDS, kindsFor, ONION_KINDS, RINGED_KIND_LABEL, RINGED_KINDS, ty
 
 const id = z.string().min(1)
 const note = z.string().optional()
+/** Absent means built; 'planned' marks work that does not exist yet. */
+const status = z.enum(['planned']).optional()
 /** Optional on every ringed element; which values a given ring accepts is checked in `checkRingedIntegrity`. */
 const RingedKindSchema = z.enum(RINGED_KINDS)
 
@@ -16,17 +18,18 @@ export const DRIVING_WALLS: ReadonlySet<string> = new Set(['nw', 'w', 'sw'])
 export const LayerRoleSchema = z.enum(['outer', 'adapters', 'application', 'domainServices', 'domain'])
 const LayerTextSchema = z.object({ title: z.string().optional(), subtitle: z.string().optional() })
 
-const DomainItemSchema = z.object({ id, name: z.string(), type: DomainTypeSchema, parentId: id.optional(), note })
+const DomainItemSchema = z.object({ id, name: z.string(), type: DomainTypeSchema, parentId: id.optional(), note, status })
 // 'top' (the default) stacks a use case under the application title; a wall seats it in that wall's sector.
 export const PlacementSchema = z.enum(['top', ...WallSchema.options])
-const UseCaseSchema = z.object({ id, name: z.string(), placement: PlacementSchema.optional(), note })
-const PortSchema = z.object({ id, name: z.string(), side: SideSchema, wall: WallSchema.optional(), useCaseId: id.optional(), note })
-const AdapterSchema = z.object({ id, name: z.string(), portId: id.optional(), note })
-const EndpointSchema = z.object({ id, name: z.string(), adapterId: id.optional(), note })
+const UseCaseSchema = z.object({ id, name: z.string(), placement: PlacementSchema.optional(), note, status })
+const PortSchema = z.object({ id, name: z.string(), side: SideSchema, wall: WallSchema.optional(), useCaseId: id.optional(), note, status })
+const AdapterSchema = z.object({ id, name: z.string(), portId: id.optional(), note, status })
+const EndpointSchema = z.object({ id, name: z.string(), adapterId: id.optional(), note, status })
 
 export const DiagramFields = {
   title: z.string(),
   subtitle: z.string().optional(),
+  status,
   domain: z.array(DomainItemSchema),
   useCases: z.array(UseCaseSchema),
   ports: z.array(PortSchema),
@@ -36,6 +39,18 @@ export const DiagramFields = {
   composition: z.object({ name: z.string(), note }).optional(),
   /** Per-layer title/subtitle overrides; an empty or missing value falls back to the kind's default. */
   layers: z.partialRecord(LayerRoleSchema, LayerTextSchema).optional(),
+}
+
+/** `DiagramFields` as they were before `status`, for the frozen v1 arm: a build that old never wrote one. */
+const { status: _status, ...diagramFieldsBeforeStatus } = DiagramFields
+export const LegacyDiagramFields = {
+  ...diagramFieldsBeforeStatus,
+  domain: z.array(DomainItemSchema.omit({ status: true })),
+  useCases: z.array(UseCaseSchema.omit({ status: true })),
+  ports: z.array(PortSchema.omit({ status: true })),
+  adapters: z.array(AdapterSchema.omit({ status: true })),
+  actors: z.array(EndpointSchema.omit({ status: true })),
+  externals: z.array(EndpointSchema.omit({ status: true })),
 }
 
 // Live shape: no Diagram this build renders can be anything but Hexagonal (the Clean/Onion kind switcher is
@@ -122,7 +137,7 @@ const ContextSchema = z.object({ id, name: z.string().optional() })
 const HexagonObject = DiagramObject.omit({ version: true, kind: true }).extend({ id, contextId: id, cell: CellSchema })
 export const LinkPatternSchema = z.enum(['acl', 'ohs-pl', 'customer-supplier', 'conformist', 'shared-kernel'])
 const LinkEndSchema = z.object({ hexagonId: id, portId: id, adapterId: id.optional() })
-const LinkSchema = z.object({ id, from: LinkEndSchema, to: LinkEndSchema, pattern: LinkPatternSchema.optional() })
+const LinkSchema = z.object({ id, from: LinkEndSchema, to: LinkEndSchema, pattern: LinkPatternSchema.optional(), status })
 
 export type Context = z.infer<typeof ContextSchema>
 export type Hexagon = z.infer<typeof HexagonObject>
@@ -134,6 +149,13 @@ export const MapFields = {
   contexts: z.array(ContextSchema).min(1),
   hexagons: z.array(HexagonObject.superRefine(checkIntegrity)).min(1),
   links: z.array(LinkSchema),
+}
+
+/** `MapFields` as they were before `status`, for the frozen v2 and v3 arms. */
+export const LegacyMapFields = {
+  ...MapFields,
+  hexagons: z.array(z.object({ ...LegacyDiagramFields, id, contextId: id, cell: CellSchema }).superRefine(checkIntegrity)).min(1),
+  links: z.array(LinkSchema.omit({ status: true })),
 }
 
 /** What `checkMap`/`linkEndProblem` need — shared structurally by the frozen v2 map (`kind`: 3-way) and the
