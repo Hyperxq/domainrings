@@ -3,15 +3,16 @@ import type { LayoutNode, LayoutText } from '../../layout/layout'
 import { unionBox, type Box, type Point } from '../../layout/geometry'
 import { canCompact } from '../../layout/compactHexagon'
 import { hexagonBounds } from '../../layout/lattice'
-import { boxLabels } from '../../layout/boxLabels'
-import { LINE_METRICS, measure, TITLE } from '../../layout/text'
+import { boxLabels, boxObstacles, type BoxLabel } from '../../layout/boxLabels'
+import { TITLE } from '../../layout/text'
 import { growAnchor, hexagonTitle, type MapContextLayout, type MapHexagonLayout, type MapLayout } from '../../layout/map'
 import { freeSides, UNTITLED_HEXAGON, type Destination } from '../../model/map'
 import type { HexaMap, Wall } from '../../model/schema'
 import { hullPath } from '../../render/Diagram'
 import { ChoiceMenu } from '../ChoiceMenu'
 import { Icon } from '../Icon'
-import { cullLabels } from './labelCulling'
+import { centreZones, cullLabels } from './labelCulling'
+import { labelTextWidth } from './labelWidth'
 import type { Reveal } from './useContextReveal'
 
 /** Half the side "+" button's 24px circle. */
@@ -29,16 +30,18 @@ export const titlesOverlaid = (scale: number) => TITLE.size * scale < TITLE_FLOO
 /** Whether the map title, which grows with the context chips, renders under the floor at `scale`. */
 export const mapTitleOverlaid = (title: LayoutText, scale: number) => (title.size ?? TITLE.size) * scale < TITLE_FLOOR_PX
 
-/** The smallest on-screen size a box name is read at, in px. */
-export const BOX_NAME_FLOOR_PX = 10
-/** Below this viewport scale a box name (14px in the diagram) renders under the floor, so the labels replace it. */
-export const BOX_LABELS_BELOW_SCALE = BOX_NAME_FLOOR_PX / LINE_METRICS.name.size
+/** Below this viewport scale a 14px box name renders under 7px, which no one reads, so the labels replace it. Above it
+ * the name is still legible and the labels would only cover the diagram. */
+export const BOX_LABELS_BELOW_SCALE = 0.5
 export const boxLabelsOverlaid = (scale: number) => scale < BOX_LABELS_BELOW_SCALE
 
 const BOX_LABEL_PX = 11
 const BOX_LABEL_PAD = { x: 5, y: 2 }
+const BOX_LABEL_BORDER = 1
 const BOX_LABEL_GAP = 3
-const BOX_LABEL_HEIGHT = BOX_LABEL_PX * 1.3 + 2 * BOX_LABEL_PAD.y
+/** Half the side of the zone around each box's centre that no other label may cover. */
+const BOX_CENTRE_CLEARANCE = 6
+const BOX_LABEL_HEIGHT = BOX_LABEL_PX * 1.3 + 2 * (BOX_LABEL_PAD.y + BOX_LABEL_BORDER)
 
 type ToScreen = (p: Point) => Point
 
@@ -100,27 +103,47 @@ export function HexagonTitles({ model, mapToScreen, scale }: { model: MapLayout;
   })
 }
 
-/** Every box's name at a readable size over the map, once the SVG text is too small to read. Names that would pile up
- * are left out by priority (use cases and ports, then adapters, actors and externals, then the domain); the selected
- * and hovered boxes of the current hexagon always keep theirs. Placement works on the layout and the viewport alone. */
+const quoted = (value: string) => `"${value.replace(/[\\"]/g, '\\$&').replace(/\n/g, '\\a ')}"`
+
+/** One rule hiding the SVG text of the labelled boxes only, so a box without a label keeps its name. It lives outside
+ * the diagram tree: zooming rewrites this rule, never the diagram. An export keeps every text. */
+export const hiddenTextRule = (labelled: readonly Pick<BoxLabel, 'hexagonId' | 'kind' | 'ref'>[]) =>
+  labelled.length
+    ? `${labelled.map((l) => `.canvas:not(.exporting) [data-hex=${quoted(l.hexagonId)}] .node-${l.kind}[data-ref=${quoted(l.ref)}] text`).join(',')}{display:none}`
+    : ''
+
+/** Every box's name at a readable size over the map, once the SVG text is too small to read. A name may run past its
+ * box and over other boxes' edges, but never over another box's centre or another name; they are placed by priority (use cases, ports and the aggregate, then
+ * adapters, actors and externals, then the rest of the domain), and the selected and hovered boxes of the current
+ * hexagon always keep theirs, over anything. Only a labelled box loses its SVG text. Placement works on the layout and
+ * the viewport alone. */
 export function BoxLabels({ model, map, hexId, forced, mapToScreen, scale, size }: { model: MapLayout; map: HexaMap; hexId: string; forced: readonly (string | null)[]; mapToScreen: ToScreen; scale: number; size: { width: number; height: number } }) {
   const labels = useMemo(() => boxLabels(model, map), [model, map])
+  const obstacles = useMemo(() => boxObstacles(model, map), [model, map])
   if (!boxLabelsOverlaid(scale)) return null
   const placed = labels.flatMap((label) => {
     const at = mapToScreen(label)
-    const width = measure(label.text, { size: BOX_LABEL_PX, em: 0.6 }) + 2 * BOX_LABEL_PAD.x
+    const width = labelTextWidth(label.text, BOX_LABEL_PX) + 2 * (BOX_LABEL_PAD.x + BOX_LABEL_BORDER)
     const rect = { x: at.x - width / 2, y: at.y - BOX_LABEL_HEIGHT / 2, width, height: BOX_LABEL_HEIGHT }
     const onScreen = !size.width || (rect.x < size.width && rect.x + width > 0 && rect.y < size.height && rect.y + rect.height > 0)
-    return onScreen ? [{ label, at, candidate: { key: label.key, rect, tier: label.tier, area: label.area, forced: label.hexagonId === hexId && forced.includes(label.ref) } }] : []
+    return onScreen ? [{ label, at, candidate: { key: label.key, owner: label.owner, rect, tier: label.tier, area: label.area, forced: label.hexagonId === hexId && forced.includes(label.ref) } }] : []
   })
-  const shown = cullLabels(placed.map((p) => p.candidate), BOX_LABEL_GAP)
-  return placed
-    .filter((p) => shown.has(p.label.key))
-    .map(({ label, at }) => (
-      <span key={label.key} className="box-label" data-box-label={label.key} aria-hidden="true" style={{ left: at.x, top: at.y, fontSize: BOX_LABEL_PX }}>
-        {label.text}
-      </span>
-    ))
+  const screenBoxes = obstacles.map(({ owner, rect }) => {
+    const from = mapToScreen(rect)
+    return { owner, rect: { ...from, width: rect.width * scale, height: rect.height * scale } }
+  })
+  const shown = cullLabels(placed.map((p) => p.candidate), BOX_LABEL_GAP, centreZones(screenBoxes, BOX_CENTRE_CLEARANCE))
+  const visible = placed.filter((p) => shown.has(p.label.key))
+  return (
+    <>
+      <style>{hiddenTextRule(visible.map((p) => p.label))}</style>
+      {visible.map(({ label, at }) => (
+        <span key={label.key} className="box-label" data-box-label={label.key} aria-hidden="true" style={{ left: at.x, top: at.y, fontSize: BOX_LABEL_PX }}>
+          {label.text}
+        </span>
+      ))}
+    </>
+  )
 }
 
 /** The map title at a readable size over the canvas, once the SVG one renders under the floor. It sits at the title's

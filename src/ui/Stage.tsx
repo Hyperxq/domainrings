@@ -17,7 +17,7 @@ import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
 import { hexIdOf, hullIdOf, layerOf, nodeRefOf, refOf } from './canvasTarget'
 import { NotePopover } from './stage/NotePopover'
-import { BoxLabels, boxLabelsOverlaid, ContextReveals, ExpandToggles, GrowButtons, HexagonTitles, LinkChip, MapTitle, mapTitleOverlaid, titlesOverlaid } from './stage/overlays'
+import { BoxLabels, ContextReveals, ExpandToggles, GrowButtons, HexagonTitles, LinkChip, MapTitle, mapTitleOverlaid, titlesOverlaid } from './stage/overlays'
 import { useCanvasShortcuts } from './stage/useCanvasShortcuts'
 import { useContextReveal } from './stage/useContextReveal'
 import { useHexagonFocus } from './stage/useHexagonFocus'
@@ -206,7 +206,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
     >
       <svg
         ref={svgRef}
-        className={['canvas', titlesOverlaid(viewport.scale) && 'titles-overlaid', boxLabelsOverlaid(viewport.scale) && 'box-labels-overlaid', model.title && mapTitleOverlaid(model.title, viewport.scale) && 'map-title-overlaid'].filter(Boolean).join(' ')}
+        className={['canvas', titlesOverlaid(viewport.scale) && 'titles-overlaid', model.title && mapTitleOverlaid(model.title, viewport.scale) && 'map-title-overlaid'].filter(Boolean).join(' ')}
         style={{ '--zoom': viewport.scale } as CSSProperties}
         role="figure"
         aria-label={title || 'Architecture diagram'}

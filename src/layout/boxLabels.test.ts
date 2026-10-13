@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boxLabels } from './boxLabels'
+import { boxLabels, boxObstacles } from './boxLabels'
 import { layoutMap } from './map'
 import { manyHexagonMap, twoHexMap } from '../test/fixtures'
 
@@ -39,7 +39,7 @@ describe('boxLabels', () => {
   })
 
   it('ranks use cases and ports first, adapters, actors and externals next, domain items last', () => {
-    const tierOf = (kind: string) => boxLabels(detailed, twoHexMap()).find((l) => l.kind === kind)?.tier
+    const tierOf = (kind: string) => boxLabels(detailed, twoHexMap()).find((l) => l.kind === kind && l.text !== 'Feedback')?.tier
     expect([tierOf('useCase'), tierOf('port'), tierOf('adapter'), tierOf('actor'), tierOf('external'), tierOf('domainItem')]).toEqual([0, 0, 1, 1, 1, 2])
   })
 
@@ -55,6 +55,51 @@ describe('boxLabels', () => {
     const compact = model.hexagons.filter((h) => h.compact).map((h) => h.id)
     expect(compact.length).toBeGreaterThan(0)
     const owners = new Set(boxLabels(model, manyHexagonMap(5)).map((l) => l.hexagonId))
+    expect([...owners]).toEqual(model.hexagons.filter((h) => !h.compact).map((h) => h.id))
+  })
+
+  it('promotes the aggregate root to the top tier, in the overview too', () => {
+    for (const mode of ['detailed', 'overview'] as const) {
+      const model = layoutMap(twoHexMap(), { mode })
+      const labels = boxLabels(model, twoHexMap()).filter((l) => l.hexagonId === 'h1' && l.kind === 'domainItem')
+      expect(labels.find((l) => l.text === 'Feedback')?.tier).toBe(0)
+      expect(labels.filter((l) => l.text !== 'Feedback').every((l) => l.tier === 2)).toBe(true)
+    }
+  })
+
+  it('names the element a label belongs to, shared by its socket and its beside-the-notch text', () => {
+    const overview = layoutMap(twoHexMap(), { mode: 'overview' })
+    const ports = boxLabels(overview, twoHexMap()).filter((l) => l.hexagonId === 'h1' && (l.kind === 'port' || l.kind === 'portLabel'))
+    expect(ports.length).toBeGreaterThan(0)
+    for (const l of ports) expect(l.owner).toBe(`h1:${l.ref}`)
+  })
+})
+
+describe('boxObstacles', () => {
+  const detailed = layoutMap(twoHexMap(), { mode: 'detailed' })
+
+  it('covers every box of every full hexagon but the aggregate outline that contains others', () => {
+    const nodes = detailed.hexagons.flatMap((h) => h.model.nodes.filter((n) => n.kind !== 'aggregate'))
+    expect(boxObstacles(detailed, twoHexMap())).toHaveLength(nodes.length)
+  })
+
+  it('places a box on the map and takes the axis-aligned bounds of a rotated one', () => {
+    const [h1] = detailed.hexagons
+    const upright = h1.model.nodes.find((n) => !n.rotation && n.kind === 'useCase')!
+    const rect = boxObstacles(detailed, twoHexMap()).find((o) => o.owner === `h1:${upright.ref}`)!.rect
+    expect(rect).toEqual({ x: upright.x + h1.centre.x - upright.width / 2, y: upright.y + h1.centre.y - upright.height / 2, width: upright.width, height: upright.height })
+
+    const slanted = { ...upright, x: 0, y: 0, width: 40, height: 10, rotation: 90 }
+    const model = { ...detailed, hexagons: [{ ...h1, centre: { x: 100, y: 100 }, model: { ...h1.model, nodes: [slanted] } }] }
+    const [turned] = boxObstacles(model, twoHexMap())
+    expect(turned.rect.width).toBeCloseTo(10)
+    expect(turned.rect.height).toBeCloseTo(40)
+    expect(turned.rect.x).toBeCloseTo(95)
+  })
+
+  it('leaves out the compact hexagons', () => {
+    const model = layoutMap(manyHexagonMap(5), { current: 'h1' })
+    const owners = new Set(boxObstacles(model, manyHexagonMap(5)).map((o) => o.owner.split(':')[0]))
     expect([...owners]).toEqual(model.hexagons.filter((h) => !h.compact).map((h) => h.id))
   })
 })
