@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { StoredFile } from '../model/fileFormat'
 import { decodeSharePayload, SHARE_HASH_PREFIX } from './shareLink'
 import { useNoticeStore } from './state/noticeStore'
+import { openForReading } from './state/preferencesStore'
 
 const showError = (message: string) => useNoticeStore.getState().show({ tone: 'error', message })
 
@@ -18,21 +19,26 @@ export function useShareLinkOnMount({ parseSource, swap }: ShareLinkActions) {
     if (linkHandled.current) return
     linkHandled.current = true
     const finishLink = () => history.replaceState(null, '', location.pathname)
-    const openLinkedText = async (text: string) => {
+    const openLinkedText = async (text: string, view: string | null) => {
       const parsed = await parseSource(text, 'This link')
-      if (parsed) swap(parsed, 'Opened from a link.')
+      if (!parsed) return
+      swap(parsed, 'Opened from a link.')
+      openForReading(view === 'detailed' ? 'detailed' : 'overview')
     }
     void (async () => {
       if (location.hash.startsWith(SHARE_HASH_PREFIX)) {
-        const text = await decodeSharePayload(location.hash.slice(SHARE_HASH_PREFIX.length))
+        // The payload is base64url, which never contains '&', so anything after it is link options.
+        const [payload, ...options] = location.hash.slice(SHARE_HASH_PREFIX.length).split('&')
+        const text = await decodeSharePayload(payload)
         if (text === undefined) {
           showError('This link could not be read.')
           return finishLink()
         }
-        await openLinkedText(text)
+        await openLinkedText(text, new URLSearchParams(options.join('&')).get('view'))
         return finishLink()
       }
-      const src = new URLSearchParams(location.search).get('src')
+      const query = new URLSearchParams(location.search)
+      const src = query.get('src')
       if (src === null) return
       if (!src.startsWith('https://')) {
         showError("This link's address is not https, so nothing was fetched.")
@@ -47,7 +53,7 @@ export function useShareLinkOnMount({ parseSource, swap }: ShareLinkActions) {
         showError("This link's file could not be reached.")
         return finishLink()
       }
-      await openLinkedText(text)
+      await openLinkedText(text, query.get('view'))
       finishLink()
     })()
     // Runs once on mount only — the effect reads location/hash as they are at load, not on every re-render.

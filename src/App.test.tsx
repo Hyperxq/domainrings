@@ -2370,6 +2370,86 @@ describe('open a map from a remote share link (REQ-01)', () => {
   })
 })
 
+describe('a share link opens the map for reading', () => {
+  beforeEach(installCompressionStreamPolyfill)
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    history.replaceState(null, '', '/')
+  })
+
+  const opened = async () => {
+    render(<App />)
+    await act(async () => {
+      await vi.waitFor(() => expect(toastEl()?.textContent).toContain('Opened from a link.'))
+    })
+  }
+  const hashLink = async (suffix = '') => {
+    location.hash = `${SHARE_HASH_PREFIX}${await encodeSharePayload(toMap(STRESS_DIAGRAM))}${suffix}`
+  }
+  const remoteLink = (query: string) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(toHexa(toMap(STRESS_DIAGRAM)))))
+    history.replaceState(null, '', `/?src=https://example.test/shared.hexa${query}`)
+  }
+
+  it('switches an embedded link to view-only in Overview without saving either', async () => {
+    await hashLink()
+    await opened()
+    expect(usePreferencesStore.getState()).toMatchObject({ viewOnly: true, mode: 'overview' })
+    expect(localStorage.getItem('domainrings:view-only')).toBeNull()
+    expect(localStorage.getItem('domainrings:overview')).toBeNull()
+  })
+
+  it('starts an embedded link in Detailed when it says view=detailed, still view-only', async () => {
+    await hashLink('&view=detailed')
+    await opened()
+    expect(usePreferencesStore.getState()).toMatchObject({ viewOnly: true, mode: 'detailed' })
+    expect(useMapStore.getState().map).toStrictEqual(toMap(STRESS_DIAGRAM))
+  })
+
+  it('treats any other view value as Overview', async () => {
+    await hashLink('&view=sideways')
+    await opened()
+    expect(usePreferencesStore.getState().mode).toBe('overview')
+  })
+
+  it('switches a remote link to view-only in Overview', async () => {
+    remoteLink('')
+    await opened()
+    expect(usePreferencesStore.getState()).toMatchObject({ viewOnly: true, mode: 'overview' })
+    expect(localStorage).toHaveLength(0)
+  })
+
+  it('starts a remote link in Detailed when it says view=detailed', async () => {
+    remoteLink('&view=detailed')
+    await opened()
+    expect(usePreferencesStore.getState()).toMatchObject({ viewOnly: true, mode: 'detailed' })
+    expect(fetch).toHaveBeenCalledWith('https://example.test/shared.hexa')
+  })
+
+  it('saves a preference the reader changes after the link opened', async () => {
+    localStorage.setItem('domainrings:view-only', 'true')
+    usePreferencesStore.persist.rehydrate()
+    await hashLink()
+    await opened()
+    fireEvent.click(screen.getByRole('button', { name: 'View only' }))
+    expect(usePreferencesStore.getState().viewOnly).toBe(false)
+    expect(localStorage.getItem('domainrings:view-only')).toBe('false')
+  })
+
+  it.each([
+    ['undecodable embedded data', () => (location.hash = `${SHARE_HASH_PREFIX}not-a-real-payload!!`)],
+    ['invalid remote content', () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{ nope')))
+      history.replaceState(null, '', '/?src=https://example.test/broken.hexa&view=detailed')
+    }],
+  ])('leaves editing on after %s', async (_, setup) => {
+    setup()
+    render(<App />)
+    await vi.waitFor(() => expect(screen.getByRole('alert')).toBeTruthy())
+    expect(usePreferencesStore.getState()).toMatchObject({ viewOnly: false, mode: 'detailed' })
+  })
+})
+
 describe('copy the current map as a link (REQ-05, REQ-06)', () => {
   const stubClipboard = () => {
     const writeText = vi.fn().mockResolvedValue(undefined)

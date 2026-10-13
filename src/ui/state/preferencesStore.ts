@@ -68,6 +68,9 @@ function stored<K extends keyof Preferences>(storage: Storage | undefined, field
   }
 }
 
+/** Values applied for this visit only; each stays unsaved until the reader changes that preference themselves. */
+const transient: Partial<Preferences> = {}
+
 // Storage can be blocked (private mode): the defaults apply then, and a choice still holds for this session.
 const storage: PersistStorage<Preferences> = {
   getItem: () => {
@@ -78,6 +81,10 @@ const storage: PersistStorage<Preferences> = {
   setItem: (_, { state }) => {
     const raw = browserStorage()
     for (const field of FIELDS) {
+      if (field in transient) {
+        if (state[field] === transient[field]) continue
+        delete transient[field]
+      }
       if (stored(raw, field) === state[field]) continue
       const { key, encode } = CODECS[field] as Codec<Preferences[typeof field]>
       try {
@@ -93,6 +100,12 @@ const storage: PersistStorage<Preferences> = {
 }
 
 export const usePreferencesStore = create<Preferences>()(persist(() => DEFAULTS, { name: 'domainrings:preferences', storage }))
+
+/** A link opens the map for reading; the reader's saved preferences stay as they were. */
+export function openForReading(mode: LayoutMode) {
+  Object.assign(transient, { viewOnly: true, mode })
+  usePreferencesStore.setState({ viewOnly: true, mode })
+}
 
 /** The theme and palette reach the page as `data-*` attributes on <html>; a default removes its attribute. */
 function applyRoot({ theme, palette }: Preferences) {

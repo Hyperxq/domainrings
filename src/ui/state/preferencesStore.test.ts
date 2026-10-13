@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { usePreferencesStore } from './preferencesStore'
+import { openForReading, usePreferencesStore } from './preferencesStore'
 
 const { rehydrate } = usePreferencesStore.persist
 const root = document.documentElement
@@ -67,5 +67,35 @@ describe('preferences store', () => {
     usePreferencesStore.setState({ guides: false })
     expect(usePreferencesStore.getState().guides).toBe(false)
     blocked.mockRestore()
+  })
+
+  describe('opening for reading', () => {
+    it('applies view-only and the chosen mode without saving them', () => {
+      openForReading('overview')
+      expect(usePreferencesStore.getState()).toMatchObject({ viewOnly: true, mode: 'overview' })
+      expect(localStorage).toHaveLength(0)
+      usePreferencesStore.setState({ dependents: true })
+      expect(localStorage).toHaveLength(1)
+      expect(localStorage.getItem('domainrings:dependents')).toBe('true')
+    })
+
+    it('leaves what the reader had saved in place', () => {
+      localStorage.setItem('domainrings:view-only', 'true')
+      rehydrate()
+      openForReading('detailed')
+      usePreferencesStore.setState({ guides: false })
+      expect(localStorage.getItem('domainrings:view-only')).toBe('true')
+      expect(localStorage.getItem('domainrings:overview')).toBeNull()
+    })
+
+    it('saves a field the reader changes during the visit', () => {
+      localStorage.setItem('domainrings:view-only', 'true')
+      rehydrate()
+      openForReading('overview')
+      usePreferencesStore.setState({ viewOnly: false, mode: 'detailed' })
+      expect(localStorage.getItem('domainrings:view-only')).toBe('false')
+      usePreferencesStore.setState({ mode: 'overview' })
+      expect(localStorage.getItem('domainrings:overview')).toBe('true')
+    })
   })
 })

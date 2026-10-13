@@ -1,16 +1,18 @@
 #!/usr/bin/env node
-// Usage: node share-link.mjs <map.hexa>
+// Usage: node share-link.mjs <map.hexa> [--view overview|detailed]
 // Prints a https://diagrams.pbuilder.dev link that opens the map. Same encoding as the app's "Copy link":
-// deflate-raw over the .hexa JSON text, then base64url, after "#m=".
+// deflate-raw over the .hexa JSON text, then base64url, after "#m=". The link opens view-only; --view picks the
+// starting view (Overview unless "detailed").
 import { readFileSync } from 'node:fs'
 import { deflateRawSync } from 'node:zlib'
 
 const APP_URL = 'https://diagrams.pbuilder.dev/'
 const MAX_CHARS = 8000
 
-const file = process.argv[2]
-if (!file) {
-  console.error('Usage: node share-link.mjs <map.hexa>')
+const USAGE = 'Usage: node share-link.mjs <map.hexa> [--view overview|detailed]'
+const [file, flag, view] = process.argv.slice(2)
+if (!file || (flag !== undefined && (flag !== '--view' || !['overview', 'detailed'].includes(view)))) {
+  console.error(USAGE)
   process.exit(1)
 }
 
@@ -30,7 +32,7 @@ if (map?.app !== 'domainrings' || !isSupported) {
   process.exit(1)
 }
 
-const link = `${APP_URL}#m=${deflateRawSync(JSON.stringify(map)).toString('base64url')}`
+const link = `${APP_URL}#m=${deflateRawSync(JSON.stringify(map)).toString('base64url')}${view ? `&view=${view}` : ''}`
 console.log(link)
 if (link.length > MAX_CHARS) {
   console.error(`Warning: the link is ${link.length} characters, over the app's ${MAX_CHARS}-character budget. It may not survive chat apps or browsers; share the .hexa file instead (open it with "Open…").`)
