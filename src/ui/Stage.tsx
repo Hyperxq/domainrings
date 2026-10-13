@@ -7,13 +7,15 @@ import type { LegendModel } from '../layout/legend'
 import { currentHexagon, type MapLayout } from '../layout/map'
 import { dependencyChain } from '../model/chain'
 import { collectionOf, linkTargets, type LinkChoice } from '../model/links'
+import { noteToShow, notesOf } from '../model/notes'
 import { canLink, crossPortTargets, isCrossTarget, targetsByHexagon } from '../model/linkTargeting'
 import type { Destination } from '../model/map'
 import type { CollectionKey, Diagram as DiagramModel, DomainType, HexaMap, Wall } from '../model/schema'
 import { useMapStore } from '../model/store'
 import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
-import { hexIdOf, hullIdOf, layerOf, refOf } from './canvasTarget'
+import { hexIdOf, hullIdOf, layerOf, nodeRefOf, refOf } from './canvasTarget'
+import { NotePopover } from './stage/NotePopover'
 import { ContextReveals, ExpandToggles, GrowButtons, HexagonTitles, LinkChip, titlesOverlaid } from './stage/overlays'
 import { useCanvasShortcuts } from './stage/useCanvasShortcuts'
 import { useContextReveal } from './stage/useContextReveal'
@@ -86,6 +88,8 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   const pointerPressed = useRef(false)
   // The layer under the pointer (or keyboard focus); CSS does the highlighting from data-hover on the current [data-hex] group.
   const [hovered, setHovered] = useState<string | null>(null)
+  // The element under the pointer (or keyboard focus), for its note; unlike `hovered` it is not limited to a layer.
+  const [hoveredRef, setHoveredRef] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   // hexId records which hexagon the edit started on, so a commit that lands after the current hexagon switches still targets it (ADR-05).
   const [editing, setEditing] = useState<{ id: string; collection: CollectionKey; name: string; at: Point; hexId: string; before: { map: HexaMap; focus: string } } | null>(null)
@@ -101,6 +105,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
     panelOpen,
     onPanStart: () => {
       setHovered(null)
+      setHoveredRef(null)
       reveal.rest(null)
     },
   })
@@ -113,6 +118,9 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   }, [viewOnly, onLinking])
 
   const { announcement, focusHexagon } = useHexagonFocus({ hexId, model, mainRef, view, viewport, setView, setSelected, onLinking })
+
+  const notes = useMemo(() => new Map(model.hexagons.map((h) => [h.id, notesOf(map.hexagons.find((m) => m.id === h.id)!)])), [model, map])
+  const note = dragging ? null : noteToShow(notes.get(hexId)!, selected, hoveredRef)
 
   // Insertion points, selection and editing all work in the current hexagon's own (untranslated) coordinates;
   // toScreen adds its centre once, so every overlay lands at the hexagon's place on the map (ADR-04).
@@ -190,22 +198,33 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
         onPointerOver={(e) => {
           if (dragging) return
           const target = e.target as Element
-          if (hexIdOf(target) !== hexId) return setHovered(null)
+          if (hexIdOf(target) !== hexId) {
+            setHoveredRef(null)
+            return setHovered(null)
+          }
           setHovered(layerOf(target))
+          setHoveredRef(nodeRefOf(target))
         }}
         onPointerMove={(e) => reveal.rest(dragging ? null : hullIdOf(e.target as Element))}
         onPointerLeave={(e) => {
           reveal.rest(null)
-          if (!(e.relatedTarget as Element | null)?.closest?.('[data-plus]')) setHovered(null)
+          if (!(e.relatedTarget as Element | null)?.closest?.('[data-plus]')) {
+            setHovered(null)
+            setHoveredRef(null)
+          }
         }}
         onFocus={(e) => {
           if (pointerPressed.current) return
           setHovered(layerOf(e.target as Element))
+          setHoveredRef(nodeRefOf(e.target as Element))
           reveal.focus(hexIdOf(e.target as Element))
         }}
         onBlur={(e) => {
           reveal.focus(null)
-          if (!(e.relatedTarget as Element | null)?.closest?.('[data-plus]')) setHovered(null)
+          if (!(e.relatedTarget as Element | null)?.closest?.('[data-plus]')) {
+            setHovered(null)
+            setHoveredRef(null)
+          }
         }}
         data-link-mode={linking ? '' : undefined}
         data-emphasis={chain ? (dependents ? 'dependents' : '') : undefined}
@@ -222,7 +241,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
           }
           if (e.detail === 1) gestureAnchorHexId.current = hexId
           const clickedHexId = hexIdOf(target)
-          const ref = target.closest('.node')?.getAttribute('data-ref') ?? null
+          const ref = nodeRefOf(target)
           // ADR-02: a click on another hexagon's port while linking, when that port is a valid cross-hexagon
           // target, creates the link instead of switching focus — checked before the ordinary focus-switch below.
           if (linking && isCrossTarget(crossTargets, hexId, clickedHexId, ref)) return onLink(linking, { kind: 'link', hexagonId: clickedHexId!, portId: ref! })
@@ -248,7 +267,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
           const target = e.target as Element
           const groupId = hexIdOf(target)
           const activation = e.key === 'Enter' || e.key === ' '
-          const ref = target.closest('.node')?.getAttribute('data-ref') ?? null
+          const ref = nodeRefOf(target)
           if (activation && linking && isCrossTarget(crossTargets, hexId, groupId, ref)) {
             e.preventDefault()
             return onLink(linking, { kind: 'link', hexagonId: groupId!, portId: ref! })
@@ -271,6 +290,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
           crossLinkTargets={crossLinkTargets}
           hovered={highlight ? hovered : null}
           chain={chain}
+          notes={notes}
         />
       </svg>
       {/* Mounted from the start (not just once there is something to say): a screen reader only picks up
@@ -286,6 +306,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
       <ExpandToggles model={model} currentId={hexId} mapToScreen={mapToScreen} onToggle={onToggleExpanded} />
       {/* After the canvas controls so a name is never covered; it takes no pointer, so the controls stay clickable. */}
       <ContextReveals contexts={model.contexts} reveals={reveal.reveals} mapToScreen={mapToScreen} scale={viewport.scale} />
+      {note && <NotePopover mainRef={mainRef} hexId={hexId} refId={note.ref} text={note.text} />}
       {linkable && <LinkChip node={linkable} name={nameOf(linkable.ref)} toScreen={toScreen} onLink={() => onLinking(linkable.ref)} />}
       {editing && (
         <InlineName

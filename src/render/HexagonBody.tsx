@@ -3,11 +3,14 @@ import type { LayoutEdge, LayoutModel, LayoutNode, LayoutText } from '../layout/
 import type { Point } from '../layout/geometry'
 import { EDGE_LABEL, LINE_METRICS, SUBTITLE, TAG_GAP, TITLE } from '../layout/text'
 import { bandPath } from './band'
+import { NOTE_INSET, NOTE_POPOVER_ID, NoteMarker } from './NoteMarker'
 import { Ring } from './Ring'
 
 const BOX_PAD_X = 12
 // The domain block is plain text on the solid domain ring.
 const FRAMELESS = new Set<LayoutNode['kind']>(['domainItem', 'note', 'portDecl', 'portLabel'])
+// A note belongs to the element's box, not to its outline, its declaration or its overview label.
+const NOTE_CARRIERS = new Set<LayoutNode['kind']>(['actor', 'adapter', 'port', 'useCase', 'external', 'domainItem', 'composition'])
 
 const ELBOW = 5
 
@@ -58,7 +61,7 @@ function EdgeLabel({ edge, chained }: { edge: LayoutEdge; chained: boolean }) {
   )
 }
 
-function Node({ node, selected, target, chained, interactive }: { node: LayoutNode; selected: boolean; target: boolean; chained: boolean; interactive: boolean }) {
+function Node({ node, selected, target, chained, interactive, noted }: { node: LayoutNode; selected: boolean; target: boolean; chained: boolean; interactive: boolean; noted: boolean }) {
   const left = node.x - node.width / 2
   const top = node.y - node.height / 2
   const centered = node.align === 'center'
@@ -78,6 +81,7 @@ function Node({ node, selected, target, chained, interactive }: { node: LayoutNo
       tabIndex={interactive ? 0 : undefined}
       role={interactive ? 'button' : undefined}
       aria-label={interactive ? `Edit ${node.lines.map((l) => l.text).join(' ')}` : undefined}
+      aria-describedby={selected && noted ? NOTE_POPOVER_ID : undefined}
       transform={node.rotation ? `rotate(${node.rotation} ${node.x} ${node.y})` : undefined}
     >
       {node.kind === 'aggregate' ? (
@@ -105,6 +109,7 @@ function Node({ node, selected, target, chained, interactive }: { node: LayoutNo
           )
         })}
       </text>
+      {noted && NOTE_CARRIERS.has(node.kind) && <NoteMarker x={left + node.width - NOTE_INSET} y={top + NOTE_INSET} />}
     </g>
   )
 }
@@ -127,16 +132,18 @@ interface HexagonBodyProps {
   chain: ReadonlySet<string> | undefined
   /** False for a non-current hexagon in a multi-hexagon map: its rings and nodes carry no tabIndex/role of their own — the wrapping group is the one control (ADR-05). */
   interactive: boolean
+  /** The refs of this hexagon that carry a note, with its text. */
+  notes: ReadonlyMap<string, string>
 }
 
 /** One hexagon's rings, edges and nodes — everything but the shared `<defs>` and the once-per-map legend. */
-export function HexagonBody({ model, showGuides, selected, linkTargets, chain, interactive }: HexagonBodyProps) {
+export function HexagonBody({ model, showGuides, selected, linkTargets, chain, interactive, notes }: HexagonBodyProps) {
   return (
     <>
       {model.rings.map((ring, i) => <Ring key={ring.key} ring={ring} shape={model.shape} inner={model.rings[i + 1]} interactive={interactive} />)}
       {showGuides && model.guides.map((g, k) => <line key={k} className="guide" x1={g.from.x} y1={g.from.y} x2={g.to.x} y2={g.to.y} />)}
       {model.edges.map((edge) => <Edge key={edge.key} edge={edge} chained={inChain(edge, chain)} />)}
-      {model.nodes.map((node) => <Node key={node.key} node={node} selected={node.ref === selected} target={linkTargets.has(node.ref)} chained={!!chain?.has(node.ref)} interactive={interactive} />)}
+      {model.nodes.map((node) => <Node key={node.key} node={node} selected={node.ref === selected} target={linkTargets.has(node.ref)} chained={!!chain?.has(node.ref)} interactive={interactive} noted={notes.has(node.ref)} />)}
       {model.edges.map((edge) => <EdgeLabel key={edge.key} edge={edge} chained={inChain(edge, chain)} />)}
       {model.texts.map((text) => <Heading key={text.key} text={text} />)}
     </>

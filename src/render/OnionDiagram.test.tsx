@@ -1,3 +1,4 @@
+import { notesOf } from '../model/notes'
 import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
 import type { OnionFile } from '../model/schema'
@@ -18,6 +19,7 @@ const renderDiagram = (doc: OnionFile, opts: { selected?: string | null; mode?: 
         legend={legendForOnion(doc)}
         mode={opts.mode ?? 'detailed'}
         hoverRef={opts.hoverRef ?? null}
+        notes={notesOf(doc)}
       />
     </svg>,
   )

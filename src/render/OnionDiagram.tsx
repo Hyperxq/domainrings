@@ -24,6 +24,8 @@ interface OnionDiagramProps {
   /** The ring/element/endpoint currently hovered or focused (`RingedStage`'s own `RingedHover.ref`) — together
    * with `selected`, decides which edges Overview reveals. */
   hoverRef: string | null
+  /** The refs that carry a note (`notesOf`); each wears a marker. */
+  notes: ReadonlyMap<string, string>
 }
 
 /** An Onion document's rings (reusing the same `<Ring>` primitive Hexagonal/Clean render with, ADR-01),
@@ -31,7 +33,7 @@ interface OnionDiagramProps {
  * systems outside the outer ring with a direct arrow to their target (REQ-05) — no ports or adapters. Node/edge
  * primitives are shared with Clean via `RingedNodes.tsx` (ADR-01); only this file's own `<defs>` (the arrow
  * marker Clean draws its own copy of, under its own id) and ring/model wiring are Onion-specific. */
-export const OnionDiagram = memo(function OnionDiagram({ model, selected, interactive, validTargets, legend, mode, hoverRef }: OnionDiagramProps) {
+export const OnionDiagram = memo(function OnionDiagram({ model, selected, interactive, validTargets, legend, mode, hoverRef, notes }: OnionDiagramProps) {
   const activeRefs = new Set([hoverRef, selected].filter((r): r is string => r !== null))
   return (
     <>
@@ -47,10 +49,10 @@ export const OnionDiagram = memo(function OnionDiagram({ model, selected, intera
         <RingedEdge key={edge.key} edge={edge} markerId="onion-arrow" />
       ))}
       {model.elements.map((element) => (
-        <RingedElementNode key={element.key} element={element} selected={element.ref === selected} target={validTargets.has(element.ref)} interactive={interactive} />
+        <RingedElementNode key={element.key} element={element} selected={element.ref === selected} target={validTargets.has(element.ref)} interactive={interactive} noted={notes.has(element.ref)} />
       ))}
       {model.endpoints.map((endpoint) => (
-        <RingedEndpointNode key={endpoint.key} endpoint={endpoint} selected={endpoint.ref === selected} interactive={interactive} />
+        <RingedEndpointNode key={endpoint.key} endpoint={endpoint} selected={endpoint.ref === selected} interactive={interactive} noted={notes.has(endpoint.ref)} />
       ))}
       <SvgLegend legend={legend} bounds={model.bounds} />
     </>

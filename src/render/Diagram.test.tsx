@@ -1,3 +1,4 @@
+import { notesOf } from '../model/notes'
 import { cleanup, render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -38,6 +39,7 @@ function renderSvg(
         linkTargets={extra.linkTargets ?? NO_TARGETS}
         crossLinkTargets={extra.crossLinkTargets ?? NO_CROSS_TARGETS}
         hovered={extra.hovered ?? null}
+        notes={new Map(map.hexagons.map((h) => [h.id, notesOf(h)]))}
       />
     </svg>,
   )

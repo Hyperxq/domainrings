@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type R
 import type { Box } from '../../layout/geometry'
 import { layerOf, refOf } from '../canvasTarget'
 import { keyOnCanvas } from '../keys'
+import { noteToShow } from '../../model/notes'
+import { NotePopover } from '../stage/NotePopover'
 import { fitTo, islandInset, visibleRect } from '../viewport'
 import { gridBackgroundStyle, useElementSize, useFreezeWhilePanelOpen, useViewportInteractions, ZoomControls } from '../viewportChrome'
 
@@ -27,6 +29,8 @@ export interface RingedStageProps {
    * `RingedStage` never tracks selection itself (that stays owned by `useDependGesture`, shared with the
    * Depend-on gesture), it only needs to know THAT something is selected to gate the shortcut. */
   selected?: string | null
+  /** The notes of the diagram's elements by ref (`notesOf`): the selected or hovered one shows in a popover. */
+  notes: ReadonlyMap<string, string>
   /** Removes the current selection (mirrors Hexagonal's own Stage `onDelete`, ADR-01) — fired on Delete/Backspace
    * when something is selected, nothing is being renamed, and link mode isn't active. The caller already has
    * `selected` (it owns `useDependGesture`), so this takes no argument and is responsible for its own undo toast
@@ -51,7 +55,7 @@ export interface RingedStageProps {
  * `Stage` rather than a parallel implementation. A single-bounds, single-diagram version of Hexagonal's own
  * `Stage`: neither kind has more than one diagram to fit, so there is no multi-hexagon framing, growing, or
  * cross-diagram linking to carry over. */
-export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, selected = null, onDelete, panelOpen = false, legendOpen = false, children, overlay }: RingedStageProps) {
+export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, selected = null, notes, onDelete, panelOpen = false, legendOpen = false, children, overlay }: RingedStageProps) {
   const mainRef = useRef<HTMLElement>(null)
   // Which ring/element/endpoint currently has the pointer or keyboard focus — drives which "+" affordances
   // `children` reveals (`RingedHover`, `affordanceVisible`). A mousedown moves focus to its target as a browser
@@ -97,6 +101,7 @@ export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, selec
     return () => document.removeEventListener('keydown', onKey)
   }, [selected, linking, onDelete])
 
+  const note = dragging ? null : noteToShow(notes, selected, hover.ref)
   const width = size.width / viewport.scale
   const height = size.height / viewport.scale
 
@@ -149,6 +154,7 @@ export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, selec
         {children(hover)}
       </svg>
       {overlay}
+      {note && <NotePopover mainRef={mainRef} refId={note.ref} text={note.text} />}
 
       <ZoomControls viewport={viewport} zoomFloor={zoomFloor} centre={centre} setView={setView} fullscreen={fullscreen} setFullscreen={setFullscreen} />
     </main>

@@ -1,3 +1,4 @@
+import { notesOf } from '../model/notes'
 import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
 import type { CleanFile } from '../model/schema'
@@ -18,6 +19,7 @@ const renderDiagram = (doc: CleanFile, opts: { selected?: string | null; mode?: 
         legend={legendForClean(doc)}
         mode={opts.mode ?? 'detailed'}
         hoverRef={opts.hoverRef ?? null}
+        notes={notesOf(doc)}
       />
     </svg>,
   )
@@ -120,7 +122,7 @@ describe('CleanDiagram — elements, endpoints and edges', () => {
     const model = layoutClean(doc)
     const { container } = render(
       <svg>
-        <CleanDiagram model={model} selected={null} interactive validTargets={new Set(['e1'])} legend={legendForClean(doc)} mode="detailed" hoverRef={null} />
+        <CleanDiagram model={model} selected={null} interactive validTargets={new Set(['e1'])} legend={legendForClean(doc)} mode="detailed" hoverRef={null} notes={notesOf(doc)} />
       </svg>,
     )
     expect(container.querySelector('[data-ref="e1"]')!.hasAttribute('data-link-target')).toBe(true)
