@@ -154,8 +154,9 @@ export function GrowButtons({
   contextLabel: string
   onGrow: (side: Wall, context: Destination) => void
 }) {
+  const boxes = model.hexagons.map(hexagonBounds)
   return freeSides(model, hex.cell).map((side) => {
-    const at = mapToScreen(growAnchor(hex, side, model.pitch, SIDE_PLUS_RADIUS / scale))
+    const at = mapToScreen(growAnchor(hex, side, model.pitch, SIDE_PLUS_RADIUS / scale, boxes))
     return (
       // No `transform` here (e.g. translate to centre): ChoiceMenu's own menu is `position: fixed` under the
       // trigger, whose containing block a transformed ancestor would hijack — the half-button-size offset is

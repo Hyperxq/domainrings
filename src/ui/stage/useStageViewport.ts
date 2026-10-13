@@ -60,8 +60,8 @@ export function useStageViewport({
     const nextIds = new Set(model.hexagons.map((h) => h.id))
     const prevIds = new Set(seenHexagons.hexagons.map((h) => h.id))
     const prev = new Map(seenHexagons.hexagons.map((h) => [h.id, h]))
-    // A pitch change (the largest hexagon came or went) also shifts every surviving hexagon's lattice slot, and a
-    // hexagon that expands or compacts in place changes size without moving.
+    // An added or removed hexagon can also shift survivors (the rows below it, or the rest of its row), and a hexagon
+    // that expands or compacts in place changes size without moving.
     const moved = model.hexagons.filter((h) => {
       const before = prev.get(h.id)
       return before && (before.centre.x !== h.centre.x || before.centre.y !== h.centre.y || !before.compact !== !h.compact)

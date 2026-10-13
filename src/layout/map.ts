@@ -62,8 +62,8 @@ export interface MapLayout {
   bounds: Box
   /** Only present when the map holds more than one hexagon, so a single-hexagon map's bounds equal `layoutDiagram`'s. */
   title?: LayoutText
-  /** The lattice spacing this layout used (ADR-01) — lets a caller place a not-yet-existing neighbour cell, such
-   * as the grow-menu anchor on a free side (SEAM-04). */
+  /** The lattice step (ADR-01) — gives the direction toward a not-yet-existing neighbour cell, such as the grow-menu
+   * anchor on a free side (SEAM-04). Hexagons are not placed at multiples of it unless the map is compact. */
   pitch: Point
   /** One entry per context, only from two contexts up (CB-01.1) — an empty array below that threshold. */
   contexts: MapContextLayout[]
@@ -72,19 +72,31 @@ export interface MapLayout {
 }
 
 const MAP_TITLE_GAP = 16
-/** Where a grow "+" toward `side` sits: the midpoint to the neighbouring cell, pushed along that line until a button
- * of half-size `margin` clears the hexagon's own bounds — one-sided content can reach past the midpoint, and a full
- * hexagon among compact ones reaches past the neighbouring cell's centre. The push ends where the button leaves the
- * bounds, so it is finite for any non-zero step. */
-export function growAnchor(hex: Pick<MapHexagonLayout, 'centre' | 'cell' | 'model'>, side: Wall, pitch: Point, margin: number): Point {
+/** Float slack so a button resting exactly on a box's edge counts as outside it. */
+const EDGE = 1e-6
+/** Where a grow "+" toward `side` sits: on the lattice line to the neighbouring cell, as near as a button of half-size
+ * `margin` can get to the hexagon — just outside its bounds — and pushed further along that line past any hexagon's
+ * bounds it would land on, so it never covers one. The push ends where the button leaves a box, so it is finite for any
+ * non-zero step. */
+export function growAnchor(hex: Pick<MapHexagonLayout, 'centre' | 'cell' | 'model'>, side: Wall, pitch: Point, margin: number, boxes: readonly Box[]): Point {
   // The lattice step, not the neighbour's cell centre: a hexagon pushed off its own cell still leaves along the line to its neighbour.
   const cellOrigin = cellCentre(hex.cell, pitch)
   const to = cellCentre(neighbour(hex.cell, side), pitch)
   const d = { x: to.x - cellOrigin.x, y: to.y - cellOrigin.y }
-  const box = hexagonBounds(hex)
-  const leaves = (delta: number, min: number, size: number, from: number) =>
-    delta > 0 ? (min + size + margin - from) / delta : delta < 0 ? (min - margin - from) / delta : Infinity
-  const t = Math.max(0.5, Math.min(leaves(d.x, box.x, box.width, hex.centre.x), leaves(d.y, box.y, box.height, hex.centre.y)))
+  const leaves = (box: Box) => {
+    const along = (delta: number, min: number, size: number, from: number) => (delta > 0 ? (min + size + margin - from) / delta : delta < 0 ? (min - margin - from) / delta : Infinity)
+    return Math.min(along(d.x, box.x, box.width, hex.centre.x), along(d.y, box.y, box.height, hex.centre.y))
+  }
+  const inside = (box: Box, t: number) => {
+    const [x, y] = [hex.centre.x + d.x * t, hex.centre.y + d.y * t]
+    return x > box.x - margin + EDGE && x < box.x + box.width + margin - EDGE && y > box.y - margin + EDGE && y < box.y + box.height + margin - EDGE
+  }
+  let t = leaves(hexagonBounds(hex))
+  for (let pushed = true; pushed; ) {
+    const blocking = boxes.filter((box) => inside(box, t))
+    pushed = blocking.length > 0
+    if (pushed) t = Math.max(...blocking.map(leaves))
+  }
   return { x: hex.centre.x + d.x * t, y: hex.centre.y + d.y * t }
 }
 
@@ -98,11 +110,10 @@ export const currentHexagon = (layout: MapLayout, hexId: string): MapHexagonLayo
 
 /**
  * Composes N untouched `layoutDiagram` outputs onto one map, by translation only — `layout.ts` itself never
- * changes. Every hexagon sits at `cellCentre(cell, pitch)`; `pitch` is the map's own maximum left/right/top/bottom
- * extents over every hexagon (this mode) plus `MAP_GAP` — not each hexagon's own width — because a pitch sized
- * for the widest hexagon still overlaps when one hexagon's content reaches unusually far right (e.g. a long-named
- * external) while another's reaches unusually far left (e.g. a long-named actor): two cells one axial step apart
- * are then guaranteed at least `MAP_GAP` apart, for any N (ADR-01).
+ * changes. The cells give the topology (which hexagon is east, south-east, … of which); where a hexagon sits depends
+ * on the mode. With compact neighbours each sits at `cellCentre(cell, pitch)`, a pitch sized from the compact footprint
+ * and widened by `clearFull` around each full hexagon. With every hexagon in full, `packRows` places them by their
+ * own extents so lattice neighbours sit about `MAP_GAP` apart, never closer (ADR-01).
  */
 export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayout {
   const full = (id: string) => id === options.current || !!options.expanded?.has(id)
@@ -125,7 +136,7 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
     ...(compact ? { compact: compactOf(hexagon, model, unit) } : {}),
   }))
   const boxes = hexagons.map(hexagonBounds)
-  const { contexts, outline, bounds: withContexts } = layContexts(map, hexagons, boxes, pitch, compacting, unionBox(boxes))
+  const { contexts, outline, bounds: withContexts } = layContexts(map, hexagons, boxes, compacting, unionBox(boxes))
 
   // Routed once the chips are placed, so a route can keep off them.
   const { links, bounds: routed } = layLinks(map, hexagons, boxes, contexts, withContexts)
