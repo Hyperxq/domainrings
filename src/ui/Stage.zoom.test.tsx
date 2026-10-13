@@ -6,6 +6,7 @@ import { layoutMap } from '../layout/map'
 import { legendFor } from '../layout/legend'
 import { diagramOf } from '../model/map'
 import { useMapStore } from '../model/store'
+import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
 import { manyHexagonMap } from '../test/fixtures'
 
@@ -75,5 +76,27 @@ describe('Stage zoom performance', () => {
     act(() => frames.splice(0).forEach((cb) => cb(0)))
     expect(main.style.backgroundSize).not.toBe(before)
     expect(diagramRenders.count).toBe(rendered)
+  })
+
+  it('keeps a manual zoom when the legend opens or closes', () => {
+    const frames: FrameRequestCallback[] = []
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => frames.push(cb))
+    vi.stubGlobal('cancelAnimationFrame', () => {})
+    const flush = () => {
+      for (const now of [0, 1000]) act(() => frames.splice(0).forEach((cb) => cb(now)))
+    }
+    const { container } = render(<Harness />)
+    const main = container.querySelector('main')!
+    fireEvent.wheel(main, { deltaY: -300 })
+    flush()
+    const zoomed = main.style.backgroundSize
+
+    act(() => usePreferencesStore.setState({ legendOpen: !usePreferencesStore.getState().legendOpen }))
+    flush()
+    expect(main.style.backgroundSize).toBe(zoomed)
+
+    act(() => usePreferencesStore.setState({ legendOpen: !usePreferencesStore.getState().legendOpen }))
+    flush()
+    expect(main.style.backgroundSize).toBe(zoomed)
   })
 })

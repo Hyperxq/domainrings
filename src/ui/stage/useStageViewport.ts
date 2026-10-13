@@ -32,9 +32,10 @@ export function useStageViewport({
   // On 2+ hexagons 'auto' IS the whole-map fit — it never falls back to the current hexagon alone, even
   // when that fit would read as illegible clutter (MIN_FIT_SCALE only still applies on a single-hexagon map).
   const autoFit = model.hexagons.length >= 2 ? wholeFit : singleFit
-  // A new diagram, or the legend opening or closing, refits (unfreezes a manual viewport back to 'auto') — unlike
-  // grow/import/delete, these bump `revision`, so this key alone can never see the map-shape changes FIT-02 covers.
-  const fitKey = `${revision}:${legendOpen}`
+  // A new diagram refits (unfreezes a manual viewport back to 'auto') — unlike grow/import/delete, it bumps
+  // `revision`, so this key alone can never see the map-shape changes FIT-02 covers. The legend only changes the
+  // inset: an 'auto' view follows it, and a manual zoom stays where the author put it.
+  const fitKey = `${revision}`
   const interactions = useViewportInteractions({
     mainRef,
     autoFit,
