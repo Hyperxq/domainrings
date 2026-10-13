@@ -130,6 +130,17 @@ describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {
     expect(markup).not.toMatch(/data-hex|aria-current|data-cue|data-map-link|data-map-title|data-hover/)
   })
 
+  it('leaves the canvas-only single-context outline out of an export', async () => {
+    const svg = mapCanvas()
+    const outline = document.createElementNS(NS, 'path')
+    outline.setAttribute('data-outline', '')
+    outline.setAttribute('class', 'hull')
+    outline.setAttribute('d', 'M0 0L10 0L10 10Z')
+    svg.prepend(outline)
+    const markup = await svgMarkup(svg, bounds, 'Map title', { legend: false, legendHeight: 0 })
+    expect(markup).not.toMatch(/data-outline|M0 0L10 0/)
+  })
+
   it('leaves the note markers out of an export', async () => {
     const svg = mapCanvas()
     const marker = document.createElementNS(NS, 'circle')

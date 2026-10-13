@@ -1,4 +1,4 @@
-import type { LayoutNode } from '../../layout/layout'
+import type { LayoutNode, LayoutText } from '../../layout/layout'
 import { unionBox, type Box, type Point } from '../../layout/geometry'
 import { canCompact } from '../../layout/compactHexagon'
 import { hexagonBounds } from '../../layout/lattice'
@@ -22,6 +22,9 @@ const SIDE_NAME: Record<Wall, string> = { e: 'east', se: 'south-east', sw: 'sout
 export const TITLE_FLOOR_PX = 12
 /** Whether the SVG titles are too small to read at `scale`, so the overlay draws them instead. */
 export const titlesOverlaid = (scale: number) => TITLE.size * scale < TITLE_FLOOR_PX
+
+/** Whether the map title, which grows with the context chips, renders under the floor at `scale`. */
+export const mapTitleOverlaid = (title: LayoutText, scale: number) => (title.size ?? TITLE.size) * scale < TITLE_FLOOR_PX
 
 type ToScreen = (p: Point) => Point
 
@@ -81,6 +84,19 @@ export function HexagonTitles({ model, mapToScreen, scale }: { model: MapLayout;
       </span>
     )
   })
+}
+
+/** The map title at a readable size over the canvas, once the SVG one renders under the floor. It sits at the title's
+ * left edge and baseline, like the hexagon headings. */
+export function MapTitle({ model, mapToScreen, scale }: { model: MapLayout; mapToScreen: ToScreen; scale: number }) {
+  const { title } = model
+  if (!title || !mapTitleOverlaid(title, scale)) return null
+  const at = mapToScreen({ x: title.x, y: title.y })
+  return (
+    <span className="hexagon-title" data-map-title-overlay="" aria-hidden="true" style={{ left: at.x, top: at.y, fontSize: TITLE_FLOOR_PX, transform: 'translate(0, -100%)', textAlign: 'left' }}>
+      {title.text}
+    </span>
+  )
 }
 
 /** One "+" per free side of the current hexagon, each opening the choice of context to grow into. */

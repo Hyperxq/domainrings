@@ -1,4 +1,4 @@
-import type { Box, Point } from '../layout/geometry'
+import { unionBox, type Box, type Point } from '../layout/geometry'
 
 /** (x, y) is the diagram coordinate shown at the stage's top-left corner. */
 export interface Viewport {
@@ -64,6 +64,11 @@ export function fitTo(bounds: Box, width: number, height: number, inset: Inset =
     scale,
   }
 }
+
+/** What the canvas fits: the layout bounds, plus the single-context outline, which pads past them and is canvas-only
+ * (exports frame the bounds alone). */
+export const canvasBounds = ({ bounds, outline }: { bounds: Box; outline?: Point[][] }): Box =>
+  outline ? unionBox([bounds, unionBox(outline.flat().map((p) => ({ ...p, width: 0, height: 0 })))]) : bounds
 
 /** The diagram-space box visible through the stage area, floating panels excluded — the inverse of `fitTo`'s framing. */
 export function visibleRect(v: Viewport, size: { width: number; height: number }, inset: Inset = NO_INSET): Box {

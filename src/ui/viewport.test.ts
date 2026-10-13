@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { contains, EDITOR_CHIP_BOTTOM, fitMap, fitTo, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, MIN_FIT_SCALE, MIN_SCALE, panBy, pinch, toDiagram, visibleRect, zoomAt } from './viewport'
+import { canvasBounds, contains, EDITOR_CHIP_BOTTOM, fitMap, fitTo, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, MIN_FIT_SCALE, MIN_SCALE, panBy, pinch, toDiagram, visibleRect, zoomAt } from './viewport'
 import { hexagonBounds } from '../layout/lattice'
 import { currentHexagon, layoutMap } from '../layout/map'
 import { TWO_SLICES_MAP } from '../model/example'
@@ -205,5 +205,12 @@ describe('viewport', () => {
       expect(contains(outer, { x: 10, y: -5, width: 20, height: 20 })).toBe(false)
       expect(contains(outer, { x: 10, y: 10, width: 20, height: 95 })).toBe(false)
     })
+  })
+
+  it('frames a canvas-only outline that reaches past the layout bounds, and keeps the bounds otherwise', () => {
+    const bounds = { x: 0, y: 0, width: 100, height: 50 }
+    expect(canvasBounds({ bounds })).toEqual(bounds)
+    const outline = [[{ x: -20, y: -10 }, { x: 120, y: -10 }, { x: 120, y: 70 }, { x: -20, y: 70 }]]
+    expect(canvasBounds({ bounds, outline })).toEqual({ x: -20, y: -10, width: 140, height: 80 })
   })
 })
