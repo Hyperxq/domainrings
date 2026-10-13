@@ -81,6 +81,14 @@ export function visibleRect(v: Viewport, size: { width: number; height: number }
 export const contains = (outer: Box, inner: Box): boolean =>
   inner.x >= outer.x && inner.y >= outer.y && inner.x + inner.width <= outer.x + outer.width && inner.y + inner.height <= outer.y + outer.height
 
+/** `v` panned the least that brings `box` inside `visible` (the diagram box `v` shows), or null when `box` is larger
+ * than `visible` at this scale. */
+export function panInto(v: Viewport, visible: Box, box: Box): Viewport | null {
+  if (box.width > visible.width || box.height > visible.height) return null
+  const shift = (at: number, size: number, from: number, span: number) => (at < from ? at - from : Math.max(0, at + size - from - span))
+  return { ...v, x: v.x + shift(box.x, box.width, visible.x, visible.width), y: v.y + shift(box.y, box.height, visible.y, visible.height) }
+}
+
 /** Below this scale the whole map reads as illegible clutter; fitting the current hexagon instead keeps it usable (CANVAS-04). */
 export const MIN_FIT_SCALE = 0.35
 

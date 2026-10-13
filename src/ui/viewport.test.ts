@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canvasBounds, contains, EDITOR_CHIP_BOTTOM, fitMap, fitTo, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, MIN_FIT_SCALE, MIN_SCALE, panBy, pinch, toDiagram, visibleRect, zoomAt } from './viewport'
+import { canvasBounds, contains, EDITOR_CHIP_BOTTOM, fitMap, fitTo, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, MIN_FIT_SCALE, MIN_SCALE, panBy, panInto, pinch, toDiagram, visibleRect, zoomAt } from './viewport'
 import { hexagonBounds } from '../layout/lattice'
 import { currentHexagon, layoutMap } from '../layout/map'
 import { TWO_SLICES_MAP } from '../model/example'
@@ -212,5 +212,21 @@ describe('viewport', () => {
     expect(canvasBounds({ bounds })).toEqual(bounds)
     const outline = [[{ x: -20, y: -10 }, { x: 120, y: -10 }, { x: 120, y: 70 }, { x: -20, y: 70 }]]
     expect(canvasBounds({ bounds, outline })).toEqual({ x: -20, y: -10, width: 140, height: 80 })
+  })
+})
+
+describe('panInto', () => {
+  const v = { x: 5, y: 5, scale: 2 }
+  const visible = { x: 100, y: 100, width: 200, height: 100 }
+
+  it('pans the least that brings a box inside the visible area, keeping the zoom', () => {
+    expect(panInto(v, visible, { x: 80, y: 120, width: 50, height: 50 })).toEqual({ x: -15, y: 5, scale: 2 })
+    expect(panInto(v, visible, { x: 260, y: 90, width: 30, height: 150 })).toBeNull()
+    expect(panInto(v, visible, { x: 270, y: 180, width: 50, height: 40 })).toEqual({ x: 25, y: 25, scale: 2 })
+  })
+
+  it('leaves a box already inside where it is, and refuses one larger than the area', () => {
+    expect(panInto(v, visible, { x: 120, y: 120, width: 50, height: 50 })).toEqual(v)
+    expect(panInto(v, visible, { x: 0, y: 0, width: 250, height: 10 })).toBeNull()
   })
 })

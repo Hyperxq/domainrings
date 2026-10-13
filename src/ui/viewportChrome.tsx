@@ -6,7 +6,10 @@ import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
 import { useEasedViewport } from './useEasedViewport'
 import type { Box } from '../layout/geometry'
-import { contains, MIN_SCALE, panBy, pinch, zoomAt, type Viewport } from './viewport'
+import { MIN_SCALE, panBy, panInto, pinch, zoomAt, type Viewport } from './viewport'
+
+type Size = { width: number; height: number }
+const sameSize = (a: Size, b: Size) => a.width === b.width && a.height === b.height
 
 /** A press starting on a floating island, a "+" affordance or an inline name field never pans — shared by Stage
  * and RingedStage (ADR-01: neither's chrome differs here). */
@@ -40,10 +43,12 @@ export function useElementSize(ref: RefObject<HTMLElement | null>): { width: num
   return size
 }
 
-/** While the editor panel is open, an 'auto' view that still shows `interest` in the area the panel leaves is frozen
- * as it is, instead of refitting around the panel (which snaps the canvas when an element is revealed). Closing the
- * panel restores 'auto' unless the author has panned or zoomed since — the frozen object's identity tells. A map
- * change that moves something off screen still drops a frozen view back to 'auto' (FIT-02.2), as for any manual view.
+/** While the editor panel is open, an 'auto' view is frozen instead of refitting around the panel (which snaps the
+ * canvas when an element is revealed): as it is when `interest` still shows in the area the panel leaves, else panned
+ * the least that brings it there, and only refitted when it cannot fit at the current zoom. Closing the panel restores
+ * 'auto' unless the author has panned or zoomed since — the frozen object's identity tells. A resize drops a frozen view
+ * back to 'auto', which fits the new size around the panel. A map change that moves something off screen still drops a
+ * frozen view back to 'auto' (FIT-02.2), as for any manual view.
  * `viewport` is the view to freeze, normally the interactions' `heading`. `visible` is the diagram box the NEW free area shows under the current view. Called from the stage's own render:
  * the update below is a render-phase one. */
 export function useFreezeWhilePanelOpen({
@@ -53,6 +58,7 @@ export function useFreezeWhilePanelOpen({
   setView,
   visible,
   interest,
+  size,
 }: {
   panelOpen: boolean
   view: 'auto' | Viewport
@@ -60,17 +66,25 @@ export function useFreezeWhilePanelOpen({
   setView: Dispatch<SetStateAction<'auto' | Viewport>>
   visible: Box
   interest: Box
+  size: Size
 }) {
-  const [seen, setSeen] = useState({ panelOpen, frozen: null as Viewport | null })
-  if (panelOpen === seen.panelOpen) return
-  let frozen: Viewport | null = null
-  if (panelOpen) {
-    if (view === 'auto' && contains(visible, interest)) {
-      frozen = viewport
-      setView(viewport)
+  const [seen, setSeen] = useState({ panelOpen, frozen: null as Viewport | null, size })
+  const toggled = panelOpen !== seen.panelOpen
+  if (!toggled && sameSize(size, seen.size)) return
+  let frozen = seen.frozen
+  if (!toggled) {
+    if (frozen && view === frozen) {
+      setView('auto')
+      frozen = null
     }
-  } else if (seen.frozen && view === seen.frozen) setView('auto')
-  setSeen({ panelOpen, frozen })
+  } else if (panelOpen) {
+    frozen = view === 'auto' ? panInto(viewport, visible, interest) : null
+    if (frozen) setView(frozen)
+  } else {
+    if (frozen && view === frozen) setView('auto')
+    frozen = null
+  }
+  setSeen({ panelOpen, frozen, size })
 }
 
 export interface ViewportInteractions {
@@ -103,15 +117,15 @@ export function useViewportInteractions({
   autoFit,
   wholeFitScale,
   fitKey,
-  settleKey,
+  size,
   onPanStart,
 }: {
   mainRef: RefObject<HTMLElement | null>
   autoFit: Viewport
   wholeFitScale: number
   fitKey: string
-  /** A change snaps the view to its fit instead of easing — pass the stage's size, so a resize is never animated. */
-  settleKey?: string
+  /** The stage's size: a change snaps the view to its fit instead of easing, and a manual view keeps its centre. */
+  size?: Size
   /** Fires the instant a press becomes a real pan or pinch (not a plain click) — Stage clears its hovered layer here. */
   onPanStart?: () => void
 }): ViewportInteractions {
@@ -130,8 +144,17 @@ export function useViewportInteractions({
     setView('auto')
   }
 
+  // Render-phase, like the fitKey reset: a manual view keeps the content under its centre as the stage resizes. Not for
+  // the first measurement, when there was no stage to centre on.
+  const [seenSize, setSeenSize] = useState(size)
+  if (size && seenSize && !sameSize(size, seenSize)) {
+    setSeenSize(size)
+    if (seenSize.width && seenSize.height)
+      setView((v) => (v === 'auto' ? v : { ...v, x: v.x - (size.width - seenSize.width) / 2 / v.scale, y: v.y - (size.height - seenSize.height) / 2 / v.scale }))
+  }
+
   // Only an 'auto' view eases: a manual one is the author's own pan/zoom and must track the pointer exactly.
-  const { viewport, heading } = useEasedViewport(view === 'auto' ? autoFit : view, view === 'auto', settleKey)
+  const { viewport, heading } = useEasedViewport(view === 'auto' ? autoFit : view, view === 'auto', size && `${size.width}x${size.height}`)
   // The floor a manual zoom (wheel or button) can reach: never above MIN_SCALE, but never above what fitting the
   // whole diagram itself needs either, so a view already fitted to it never snaps back in.
   const zoomFloor = Math.min(MIN_SCALE, wholeFitScale)

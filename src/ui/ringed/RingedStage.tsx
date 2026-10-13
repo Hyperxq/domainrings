@@ -80,10 +80,10 @@ export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, selec
     autoFit,
     wholeFitScale: wholeFit.scale,
     fitKey,
-    settleKey: `${size.width}x${size.height}`,
+    size,
   })
 
-  useFreezeWhilePanelOpen({ panelOpen, view, viewport: heading.current, setView, visible: visibleRect(heading.current, effectiveSize, inset), interest: bounds })
+  useFreezeWhilePanelOpen({ panelOpen, view, viewport: heading.current, setView, visible: visibleRect(heading.current, effectiveSize, inset), interest: bounds, size })
 
   // Delete/Backspace act on the selection — mirrors Hexagonal's own Stage.tsx, sharing the same `keyOnCanvas`
   // guard: ignored while a field (the inline rename) has the keyboard, and while linking (a stray Delete during

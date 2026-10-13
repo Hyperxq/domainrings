@@ -1,0 +1,322 @@
+{
+  "app": "domainrings",
+  "version": 5,
+  "kind": "hexagonal",
+  "title": "Orde Rshippi (ng catalogpay me ntin)",
+  "contexts": [
+    {
+      "id": "e1",
+      "name": "Voic Ewareho"
+    }
+  ],
+  "hexagons": [
+    {
+      "id": "h1",
+      "contextId": "e1",
+      "cell": {
+        "q": 0,
+        "r": 0
+      },
+      "title": "usecus",
+      "subtitle": "Tome rbi llingst ockp a Rcel Ordersh, ipp ing cat alogpa ymenti nv",
+      "domain": [
+        {
+          "id": "e2",
+          "name": "OiceWarehouSecust",
+          "type": "aggregate",
+          "note": "{ omerbilli, ngsTockpa }. Rcelor der shi ppingca, talog paymen.\nTinv 7: oicewareh ousec ustomer billin gst ockparcelo.\nRder 7: shipping cat alogp/aymen (tinvoi ceware), hou secu.\nStom 7: erbil lingsto ckpa rce lordershi."
+        },
+        {
+          "id": "e3",
+          "name": "PpinGcataloGpaymentin",
+          "type": "valueObject",
+          "note": "VOIC_EWAREHO, usecust'o merb ill in."
+        }
+      ],
+      "useCases": [
+        {
+          "id": "e4",
+          "name": "GstOckpArcelorDershi",
+          "placement": "w"
+        }
+      ],
+      "ports": [
+        {
+          "id": "e5",
+          "name": "ppiNgcaTalogpaYmenti",
+          "side": "driving",
+          "wall": "w",
+          "useCaseId": "e4"
+        },
+        {
+          "id": "e6",
+          "name": "NvoicewArehousecust",
+          "side": "driven",
+          "wall": "e",
+          "useCaseId": "e4",
+          "note": "omerbi(llingstOc, KparCelordeRshippingc) -> atalogp. A ymenti nvoi cewareh, ousec ustom (erbi 7)."
+        }
+      ],
+      "adapters": [
+        {
+          "id": "e7",
+          "name": "LLI /ngs/t7/ockp-arcelor",
+          "portId": "e5",
+          "note": "777 { dershippi, ngcAtalog } \u00b7 777 \u00b7 777 \u00b7 777. Payment inv oicewareho usec ust omerb illi (ngst 7)."
+        },
+        {
+          "id": "e8",
+          "name": "Ockp Arcelor dershi pping",
+          "portId": "e5",
+          "note": "Catalogp aymentinvo ic ewa rehousecu stomer (bill 7): 777 ING_STOCKPARC, 777 elo r dership; pin gcatalogp ayme."
+        },
+        {
+          "id": "e9",
+          "name": "nti/nvoi-ceware",
+          "portId": "e6",
+          "note": "Housecusto me rbillin: gstOckparcElordershi(ppingcaTa, 'LOGP_AYMENTI')."
+        }
+      ],
+      "actors": [
+        {
+          "id": "e10",
+          "name": "Nvoic ewa (rehouse)",
+          "adapterId": "e7",
+          "note": "Cust: om erbil-lin gsto ckpa rce."
+        }
+      ],
+      "externals": [
+        {
+          "id": "e11",
+          "name": "Lorders: hippingc/atalOgpaym",
+          "adapterId": "e9",
+          "note": "Enti nvoic eware housec ust omerbillin (Gstockp arcelor)."
+        }
+      ]
+    },
+    {
+      "id": "h2",
+      "contextId": "e1",
+      "cell": {
+        "q": 1,
+        "r": 0
+      },
+      "title": "dershippi",
+      "subtitle": "Ngc atalogp'a ymentinvo: ice warehous, ecu stomer billing Stockp, arc elor der shippi",
+      "domain": [
+        {
+          "id": "e12",
+          "name": "NgcatalOgpaymen",
+          "type": "aggregate",
+          "note": "Tinvo icew ar EhousecUstomerb.illing (stock 7-7). parceLorders(hippingc, atalogp) ay men tinv oicewa reho (usec 77): ustomerbi -> llingstock -> parce | lorder, shippin gcat. Alo gpaymen (tinv 77)."
+        },
+        {
+          "id": "e13",
+          "name": "Oicew",
+          "type": "valueObject",
+          "parentId": "e12",
+          "note": "Arehous; ecust -> OMERB_ILLINGST."
+        },
+        {
+          "id": "e14",
+          "name": "OckparceLord",
+          "type": "valueObject",
+          "parentId": "e12",
+          "note": "E rshi PPIN-GC-AT alo; gpay MENTINVO_ICEW_AREHOUSE."
+        },
+        {
+          "id": "e15",
+          "name": "CustOmerbi",
+          "type": "valueObject",
+          "parentId": "e12",
+          "note": "Llings tockpa rcel."
+        },
+        {
+          "id": "e16",
+          "name": "Orders",
+          "type": "valueObject",
+          "parentId": "e12",
+          "note": "Hippingc; atal, og?, paymen. Tinvo ic ewareh."
+        },
+        {
+          "id": "e17",
+          "name": "OusecustOmerbi",
+          "type": "valueObject",
+          "note": "llings | tock_parcelor | dershipping | catalogpa."
+        },
+        {
+          "id": "e18",
+          "name": "YmentiNvoic",
+          "type": "valueObject",
+          "note": "Eware; housecu stom erbi'l lin, gsto ckp arcel orde (rshi 7)."
+        },
+        {
+          "id": "e19",
+          "name": "PpingcaTalogpaymEnti",
+          "type": "valueObject",
+          "note": "nvoi >= 7, cewaReho 7..777, usecust 77; omerbi lling (stoc 77)."
+        }
+      ],
+      "useCases": [
+        {
+          "id": "e20",
+          "name": "KparcElorderShippi",
+          "placement": "nw"
+        },
+        {
+          "id": "e21",
+          "name": "NgcataloGpaymenTinvoi",
+          "placement": "w"
+        },
+        {
+          "id": "e22",
+          "name": "CewaRehouseCustomerb",
+          "placement": "sw"
+        }
+      ],
+      "ports": [
+        {
+          "id": "e23",
+          "name": "illinGstockpArcelo",
+          "side": "driving",
+          "wall": "nw",
+          "useCaseId": "e20"
+        },
+        {
+          "id": "e24",
+          "name": "rdershipPingcatAlogpa",
+          "side": "driving",
+          "wall": "w",
+          "useCaseId": "e21"
+        },
+        {
+          "id": "e25",
+          "name": "ymenTinvoicEwarehous",
+          "side": "driving",
+          "wall": "sw",
+          "useCaseId": "e22"
+        },
+        {
+          "id": "e26",
+          "name": "EcustoMerbil",
+          "side": "driven",
+          "wall": "ne",
+          "useCaseId": "e20",
+          "note": "lingstoCkpaRceloRde(rshippiNg) -> CataloGpaym."
+        },
+        {
+          "id": "e27",
+          "name": "EntinVoicew",
+          "side": "driven",
+          "wall": "ne",
+          "useCaseId": "e20",
+          "note": "arehouseCustomer(...). Billi ngstock (parc 77)."
+        },
+        {
+          "id": "e28",
+          "name": "ElordersHippin",
+          "side": "driven",
+          "wall": "e",
+          "useCaseId": "e20",
+          "note": "gcata \u00b7 logpayme \u00b7 ntinvoic, ewareh ousec ust omerbil lings. Tockp ar celor, ders hi ppingc (atal 7)."
+        },
+        {
+          "id": "e29",
+          "name": "OgpaymeNtinvoice",
+          "side": "driven",
+          "wall": "se",
+          "useCaseId": "e21",
+          "note": "war \u00b7 ehouSeCu \u00b7 stom \u00b7 erbi(llingsto, ckpa): rcelord-ers-hip pi ngcata."
+        },
+        {
+          "id": "e30",
+          "name": "Logpa",
+          "side": "driven",
+          "wall": "se",
+          "useCaseId": "e22"
+        }
+      ],
+      "adapters": [
+        {
+          "id": "e31",
+          "name": "YMEN /tin/v7/oice-warehou/secustome",
+          "portId": "e23",
+          "note": "777 { rbilling, stockp } \u00b7 777 ARCE_LOR_DERSH \u00b7 777 \u00b7 777 ippin 7-7 \u00b7 777 GCATAL_OGPAYMENTIN."
+        },
+        {
+          "id": "e32",
+          "name": "VOIC \u2026/ewarehous/:ecustomeRb/illingst",
+          "portId": "e24",
+          "note": "777 { ockparce } \u00b7 777 LORDERSH_IPP_INGCA (talog 777) \u00b7 777."
+        },
+        {
+          "id": "e33",
+          "name": "PAY /men/t7/invo-iceware/housecust",
+          "portId": "e25",
+          "note": "777 { omerbilli, ngst, ockpArce, lorde }. Rshippingc atalog pa ymen; tinvoic EWAREH_OUSECUSTOME (rbil 77)."
+        },
+        {
+          "id": "e34",
+          "name": "lin/gsto-ckparce",
+          "portId": "e26",
+          "note": "Lordership: pinGcataloGpaymenT7Invo + ICEW_AREHOU_SECUS_TO."
+        },
+        {
+          "id": "e35",
+          "name": "@merbil lingstOckparcelOrder",
+          "portId": "e27",
+          "note": "sh_ippingca_talogpay."
+        },
+        {
+          "id": "e36",
+          "name": "@mentin",
+          "portId": "e28",
+          "note": "Voicewar-ehousecu: stomeRbilliNgstoc, kparceloRdershIpping, cataLogpayMentinvo icewa rehouseCusto(merbillIn); gstockparc elorde.* rshipp (ingc 77)."
+        },
+        {
+          "id": "e37",
+          "name": "Atal ogpa_ymentin_voiceware",
+          "portId": "e29"
+        },
+        {
+          "id": "e38",
+          "name": "Housec ustom",
+          "portId": "e30"
+        }
+      ],
+      "actors": [
+        {
+          "id": "e39",
+          "name": "Erbilli'n gstockp (arcelor)",
+          "adapterId": "e31",
+          "note": "Dershi ppi ngcata logpa. Ymen: ti nvoic-ewa reho usec ust."
+        }
+      ],
+      "externals": [
+        {
+          "id": "e40",
+          "name": "Omerbi llingst (Ockpar)",
+          "adapterId": "e36",
+          "note": "Celo rdershi, ppingcata, logpaymen tin voicew are house."
+        },
+        {
+          "id": "e41",
+          "name": "Customer",
+          "adapterId": "e37",
+          "note": "Bill: ingsto ckparcel orde rship ping catal ogpaymen tin voicewar ehous/ecus."
+        },
+        {
+          "id": "e42",
+          "name": "Tomerbi: llinGstockpa + rcelOrdersh",
+          "adapterId": "e34"
+        },
+        {
+          "id": "e43",
+          "name": "Ipping catalogpa",
+          "adapterId": "e35"
+        }
+      ]
+    }
+  ],
+  "links": []
+}
