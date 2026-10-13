@@ -1767,3 +1767,78 @@ describe('Stage — hexagon titles stay readable when zoomed out', () => {
     expect(readFileSync('src/styles.css', 'utf8')).toMatch(/\.canvas\.titles-overlaid:not\(\.exporting\) \[data-hexagon-title\]\s*\{\s*display:\s*none/)
   })
 })
+
+describe('Stage note popover', () => {
+  const node = (container: HTMLElement, ref: string) => container.querySelector(`[data-hex] .node[data-ref="${ref}"]`)!
+  const popover = () => screen.queryByRole('tooltip')
+
+  it('shows the full note, line breaks kept, when a noted element is hovered, and drops it on leave', () => {
+    const { container } = render(<Harness />)
+    expect(popover()).toBeNull()
+    fireEvent.pointerOver(node(container, 'uc-submit'))
+    expect(popover()!.textContent).toBe('execute(cmd): Promise<void>\nvalidate, save, notify support')
+    fireEvent.pointerLeave(svg(container))
+    expect(popover()).toBeNull()
+  })
+
+  it('shows the note of the selected element and describes the node by it', () => {
+    const { container } = render(<Harness />)
+    fireEvent.click(node(container, 'uc-submit'))
+    expect(popover()!.textContent).toContain('validate, save, notify support')
+    expect(node(container, 'uc-submit').getAttribute('aria-describedby')).toBe(popover()!.id)
+    fireEvent.click(svg(container))
+    expect(popover()).toBeNull()
+  })
+
+  it('shows nothing for an element without a note', () => {
+    const { container } = render(<Harness />)
+    fireEvent.pointerOver(node(container, 'a-knex'))
+    expect(popover()).toBeNull()
+    fireEvent.click(node(container, 'a-knex'))
+    expect(popover()).toBeNull()
+  })
+
+  it('keeps the selected note while another noted element is hovered', () => {
+    const { container } = render(<Harness />)
+    fireEvent.click(node(container, 'uc-submit'))
+    fireEvent.pointerOver(node(container, 'ext-pg'))
+    expect(popover()!.textContent).toContain('validate, save')
+  })
+
+  it('shows the hovered note when the selection has none', () => {
+    const { container } = render(<Harness />)
+    fireEvent.click(node(container, 'a-knex'))
+    fireEvent.pointerOver(node(container, 'ext-pg'))
+    expect(popover()!.textContent).toBe('chat_feedback')
+  })
+
+  it('is out of the way of the pointer', () => {
+    const { container } = render(<Harness />)
+    fireEvent.pointerOver(node(container, 'ext-pg'))
+    expect(readFileSync('src/styles.css', 'utf8')).toMatch(/\.note-popover\s*\{[^}]*pointer-events:\s*none/)
+    expect(popover()!.className).toBe('note-popover')
+  })
+
+  it('hides while the canvas is being panned', () => {
+    const { container } = render(<Harness />)
+    const main = container.querySelector('main')!
+    main.setPointerCapture = () => {}
+    fireEvent.click(node(container, 'uc-submit'))
+    expect(popover()).not.toBeNull()
+    fireEvent.pointerDown(svg(container), { button: 0, buttons: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(main, { buttons: 1, clientX: 140, clientY: 100 })
+    flushFrame()
+    expect(main.classList.contains('is-dragging')).toBe(true)
+    expect(popover()).toBeNull()
+  })
+
+  it.each(['detailed', 'overview'] as const)('marks only the noted boxes in %s', (mode) => {
+    usePreferencesStore.setState({ mode })
+    const { container } = render(<Harness />)
+    expect(node(container, 'uc-submit').querySelector('[data-note-marker]')).not.toBeNull()
+    expect(node(container, 'ext-pg').querySelector('[data-note-marker]')).not.toBeNull()
+    expect(node(container, 'a-knex').querySelector('[data-note-marker]')).toBeNull()
+    expect(node(container, 'd-feedback').querySelector('[data-note-marker]')).toBeNull()
+    expect(container.querySelector('[data-note-marker]')!.getAttribute('aria-hidden')).toBe('true')
+  })
+})

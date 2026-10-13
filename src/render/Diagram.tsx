@@ -74,11 +74,13 @@ interface MapDiagramProps {
   hovered: string | null
   /** The emphasized dependency chain of the selection; everything outside it dims (styles.css). */
   chain?: Chain
+  /** Each hexagon's notes by ref (`notesOf`); a noted box wears a marker. */
+  notes: ReadonlyMap<string, ReadonlyMap<string, string>>
 }
 
 /** Composes every hexagon of a map into one SVG: one `<defs>`, one `<g data-hex>` per hexagon, the map's links
  * drawn above them, an optional map title, and the legend once — under the current hexagon. */
-export const MapDiagram = memo(function MapDiagram({ map, legend, showGuides, focus, selected, linkTargets, crossLinkTargets, hovered, chain }: MapDiagramProps) {
+export const MapDiagram = memo(function MapDiagram({ map, legend, showGuides, focus, selected, linkTargets, crossLinkTargets, hovered, chain, notes }: MapDiagramProps) {
   const first = map.hexagons[0]
   const current = currentHexagon(map, focus)
   return (
@@ -112,6 +114,7 @@ export const MapDiagram = memo(function MapDiagram({ map, legend, showGuides, fo
                 linkTargets={isCurrent ? linkTargets : (crossLinkTargets.get(hex.id) ?? NO_TARGETS)}
                 chain={chained}
                 interactive={isCurrent}
+                notes={notes.get(hex.id)!}
               />
             )}
             {isCurrent && map.hexagons.length > 1 && <HexCue model={hex.model} />}

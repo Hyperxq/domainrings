@@ -277,3 +277,36 @@ describe('OnionStage in view-only mode', () => {
     expect(container.querySelector('svg.canvas')!.hasAttribute('data-link-mode')).toBe(false)
   })
 })
+
+describe('OnionStage notes', () => {
+  const noted = () => {
+    const ringRole = state().map.rings[0].role
+    const withNote = state().addElement({ name: 'Invoice', ringRole, note: 'Billed once per order.\nNever edited.' })
+    const bare = state().addElement({ name: 'Order', ringRole })
+    return { withNote, bare }
+  }
+  const node = (container: HTMLElement, ref: string) => container.querySelector(`.node[data-ref="${ref}"]`)!
+
+  it('shows the whole note of a hovered or selected element, and none for an element without one', () => {
+    const { withNote, bare } = noted()
+    const { container } = renderStage()
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    fireEvent.pointerOver(node(container, withNote))
+    expect(screen.getByRole('tooltip').textContent).toBe('Billed once per order.\nNever edited.')
+    fireEvent.pointerLeave(container.querySelector('svg.canvas')!)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    fireEvent.click(node(container, withNote))
+    fireEvent.pointerOver(node(container, bare))
+    expect(screen.getByRole('tooltip').textContent).toContain('Billed once per order.')
+    expect(node(container, withNote).getAttribute('aria-describedby')).toBe(screen.getByRole('tooltip').id)
+    fireEvent.click(node(container, bare))
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it('marks only the element that has a note', () => {
+    const { withNote, bare } = noted()
+    const { container } = renderStage()
+    expect(node(container, withNote).querySelector('[data-note-marker]')).not.toBeNull()
+    expect(node(container, bare).querySelector('[data-note-marker]')).toBeNull()
+  })
+})

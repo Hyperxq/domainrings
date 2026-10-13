@@ -1,13 +1,15 @@
-import { useState, type Ref } from 'react'
+import { useMemo, useState, type Ref } from 'react'
 import type { CleanLayoutModel } from '../layout/clean'
 import type { LayoutMode } from '../layout/layout'
 import { cleanInsertionItem, cleanInsertionPoints, type CleanInsertionPoint } from '../layout/cleanInsertion'
 import { legendForClean } from '../layout/legend'
+import { notesOf } from '../model/notes'
 import { classifyRef, elementName } from '../model/ringedDocument'
 import { useCleanStore } from '../model/cleanStore'
 import type { CleanFile } from '../model/schema'
 import { CleanDiagram } from '../render/CleanDiagram'
 import { affordanceVisible, DependChip, InlineNameField, PlusGlyph } from './ringed/RingedAffordances'
+import { nodeRefOf } from './canvasTarget'
 import { RingedStage } from './ringed/RingedStage'
 import { useDependGesture } from './ringed/useDependGesture'
 import { usePreferencesStore } from './state/preferencesStore'
@@ -51,6 +53,7 @@ export function CleanStage({ model, doc, mode, svgRef, onReject, onMutate = () =
   const viewOnly = usePreferencesStore((s) => s.viewOnly)
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
   const legend = legendForClean(doc)
+  const notes = useMemo(() => notesOf(doc), [doc])
   const { selected, linking, setLinking, selectedElement, validTargets, linkTargetRefs, clickTarget } = useDependGesture({
     elements: model.elements,
     rings: doc.rings,
@@ -105,10 +108,11 @@ export function CleanStage({ model, doc, mode, svgRef, onReject, onMutate = () =
       svgRef={svgRef}
       linking={linking}
       selected={selected}
+      notes={notes}
       onDelete={viewOnly ? undefined : deleteSelected}
       panelOpen={panelOpen}
       legendOpen={legendOpen}
-      onClick={(e) => clickTarget((e.target as Element).closest('.node')?.getAttribute('data-ref') ?? null)}
+      onClick={(e) => clickTarget(nodeRefOf(e.target as Element))}
       overlay={
         editing &&
         editingElement && (
@@ -130,7 +134,7 @@ export function CleanStage({ model, doc, mode, svgRef, onReject, onMutate = () =
     >
       {(hover) => (
         <>
-          <CleanDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} legend={legend} mode={mode} hoverRef={hover.ref} />
+          <CleanDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} legend={legend} mode={mode} hoverRef={hover.ref} notes={notes} />
           {!viewOnly &&
             cleanInsertionPoints(model, doc)
             .filter((point) => affordanceVisible(point, hover))

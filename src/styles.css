@@ -776,6 +776,28 @@ textarea { width: 100%; resize: vertical; margin-top: 4px; }
 }
 .link-chip:hover { background: var(--teal-soft); }
 
+.note-popover {
+  position: absolute;
+  z-index: 5;
+  width: max-content;
+  max-width: 316px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  font: 12px/1.5 var(--font-mono);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  transform: translateX(-50%);
+  box-shadow: var(--shadow);
+  pointer-events: none;
+}
+.note-popover[data-above] { transform: translate(-50%, -100%); }
+
+.note-marker { fill: var(--teal); stroke: var(--card); stroke-width: 1; pointer-events: none; }
+.node-domainItem .note-marker { fill: var(--domain-ink); stroke: none; }
+
 .toast {
   left: 50%;
   bottom: 20px;

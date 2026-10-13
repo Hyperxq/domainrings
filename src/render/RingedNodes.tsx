@@ -1,6 +1,7 @@
 import type { LayoutMode } from '../layout/layout'
 import type { Point } from '../layout/geometry'
 import { edgeControl } from '../layout/edgeRouting'
+import { NOTE_INSET, NOTE_POPOVER_ID, NoteMarker } from './NoteMarker'
 import type { RingedKind } from '../model/ringedKinds'
 import { endpointLabelHeight, endpointLines, KIND_LINE_STEP, KIND_METRICS, RINGED_ELEMENT_METRICS, RINGED_ENDPOINT_DIAMETER, ringedElementHeight, ringedElementLines, ringedElementWidth, ringedKindHeight, ringedKindLines } from '../layout/ringedMetrics'
 
@@ -76,7 +77,7 @@ function WrappedLines({ lines, x, centerY, height }: { lines: string[]; x: numbe
   )
 }
 
-export function RingedElementNode({ element, selected, target, interactive }: { element: RingedElementLayout; selected: boolean; target: boolean; interactive: boolean }) {
+export function RingedElementNode({ element, selected, target, interactive, noted }: { element: RingedElementLayout; selected: boolean; target: boolean; interactive: boolean; noted: boolean }) {
   const width = ringedElementWidth(element.name, element.kind)
   const height = ringedElementHeight(element.name, element.kind)
   // A long name wraps onto more than one line (Decision 8) rather than growing its own ring around one unbroken
@@ -96,6 +97,7 @@ export function RingedElementNode({ element, selected, target, interactive }: { 
       tabIndex={interactive ? 0 : undefined}
       role={interactive ? 'button' : undefined}
       aria-label={interactive ? `${element.name} (${element.ringRole})` : undefined}
+      aria-describedby={selected && noted ? NOTE_POPOVER_ID : undefined}
     >
       <rect className="box" x={element.x - width / 2} y={element.y - height / 2} width={width} height={height} rx={8} />
       {kindLines.length > 0 && (
@@ -110,11 +112,12 @@ export function RingedElementNode({ element, selected, target, interactive }: { 
       <text className="centered" x={element.x} fontSize={RINGED_ELEMENT_METRICS.size}>
         <WrappedLines lines={lines} x={element.x} centerY={top + kindHeight + (height - kindHeight) / 2} height={height - kindHeight} />
       </text>
+      {noted && <NoteMarker x={element.x + width / 2 - NOTE_INSET} y={top + NOTE_INSET} />}
     </g>
   )
 }
 
-export function RingedEndpointNode({ endpoint, selected, interactive }: { endpoint: RingedEndpointLayout; selected: boolean; interactive: boolean }) {
+export function RingedEndpointNode({ endpoint, selected, interactive, noted }: { endpoint: RingedEndpointLayout; selected: boolean; interactive: boolean; noted: boolean }) {
   const labelSide = endpoint.x >= 0 ? 1 : -1
   // A long name wraps (Decision 8) rather than reaching further outward on one unbroken line — same idiom as a
   // ringed element's own box, just stacked beside the dot instead of centred inside a box.
@@ -129,8 +132,10 @@ export function RingedEndpointNode({ endpoint, selected, interactive }: { endpoi
       tabIndex={interactive ? 0 : undefined}
       role={interactive ? 'button' : undefined}
       aria-label={interactive ? `${endpoint.kind === 'actor' ? 'Actor' : 'External system'} ${endpoint.name}` : undefined}
+      aria-describedby={selected && noted ? NOTE_POPOVER_ID : undefined}
     >
       <circle className="box" cx={endpoint.x} cy={endpoint.y} r={ENDPOINT_RADIUS} />
+      {noted && <NoteMarker x={endpoint.x + ENDPOINT_RADIUS * Math.SQRT1_2} y={endpoint.y - ENDPOINT_RADIUS * Math.SQRT1_2} />}
       <text className={labelSide > 0 ? undefined : 'end'} x={labelX} fontSize={RINGED_ELEMENT_METRICS.size}>
         <WrappedLines lines={lines} x={labelX} centerY={endpoint.y} height={height} />
       </text>

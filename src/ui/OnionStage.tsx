@@ -1,13 +1,15 @@
-import { useState, type Ref } from 'react'
+import { useMemo, useState, type Ref } from 'react'
 import type { LayoutMode } from '../layout/layout'
 import type { OnionLayoutModel } from '../layout/onion'
 import { onionInsertionItem, onionInsertionPoints, type OnionInsertionPoint } from '../layout/onionInsertion'
 import { legendForOnion } from '../layout/legend'
+import { notesOf } from '../model/notes'
 import { classifyRef, elementName } from '../model/ringedDocument'
 import { useOnionStore } from '../model/onionStore'
 import type { OnionFile } from '../model/schema'
 import { OnionDiagram } from '../render/OnionDiagram'
 import { affordanceVisible, DependChip, InlineNameField, PlusGlyph } from './ringed/RingedAffordances'
+import { nodeRefOf } from './canvasTarget'
 import { RingedStage } from './ringed/RingedStage'
 import { useDependGesture } from './ringed/useDependGesture'
 import { usePreferencesStore } from './state/preferencesStore'
@@ -52,6 +54,7 @@ export function OnionStage({ model, doc, mode, svgRef, onReject, onMutate = () =
   const viewOnly = usePreferencesStore((s) => s.viewOnly)
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
   const legend = legendForOnion(doc)
+  const notes = useMemo(() => notesOf(doc), [doc])
   const { selected, linking, setLinking, selectedElement, validTargets, linkTargetRefs, clickTarget } = useDependGesture({
     elements: model.elements,
     rings: doc.rings,
@@ -101,10 +104,11 @@ export function OnionStage({ model, doc, mode, svgRef, onReject, onMutate = () =
       svgRef={svgRef}
       linking={linking}
       selected={selected}
+      notes={notes}
       onDelete={viewOnly ? undefined : deleteSelected}
       panelOpen={panelOpen}
       legendOpen={legendOpen}
-      onClick={(e) => clickTarget((e.target as Element).closest('.node')?.getAttribute('data-ref') ?? null)}
+      onClick={(e) => clickTarget(nodeRefOf(e.target as Element))}
       overlay={
         editing &&
         editingElement && (
@@ -126,7 +130,7 @@ export function OnionStage({ model, doc, mode, svgRef, onReject, onMutate = () =
     >
       {(hover) => (
         <>
-          <OnionDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} legend={legend} mode={mode} hoverRef={hover.ref} />
+          <OnionDiagram model={model} selected={selected} interactive validTargets={linkTargetRefs} legend={legend} mode={mode} hoverRef={hover.ref} notes={notes} />
           {!viewOnly &&
             onionInsertionPoints(model, doc)
             .filter((point) => affordanceVisible(point, hover))

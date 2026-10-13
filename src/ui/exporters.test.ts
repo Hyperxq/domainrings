@@ -130,6 +130,17 @@ describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {
     expect(markup).not.toMatch(/data-hex|aria-current|data-cue|data-map-link|data-map-title|data-hover/)
   })
 
+  it('leaves the note markers out of an export', async () => {
+    const svg = mapCanvas()
+    const marker = document.createElementNS(NS, 'circle')
+    marker.setAttribute('data-note-marker', '')
+    marker.setAttribute('class', 'note-marker')
+    svg.querySelector('[data-hex="h1"]')!.appendChild(marker)
+    const markup = await svgMarkup(svg, bounds, 'Map title', { legend: false, legendHeight: 0 })
+    expect(markup).toContain('H1 marker')
+    expect(markup).not.toMatch(/note-marker|data-note-marker/)
+  })
+
   it('map scope keeps the link’s pattern label, stripped of its scoping attribute', async () => {
     const markup = await svgMarkup(mapCanvas(), bounds, 'Map title', { legend: false, legendHeight: 0 })
     expect(markup).toContain('>acl<')

@@ -11,3 +11,6 @@ export const hullIdOf = (target: Element) => target.closest('[data-hull]')?.getA
 
 /** The hexagon group a target sits in (`data-hex`). */
 export const hexIdOf = (target: Element) => target.closest('[data-hex]')?.getAttribute('data-hex') ?? null
+
+/** The model element a target belongs to: the `data-ref` of the node it sits in (rings carry none). */
+export const nodeRefOf = (target: Element) => target.closest('.node')?.getAttribute('data-ref') ?? null

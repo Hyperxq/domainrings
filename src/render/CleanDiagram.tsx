@@ -27,6 +27,8 @@ interface CleanDiagramProps {
   /** The ring/element/endpoint currently hovered or focused (`RingedStage`'s own `RingedHover.ref`) — together
    * with `selected`, decides which edges Overview reveals. */
   hoverRef: string | null
+  /** The refs that carry a note (`notesOf`); each wears a marker. */
+  notes: ReadonlyMap<string, string>
 }
 
 /** One radial divider per sector on a ring (REQ-08) — genuinely Clean-only, since Onion has no sector
@@ -64,7 +66,7 @@ function SectorLabel({ sector, ring, inner, innermost }: { sector: CleanSectorWe
  * each ring's own sectors drawn as wedge dividers (REQ-08), its elements spread inside their own sector's wedge,
  * inward-only dependency arrows (REQ-06), and actors/external systems outside the outer ring with a direct arrow
  * to a Frameworks & Drivers element (REQ-07) — node/edge primitives shared with Onion via `RingedNodes.tsx`. */
-export const CleanDiagram = memo(function CleanDiagram({ model, selected, interactive, validTargets, legend, mode, hoverRef }: CleanDiagramProps) {
+export const CleanDiagram = memo(function CleanDiagram({ model, selected, interactive, validTargets, legend, mode, hoverRef, notes }: CleanDiagramProps) {
   const activeRefs = new Set([hoverRef, selected].filter((r): r is string => r !== null))
   return (
     <>
@@ -87,10 +89,10 @@ export const CleanDiagram = memo(function CleanDiagram({ model, selected, intera
         <RingedEdge key={edge.key} edge={edge} markerId="clean-arrow" />
       ))}
       {model.elements.map((element) => (
-        <RingedElementNode key={element.key} element={element} selected={element.ref === selected} target={validTargets.has(element.ref)} interactive={interactive} />
+        <RingedElementNode key={element.key} element={element} selected={element.ref === selected} target={validTargets.has(element.ref)} interactive={interactive} noted={notes.has(element.ref)} />
       ))}
       {model.endpoints.map((endpoint) => (
-        <RingedEndpointNode key={endpoint.key} endpoint={endpoint} selected={endpoint.ref === selected} interactive={interactive} />
+        <RingedEndpointNode key={endpoint.key} endpoint={endpoint} selected={endpoint.ref === selected} interactive={interactive} noted={notes.has(endpoint.ref)} />
       ))}
       <SvgLegend legend={legend} bounds={model.bounds} />
     </>
