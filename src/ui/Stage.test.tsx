@@ -23,6 +23,7 @@ import { centreZones } from './stage/labelCulling'
 import { boxLabelsOverlaid } from './stage/overlays'
 import { labelTextWidth } from './stage/labelWidth'
 import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
+import twoHexagonSample from '../model/fixtures/two-hexagon-sample.hexa?raw'
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class {
@@ -671,20 +672,23 @@ describe('Stage — the whole-map auto view survives a canvas focus switch (FIT-
     expectViewport(container, before)
   })
 
-  it('a switch on a two-hexagon map still refits to the whole map when the side panel would cover the current hexagon', () => {
+  it('a switch on a two-hexagon map keeps the zoom and pans the current hexagon into the area the side panel leaves', () => {
     const restore = stubFixedSize(700, 900)
     try {
       useMapStore.getState().replace(twoHexMap())
       const { container } = render(<Harness />)
       fireEvent.click(hexGroup(container, 'h2'))
-      const insetOpen = islandInset({ width: 700, height: 900 }, true, false)
-      expect(insetOpen).not.toEqual(islandInset({ width: 700, height: 900 }, false, false))
+      const size = { width: 700, height: 900 }
+      const before = viewportOf(container)
+      const model = layoutMap(useMapStore.getState().map)
+      const h2 = hexagonBounds(model.hexagons.find((h) => h.id === 'h2')!)
+      expect(contains(visibleRect(before, size, islandInset(size, true, false)), h2)).toBe(false)
 
       act(() => useViewStore.setState({ editorOpen: true }))
 
-      const model = layoutMap(useMapStore.getState().map)
-      expect(model.hexagons).toHaveLength(2)
-      expectViewport(container, fitTo(canvasBounds(model), 700, 900, insetOpen, 0))
+      const after = viewportOf(container)
+      expect(after.scale).toBeCloseTo(before.scale, 9)
+      expect(contains(visibleRect(after, size, islandInset(size, true, false)), { ...h2, x: h2.x + 0.001, y: h2.y + 0.001, width: h2.width - 0.002, height: h2.height - 0.002 })).toBe(true)
     } finally {
       restore()
     }
@@ -1738,6 +1742,134 @@ describe('Stage — smooth fit changes (animated refit, panel open/close)', () =
       closePanel()
       frames(400)
       expect(viewBoxOf(container)).toBe(zoomed)
+    })
+
+    describe('when the panel would cover the current hexagon', () => {
+      const SIZE = { width: 1200, height: 1000 }
+      const current = () => {
+        const { x, y, width, height } = hexagonBounds(layoutMap(useMapStore.getState().map).hexagons.find((h) => h.id === 'h1')!)
+        return { x: x + 0.001, y: y + 0.001, width: width - 0.002, height: height - 0.002 } // slack for the viewport read back from CSS
+      }
+      const freeAreaShows = (container: HTMLElement, size: { width: number; height: number }) =>
+        contains(visibleRect(viewportOf(container), size, islandInset(size, true, false)), current())
+      beforeEach(() => {
+        restoreSize()
+        restoreSize = stubFixedSize(SIZE.width, SIZE.height)
+      })
+
+      it('keeps the zoom and pans the hexagon into the free area when it fits there', () => {
+        const { container } = render(<Harness />)
+        const before = viewportOf(container)
+        expect(freeAreaShows(container, SIZE)).toBe(false)
+        openPanel()
+        frames(400)
+        const after = viewportOf(container)
+        expect(after.scale).toBeCloseTo(before.scale, 9)
+        expect(after.x).not.toBeCloseTo(before.x, 3)
+        expect(freeAreaShows(container, SIZE)).toBe(true)
+      })
+
+      it('pans the current hexagon clear of the panel when a double-click reveals it from a fitted view', () => {
+        restoreSize()
+        const size = { width: 1414, height: 696 }
+        restoreSize = stubFixedSize(size.width, size.height)
+        const result = parseHexa(twoHexagonSample)
+        if (!result.ok || result.map.kind !== 'hexagonal') throw new Error('fixture failed to parse')
+        useMapStore.getState().replace(result.map)
+        const { container } = render(<Harness />)
+        fireEvent.click(screen.getByRole('button', { name: 'Fit diagram to screen' }))
+        const before = viewportOf(container)
+        const hex = hexagonBounds(layoutMap(useMapStore.getState().map, { current: useMapStore.getState().focus }).hexagons.find((h) => h.id === 'h1')!)
+        expect(contains(visibleRect(before, size, islandInset(size, true, false)), hex)).toBe(false)
+
+        fireEvent.doubleClick(container.querySelector('[data-hex="h1"] .node[data-ref]')!)
+        frames(400)
+
+        expect(useViewStore.getState().editorOpen).toBe(true)
+        const after = viewportOf(container)
+        expect(after.scale).toBeCloseTo(before.scale, 9)
+        expect(after.x).not.toBeCloseTo(before.x, 3)
+        expect(contains(visibleRect(after, size, islandInset(size, true, false)), { x: hex.x + 0.001, y: hex.y + 0.001, width: hex.width - 0.002, height: hex.height - 0.002 })).toBe(true)
+      })
+
+      it('still pans the hexagon clear of the panel after a resize that followed an earlier panel freeze', () => {
+        let resize: (width: number, height: number) => void = () => {}
+        const original = globalThis.ResizeObserver
+        globalThis.ResizeObserver = class {
+          constructor(cb: ResizeObserverCallback) {
+            resize = (width, height) => cb([{ contentRect: { width, height } } as ResizeObserverEntry], this as unknown as ResizeObserver)
+          }
+          observe() {
+            resize(784, 696)
+          }
+          unobserve() {}
+          disconnect() {}
+        } as unknown as typeof ResizeObserver
+        try {
+          const result = parseHexa(twoHexagonSample)
+          if (!result.ok || result.map.kind !== 'hexagonal') throw new Error('fixture failed to parse')
+          useMapStore.getState().replace(result.map)
+          const { container } = render(<Harness />)
+          const fit = () => fireEvent.click(screen.getByRole('button', { name: 'Fit diagram to screen' }))
+          fit()
+          const reveal = (hexId: string) => {
+            const node = container.querySelector(`[data-hex="${hexId}"] .node[data-ref]`)!
+            fireEvent.click(node, { detail: 1 })
+            fireEvent.click(node, { detail: 2 })
+            fireEvent.doubleClick(node)
+          }
+          reveal('h2')
+          frames(400)
+          expect(useViewStore.getState().editorOpen).toBe(true)
+
+          const size = { width: 1414, height: 696 }
+          act(() => resize(size.width, size.height))
+          frames(400)
+          act(() => useViewStore.setState({ editorOpen: false }))
+          fit()
+          frames(400)
+          const before = viewportOf(container)
+          const hex = hexagonBounds(layoutMap(useMapStore.getState().map, { current: useMapStore.getState().focus }).hexagons.find((h) => h.id === 'h1')!)
+          expect(contains(visibleRect(before, size, islandInset(size, true, false)), hex)).toBe(false)
+
+          reveal('h1')
+          frames(400)
+
+          const after = viewportOf(container)
+          expect(after.x).not.toBeCloseTo(before.x, 3)
+          expect(contains(visibleRect(after, size, islandInset(size, true, false)), { x: hex.x + 0.001, y: hex.y + 0.001, width: hex.width - 0.002, height: hex.height - 0.002 })).toBe(true)
+        } finally {
+          globalThis.ResizeObserver = original
+        }
+      })
+
+      it('refits the whole map after the stage is resized while the panel holds the view', () => {
+        // Wide enough that opening the panel freezes the view as it is.
+        let resize: (width: number, height: number) => void = () => {}
+        const original = globalThis.ResizeObserver
+        globalThis.ResizeObserver = class {
+          constructor(cb: ResizeObserverCallback) {
+            resize = (width, height) => cb([{ contentRect: { width, height } } as ResizeObserverEntry], this as unknown as ResizeObserver)
+          }
+          observe() {
+            resize(SCREEN.width, SCREEN.height)
+          }
+          unobserve() {}
+          disconnect() {}
+        } as unknown as typeof ResizeObserver
+        try {
+          const { container } = render(<Harness />)
+          openPanel()
+          frames(400)
+          const wide = { width: 2600, height: SCREEN.height }
+          act(() => resize(wide.width, wide.height))
+          frames(400)
+          const model = layoutMap(useMapStore.getState().map)
+          expectViewport(container, fitTo(canvasBounds(model), wide.width, wide.height, islandInset(wide, true, false)))
+        } finally {
+          globalThis.ResizeObserver = original
+        }
+      })
     })
 
     it('a grow made while the panel is open that would leave a hexagon off screen falls back to the whole-map fit', () => {

@@ -41,13 +41,13 @@ export function useStageViewport({
     autoFit,
     wholeFitScale: wholeFit.scale,
     fitKey,
-    settleKey: `${size.width}x${size.height}`,
+    size,
     onPanStart,
   })
   const { view, heading, setView } = interactions
   const centre = { x: size.width / 2, y: size.height / 2 }
 
-  useFreezeWhilePanelOpen({ panelOpen, view, viewport: heading.current, setView, visible: visibleRect(heading.current, effectiveSize, inset), interest: hexagonBounds(hex) })
+  useFreezeWhilePanelOpen({ panelOpen, view, viewport: heading.current, setView, visible: visibleRect(heading.current, effectiveSize, inset), interest: hexagonBounds(hex), size })
 
   // Grow/import/delete/undo never bump `revision` (ADR-02/ADR-05), so the fitKey reset above can't see them — this
   // tracks the hexagon id set instead. A `Viewport` the author set stays iff every added/removed/shifted box is still fully

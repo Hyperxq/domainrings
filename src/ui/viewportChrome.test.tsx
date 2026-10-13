@@ -82,14 +82,17 @@ describe('useFreezeWhilePanelOpen', () => {
   const interest = { x: 10, y: 10, width: 50, height: 50 }
   const visibleIn = { x: 0, y: 0, width: 100, height: 100 }
   const visibleOut = { x: 0, y: 0, width: 30, height: 30 }
+  const SMALL = { width: 800, height: 600 }
+  const BIG = { width: 1400, height: 600 }
+  type Props = { panelOpen: boolean; visible: typeof visibleIn; size?: typeof SMALL }
   const setup = (initialView: 'auto' | Viewport = 'auto') =>
     renderHook(
-      (p: { panelOpen: boolean; visible: typeof visibleIn }) => {
+      (p: Props) => {
         const [view, setView] = useState<'auto' | Viewport>(initialView)
-        useFreezeWhilePanelOpen({ panelOpen: p.panelOpen, view, viewport: view === 'auto' ? FIT : view, setView, visible: p.visible, interest })
+        useFreezeWhilePanelOpen({ panelOpen: p.panelOpen, view, viewport: view === 'auto' ? FIT : view, setView, visible: p.visible, interest, size: p.size ?? SMALL })
         return { view, setView }
       },
-      { initialProps: { panelOpen: false, visible: visibleIn } },
+      { initialProps: { panelOpen: false, visible: visibleIn } as Props },
     )
 
   it('freezes an auto view when the panel opens and the interest stays visible', () => {
@@ -99,10 +102,35 @@ describe('useFreezeWhilePanelOpen', () => {
     expect(result.current.view).not.toBe('auto')
   })
 
-  it('leaves an auto view alone when the panel would cover the interest', () => {
+  it('pans the least that brings the interest into the area the panel leaves, keeping the zoom', () => {
+    const { result, rerender } = setup()
+    rerender({ panelOpen: true, visible: { x: 30, y: 0, width: 100, height: 100 } })
+    expect(result.current.view).toEqual({ x: -20, y: 0, scale: 1 })
+    rerender({ panelOpen: false, visible: visibleIn })
+    expect(result.current.view).toBe('auto')
+  })
+
+  it('leaves an auto view alone when the interest cannot fit the area the panel leaves at this zoom', () => {
     const { result, rerender } = setup()
     rerender({ panelOpen: true, visible: visibleOut })
     expect(result.current.view).toBe('auto')
+  })
+
+  it('goes back to auto when the stage is resized while the view is frozen', () => {
+    const { result, rerender } = setup()
+    rerender({ panelOpen: true, visible: visibleIn })
+    expect(result.current.view).not.toBe('auto')
+    rerender({ panelOpen: true, visible: visibleIn, size: BIG })
+    expect(result.current.view).toBe('auto')
+  })
+
+  it('keeps a view the author changed while the panel was open when the stage is resized', () => {
+    const { result, rerender } = setup()
+    rerender({ panelOpen: true, visible: visibleIn })
+    const manual = { ...FIT, scale: 2 }
+    act(() => result.current.setView(manual))
+    rerender({ panelOpen: true, visible: visibleIn, size: BIG })
+    expect(result.current.view).toBe(manual)
   })
 
   it('returns to auto on close when the freeze is still in place', () => {
@@ -127,6 +155,36 @@ describe('useFreezeWhilePanelOpen', () => {
     rerender({ panelOpen: true, visible: visibleIn })
     rerender({ panelOpen: false, visible: visibleIn })
     expect(result.current.view).toBe(manual)
+  })
+})
+
+describe('useViewportInteractions resize', () => {
+  const AUTO: Viewport = { x: 0, y: 0, scale: 1 }
+  const setup = () =>
+    renderHook((p: { size: { width: number; height: number } }) => useViewportInteractions({ mainRef: { current: null }, autoFit: AUTO, wholeFitScale: 0.1, fitKey: 'k', size: p.size }), {
+      initialProps: { size: { width: 800, height: 600 } },
+    })
+
+  it('keeps the content under the centre of a manual view when the stage resizes', () => {
+    const { result, rerender } = setup()
+    act(() => result.current.setView({ x: 10, y: 20, scale: 2 }))
+    rerender({ size: { width: 1000, height: 700 } })
+    expect(result.current.view).toEqual({ x: -40, y: -5, scale: 2 })
+  })
+
+  it('leaves an auto view to follow its fit', () => {
+    const { result, rerender } = setup()
+    rerender({ size: { width: 1000, height: 700 } })
+    expect(result.current.view).toBe('auto')
+  })
+
+  it('does not shift a manual view for the first measurement', () => {
+    const { result, rerender } = renderHook((p: { size: { width: number; height: number } }) => useViewportInteractions({ mainRef: { current: null }, autoFit: AUTO, wholeFitScale: 0.1, fitKey: 'k', size: p.size }), {
+      initialProps: { size: { width: 0, height: 0 } },
+    })
+    act(() => result.current.setView({ x: 10, y: 20, scale: 2 }))
+    rerender({ size: { width: 1000, height: 700 } })
+    expect(result.current.view).toEqual({ x: 10, y: 20, scale: 2 })
   })
 })
 
