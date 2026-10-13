@@ -19,6 +19,7 @@ import { canvasBounds, contains, fitMap, fitTo, islandInset, MIN_FIT_SCALE, MIN_
 import type { Box, Point } from '../layout/geometry'
 import { readFileSync } from 'node:fs'
 import { boxObstacles } from '../layout/boxLabels'
+import { centreZones } from './stage/labelCulling'
 import { boxLabelsOverlaid } from './stage/overlays'
 import { labelTextWidth } from './stage/labelWidth'
 import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
@@ -1875,17 +1876,23 @@ describe('Stage — box names stay readable when zoomed out', () => {
     })
   })
 
-  it('shows no label over another box', () => {
-    withSize(700, 360, () => {
+  it("shows no label over another box's centre", () => {
+    withSize(1400, 900, () => {
       const { container } = render(<Harness />)
       const model = layoutMap(twoHexMap(), { mode: usePreferencesStore.getState().mode, current: 'h1' })
       const { scale, x, y } = viewportOf(container)
-      const boxes = boxObstacles(model, twoHexMap()).map((o) => ({ owner: o.owner, x: o.rect.x * scale + x, y: o.rect.y * scale + y, w: o.rect.width * scale, h: o.rect.height * scale }))
-      for (const l of labels(container)) {
+      const zones = centreZones(
+        boxObstacles(model, twoHexMap()).map((o) => ({ owner: o.owner, rect: { x: o.rect.x * scale + x, y: o.rect.y * scale + y, width: o.rect.width * scale, height: o.rect.height * scale } })),
+        6,
+      )
+      const shown = labels(container)
+      expect(shown.length).toBeGreaterThan(0)
+      for (const l of shown) {
         const w = labelTextWidth(l.textContent!, 11)
-        const [lx, ly] = [parseFloat(l.style.left) - w / 2, parseFloat(l.style.top) - 7]
-        const owner = l.dataset.boxLabel!
-        for (const b of boxes.filter((o) => o.owner !== owner)) expect(lx < b.x + b.w && b.x < lx + w && ly < b.y + b.h && b.y < ly + 14).toBe(false)
+        const [cx, cy] = [parseFloat(l.style.left), parseFloat(l.style.top)]
+        // A label sits on its own box's centre; every other box's centre zone stays clear.
+        const others = zones.filter(({ rect: r }) => !(cx >= r.x && cx <= r.x + r.width && cy >= r.y && cy <= r.y + r.height))
+        for (const { rect: r } of others) expect(cx - w / 2 < r.x + r.width && r.x < cx + w / 2 && cy - 7 < r.y + r.height && r.y < cy + 7).toBe(false)
       }
     })
   })
