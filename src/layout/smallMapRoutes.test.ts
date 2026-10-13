@@ -30,6 +30,17 @@ const CLEAR_MAPS: Array<[string, HexaMap]> = [
   ['three hexagons in a row, neighbours linked', threeHexagons([[0, 0], [1, 0], [2, 0]], LINKS.slice(0, 3))],
 ]
 
+describe('layoutMap — no link crosses a hexagon it does not join', () => {
+  it.each(CLEAR_MAPS.flatMap(([name, map]) => (['detailed', 'overview'] as LayoutMode[]).map((mode) => [`${name} in ${mode}`, map, mode] as const)))('%s', (_, map, mode) => {
+    const result = layoutMap(map, { mode })
+    for (const routed of result.links) {
+      const ends = map.links.find((l) => l.id === routed.id)!
+      const others = result.hexagons.filter((h) => h.id !== ends.from.hexagonId && h.id !== ends.to.hexagonId).map(hexagonBounds)
+      expect(crossesBox(routed.points, others), routed.id).toBe(false)
+    }
+  })
+})
+
 // Recorded from the routes `layoutMap` drew before it routed round third hexagons and chips. None of these maps has a
 // link in the way of another hexagon or a chip, so routing round them must leave every point where it was.
 describe('layoutMap — links that are already clear on maps of two or three hexagons', () => {

@@ -72,19 +72,31 @@ export interface MapLayout {
 }
 
 const MAP_TITLE_GAP = 16
-/** Where a grow "+" toward `side` sits: the midpoint to the neighbouring cell, pushed along that line until a button
- * of half-size `margin` clears the hexagon's own bounds — one-sided content can reach past the midpoint, and a full
- * hexagon among compact ones reaches past the neighbouring cell's centre. The push ends where the button leaves the
- * bounds, so it is finite for any non-zero step. */
-export function growAnchor(hex: Pick<MapHexagonLayout, 'centre' | 'cell' | 'model'>, side: Wall, pitch: Point, margin: number): Point {
+/** Float slack so a button resting exactly on a box's edge counts as outside it. */
+const EDGE = 1e-6
+/** Where a grow "+" toward `side` sits: on the lattice line to the neighbouring cell, as near as a button of half-size
+ * `margin` can get to the hexagon — just outside its bounds — and pushed further along that line past any hexagon's
+ * bounds it would land on, so it never covers one. The push ends where the button leaves a box, so it is finite for any
+ * non-zero step. */
+export function growAnchor(hex: Pick<MapHexagonLayout, 'centre' | 'cell' | 'model'>, side: Wall, pitch: Point, margin: number, boxes: readonly Box[]): Point {
   // The lattice step, not the neighbour's cell centre: a hexagon pushed off its own cell still leaves along the line to its neighbour.
   const cellOrigin = cellCentre(hex.cell, pitch)
   const to = cellCentre(neighbour(hex.cell, side), pitch)
   const d = { x: to.x - cellOrigin.x, y: to.y - cellOrigin.y }
-  const box = hexagonBounds(hex)
-  const leaves = (delta: number, min: number, size: number, from: number) =>
-    delta > 0 ? (min + size + margin - from) / delta : delta < 0 ? (min - margin - from) / delta : Infinity
-  const t = Math.max(0.5, Math.min(leaves(d.x, box.x, box.width, hex.centre.x), leaves(d.y, box.y, box.height, hex.centre.y)))
+  const leaves = (box: Box) => {
+    const along = (delta: number, min: number, size: number, from: number) => (delta > 0 ? (min + size + margin - from) / delta : delta < 0 ? (min - margin - from) / delta : Infinity)
+    return Math.min(along(d.x, box.x, box.width, hex.centre.x), along(d.y, box.y, box.height, hex.centre.y))
+  }
+  const inside = (box: Box, t: number) => {
+    const [x, y] = [hex.centre.x + d.x * t, hex.centre.y + d.y * t]
+    return x > box.x - margin + EDGE && x < box.x + box.width + margin - EDGE && y > box.y - margin + EDGE && y < box.y + box.height + margin - EDGE
+  }
+  let t = leaves(hexagonBounds(hex))
+  for (let pushed = true; pushed; ) {
+    const blocking = boxes.filter((box) => inside(box, t))
+    pushed = blocking.length > 0
+    if (pushed) t = Math.max(...blocking.map(leaves))
+  }
   return { x: hex.centre.x + d.x * t, y: hex.centre.y + d.y * t }
 }
 
@@ -125,7 +137,7 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
     ...(compact ? { compact: compactOf(hexagon, model, unit) } : {}),
   }))
   const boxes = hexagons.map(hexagonBounds)
-  const { contexts, outline, bounds: withContexts } = layContexts(map, hexagons, boxes, pitch, compacting, unionBox(boxes))
+  const { contexts, outline, bounds: withContexts } = layContexts(map, hexagons, boxes, compacting, unionBox(boxes))
 
   // Routed once the chips are placed, so a route can keep off them.
   const { links, bounds: routed } = layLinks(map, hexagons, boxes, contexts, withContexts)

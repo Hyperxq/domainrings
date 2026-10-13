@@ -9,7 +9,7 @@ import { outwardEdgePoint, routeLink } from './links'
 import type { Box } from './geometry'
 import { layoutDiagram, type LayoutMode } from './layout'
 import { parseHexa, toMap } from '../model/hexa'
-import { EXAMPLE_DIAGRAM, RETIRED_SEEDS, STRESS_DIAGRAM } from '../model/example'
+import { EXAMPLE_DIAGRAM, EXAMPLES, RETIRED_SEEDS, STRESS_DIAGRAM } from '../model/example'
 import { diagramOf, freeCell, freeSides, neighbour, removeHexagon, SIDE_ORDER } from '../model/map'
 import { MapSchema, VERSION, type Diagram, type HexaMap, type Hexagon, type Wall } from '../model/schema'
 import { contains, fitTo, islandInset, visibleRect } from '../ui/viewport'
@@ -351,27 +351,42 @@ describe('layoutMap — honeycomb lattice placement (ADR-01)', () => {
     links: [],
   })
 
-  it('derives pitch from the map’s own max extents + MAP_GAP and places {0,1} at half a pitch.x, one pitch.y down', () => {
-    const result = layoutMap(twoCellColumn())
-    const [a, b] = result.hexagons
-    // Both hexagons share the same (empty) content, so either model's bounds already are the map's max extents.
-    // Expected values are literal arithmetic on that independently-derived pitch, never calling cellCentre —
-    // otherwise a mutation to cellCentre's own formula would cancel out on both sides of the assertion.
-    const left = -a.model.bounds.x
-    const right = a.model.bounds.x + a.model.bounds.width
-    const top = -a.model.bounds.y
-    const bottom = a.model.bounds.y + a.model.bounds.height
-    const boxX = left + right + MAP_GAP
-    const boxY = top + bottom + MAP_GAP
-    const pitchX = Math.max(boxX, (boxY * 2) / Math.sqrt(3))
-    const pitchY = Math.max(boxY, (boxX * Math.sqrt(3)) / 2)
+  it('places {0,1} at half a pitch.x and one pitch.y from {0,0}', () => {
+    const { hexagons: [a, b], pitch } = layoutMap(twoCellColumn())
     expect(a.centre).toStrictEqual({ x: 0, y: 0 })
-    expect(b.centre).toStrictEqual({ x: pitchX * 0.5, y: pitchY })
+    expect(b.centre).toStrictEqual({ x: pitch.x * 0.5, y: pitch.y })
   })
 
-  it('keeps the lattice regular (pitch.y = pitch.x·√3/2), so context hulls trace regular hexagons', () => {
-    const { pitch } = layoutMap(twoCellColumn())
-    expect(pitch.y / pitch.x).toBeCloseTo(Math.sqrt(3) / 2, 10)
+  // Each axis is sized from its own extents, never stretched to a regular lattice: two row neighbours sit MAP_GAP
+  // apart plus only the slack left by their extents differing, however tall the hexagons are.
+  describe.each(MODES)('two different-size hexagons side by side in %s', (mode) => {
+    const diagramFields = ({ version: _version, kind: _kind, ...fields }: Diagram) => fields
+    const pair = (): HexaMap => ({
+      version: VERSION,
+      kind: 'hexagonal',
+      title: 'Different sizes',
+      contexts: [{ id: 'c1' }],
+      hexagons: [
+        { id: 'h1', contextId: 'c1', cell: { q: 0, r: 0 }, ...diagramFields(EXAMPLE_DIAGRAM) },
+        { id: 'h2', contextId: 'c1', cell: { q: 1, r: 0 }, ...diagramFields(STRESS_DIAGRAM) },
+      ],
+      links: [],
+    })
+
+    it('keeps the horizontal gap at MAP_GAP plus the extents mismatch, with no aspect-ratio stretch', () => {
+      const { hexagons: [a, b] } = layoutMap(pair(), { mode })
+      const [boxA, boxB] = [hexagonBounds(a), hexagonBounds(b)]
+      const [leftA, leftB] = [a.centre.x - boxA.x, b.centre.x - boxB.x]
+      const [rightA, rightB] = [boxA.x + boxA.width - a.centre.x, boxB.x + boxB.width - b.centre.x]
+      const slack = Math.max(rightA, rightB) - rightA + Math.max(leftA, leftB) - leftB
+      expect(boxB.x - (boxA.x + boxA.width)).toBeLessThanOrEqual(MAP_GAP + slack + 1e-6)
+    })
+
+    it('stacks row neighbours well under the stretched gap', () => {
+      const { hexagons: [a, b] } = layoutMap(pair(), { mode })
+      const gap = hexagonBounds(b).x - (hexagonBounds(a).x + hexagonBounds(a).width)
+      expect(gap).toBeLessThanOrEqual(mode === 'overview' ? 200 : 800)
+    })
   })
 
   it('keeps the two boxes disjoint by at least MAP_GAP', () => {
@@ -629,6 +644,8 @@ describe('layoutMap — full no-overlap property (CANVAS-01.2–01.4)', () => {
   })
 })
 
+const boxesOf = (layout: { hexagons: Parameters<typeof hexagonBounds>[0][] }): Box[] => layout.hexagons.map(hexagonBounds)
+
 describe('growAnchor', () => {
   const MARGIN = 12
   const EPS = 1e-6
@@ -641,7 +658,7 @@ describe('growAnchor', () => {
         const layout = layoutMap(toMap(diagram), { mode })
         const hex = layout.hexagons[0]
         for (const side of SIDE_ORDER) {
-          expect(clearOf(growAnchor(hex, side, layout.pitch, MARGIN), hexagonBounds(hex)), side).toBe(true)
+          expect(clearOf(growAnchor(hex, side, layout.pitch, MARGIN, boxesOf(layout)), hexagonBounds(hex)), side).toBe(true)
         }
       })
     }
@@ -653,7 +670,7 @@ describe('growAnchor', () => {
         const layout = layoutMap(map, { current: current.id })
         const hex = currentHexagon(layout, current.id)
         for (const side of freeSides(map, hex.cell)) {
-          const at = growAnchor(hex, side, layout.pitch, MARGIN)
+          const at = growAnchor(hex, side, layout.pitch, MARGIN, boxesOf(layout))
           for (const other of layout.hexagons) expect(clearOf(at, hexagonBounds(other)), `${current.id} ${side} vs ${other.id}`).toBe(true)
         }
       }
@@ -665,7 +682,7 @@ describe('growAnchor', () => {
     for (const hex of layout.hexagons) {
       for (const side of SIDE_ORDER) {
         const step = { x: cellCentre(neighbour(hex.cell, side), layout.pitch).x - cellCentre(hex.cell, layout.pitch).x, y: cellCentre(neighbour(hex.cell, side), layout.pitch).y - cellCentre(hex.cell, layout.pitch).y }
-        const at = growAnchor(hex, side, layout.pitch, MARGIN)
+        const at = growAnchor(hex, side, layout.pitch, MARGIN, boxesOf(layout))
         const along = { x: at.x - hex.centre.x, y: at.y - hex.centre.y }
         expect(Math.abs(along.x * step.y - along.y * step.x), `${hex.id} ${side}`).toBeLessThan(1e-6 * Math.hypot(along.x, along.y) * Math.hypot(step.x, step.y))
         expect(along.x * step.x + along.y * step.y).toBeGreaterThan(0)
@@ -673,10 +690,47 @@ describe('growAnchor', () => {
     }
   })
 
+  it('clears every hexagon on every free side of a mixed-size map, whichever hexagon grows', () => {
+    const fields = ({ version: _version, kind: _kind, ...rest }: Diagram) => rest
+    const sizes = [EXAMPLE_DIAGRAM, STRESS_DIAGRAM, RETIRED_SEEDS[0], EXAMPLE_DIAGRAM, STRESS_DIAGRAM]
+    const cells = [[0, 0], [1, 0], [0, 1], [-1, 1], [1, -1]]
+    const map: HexaMap = {
+      version: VERSION,
+      kind: 'hexagonal',
+      title: 'Mixed',
+      contexts: [{ id: 'c1' }],
+      hexagons: sizes.map((d, i): Hexagon => ({ id: `h${i}`, contextId: 'c1', cell: { q: cells[i][0], r: cells[i][1] }, ...fields(d) })),
+      links: [],
+    }
+    for (const mode of MODES) {
+      const layout = layoutMap(map, { mode })
+      for (const hex of layout.hexagons) {
+        for (const side of freeSides(map, hex.cell)) {
+          const at = growAnchor(hex, side, layout.pitch, MARGIN, boxesOf(layout))
+          for (const other of layout.hexagons) expect(clearOf(at, hexagonBounds(other)), `${mode} ${hex.id} ${side} vs ${other.id}`).toBe(true)
+        }
+      }
+    }
+  })
+
+  it('clears every hexagon of the shipped multi-hexagon examples on every free side', () => {
+    for (const map of [manyHexagonMap(12), projectBuilderMap(), ...EXAMPLES.flatMap((e) => (e.map.kind === 'hexagonal' && e.map.hexagons.length > 1 ? [e.map] : []))]) {
+      for (const mode of MODES) {
+        const layout = layoutMap(map, { mode })
+        for (const hex of layout.hexagons) {
+          for (const side of freeSides(map, hex.cell)) {
+            const at = growAnchor(hex, side, layout.pitch, MARGIN, boxesOf(layout))
+            for (const other of layout.hexagons) expect(clearOf(at, hexagonBounds(other)), `${mode} ${hex.id} ${side} vs ${other.id}`).toBe(true)
+          }
+        }
+      }
+    }
+  })
+
   it('stays on the lattice line toward the neighbour, never past the neighbour itself', () => {
     const layout = layoutMap(toMap(STRESS_DIAGRAM))
     const hex = layout.hexagons[0]
-    const east = growAnchor(hex, 'e', layout.pitch, MARGIN)
+    const east = growAnchor(hex, 'e', layout.pitch, MARGIN, boxesOf(layout))
     expect(east.y).toBe(hex.centre.y)
     expect(east.x).toBeLessThanOrEqual(hex.centre.x + layout.pitch.x)
   })
@@ -693,6 +747,24 @@ const contextMap = (cells: Array<[string, number, number]>, contexts = ['c1', 'c
 })
 /** Three contexts over five hexagons, packed so one context's tiles sit right above another's. */
 const HONEYCOMB = contextMap([['c1', 0, 0], ['c1', 1, 0], ['c2', 0, 1], ['c3', 1, 1], ['c3', -1, 2]])
+
+describe('layoutMap — context hulls on a map of full hexagons', () => {
+  const DIFFERENT_SIZES: HexaMap = {
+    ...HONEYCOMB,
+    hexagons: HONEYCOMB.hexagons.map((h, i): Hexagon => (i % 2 ? { ...h, ...(({ version: _v, kind: _k, ...rest }) => rest)(STRESS_DIAGRAM) } : h)),
+  }
+  it.each(MODES.flatMap((mode) => [[mode, HONEYCOMB], [mode, DIFFERENT_SIZES]] as const))('%s: each hull encloses its own hexagons and none of another context’s', (mode, map) => {
+    const { contexts, hexagons } = layoutMap(map, { mode })
+    expect(contexts).toHaveLength(3)
+    for (const context of contexts) {
+      for (const h of hexagons) {
+        const box = hexagonBounds(h)
+        const centre = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+        expect(pointInRegion(centre, context.loops), `${context.id} vs ${h.id}`).toBe(h.contextId === context.id)
+      }
+    }
+  })
+})
 
 describe('layoutMap — the map title clears every context region and chip', () => {
   it('sits above every hull vertex and every chip on a multi-context map', () => {
@@ -766,15 +838,10 @@ describe('layoutMap — the map title width is part of the bounds', () => {
   })
 })
 
-describe('layoutMap — the chip edge fallback', () => {
-  it('lands in clear space when every spot above the region is taken by another region', () => {
+describe('layoutMap — chips on packed contexts', () => {
+  it('lands every chip in clear space, outside every context region', () => {
     const { contexts } = layoutMap(HONEYCOMB)
-    const c2 = contexts.find((c) => c.id === 'c2')!
-    for (const v of c2.loops.flat()) {
-      const spot = { x: v.x, y: v.y - 12 }
-      expect(contexts.some((c) => pointInRegion(spot, c.loops)), 'fixture must force the fallback').toBe(true)
-    }
-    for (const c of contexts) expect(pointInRegion(c2.chip, c.loops)).toBe(false)
+    for (const context of contexts) for (const c of contexts) expect(pointInRegion(context.chip, c.loops), `${context.id} in ${c.id}`).toBe(false)
   })
 })
 
@@ -1184,7 +1251,7 @@ describe('layoutMap — several expanded hexagons', () => {
       const result = layoutWith(mode, expanded)
       const hex = currentHexagon(result, 'h-exec')
       for (const side of freeSides(map, hex.cell)) {
-        const at = growAnchor(hex, side, result.pitch, 12)
+        const at = growAnchor(hex, side, result.pitch, 12, boxesOf(result))
         for (const other of result.hexagons) {
           const box = hexagonBounds(other)
           const inside = at.x > box.x - 12 + 1e-6 && at.x < box.x + box.width + 12 - 1e-6 && at.y > box.y - 12 + 1e-6 && at.y < box.y + box.height + 12 - 1e-6

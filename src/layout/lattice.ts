@@ -52,14 +52,12 @@ export function layLattice(perHexagon: LaidOutHexagon[], compacting: boolean): {
     const pairs = compacting ? [[small, small]] : [[extents, extents]]
     const span = (head: 'right' | 'bottom', tail: 'left' | 'top') =>
       Math.max(...pairs.map(([a, b]) => Math.max(...a.map((e) => e[head])) + Math.max(...b.map((e) => e[tail])))) + MAP_GAP
-    // Each axis keeps its box-derived minimum (no overlap). Hull tiles only trace regular hexagons on a regular
-    // lattice, so a map drawn with tile hulls grows the shorter axis to the regular √3/2 ratio; compact maps hug
-    // footprints instead and keep the tight pitch.
+    // Each axis keeps its box-derived minimum (no overlap); the lattice is never stretched to a regular ratio.
     const boxX = span('right', 'left')
     // A compact hexagon's chip sits above its hull and is as large as its title; two lines are kept free so chips wider
     // than their hexagons can stagger instead of running into each other.
     const boxY = span('bottom', 'top') + (compacting ? COMPACT_TITLE.size * unit * CHIP_LINE * 2 + 2 * CHIP_GAP : 0)
-    const pitch: Point = compacting ? { x: boxX, y: boxY } : { x: Math.max(boxX, (boxY * 2) / Math.sqrt(3)), y: Math.max(boxY, (boxX * Math.sqrt(3)) / 2) }
+    const pitch: Point = { x: boxX, y: boxY }
     const cells = perHexagon.map(({ hexagon }) => cellCentre(hexagon.cell, pitch))
     const centres = compacting ? perHexagon.reduce((placed, { compact }, i) => (compact ? placed : clearFull(placed, owns, i)), cells) : cells
     const bounds = unionBox(owns.map((own, i) => ({ ...own, x: own.x + centres[i].x, y: own.y + centres[i].y })))

@@ -3,12 +3,12 @@ import type { HexaMap } from '../model/schema'
 import { CHIP_FLOOR_PX, CHIP_GAP, CHIP_LINE, REFERENCE_STAGE } from './chipFit'
 import { MAP_GAP } from './gap'
 import { unionBox, type Box, type Point } from './geometry'
-import { contextRegions, footprintRegions, pointInRegion } from './hull'
+import { footprintRegions, pointInRegion } from './hull'
 import { hexagonBounds } from './lattice'
 import type { MapContextLayout, MapHexagonLayout } from './map'
 import { CHIP_LABEL, measure } from './text'
 
-/** How far a context's hull stands off the footprints of the hexagons it outlines when the lattice tiles don't. */
+/** How far a context's hull stands off the footprints of the hexagons it outlines. */
 const HULL_PAD = MAP_GAP / 3
 /** How far from its region a chip on a crowded map may sit, nearest first. */
 const CHIP_REACHES = [1, 2, 3, 4, 5, 6, 7].map((k) => k * CHIP_GAP)
@@ -93,18 +93,15 @@ export function layContexts(
   map: HexaMap,
   hexagons: MapHexagonLayout[],
   boxes: Box[],
-  pitch: Point,
   compacting: boolean,
   bounds: Box,
 ): { contexts: MapContextLayout[]; outline?: Point[][]; bounds: Box } {
   const occupied = occupiedContexts(map)
   const contexts: MapContextLayout[] = []
   if (occupied.length && (occupied.length >= 2 || hexagons.length > 1)) {
-    // Off the lattice each hull hugs its hexagons' own footprints, and a chip must keep its whole text (not just its
+    // Each hull hugs its hexagons' own footprints, and a compact map's chip must keep its whole text (not just its
     // baseline point) off every hexagon.
-    const regions = compacting
-      ? footprintRegions(hexagons.map((h) => ({ cell: h.cell, contextId: h.contextId, outline: footprint(h) })))
-      : contextRegions(hexagons, pitch)
+    const regions = footprintRegions(hexagons.map((h) => ({ cell: h.cell, contextId: h.contextId, outline: footprint(h) })))
     if (occupied.length === 1) return { contexts, outline: regions.get(occupied[0].id), bounds }
     for (const context of map.contexts) {
       const loops = regions.get(context.id) ?? []
