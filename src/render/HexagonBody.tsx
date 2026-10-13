@@ -61,7 +61,7 @@ function EdgeLabel({ edge, chained }: { edge: LayoutEdge; chained: boolean }) {
   )
 }
 
-function Node({ node, selected, target, chained, interactive, noted }: { node: LayoutNode; selected: boolean; target: boolean; chained: boolean; interactive: boolean; noted: boolean }) {
+function Node({ node, selected, target, chained, interactive, noted, planned }: { node: LayoutNode; selected: boolean; target: boolean; chained: boolean; interactive: boolean; noted: boolean; planned: boolean }) {
   const left = node.x - node.width / 2
   const top = node.y - node.height / 2
   const centered = node.align === 'center'
@@ -72,7 +72,7 @@ function Node({ node, selected, target, chained, interactive, noted }: { node: L
   let y = node.kind === 'aggregate' ? top + 4 : node.y - textHeight / 2
   return (
     <g
-      className={`node node-${node.kind} tone-${node.tone}`}
+      className={`node node-${node.kind} tone-${node.tone}${planned ? ' planned' : ''}`}
       data-layer={node.layer}
       data-ref={node.ref}
       data-selected={selected ? '' : undefined}
@@ -134,16 +134,18 @@ interface HexagonBodyProps {
   interactive: boolean
   /** The refs of this hexagon that carry a note, with its text. */
   notes: ReadonlyMap<string, string>
+  /** The refs of this hexagon that are planned. */
+  planned: ReadonlySet<string>
 }
 
 /** One hexagon's rings, edges and nodes — everything but the shared `<defs>` and the once-per-map legend. */
-export function HexagonBody({ model, showGuides, selected, linkTargets, chain, interactive, notes }: HexagonBodyProps) {
+export function HexagonBody({ model, showGuides, selected, linkTargets, chain, interactive, notes, planned }: HexagonBodyProps) {
   return (
     <>
       {model.rings.map((ring, i) => <Ring key={ring.key} ring={ring} shape={model.shape} inner={model.rings[i + 1]} interactive={interactive} />)}
       {showGuides && model.guides.map((g, k) => <line key={k} className="guide" x1={g.from.x} y1={g.from.y} x2={g.to.x} y2={g.to.y} />)}
       {model.edges.map((edge) => <Edge key={edge.key} edge={edge} chained={inChain(edge, chain)} />)}
-      {model.nodes.map((node) => <Node key={node.key} node={node} selected={node.ref === selected} target={linkTargets.has(node.ref)} chained={!!chain?.has(node.ref)} interactive={interactive} noted={notes.has(node.ref)} />)}
+      {model.nodes.map((node) => <Node key={node.key} node={node} selected={node.ref === selected} target={linkTargets.has(node.ref)} chained={!!chain?.has(node.ref)} interactive={interactive} noted={notes.has(node.ref)} planned={planned.has(node.ref)} />)}
       {model.edges.map((edge) => <EdgeLabel key={edge.key} edge={edge} chained={inChain(edge, chain)} />)}
       {model.texts.map((text) => <Heading key={text.key} text={text} />)}
     </>

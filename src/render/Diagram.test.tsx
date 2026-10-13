@@ -1,4 +1,5 @@
 import { notesOf } from '../model/notes'
+import { plannedOf } from '../model/planned'
 import { cleanup, render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -24,9 +25,10 @@ function renderSvg(
     linkTargets?: ReadonlySet<string>
     crossLinkTargets?: ReadonlyMap<string, ReadonlySet<string>>
     hovered?: string | null
+    mode?: 'overview' | 'detailed'
   } = {},
 ) {
-  const model = layoutMap(map, { current: extra.focus ?? map.hexagons[0].id })
+  const model = layoutMap(map, { current: extra.focus ?? map.hexagons[0].id, mode: extra.mode })
   const legend = legendFor(diagramOf(map, map.hexagons[0].id))
   const { container } = render(
     <svg>
@@ -40,6 +42,7 @@ function renderSvg(
         crossLinkTargets={extra.crossLinkTargets ?? NO_CROSS_TARGETS}
         hovered={extra.hovered ?? null}
         notes={new Map(map.hexagons.map((h) => [h.id, notesOf(h)]))}
+        planned={new Map(map.hexagons.map((h) => [h.id, plannedOf(h)]))}
       />
     </svg>,
   )
@@ -414,5 +417,48 @@ describe('ringedArcPath — the path always reads left-to-right, wherever around
     expect(m).not.toBeNull()
     const [, startX, , endX] = m!.map(Number)
     expect(startX).toBeLessThan(endX)
+  })
+})
+
+describe('MapDiagram — planned items', () => {
+  const planned = { status: 'planned' } as const
+  const plannedMap = (): HexaMap => {
+    const map = toMap(EXAMPLE_DIAGRAM)
+    const [h] = map.hexagons
+    return {
+      ...map,
+      contexts: [{ id: 'c1' }, { id: 'c2' }],
+      hexagons: [
+        { ...h, useCases: h.useCases.map((u) => ({ ...u, ...planned })), ports: h.ports.map((p) => (p.id === 'p-repo' ? { ...p, ...planned } : p)) },
+        { ...h, id: 'h2', contextId: 'c2', cell: { q: 1, r: 0 }, title: 'Second', ...planned },
+      ],
+      links: [{ id: 'l1', from: { hexagonId: 'h1', portId: 'p-repo' }, to: { hexagonId: 'h2', portId: 'p-submit' }, ...planned }],
+    }
+  }
+  const plannedRefs = (container: HTMLElement, hexId: string) =>
+    [...container.querySelectorAll(`[data-hex="${hexId}"] .node.planned`)].map((n) => n.getAttribute('data-ref')).sort()
+
+  it.each(['overview', 'detailed'] as const)('marks a planned element, and only that element, with the planned class in %s', (mode) => {
+    const { container } = renderSvg(plannedMap(), { mode })
+    expect(plannedRefs(container, 'h1')).toContain('uc-submit')
+    expect(plannedRefs(container, 'h1')).toContain('p-repo')
+    expect(container.querySelector('[data-hex="h1"] .node[data-ref="p-submit"]')!.classList.contains('planned')).toBe(false)
+    expect(container.querySelector('[data-hex="h1"] .node[data-ref="d-feedback"]')!.classList.contains('planned')).toBe(false)
+  })
+
+  it('marks a planned hexagon group, and leaves a built one unmarked', () => {
+    const { container } = renderSvg(plannedMap())
+    expect(container.querySelector('[data-hex="h2"]')!.classList.contains('planned')).toBe(true)
+    expect(container.querySelector('[data-hex="h1"]')!.classList.contains('planned')).toBe(false)
+  })
+
+  it('marks a planned map link', () => {
+    const { container } = renderSvg(plannedMap())
+    expect(container.querySelector('path[data-map-link]')!.classList.contains('planned')).toBe(true)
+  })
+
+  it('marks nothing on a map without planned items', () => {
+    const { container } = renderSvg(twoHexagonMap())
+    expect(container.querySelectorAll('.planned')).toHaveLength(0)
   })
 })

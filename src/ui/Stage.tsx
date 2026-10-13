@@ -8,6 +8,7 @@ import { currentHexagon, type MapLayout } from '../layout/map'
 import { dependencyChain } from '../model/chain'
 import { collectionOf, linkTargets, type LinkChoice } from '../model/links'
 import { noteToShow, notesOf } from '../model/notes'
+import { plannedOf } from '../model/planned'
 import { canLink, crossPortTargets, isCrossTarget, targetsByHexagon } from '../model/linkTargeting'
 import type { Destination } from '../model/map'
 import type { CollectionKey, Diagram as DiagramModel, DomainType, HexaMap, Wall } from '../model/schema'
@@ -47,6 +48,7 @@ interface StageProps {
   onGrow: (side: Wall, context: Destination) => void
 }
 
+const NO_NOTES: ReadonlyMap<string, string> = new Map()
 const { addItem, updateItem, removeItem } = useMapStore.getState()
 const { record } = useHistoryStore.getState()
 const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
@@ -119,8 +121,20 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
 
   const { announcement, focusHexagon } = useHexagonFocus({ hexId, model, mainRef, view, viewport, setView, setSelected, onLinking })
 
-  const notes = useMemo(() => new Map(model.hexagons.map((h) => [h.id, notesOf(map.hexagons.find((m) => m.id === h.id)!)])), [model, map])
-  const note = dragging ? null : noteToShow(notes.get(hexId)!, selected, hoveredRef)
+  // Per laid-out hexagon, so a layout that holds one the map lacks simply has nothing to show for it.
+  const { notes, planned } = useMemo(() => {
+    const content = model.hexagons.map((h) => [h.id, map.hexagons.find((m) => m.id === h.id) ?? {}] as const)
+    return { notes: new Map(content.map(([id, h]) => [id, notesOf(h)])), planned: new Map(content.map(([id, h]) => [id, plannedOf(h)])) }
+  }, [model, map])
+  const note = dragging ? null : noteToShow(notes.get(hexId) ?? NO_NOTES, selected, hoveredRef)
+
+  // A selection or hover on an element the layout no longer draws (hidden as planned, deleted) must not linger:
+  // it would still receive keys, and reappear with the element.
+  useEffect(() => {
+    const drawn = (ref: string | null) => ref === null || hexModel.nodes.some((n) => n.ref === ref)
+    if (!drawn(selected)) setSelected(null)
+    if (!drawn(hoveredRef)) setHoveredRef(null)
+  }, [hexModel, selected, hoveredRef])
 
   // Insertion points, selection and editing all work in the current hexagon's own (untranslated) coordinates;
   // toScreen adds its centre once, so every overlay lands at the hexagon's place on the map (ADR-04).
@@ -291,6 +305,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
           hovered={highlight ? hovered : null}
           chain={chain}
           notes={notes}
+          planned={planned}
         />
       </svg>
       {/* Mounted from the start (not just once there is something to say): a screen reader only picks up

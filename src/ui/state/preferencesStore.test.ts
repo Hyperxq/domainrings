@@ -29,6 +29,19 @@ describe('preferences store', () => {
     expect(usePreferencesStore.getState().viewOnly).toBe(true)
   })
 
+  it('shows planned items by default and persists the choice under its own raw key', () => {
+    expect(usePreferencesStore.getState().showPlanned).toBe(true)
+    expect(localStorage).toHaveLength(0)
+    usePreferencesStore.setState({ showPlanned: false })
+    expect(localStorage.getItem('domainrings:show-planned')).toBe('false')
+    usePreferencesStore.setState({ showPlanned: true })
+    rehydrate()
+    expect(usePreferencesStore.getState().showPlanned).toBe(true)
+    localStorage.setItem('domainrings:show-planned', 'false')
+    rehydrate()
+    expect(usePreferencesStore.getState().showPlanned).toBe(false)
+  })
+
   it('ignores a stored theme or palette it does not know', () => {
     localStorage.setItem('domainrings:theme', 'sepia')
     localStorage.setItem('domainrings:palette', 'toString')

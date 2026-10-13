@@ -8,6 +8,7 @@ import { legendFor } from '../layout/legend'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
 import { toMap } from '../model/hexa'
 import { contextName, diagramOf, freeSides, neighbour, SIDE_ORDER } from '../model/map'
+import { withoutPlanned } from '../model/planned'
 import { useMapStore } from '../model/store'
 import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
@@ -54,8 +55,10 @@ function Harness({
 }) {
   const mode = usePreferencesStore((s) => s.mode)
   const expanded = useViewStore((s) => s.expanded)
-  const map = useMapStore((s) => s.map)
+  const showPlanned = usePreferencesStore((s) => s.showPlanned)
+  const whole = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
+  const map = showPlanned ? whole : withoutPlanned(whole, hexId)
   const diagram = diagramOf(map, hexId)
   const svgRef = createRef<SVGSVGElement>()
   const currentContextId = map.hexagons.find((h) => h.id === hexId)!.contextId
@@ -1864,5 +1867,58 @@ describe('Stage note popover', () => {
     expect(node(container, 'a-knex').querySelector('[data-note-marker]')).toBeNull()
     expect(node(container, 'd-feedback').querySelector('[data-note-marker]')).toBeNull()
     expect(container.querySelector('[data-note-marker]')!.getAttribute('aria-hidden')).toBe('true')
+  })
+})
+
+describe('Stage — layout and map out of step', () => {
+  it('renders when the layout holds a hexagon the map does not, with no popover', () => {
+    const full = twoHexMap()
+    const map = { ...full, hexagons: [full.hexagons[0]] }
+    const diagram = diagramOf(map, 'h1')
+    const { container } = render(
+      <Stage model={layoutMap(full, { current: 'h1' })} map={map} hexId="h1" diagram={diagram} legend={legendFor(diagram)} revision={0} title="Test" svgRef={createRef()} onDelete={() => false} onLink={() => {}} contextLabel="Context 1" onGrow={() => {}} />,
+    )
+    expect(container.querySelectorAll('[data-hex]')).toHaveLength(2)
+    fireEvent.pointerOver(container.querySelector('[data-hex="h2"] .node[data-ref="uc-submit"]')!)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+})
+
+describe('Stage — an element that gets hidden while selected or hovered', () => {
+  const planUseCase = () => {
+    const map = toMap(EXAMPLE_DIAGRAM)
+    const [h] = map.hexagons
+    useMapStore.getState().replace({ ...map, hexagons: [{ ...h, useCases: h.useCases.map((u) => ({ ...u, status: 'planned' as const })) }] })
+  }
+  const useCase = (container: HTMLElement) => container.querySelector('[data-hex] .node[data-ref="uc-submit"]')!
+
+  it('drops its note popover instead of showing it at the corner', () => {
+    planUseCase()
+    const { container } = render(<Harness />)
+    fireEvent.click(useCase(container))
+    expect(screen.queryByRole('tooltip')).not.toBeNull()
+    act(() => usePreferencesStore.setState({ showPlanned: false }))
+    expect(container.querySelector('[data-ref="uc-submit"]')).toBeNull()
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it('is no longer selected, so a key press cannot act on what is out of sight', () => {
+    planUseCase()
+    const onDelete = vi.fn(() => true)
+    const { container } = render(<Harness onDelete={onDelete} />)
+    fireEvent.click(useCase(container))
+    act(() => usePreferencesStore.setState({ showPlanned: false }))
+    fireEvent.keyDown(svg(container), { key: 'Delete' })
+    expect(onDelete).not.toHaveBeenCalled()
+  })
+
+  it('is forgotten as hovered', () => {
+    planUseCase()
+    const { container } = render(<Harness />)
+    fireEvent.pointerOver(useCase(container))
+    expect(screen.queryByRole('tooltip')).not.toBeNull()
+    act(() => usePreferencesStore.setState({ showPlanned: false }))
+    act(() => usePreferencesStore.setState({ showPlanned: true }))
+    expect(screen.queryByRole('tooltip')).toBeNull()
   })
 })

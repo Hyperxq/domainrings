@@ -14,6 +14,8 @@ export interface Preferences {
   highlight: boolean
   /** Emphasize what depends on the selection instead of what it depends on. */
   dependents: boolean
+  /** Off: planned items (not built yet) are left out of the canvas, legend and image exports. */
+  showPlanned: boolean
   legendOpen: boolean
   legendInExport: boolean
   /** Reading mode: every editing affordance is gone, while viewing, selecting and exporting stay. */
@@ -27,6 +29,7 @@ const DEFAULTS: Preferences = {
   guides: true,
   highlight: true,
   dependents: false,
+  showPlanned: true,
   legendOpen: false,
   legendInExport: true,
   viewOnly: false,
@@ -50,6 +53,7 @@ const CODECS: { [K in keyof Preferences]: Codec<Preferences[K]> } = {
   guides: flag('domainrings:guides'),
   highlight: flag('domainrings:highlight'),
   dependents: flag('domainrings:dependents'),
+  showPlanned: flag('domainrings:show-planned'),
   legendOpen: flag('domainrings:legend-open'),
   legendInExport: flag('domainrings:legend-export'),
   viewOnly: flag('domainrings:view-only'),

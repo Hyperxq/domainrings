@@ -112,7 +112,7 @@ export function layLinks(map: HexaMap, hexagons: MapHexagonLayout[], boxes: Box[
     // Pattern eligibility mirrors checkMap's own rule (LinkSchema refine): only a link crossing contexts may
     // carry a pattern — no hull dependency, just the two hexagons' own contextId.
     const pattern = fromHexagon.contextId !== toHexagon.contextId ? link.pattern : undefined
-    return { id: link.id, points, ...(pattern ? { pattern, label } : {}) }
+    return { id: link.id, points, ...(pattern ? { pattern, label } : {}), ...(link.status ? { planned: true } : {}) }
   })
   if (detours.length) bounds = unionBox([bounds, ...detours.map((p): Box => ({ x: p.x, y: p.y, width: 0, height: 0 }))])
   return { links, bounds }

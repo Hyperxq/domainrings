@@ -1260,3 +1260,18 @@ describe('layoutMap — a hull on a compact map never crosses a hexagon of anoth
     expect(result.contexts.find((c) => c.id === 'c-band')!.loops).toHaveLength(2)
   })
 })
+
+describe('layoutMap — planned', () => {
+  const planned = { status: 'planned' } as const
+
+  it('carries a planned hexagon and a planned link, and leaves the keys off the built ones', () => {
+    const map = twoHexagonMap()
+    const marked = { ...map, hexagons: [map.hexagons[0], { ...map.hexagons[1], ...planned }], links: [{ ...map.links[0], ...planned }] }
+    const layout = layoutMap(marked)
+    expect(layout.hexagons.map((h) => h.planned)).toEqual([undefined, true])
+    expect(layout.links[0].planned).toBe(true)
+    const built = layoutMap(map)
+    expect(built.hexagons.every((h) => !('planned' in h))).toBe(true)
+    expect('planned' in built.links[0]).toBe(false)
+  })
+})

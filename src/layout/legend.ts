@@ -7,7 +7,7 @@ export type Swatch = LayerRole | 'driving' | 'driven' | 'external' | 'element'
 
 export interface LegendModel {
   colours: { label: string; swatch: Swatch }[]
-  strokes: { stroke: 'dashed' | 'solid' | 'dotted'; label: string }[]
+  strokes: { stroke: 'dashed' | 'solid' | 'dotted' | 'planned'; label: string }[]
   /** Only the element types this diagram actually uses. */
   tags: string[]
   /** Overrides `legendSections`' default per-section heading — set only where the default wording ("Glyph ·
@@ -15,7 +15,8 @@ export interface LegendModel {
   sectionTitles?: { colours?: string; strokes?: string; tags?: string }
 }
 
-export function legendFor(d: Diagram): LegendModel {
+/** `planned`: the diagram on show draws planned items, so the legend explains how they read. */
+export function legendFor(d: Diagram, planned = false): LegendModel {
   const { rings, labels } = HEXAGONAL_KIND
   const sideOfAdapter = (portId?: string) => d.ports.find((p) => p.id === portId)?.side ?? 'driving'
   const present = [
@@ -35,6 +36,7 @@ export function legendFor(d: Diagram): LegendModel {
       { stroke: 'dashed', label: 'Contract: port' },
       { stroke: 'solid', label: 'Implementation: adapter, use case' },
       { stroke: 'dotted', label: 'Wiring and ownership' },
+      ...(planned ? [{ stroke: 'planned' as const, label: 'Planned: not built yet' }] : []),
     ],
     tags: present,
   }

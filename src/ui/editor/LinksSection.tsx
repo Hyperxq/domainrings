@@ -4,6 +4,7 @@ import { crossHexagonPorts, linkEndLabel, type LinkPatch, type PortRef } from '.
 import { Fold } from '../Fold'
 import { Icon } from '../Icon'
 import { LinkSelect } from './LinkSelect'
+import { PlannedToggle } from './PlannedToggle'
 
 /** The Links section (REQ-LNK-07): every link in the map, and the create form that is the Links-editor half of
  * "one action, two entry points" (ADR-02) — the canvas "Link to…" chip is the other. Each row also reaches
@@ -98,6 +99,7 @@ export function LinksSection({
                     onChange={(pattern) => onUpdateLink(link.id, { pattern: (pattern as Link['pattern']) ?? null })}
                   />
                 )}
+                <PlannedToggle planned={link.status === 'planned'} onChange={(planned) => onUpdateLink(link.id, { status: planned ? 'planned' : null })} />
               </details>
             </li>
           ))}

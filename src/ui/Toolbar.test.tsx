@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { ROOMY_TOOLBAR, Toolbar } from './Toolbar'
+import { ROOMY_PLANNED_TOOLBAR, ROOMY_TOOLBAR, Toolbar } from './Toolbar'
 import { EXAMPLES } from '../model/example'
 import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
@@ -39,16 +39,17 @@ function renderToolbar(
     highlight?: boolean
     dependents?: boolean
     showScope?: boolean
+    hasPlanned?: boolean
     exportScope?: 'map' | 'hexagon'
     themeChoice?: 'light' | 'dark' | 'system'
     palette?: 'default' | 'purple' | 'terracotta' | 'cool'
   } = {},
 ) {
-  const { mode = 'detailed', guides = true, highlight = true, dependents = false, themeChoice = 'system', palette = 'default', exportScope = 'map', showScope = false } = overrides
+  const { mode = 'detailed', guides = true, highlight = true, dependents = false, themeChoice = 'system', palette = 'default', exportScope = 'map', showScope = false, hasPlanned = true } = overrides
   usePreferencesStore.setState({ mode, guides, highlight, dependents, theme: themeChoice, palette })
   useViewStore.setState({ exportScope })
   const props = { onNew: vi.fn(), onExample: vi.fn(), onOpen: vi.fn(), onCopyLink: vi.fn(), onExport: vi.fn() }
-  render(<Toolbar {...props} showScope={showScope} />)
+  render(<Toolbar {...props} showScope={showScope} hasPlanned={hasPlanned} />)
   return props
 }
 
@@ -127,17 +128,53 @@ describe('Toolbar at wide width', () => {
 })
 
 
+describe('Toolbar planned switch', () => {
+  beforeEach(() => {
+    viewport = WIDE
+  })
+
+  it('is on by default, explained by its title, and toggles whether planned items show', () => {
+    renderToolbar()
+    const planned = screen.getByRole('switch', { name: 'Planned' })
+    expect(planned.getAttribute('aria-checked')).toBe('true')
+    expect(planned.getAttribute('title')).toMatch(/not built yet/i)
+    fireEvent.click(planned)
+    expect(usePreferencesStore.getState().showPlanned).toBe(false)
+    expect(screen.getByRole('switch', { name: 'Planned' }).getAttribute('aria-checked')).toBe('false')
+  })
+
+  it('is left out, in the bar and in the View menu, when the map has nothing planned', () => {
+    renderToolbar({ hasPlanned: false })
+    expect(screen.queryByRole('switch', { name: 'Planned' })).toBeNull()
+    cleanup()
+    viewport = ROOMY - 1
+    renderToolbar({ hasPlanned: false })
+    fireEvent.click(screen.getByRole('button', { name: 'View' }))
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'Planned' })).toBeNull()
+  })
+})
+
 describe('Toolbar between the two breakpoints', () => {
   beforeEach(() => {
     viewport = ROOMY
   })
 
   it('keeps the detail level and toggles in the bar, with File and Share as menus', () => {
-    renderToolbar()
+    renderToolbar({ hasPlanned: false })
     for (const name of ['File', 'Share']) expect(screen.getByRole('button', { name })).toBeTruthy()
     expect(screen.getByRole('radio', { name: 'Overview' })).toBeTruthy()
     expect(screen.getByRole('switch', { name: 'Guides' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
+  })
+
+  it('folds the view controls into the View menu until the bar also has room for the Planned switch', () => {
+    renderToolbar({ hasPlanned: true })
+    expect(screen.getByRole('button', { name: 'View' })).toBeTruthy()
+    cleanup()
+    viewport = minWidth(ROOMY_PLANNED_TOOLBAR)
+    renderToolbar({ hasPlanned: true })
+    expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
+    expect(screen.getByRole('switch', { name: 'Planned' })).toBeTruthy()
   })
 })
 
@@ -165,6 +202,7 @@ describe('Toolbar below the compact breakpoint', () => {
       ['Guides', 'false'],
       ['Highlight', 'true'],
       ['Dependents', 'false'],
+      ['Planned', 'true'],
     ])
   })
 
@@ -174,6 +212,7 @@ describe('Toolbar below the compact breakpoint', () => {
     ['Guides', 'guides', true],
     ['Highlight', 'highlight', false],
     ['Dependents', 'dependents', true],
+    ['Planned', 'showPlanned', false],
   ] as const)('choosing %s in the View menu sets %s to %s and nothing else', (name, field, value) => {
     renderToolbar({ mode: 'detailed', guides: false, highlight: true })
     const before = usePreferencesStore.getState()

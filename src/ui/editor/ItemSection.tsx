@@ -6,6 +6,7 @@ import { Icon } from '../Icon'
 import { pruneToast } from '../pruneNotice'
 import { useHistoryStore } from '../state/historyStore'
 import { session } from './fieldSession'
+import { PlannedToggle } from './PlannedToggle'
 
 const { addItem, updateItem, removeItem } = useMapStore.getState()
 const { record } = useHistoryStore.getState()
@@ -63,6 +64,7 @@ export function ItemSection<K extends CollectionKey>({ hexId, map, collection, i
                   <Icon name="close" />
                 </button>
                 {fields?.(item, update)}
+                <PlannedToggle planned={item.status === 'planned'} onChange={(planned) => update({ status: planned ? 'planned' : undefined } as Patch<K>)} />
                 <details className="note">
                   <summary>Note</summary>
                   <textarea aria-label={`Note for ${item.name}`} rows={2} value={item.note ?? ''} onChange={(e) => type({ note: e.target.value || undefined } as Patch<K>)} {...session} />

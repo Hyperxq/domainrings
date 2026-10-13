@@ -36,6 +36,22 @@ describe('legendFor', () => {
   })
 })
 
+describe('legendFor — planned', () => {
+  it('adds a planned stroke row when the diagram shows planned items, after the three standing ones', () => {
+    expect(legendFor(EXAMPLE_DIAGRAM, true).strokes.at(-1)).toEqual({ stroke: 'planned', label: 'Planned: not built yet' })
+    expect(legendFor(EXAMPLE_DIAGRAM, true).strokes).toHaveLength(4)
+  })
+
+  it('adds nothing when nothing is planned', () => {
+    expect(legendFor(EXAMPLE_DIAGRAM).strokes).toHaveLength(3)
+    expect(legendFor(EXAMPLE_DIAGRAM, false).strokes.map((s) => s.stroke)).not.toContain('planned')
+  })
+
+  it('makes room for the row in the export block', () => {
+    expect(legendSize(legendFor(EXAMPLE_DIAGRAM, true)).height - legendSize(legendFor(EXAMPLE_DIAGRAM)).height).toBe(LEGEND_ROW)
+  })
+})
+
 describe('legend sections', () => {
   const empty = { ...EXAMPLE_DIAGRAM, domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }
 
