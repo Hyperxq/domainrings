@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react'
 import { usePreferencesStore } from './state/preferencesStore'
-import { contextName } from '../model/map'
+import { contextName, diagramOf } from '../model/map'
 import { Editor } from './Editor'
 import { Legend } from './Legend'
 import { Stage } from './Stage'
@@ -11,10 +11,12 @@ type StageProps = ComponentProps<typeof Stage>
 
 type HexagonalWorkspaceProps = Omit<StageProps, 'contextLabel' | 'onDelete' | 'onLink' | 'onGrow'> &
   CommandsContext & {
+    /** The map as the canvas draws it — `map` less whatever the Planned switch hides. Edits always work on `map`. */
+    shown: StageProps['map']
   }
 
 /** Editor, legend and stage for a Hexagonal map, wired to the edit commands that toast an undoable step. */
-export function HexagonalWorkspace({ nameOf, parseFile, ...stage }: HexagonalWorkspaceProps) {
+export function HexagonalWorkspace({ nameOf, parseFile, shown, ...stage }: HexagonalWorkspaceProps) {
   const { map, hexId, diagram } = stage
   const viewOnly = usePreferencesStore((s) => s.viewOnly)
   const commands = useHexagonalCommands({ map, hexId, diagram, nameOf, parseFile })
@@ -37,6 +39,8 @@ export function HexagonalWorkspace({ nameOf, parseFile, ...stage }: HexagonalWor
       <Legend legend={stage.legend} />
       <Stage
         {...stage}
+        map={shown}
+        diagram={shown === map ? diagram : diagramOf(shown, hexId)}
         contextLabel={contextLabel}
         onDelete={commands.deleteItem}
         onLink={commands.link}

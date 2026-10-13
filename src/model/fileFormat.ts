@@ -7,9 +7,10 @@ import {
   checkOnionIntegrity,
   CleanFileFields,
   CleanFileObject,
-  DiagramFields,
   HexagonalObjectV5,
   KindSchema,
+  LegacyDiagramFields,
+  LegacyMapFields,
   MapFields,
   OnionElementV3Schema,
   OnionElementV4Schema,
@@ -25,7 +26,7 @@ import {
 // Frozen: the file format a v1 build wrote and still reads — including a Clean/Onion `kind` from the old kind
 // switcher (REQ-06 coerces it back to hexagonal in parseHexa, it does not touch what a v1 file is allowed to
 // contain). Never change this schema.
-const LegacyDiagramObject = z.object({ version: z.literal(1), kind: KindSchema, ...DiagramFields })
+const LegacyDiagramObject = z.object({ version: z.literal(1), kind: KindSchema, ...LegacyDiagramFields })
 export const HexaFileV1Schema = LegacyDiagramObject.extend({ app: z.enum([APP, 'archviz']) }).superRefine(checkIntegrity)
 
 /** The wider, as-stored shape a v1 file may carry (any of the 3 legacy kinds) — kept distinct from the live
@@ -34,15 +35,16 @@ export type LegacyDiagram = z.infer<typeof LegacyDiagramObject>
 
 // Frozen: the map format a v2 build wrote and still reads (any of the 3 kinds). Never change this schema — REQ-06
 // coerces its `kind` back to hexagonal on open (hexa.ts), it does not touch what a v2 file is allowed to contain.
-const MapObjectV2 = z.object({ version: z.literal(2), kind: KindSchema, ...MapFields })
+const MapObjectV2 = z.object({ version: z.literal(2), kind: KindSchema, ...LegacyMapFields })
 export const HexaFileV2Schema = MapObjectV2.extend({ app: z.literal(APP) }).superRefine(checkMap)
 
 // Frozen (v3): the Hexagonal arm a v3 build wrote (native-onion's own "current" before this change froze it,
 // ADR-03) — never change this schema.
-const HexagonalObjectV3 = z.object({ version: z.literal(3), kind: z.literal('hexagonal'), ...MapFields })
+const HexagonalObjectV3 = z.object({ version: z.literal(3), kind: z.literal('hexagonal'), ...LegacyMapFields })
 export const HexagonalFileV3Schema = HexagonalObjectV3.superRefine(checkMap)
 
-// Frozen (v4): the Hexagonal arm a v4 build wrote — never change this schema.
+// Frozen (v4): the Hexagonal arm a v4 build wrote — never change this schema beyond the additive optional `status`
+// (`toHexa` still saves a hexagonal map at this version, so it must read what it writes).
 const HexagonalObjectV4 = z.object({ version: z.literal(4), kind: z.literal('hexagonal'), ...MapFields })
 
 const OnionRingSchemaV4 = z.object({ role: OnionRingRoleSchema, name: z.string() })

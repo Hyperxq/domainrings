@@ -20,6 +20,8 @@ interface ToolbarProps {
   onExport: (format: 'hexa' | 'svg' | 'png') => void
   /** Only a multi-hexagon map has more than one thing to export (EXPORT-03) — a single hexagon has nothing to choose between. */
   showScope: boolean
+  /** The Planned switch only has something to show or hide once the map holds a planned item. */
+  hasPlanned: boolean
 }
 
 const MODES = ['overview', 'detailed'] as const
@@ -27,12 +29,15 @@ const SWITCHES = [
   { id: 'guides', label: 'Guides', title: 'Show the dashed guide spokes' },
   { id: 'highlight', label: 'Highlight', title: 'Highlight the layer under the pointer' },
   { id: 'dependents', label: 'Dependents', title: 'Emphasize what depends on the selection, not what it depends on' },
+  { id: 'showPlanned', label: 'Planned', title: 'Show what is not built yet; off hides it from the canvas and image exports' },
 ] as const
 const MODE_LABEL: Record<LayoutMode, string> = { overview: 'Overview', detailed: 'Detailed' }
 const THEME_LABEL: Record<ThemeChoice, string> = { light: 'Light', dark: 'Dark', system: 'System' }
 /* The widest toolbar with the view controls in the bar (a multi-hexagon map, fallback fonts) plus the 12px side margins,
  * measured in Chrome, is 1112px: below 1136 the view controls fold into a menu. */
 export const ROOMY_TOOLBAR = '(min-width: 1136px)'
+/** The Planned switch adds about 104px (115px in fallback fonts) to that widest bar. */
+export const ROOMY_PLANNED_TOOLBAR = '(min-width: 1248px)'
 const media = (query: string) => ({
   subscribe: (onChange: () => void) => {
     const list = matchMedia(query)
@@ -42,13 +47,16 @@ const media = (query: string) => ({
   matches: () => matchMedia(query).matches,
 })
 const roomyMedia = media(ROOMY_TOOLBAR)
+const roomyPlannedMedia = media(ROOMY_PLANNED_TOOLBAR)
 const darkMedia = media('(prefers-color-scheme: dark)')
 
-export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showScope }: ToolbarProps) {
+export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showScope, hasPlanned }: ToolbarProps) {
+  const switches = hasPlanned ? SWITCHES : SWITCHES.filter((s) => s.id !== 'showPlanned')
   const preferences = usePreferencesStore()
   const { mode, theme: themeChoice, palette } = preferences
   const exportScope = useViewStore((s) => s.exportScope)
-  const roomy = useSyncExternalStore(roomyMedia.subscribe, roomyMedia.matches)
+  const roomyFor = hasPlanned ? roomyPlannedMedia : roomyMedia
+  const roomy = useSyncExternalStore(roomyFor.subscribe, roomyFor.matches)
   const systemDark = useSyncExternalStore(darkMedia.subscribe, darkMedia.matches)
   const dark = themeChoice === 'system' ? systemDark : themeChoice === 'dark'
   const openFile = useRef<HTMLInputElement>(null)
@@ -81,7 +89,7 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
 
           <span className="divider" aria-hidden="true" />
 
-          {SWITCHES.map(({ id, label, title }) => (
+          {switches.map(({ id, label, title }) => (
             <button key={id} type="button" role="switch" aria-checked={preferences[id]} className="switch" title={title} onClick={() => usePreferencesStore.setState({ [id]: !preferences[id] })}>
               <span className="switch-track" aria-hidden="true">
                 <span className="switch-knob" />
@@ -100,7 +108,7 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
           }
           choices={[
             ...MODES.map((m) => ({ id: m, label: MODE_LABEL[m], checked: mode === m, control: 'radio' as const })),
-            ...SWITCHES.map(({ id, label }) => ({ id, label, checked: preferences[id], control: 'switch' as const })),
+            ...switches.map(({ id, label }) => ({ id, label, checked: preferences[id], control: 'switch' as const })),
           ]}
           onChoose={(id) => {
             if (id === 'overview' || id === 'detailed') usePreferencesStore.setState({ mode: id })

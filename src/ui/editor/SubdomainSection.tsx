@@ -5,10 +5,13 @@ import type { Diagram, HexaMap } from '../../model/schema'
 import { useMapStore } from '../../model/store'
 import { ChoiceMenu } from '../ChoiceMenu'
 import { Fold } from '../Fold'
+import { useHistoryStore } from '../state/historyStore'
 import { CollectionSections } from './CollectionSections'
 import { session } from './fieldSession'
+import { PlannedToggle } from './PlannedToggle'
 
 const { setMeta } = useMapStore.getState()
+const { record } = useHistoryStore.getState()
 
 /** Stands in for a context id in the move menu: a new context has none yet. */
 const NEW_CONTEXT = ''
@@ -62,6 +65,14 @@ export function SubdomainSection({ map, hexId, onAddHexagon, onDeleteHexagon, on
         <span>Subtitle</span>
         <input value={d.subtitle ?? ''} onChange={(e) => setMeta(hexId, { subtitle: e.target.value || undefined })} {...session} />
       </label>
+      <PlannedToggle
+        planned={d.status === 'planned'}
+        label="Planned subdomain"
+        onChange={(planned) => {
+          record({ map, focus: hexId })
+          setMeta(hexId, { status: planned ? 'planned' : undefined })
+        }}
+      />
       <label className="field" data-item-id="composition">
         <span>Composition root</span>
         <input

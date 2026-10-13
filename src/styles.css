@@ -293,6 +293,7 @@ svg[data-emphasis='dependents'] .compact-port[data-chain] circle { stroke-dashar
 .stroke-dashed { stroke: var(--teal); stroke-width: 2; stroke-dasharray: 6 4; }
 .stroke-solid { stroke: var(--ink); stroke-width: 1.6; }
 .stroke-dotted { stroke: var(--muted); stroke-width: 1.6; stroke-dasharray: 2 3; }
+.stroke-planned { stroke: var(--ink); stroke-width: 1.6; stroke-dasharray: 4 3; opacity: 0.55; }
 .canvas .line-strong { font-family: var(--font-mono); font-weight: 600; }
 
 .edge { fill: none; stroke-width: 1.6; stroke-linejoin: round; }
@@ -303,6 +304,12 @@ svg[data-emphasis='dependents'] .compact-port[data-chain] circle { stroke-dashar
    the same fade-in every other mounted affordance uses (`enter`) — it does not need to distinguish "loaded from
    file" vs "created via UI", both are a mount. */
 .map-link { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 6 4; animation: enter var(--motion-base) var(--motion-ease); }
+/* Planned (not built yet): dashed and faded, still readable. A planned hexagon fades its rings only, so its built
+   contents keep full strength. */
+.node.planned { opacity: 0.55; }
+.node.planned :is(.box, .aggregate-outline) { stroke-dasharray: 4 3; }
+[data-hex].planned .ring { stroke-dasharray: 8 5; opacity: 0.55; }
+.map-link.planned { opacity: 0.4; }
 .link-pattern-label { fill: var(--muted); font-family: var(--font-mono); text-anchor: middle; paint-order: stroke; stroke: var(--card); stroke-width: 4px; stroke-linejoin: round; }
 /* Context outlines and their name chips (CB-01, CB-02, ADR-04) — inert (ADR-05), so neither carries an entrance
    animation the way a grown hexagon's cue does; they simply redraw with the rest of the layout. */
@@ -685,6 +692,9 @@ a.icon-button { color: inherit; text-decoration: none; }
 .item.layer legend { float: left; padding: 0; font-size: 12px; font-weight: 600; }
 
 .field { display: grid; gap: 3px; }
+.planned-toggle { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 12px; }
+.planned-toggle input { padding: 0; }
+.item > .planned-toggle { grid-column: 1 / -1; }
 .field > span, .note summary, .empty, .hint { color: var(--muted); font-size: 12px; }
 .empty { margin: 0; }
 /* Read-only value, styled like .field but the second span keeps normal text (CB-05.2). */

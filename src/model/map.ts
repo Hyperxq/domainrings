@@ -254,9 +254,10 @@ export interface LinkPatch {
   from?: { adapterId?: string | null }
   to?: { adapterId?: string | null }
   pattern?: Link['pattern'] | null
+  status?: Link['status'] | null
 }
 
-/** `null` clears a field (adapter or pattern) by removing its key entirely; `undefined`/absent — the whole
+/** `null` clears a field (adapter, pattern or status) by removing its key entirely; `undefined`/absent — the whole
  * `from`/`to`/`pattern` key missing, or `adapterId` missing from a given `from`/`to` — leaves the link's own key
  * exactly as it was, present or absent. (pruneLinks clears `adapterId` by assigning `undefined` instead, for its
  * own LINK-01.3 reasons — that is a different call site and is left as-is.) */
@@ -269,7 +270,16 @@ function applyEndPatch(end: LinkEnd, patch?: { adapterId?: string | null }): Lin
   return { ...end, adapterId: patch.adapterId }
 }
 
-/** Patches one link's adapters and/or pattern in place — its id and both ends' hexagonId/portId never change
+function applyField<K extends 'pattern' | 'status'>(link: Link, key: K, value: Link[K] | null | undefined): Link {
+  if (value === undefined) return link
+  if (value === null) {
+    const { [key]: _removed, ...rest } = link
+    return rest as Link
+  }
+  return { ...link, [key]: value }
+}
+
+/** Patches one link's adapters, pattern and/or status in place — its id and both ends' hexagonId/portId never change
  * (REQ-LNK-03.1: reconnecting is delete + recreate, never a direct move). Never writes a `pattern` key the patch
  * didn't address (an adapter-only edit leaves the link's own pattern key exactly as it was). Candidate map is
  * UNvalidated; see addLink. */
@@ -278,14 +288,8 @@ export function updateLink(map: HexaMap, id: string, patch: LinkPatch): HexaMap 
     ...map,
     links: map.links.map((l) => {
       if (l.id !== id) return l
-      const from = applyEndPatch(l.from, patch.from)
-      const to = applyEndPatch(l.to, patch.to)
-      if (patch.pattern === undefined) return { ...l, from, to }
-      if (patch.pattern === null) {
-        const { pattern: _pattern, ...rest } = l
-        return { ...rest, from, to }
-      }
-      return { ...l, from, to, pattern: patch.pattern }
+      const patched: Link = { ...l, from: applyEndPatch(l.from, patch.from), to: applyEndPatch(l.to, patch.to) }
+      return applyField(applyField(patched, 'pattern', patch.pattern), 'status', patch.status)
     }),
   }
 }

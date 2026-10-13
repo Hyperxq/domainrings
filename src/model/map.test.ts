@@ -767,3 +767,28 @@ describe('mergeMap', () => {
     expect([current, file]).toStrictEqual(snapshot)
   })
 })
+
+describe('updateLink status', () => {
+  const link = (extra: Partial<Link> = {}): HexaMap => {
+    const map = twoHexagonMap()
+    return { ...map, links: [{ ...map.links[0], ...extra }] }
+  }
+
+  it('marks a link planned', () => {
+    expect(updateLink(link(), 'l1', { status: 'planned' }).links[0].status).toBe('planned')
+  })
+
+  it('removes the key altogether with null', () => {
+    const next = updateLink(link({ status: 'planned' }), 'l1', { status: null }).links[0]
+    expect(next).not.toHaveProperty('status')
+  })
+
+  it('leaves the status alone when the patch does not address it', () => {
+    expect(updateLink(link({ status: 'planned' }), 'l1', { from: { adapterId: null } }).links[0].status).toBe('planned')
+  })
+
+  it('keeps status and pattern independent', () => {
+    const next = updateLink(link({ status: 'planned' }), 'l1', { pattern: null }).links[0]
+    expect(next).toMatchObject({ status: 'planned' })
+  })
+})

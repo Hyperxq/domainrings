@@ -184,7 +184,7 @@ describe('Hexagonal editor field controls', () => {
     const cards = document.querySelectorAll('li.item[data-item-id]')
     expect(cards.length).toBeGreaterThan(0)
     for (const card of cards) {
-      const texts = [...card.querySelectorAll('input, textarea')].map((el) => (el.matches('input.name') ? 'name' : el.tagName.toLowerCase()))
+      const texts = [...card.querySelectorAll('input:not([type="checkbox"]), textarea')].map((el) => (el.matches('input.name') ? 'name' : el.tagName.toLowerCase()))
       expect(texts).toEqual(['name', 'textarea'])
     }
   })

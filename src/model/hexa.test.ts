@@ -673,3 +673,29 @@ describe('ring ids that name inherited object members', () => {
     if (!result.ok) expect(result.errors.join('\n')).toMatch(/rings\.1\.role/)
   })
 })
+
+describe('planned status round-trips through .hexa', () => {
+  const map = (): HexaMap => {
+    const base = toMap(EXAMPLE_DIAGRAM)
+    const [h] = base.hexagons
+    const second = { ...h, id: 'h2', contextId: 'c2', cell: { q: 1, r: 0 }, title: 'Second', ...({ status: 'planned' } as const) }
+    return {
+      ...base,
+      contexts: [{ id: 'c1' }, { id: 'c2' }],
+      hexagons: [{ ...h, useCases: h.useCases.map((u) => ({ ...u, status: 'planned' as const })) }, second],
+      links: [{ id: 'l1', from: { hexagonId: 'h1', portId: 'p-repo' }, to: { hexagonId: 'h2', portId: 'p-submit' }, status: 'planned' }],
+    }
+  }
+
+  it('keeps status on hexagons, elements and links, and stays readable as the file version it is saved at', () => {
+    const planned = map()
+    expect(MapSchema.safeParse(planned).success).toBe(true)
+    const text = toHexa(planned)
+    expect(JSON.parse(text).version).toBe(4)
+    expect(parseHexa(text)).toEqual({ ok: true, map: planned })
+  })
+
+  it('writes no status key for a built map', () => {
+    expect(toHexa(toMap(EXAMPLE_DIAGRAM))).not.toContain('status')
+  })
+})

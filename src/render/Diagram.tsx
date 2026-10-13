@@ -77,11 +77,13 @@ interface MapDiagramProps {
   chain?: Chain
   /** Each hexagon's notes by ref (`notesOf`); a noted box wears a marker. */
   notes: ReadonlyMap<string, ReadonlyMap<string, string>>
+  /** Each hexagon's planned refs (`plannedOf`); a planned box is dashed and faded. */
+  planned: ReadonlyMap<string, ReadonlySet<string>>
 }
 
 /** Composes every hexagon of a map into one SVG: one `<defs>`, one `<g data-hex>` per hexagon, the map's links
  * drawn above them, an optional map title, and the legend once — under the current hexagon. */
-export const MapDiagram = memo(function MapDiagram({ map, legend, showGuides, focus, selected, linkTargets, crossLinkTargets, hovered, chain, notes }: MapDiagramProps) {
+export const MapDiagram = memo(function MapDiagram({ map, legend, showGuides, focus, selected, linkTargets, crossLinkTargets, hovered, chain, notes, planned }: MapDiagramProps) {
   const first = map.hexagons[0]
   const current = currentHexagon(map, focus)
   return (
@@ -95,6 +97,7 @@ export const MapDiagram = memo(function MapDiagram({ map, legend, showGuides, fo
         return (
           <g
             key={hex.id}
+            className={hex.planned ? 'planned' : undefined}
             data-hex={hex.id}
             transform={`translate(${hex.centre.x} ${hex.centre.y})`}
             aria-current={isCurrent ? 'true' : undefined}
@@ -116,6 +119,7 @@ export const MapDiagram = memo(function MapDiagram({ map, legend, showGuides, fo
                 chain={chained}
                 interactive={isCurrent}
                 notes={notes.get(hex.id)!}
+                planned={planned.get(hex.id)!}
               />
             )}
             {isCurrent && map.hexagons.length > 1 && <HexCue model={hex.model} />}
@@ -123,7 +127,7 @@ export const MapDiagram = memo(function MapDiagram({ map, legend, showGuides, fo
         )
       })}
       {map.links.map((link) => (
-        <path key={link.id} className="map-link" data-map-link="" data-chain={chain?.links.has(link.id) ? '' : undefined} aria-hidden="true" d={orthogonalPath(link.points)} markerEnd="url(#arrow)" />
+        <path key={link.id} className={link.planned ? 'map-link planned' : 'map-link'} data-map-link="" data-chain={chain?.links.has(link.id) ? '' : undefined} aria-hidden="true" d={orthogonalPath(link.points)} markerEnd="url(#arrow)" />
       ))}
       {map.links.map(
         (link) =>

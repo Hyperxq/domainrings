@@ -7,6 +7,7 @@ import { layoutOnion } from './layout/onion'
 import { EXAMPLES } from './model/example'
 import { collectionOf } from './model/links'
 import { diagramOf, UNTITLED_HEXAGON } from './model/map'
+import { hasPlanned, withoutPlanned } from './model/planned'
 import { useCleanStore } from './model/cleanStore'
 import { useOnionStore } from './model/onionStore'
 import type { StoredFile } from './model/fileFormat'
@@ -55,11 +56,15 @@ export function App({ boot = {} }: AppProps = {}) {
   const before = { map, focus: hexId }
   const revision = useMapStore((s) => s.revision)
   const diagram = diagramOf(map, hexId)
+  const showPlanned = usePreferencesStore((s) => s.showPlanned)
+  // What the canvas, legend and image exports draw; the editor, commands, undo and the saved file keep the whole map.
+  const shown = useMemo(() => (showPlanned ? map : withoutPlanned(map, hexId)), [showPlanned, map, hexId])
+  const shownDiagram = shown === map ? diagram : diagramOf(shown, hexId)
   const multiHexagon = map.hexagons.length > 1
   const mode = usePreferencesStore((s) => s.mode)
   const legendInExport = usePreferencesStore((s) => s.legendInExport)
   const expanded = useViewStore((s) => s.expanded)
-  const model = layoutMap(map, { mode, current: hexId, expanded })
+  const model = layoutMap(shown, { mode, current: hexId, expanded })
   const notice = useNoticeStore((s) => s.notice)
   const exportScope = useViewStore((s) => s.exportScope)
   const choosingArchitecture = useViewStore((s) => s.choosingArchitecture)
@@ -95,7 +100,7 @@ export function App({ boot = {} }: AppProps = {}) {
   const mutateClean = (message: string, before: CleanFile) => show({ tone: 'status', message, undo: { map: before } })
   // Onion and Clean have no ports or adapters — each kind builds the legend it actually draws (ADR-01), all
   // three sharing the one open/close and "include in export" state above.
-  const legend = activeKind === 'onion' ? legendForOnion(onionMap) : activeKind === 'clean' ? legendForClean(cleanMap) : legendFor(diagram)
+  const legend = activeKind === 'onion' ? legendForOnion(onionMap) : activeKind === 'clean' ? legendForClean(cleanMap) : legendFor(shownDiagram, hasPlanned(shown))
   // The document being replaced (REQ-09), captured before any store mutation whatever kind is currently active —
   // Undo restores it into its own store (`restoreUndo`) and the toast's onUndo below flips `activeKind` back from
   // `undo.map.kind`, so the view returns with it. One snapshot, one restore path, for every swap direction.
@@ -129,6 +134,7 @@ export function App({ boot = {} }: AppProps = {}) {
     <>
       <Toolbar
         showScope={canScopeExport}
+        hasPlanned={activeKind === 'hexagonal' && hasPlanned(map)}
         onNew={() => useViewStore.setState({ choosingArchitecture: true })}
         onExample={(id) => {
           const example = EXAMPLES.find((x) => x.id === id)!
@@ -145,6 +151,7 @@ export function App({ boot = {} }: AppProps = {}) {
           parseFile={parseFile}
           model={model}
           map={map}
+          shown={shown}
           hexId={hexId}
           diagram={diagram}
           revision={revision}

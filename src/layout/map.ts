@@ -13,6 +13,8 @@ export interface MapHexagonLayout {
   id: string
   contextId: string
   cell: { q: number; r: number }
+  /** Set only for a planned hexagon. */
+  planned?: boolean
   /** Offset applied to every point of `model` to place it on the map; `model` itself stays untranslated. */
   centre: Point
   /** The full layout — for a compact hexagon it only supplies the walls its links leave through. */
@@ -38,6 +40,8 @@ export interface MapLinkLayout {
   pattern?: Link['pattern']
   /** The pattern label's placement — present iff `pattern` is. */
   label?: LinkLabel
+  /** Set only for a planned link. */
+  planned?: boolean
 }
 
 export interface MapContextLayout {
@@ -115,6 +119,7 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
     id: hexagon.id,
     contextId: hexagon.contextId,
     cell: hexagon.cell,
+    ...(hexagon.status ? { planned: true } : {}),
     centre: centres[i],
     model,
     ...(compact ? { compact: compactOf(hexagon, model, unit) } : {}),

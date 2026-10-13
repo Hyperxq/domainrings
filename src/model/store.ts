@@ -7,7 +7,7 @@ import { MapSchema, REFERENCES, type CollectionKey, type Diagram, type HexaMap, 
 import { validated } from './validated'
 
 export type Item<K extends CollectionKey> = Diagram[K][number]
-type HexagonMeta = Partial<Pick<Hexagon, 'title' | 'subtitle' | 'composition' | 'layers'>>
+type HexagonMeta = Partial<Pick<Hexagon, 'title' | 'subtitle' | 'composition' | 'layers' | 'status'>>
 // `kind` is immutable once a file exists (REQ-01) — no longer settable here.
 type MapMeta = Partial<Pick<HexaMap, 'title'>>
 
@@ -70,6 +70,13 @@ interface MapState {
   removeLink: (id: string) => Link | undefined
 }
 
+/** `{ ...base, ...patch }`, except an unset `status` is removed: an element is built when the key is absent, and
+ * toggling planned on and off must give back the exact original. */
+function merge<T extends object>(base: T, patch: { status?: 'planned' }): T {
+  const { status, ...rest } = { ...base, ...patch } as { status?: 'planned' }
+  return (status === undefined ? rest : { ...rest, status }) as T
+}
+
 // Computed keys widen to an index signature; this is the one place the collection type is re-asserted.
 const withCollection = <K extends CollectionKey>(d: Diagram, key: K, items: Item<K>[]): Diagram =>
   ({ ...d, [key]: items }) as Diagram
@@ -105,14 +112,14 @@ export const useMapStore = create<MapState>()((set, get) => {
     restore: ({ map, focus, swap }) => set((s) => ({ map, focus, revision: swap ? s.revision + 1 : s.revision })),
     setFocus: (hexId) => set((s) => (s.map.hexagons.some((h) => h.id === hexId) ? { focus: hexId } : {})),
     setMapMeta: (meta) => set((s) => ({ map: { ...s.map, ...meta } })),
-    setMeta: (hexId, meta) => editHexagon(hexId, (d) => ({ ...d, ...meta })),
+    setMeta: (hexId, meta) => editHexagon(hexId, (d) => merge(d, meta)),
     addItem: (hexId, key, patch) => {
       const id = `${key}-${crypto.randomUUID().slice(0, 8)}`
       editHexagon(hexId, (d) => withCollection(d, key, [...d[key], { ...NEW_ITEM[key], ...patch, id } as Item<typeof key>]))
       return id
     },
     updateItem: (hexId, key, id, patch) =>
-      editAndPrune(hexId, (d) => withCollection(d, key, (d[key] as Item<typeof key>[]).map((i) => (i.id === id ? { ...i, ...patch } : i)))),
+      editAndPrune(hexId, (d) => withCollection(d, key, (d[key] as Item<typeof key>[]).map((i) => (i.id === id ? merge(i, patch) : i)))),
     removeItem: (hexId, key, id) =>
       editAndPrune(hexId, (d) => {
         let next = withCollection(d, key, (d[key] as Item<typeof key>[]).filter((i) => i.id !== id))
