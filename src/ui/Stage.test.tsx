@@ -18,6 +18,9 @@ import { hexGroup, linkedTwoHexMap, manyHexagonMap, twoHexMap } from '../test/fi
 import { canvasBounds, contains, fitMap, fitTo, islandInset, MIN_FIT_SCALE, MIN_SCALE, pinch, visibleRect, zoomAt } from './viewport'
 import type { Box, Point } from '../layout/geometry'
 import { readFileSync } from 'node:fs'
+import { boxObstacles } from '../layout/boxLabels'
+import { boxLabelsOverlaid } from './stage/overlays'
+import { labelTextWidth } from './stage/labelWidth'
 import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
 
 beforeAll(() => {
@@ -1825,28 +1828,37 @@ describe('Stage — box names stay readable when zoomed out', () => {
       restore()
     }
   }
+  const nodeOf = (container: HTMLElement, label: HTMLElement) => {
+    const [hexId, ref] = [label.dataset.boxLabel!.split(':')[0], label.dataset.boxLabel!.split(':')[1]]
+    return [...container.querySelectorAll<SVGGElement>(`[data-hex="${hexId}"] .node[data-ref="${ref}"]`)]
+  }
 
-  it('draws a pill with each box name at 11px once a 14px name would render under 10px', () => {
+  it('names the boxes once a 14px name would render at under half size', () => {
     withSize(700, 360, () => {
       const { container } = render(<Harness />)
-      expect(viewportOf(container).scale * 14).toBeLessThan(10)
+      expect(viewportOf(container).scale).toBeLessThan(0.5)
       const shown = labels(container)
       expect(shown.length).toBeGreaterThan(0)
       for (const label of shown) {
         expect(label.style.fontSize).toBe('11px')
         expect(label.getAttribute('aria-hidden')).toBe('true')
       }
-      expect(svg(container).classList.contains('box-labels-overlaid')).toBe(true)
     })
   })
 
-  it('draws no label, and keeps the SVG text, while a 14px name renders at 10px or more', () => {
+  it('draws no label, and keeps every SVG text, from half size up', () => {
     withSize(9000, 6000, () => {
       const { container } = render(<Harness />)
-      expect(viewportOf(container).scale * 14).toBeGreaterThanOrEqual(10)
+      expect(viewportOf(container).scale).toBeGreaterThanOrEqual(0.5)
       expect(labels(container)).toHaveLength(0)
-      expect(svg(container).classList.contains('box-labels-overlaid')).toBe(false)
+      expect(container.querySelector('style')).toBeNull()
     })
+  })
+
+  it('switches at exactly half size', () => {
+    expect(boxLabelsOverlaid(0.49)).toBe(true)
+    expect(boxLabelsOverlaid(0.5)).toBe(false)
+    expect(boxLabelsOverlaid(0.51)).toBe(false)
   })
 
   it('shows no two labels on top of each other', () => {
@@ -1854,12 +1866,27 @@ describe('Stage — box names stay readable when zoomed out', () => {
       const { container } = render(<Harness />)
       const rects = labels(container).map((l) => {
         const [x, y] = [parseFloat(l.style.left), parseFloat(l.style.top)]
-        const w = l.textContent!.length * 11 * 0.6
+        const w = labelTextWidth(l.textContent!, 11)
         return { x: x - w / 2, y: y - 7, w, h: 14 }
       })
       expect(rects.length).toBeGreaterThan(1)
       for (const [i, a] of rects.entries())
         for (const b of rects.slice(i + 1)) expect(a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h).toBe(false)
+    })
+  })
+
+  it('shows no label over another box', () => {
+    withSize(700, 360, () => {
+      const { container } = render(<Harness />)
+      const model = layoutMap(twoHexMap(), { mode: usePreferencesStore.getState().mode, current: 'h1' })
+      const { scale, x, y } = viewportOf(container)
+      const boxes = boxObstacles(model, twoHexMap()).map((o) => ({ owner: o.owner, x: o.rect.x * scale + x, y: o.rect.y * scale + y, w: o.rect.width * scale, h: o.rect.height * scale }))
+      for (const l of labels(container)) {
+        const w = labelTextWidth(l.textContent!, 11)
+        const [lx, ly] = [parseFloat(l.style.left) - w / 2, parseFloat(l.style.top) - 7]
+        const owner = l.dataset.boxLabel!
+        for (const b of boxes.filter((o) => o.owner !== owner)) expect(lx < b.x + b.w && b.x < lx + w && ly < b.y + b.h && b.y < ly + 14).toBe(false)
+      }
     })
   })
 
@@ -1874,10 +1901,54 @@ describe('Stage — box names stay readable when zoomed out', () => {
     })
   })
 
-  it('hides the SVG box text and enlarges the note marker only on the canvas, never in an export', () => {
+  it('hides the SVG text of exactly the boxes whose label is shown, so none goes blank', () => {
+    withSize(700, 360, () => {
+      const { container } = render(<Harness />)
+      const css = readFileSync('src/styles.css', 'utf8')
+      const style = document.createElement('style')
+      style.textContent = css
+      document.head.appendChild(style)
+      try {
+        const shown = labels(container)
+        expect(shown.length).toBeGreaterThan(0)
+        const labelled = new Set(shown.flatMap((l) => nodeOf(container, l)))
+        const display = (n: Element) => getComputedStyle(n.querySelector('text')!).display
+        for (const n of labelled) expect(display(n)).toBe('none')
+        const bare = [...container.querySelectorAll('.node')].filter((n) => !labelled.has(n as SVGGElement) && n.querySelector('text'))
+        expect(bare.length).toBeGreaterThan(0)
+        for (const n of bare) expect(display(n)).not.toBe('none')
+      } finally {
+        style.remove()
+      }
+    })
+  })
+
+  it('does not hide any text on the canvas by a global rule, and keeps it in an export', () => {
     const css = readFileSync('src/styles.css', 'utf8')
-    expect(css).toMatch(/\.canvas\.box-labels-overlaid:not\(\.exporting\) \.node text\s*\{\s*display:\s*none/)
+    expect(css).not.toMatch(/box-labels-overlaid/)
     expect(css).toMatch(/\.canvas:not\(\.exporting\) \.note-marker\s*\{\s*r:\s*max\(2\.5px,\s*calc\(3px \/ var\(--zoom\)\)\)/)
+  })
+
+  it('keeps the aggregate named in the overview, by its label or else its own SVG text', () => {
+    const restore = stubFixedSize(700, 360)
+    try {
+      useMapStore.getState().replace(twoHexMap())
+      usePreferencesStore.setState({ mode: 'overview' })
+      const { container } = render(<Harness />)
+      const style = document.createElement('style')
+      style.textContent = readFileSync('src/styles.css', 'utf8')
+      document.head.appendChild(style)
+      try {
+        const labelled = labels(container).some((l) => l.dataset.boxLabel === 'h1:domainItem:d-feedback')
+        const text = container.querySelector('[data-hex="h1"] .node-domainItem[data-ref="d-feedback"] text')!
+        expect(labelled || getComputedStyle(text).display !== 'none').toBe(true)
+        expect(labelled && getComputedStyle(text).display !== 'none').toBe(false)
+      } finally {
+        style.remove()
+      }
+    } finally {
+      restore()
+    }
   })
 
   it('hands the zoom to CSS on the canvas', () => {

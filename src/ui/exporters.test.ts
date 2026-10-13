@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pngBlob, svgMarkup } from './exporters'
+import { hiddenTextRule } from './stage/overlays'
 
 const NS = 'http://www.w3.org/2000/svg'
 const bounds = { x: 0, y: 0, width: 400, height: 300 }
@@ -173,7 +174,7 @@ describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {
 
   it('keeps a chip the canvas hides: the exported picture still names every context', async () => {
     const styleTag = document.createElement('style')
-    styleTag.textContent = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf-8')
+    styleTag.textContent = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf-8') + hiddenTextRule([{ hexagonId: 'h1', kind: 'useCase', ref: 'uc' }])
     document.head.appendChild(styleTag)
     try {
       const svg = mapCanvas()
@@ -191,15 +192,17 @@ describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {
 
   it('keeps the box text the canvas hides while zoomed out, and carries no label overlay', async () => {
     const styleTag = document.createElement('style')
-    styleTag.textContent = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf-8')
+    styleTag.textContent = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf-8') + hiddenTextRule([{ hexagonId: 'h1', kind: 'useCase', ref: 'uc' }])
     document.head.appendChild(styleTag)
     try {
       const svg = mapCanvas()
-      svg.classList.add('canvas', 'box-labels-overlaid')
-      const node = document.createElementNS(NS, 'g')
+      svg.classList.add('canvas')
+      const hex = svg.appendChild(document.createElementNS(NS, 'g'))
+      hex.setAttribute('data-hex', 'h1')
+      const node = hex.appendChild(document.createElementNS(NS, 'g'))
       node.setAttribute('class', 'node node-useCase')
+      node.setAttribute('data-ref', 'uc')
       node.appendChild(document.createElementNS(NS, 'text')).textContent = 'SubmitFeedback'
-      svg.appendChild(node)
       expect(getComputedStyle(node.querySelector('text')!).display).toBe('none')
       const markup = await svgMarkup(svg, bounds, 'Map title', { legend: false, legendHeight: 0 })
       expect(markup).toContain('>SubmitFeedback<')
@@ -266,7 +269,7 @@ describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {
 
   it('exports a still picture: no transition, animation or keyframes text, and no class or inline style to carry one', async () => {
     const styleTag = document.createElement('style')
-    styleTag.textContent = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf-8')
+    styleTag.textContent = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf-8') + hiddenTextRule([{ hexagonId: 'h1', kind: 'useCase', ref: 'uc' }])
     document.head.appendChild(styleTag)
     try {
       const svg = mapCanvas()

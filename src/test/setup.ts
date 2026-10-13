@@ -16,3 +16,6 @@ afterEach(() => {
 // jsdom has no matchMedia. Motion-sensitive code reads this as "reduce", so a viewport change lands instantly
 // unless a test opts in to animation; any other query reports no match, as before.
 window.matchMedia ??= ((media: string) => ({ matches: media.includes('prefers-reduced-motion'), media, addEventListener() {}, removeEventListener() {} })) as unknown as typeof matchMedia
+
+// jsdom has no canvas and logs "not implemented" on every getContext; report none quietly, as it would anyway.
+HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext
