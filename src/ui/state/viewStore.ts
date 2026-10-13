@@ -93,6 +93,7 @@ useMapStore.subscribe(({ map, focus, revision }, prev) => {
   if (revision !== prev.revision) useViewStore.setState({ expanded: new Set(), linking: null, openNodes: new Set(branchOf(map, focus)) })
   else {
     if (linking && !collectionOf(diagramOf(map, focus), linking)) useViewStore.setState({ linking: null })
-    if (focus !== prev.focus) useViewStore.setState(({ openNodes }) => ({ openNodes: new Set([...openNodes, ...branchOf(map, focus)]) }))
+    // The panel follows the selection: the previous subdomain closes, so its fields never sit above the new one's.
+    if (focus !== prev.focus) useViewStore.setState(({ openNodes }) => ({ openNodes: new Set([...[...openNodes].filter((k) => k !== `subdomain:${prev.focus}`), ...branchOf(map, focus)]) }))
   }
 })
