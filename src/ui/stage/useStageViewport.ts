@@ -1,7 +1,7 @@
 import { useState, type RefObject } from 'react'
 import { hexagonBounds } from '../../layout/lattice'
 import { type MapHexagonLayout, type MapLayout } from '../../layout/map'
-import { contains, fitMap, fitTo, islandInset, visibleRect } from '../viewport'
+import { canvasBounds, contains, fitMap, fitTo, islandInset, visibleRect } from '../viewport'
 import { useElementSize, useFreezeWhilePanelOpen, useViewportInteractions } from '../viewportChrome'
 
 /** The stage's size, fit and pan/zoom state for a map, including the reset that keeps a manual viewport only while
@@ -27,7 +27,7 @@ export function useStageViewport({
   const size = useElementSize(mainRef)
   const inset = islandInset(size, panelOpen, legendOpen)
   const effectiveSize = { width: size.width || model.bounds.width, height: size.height || model.bounds.height }
-  const wholeFit = fitTo(model.bounds, effectiveSize.width, effectiveSize.height, inset, 0)
+  const wholeFit = fitTo(canvasBounds(model), effectiveSize.width, effectiveSize.height, inset, 0)
   const singleFit = fitMap(model.bounds, hexagonBounds(hex), effectiveSize.width, effectiveSize.height, inset)
   // On 2+ hexagons 'auto' IS the whole-map fit — it never falls back to the current hexagon alone, even
   // when that fit would read as illegible clutter (MIN_FIT_SCALE only still applies on a single-hexagon map).

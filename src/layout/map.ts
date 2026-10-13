@@ -63,6 +63,8 @@ export interface MapLayout {
   pitch: Point
   /** One entry per context, only from two contexts up (CB-01.1) — an empty array below that threshold. */
   contexts: MapContextLayout[]
+  /** The region of the lone context of a map with 2+ hexagons: drawn on the canvas only, with no name chip. */
+  outline?: Point[][]
 }
 
 const MAP_TITLE_GAP = 16
@@ -118,7 +120,7 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
     ...(compact ? { compact: compactOf(hexagon, model, unit) } : {}),
   }))
   const boxes = hexagons.map(hexagonBounds)
-  const { contexts, bounds: withContexts } = layContexts(map, hexagons, boxes, pitch, compacting, unionBox(boxes))
+  const { contexts, outline, bounds: withContexts } = layContexts(map, hexagons, boxes, pitch, compacting, unionBox(boxes))
 
   // Routed once the chips are placed, so a route can keep off them.
   const { links, bounds: routed } = layLinks(map, hexagons, boxes, contexts, withContexts)
@@ -133,5 +135,5 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
     bounds = unionBox([bounds, { x: title.x, y: title.y - size, width: measure(title.text, { ...TITLE, size }), height: size }])
   }
 
-  return { hexagons, links, bounds, title, pitch, contexts }
+  return { hexagons, links, bounds, title, pitch, contexts, ...(outline && { outline }) }
 }

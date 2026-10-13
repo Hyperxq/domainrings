@@ -86,17 +86,26 @@ function footprint(hex: MapHexagonLayout): Point[] {
   ]
 }
 
-/** The context regions and their name chips, from two occupied contexts up; `bounds` grows to hold them. */
-export function layContexts(map: HexaMap, hexagons: MapHexagonLayout[], boxes: Box[], pitch: Point, compacting: boolean, bounds: Box): { contexts: MapContextLayout[]; bounds: Box } {
-  // Outlined regions + chips only from two occupied contexts up (CB-01.1) — a single-context map draws and exports
-  // exactly as a single hexagon always did (CB-01.4). A declared context owning no hexagon doesn't count.
+/** The context regions and their name chips, from two occupied contexts up; `bounds` grows to hold them. A lone
+ * context over 2+ hexagons gets its region as a nameless `outline` instead: canvas-only, so neither the bounds nor an
+ * export change. A declared context owning no hexagon doesn't count. */
+export function layContexts(
+  map: HexaMap,
+  hexagons: MapHexagonLayout[],
+  boxes: Box[],
+  pitch: Point,
+  compacting: boolean,
+  bounds: Box,
+): { contexts: MapContextLayout[]; outline?: Point[][]; bounds: Box } {
+  const occupied = occupiedContexts(map)
   const contexts: MapContextLayout[] = []
-  if (occupiedContexts(map).length >= 2) {
+  if (occupied.length && (occupied.length >= 2 || hexagons.length > 1)) {
     // Off the lattice each hull hugs its hexagons' own footprints, and a chip must keep its whole text (not just its
     // baseline point) off every hexagon.
     const regions = compacting
       ? footprintRegions(hexagons.map((h) => ({ cell: h.cell, contextId: h.contextId, outline: footprint(h) })))
       : contextRegions(hexagons, pitch)
+    if (occupied.length === 1) return { contexts, outline: regions.get(occupied[0].id), bounds }
     for (const context of map.contexts) {
       const loops = regions.get(context.id) ?? []
       if (!loops.length) continue // a context declared with no hexagons (schema allows it, the store never creates one) draws nothing

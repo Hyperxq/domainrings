@@ -33,8 +33,9 @@ export function hullPath(loops: Point[][]): string {
   return loops.map((loop) => `M${loop.map((p) => `${p.x} ${p.y}`).join('L')}Z`).join(' ')
 }
 
-/** One outlined region per context (CB-01, CB-02) — inert, painted below every hexagon group. */
-function Hulls({ contexts }: { contexts: MapContextLayout[] }) {
+/** One outlined region per context (CB-01, CB-02), or the lone context's nameless outline — inert, painted below every hexagon group. */
+function Hulls({ contexts, outline }: { contexts: MapContextLayout[]; outline?: Point[][] }) {
+  if (outline) return <path className="hull" data-outline="" aria-hidden="true" fillRule="evenodd" d={hullPath(outline)} />
   if (!contexts.length) return null
   return (
     <g data-hulls="" aria-hidden="true">
@@ -86,7 +87,7 @@ export const MapDiagram = memo(function MapDiagram({ map, legend, showGuides, fo
   return (
     <>
       <Defs rings={first.model.rings} />
-      <Hulls contexts={map.contexts} />
+      <Hulls contexts={map.contexts} outline={map.outline} />
       {map.hexagons.map((hex) => {
         const isCurrent = hex.id === focus
         const title = hexagonTitle(hex.model)

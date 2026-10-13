@@ -278,10 +278,21 @@ function threeHexTwoContextMap(): HexaMap {
 }
 
 describe('MapDiagram — context hulls and chips (CB-01, CB-02, CB-05)', () => {
-  it('draws no hull or chip below two contexts (CB-01.1, CB-01.4)', () => {
+  it('draws no context hull or chip below two contexts, only one nameless outline round the lone context (CB-01.1)', () => {
     const { container } = renderSvg(twoHexagonMap())
     expect(container.querySelectorAll('[data-hull]')).toHaveLength(0)
     expect(container.querySelectorAll('[data-chip]')).toHaveLength(0)
+    expect(container.querySelectorAll('[data-outline]')).toHaveLength(1)
+  })
+
+  it('draws no outline for a single-hexagon map', () => {
+    const { container } = renderSvg({ ...twoHexagonMap(), hexagons: [twoHexagonMap().hexagons[0]], links: [] })
+    expect(container.querySelectorAll('[data-outline]')).toHaveLength(0)
+  })
+
+  it('draws no outline from two contexts up', () => {
+    const { container } = renderSvg(threeHexTwoContextMap())
+    expect(container.querySelectorAll('[data-outline]')).toHaveLength(0)
   })
 
   it('draws exactly one hull and one chip per context, from two contexts up (CB-01.2)', () => {

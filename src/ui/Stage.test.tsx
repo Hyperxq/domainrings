@@ -14,7 +14,7 @@ import { useViewStore } from './state/viewStore'
 import type { HexaMap } from '../model/schema'
 import { parseHexa } from '../model/hexa'
 import { hexGroup, linkedTwoHexMap, manyHexagonMap, twoHexMap } from '../test/fixtures'
-import { contains, fitMap, fitTo, islandInset, MIN_FIT_SCALE, MIN_SCALE, pinch, visibleRect, zoomAt } from './viewport'
+import { canvasBounds, contains, fitMap, fitTo, islandInset, MIN_FIT_SCALE, MIN_SCALE, pinch, visibleRect, zoomAt } from './viewport'
 import type { Box, Point } from '../layout/geometry'
 import { readFileSync } from 'node:fs'
 import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
@@ -350,7 +350,7 @@ describe('Stage — the single fit control fits the whole map on 2+ hexagons (FI
 
     const inset = islandInset({ width: 0, height: 0 }, false, false)
     const model1 = layoutMap(useMapStore.getState().map)
-    const expected1 = fitTo(model1.bounds, model1.bounds.width, model1.bounds.height, inset, 0)
+    const expected1 = fitTo(canvasBounds(model1), model1.bounds.width, model1.bounds.height, inset, 0)
     expectViewport(container, expected1)
 
     act(() => {
@@ -358,7 +358,7 @@ describe('Stage — the single fit control fits the whole map on 2+ hexagons (FI
     })
 
     const model2 = layoutMap(useMapStore.getState().map)
-    const expected2 = fitTo(model2.bounds, model2.bounds.width, model2.bounds.height, inset, 0)
+    const expected2 = fitTo(canvasBounds(model2), model2.bounds.width, model2.bounds.height, inset, 0)
     expectViewport(container, expected2)
   })
 
@@ -401,7 +401,7 @@ describe('Stage — the single fit control fits the whole map on 2+ hexagons (FI
       const model = layoutMap(useMapStore.getState().map)
       expect(model.hexagons).toHaveLength(1)
       const singleFit = fitMap(model.bounds, hexagonBounds(currentHexagon(model, useMapStore.getState().focus)), 300, 300, inset)
-      const wholeFit = fitTo(model.bounds, 300, 300, inset, 0)
+      const wholeFit = fitTo(canvasBounds(model), 300, 300, inset, 0)
       // The premise: on a real screen this small against STRESS content, the two floors genuinely differ.
       expect(singleFit.scale).not.toBeCloseTo(wholeFit.scale, 3)
       expectViewport(container, singleFit)
@@ -418,7 +418,7 @@ describe('Stage — auto-fit after a map-shape change (FIT-02, ADR-05)', () => {
   const autoFitOf = () => {
     const model = layoutMap(useMapStore.getState().map)
     return model.hexagons.length >= 2
-      ? fitTo(model.bounds, model.bounds.width, model.bounds.height, inset, 0)
+      ? fitTo(canvasBounds(model), model.bounds.width, model.bounds.height, inset, 0)
       : fitMap(model.bounds, hexagonBounds(currentHexagon(model, useMapStore.getState().focus)), model.bounds.width, model.bounds.height, inset)
   }
   /** A pan of `dx`/`dy` screen px, past PAN_SLOP so it actually engages (matches "Stage panning"'s own gesture). */
@@ -493,7 +493,7 @@ describe('Stage — auto-fit after a map-shape change (FIT-02, ADR-05)', () => {
     }
     const expectRefit = (container: HTMLElement) => {
       const model = layoutMap(useMapStore.getState().map)
-      expectViewport(container, fitTo(model.bounds, SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false), 0))
+      expectViewport(container, fitTo(canvasBounds(model), SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false), 0))
     }
     const visibleOf = (vp: { x: number; y: number; scale: number }) => visibleRect(vp, SCREEN, islandInset(SCREEN, false, false))
 
@@ -502,7 +502,7 @@ describe('Stage — auto-fit after a map-shape change (FIT-02, ADR-05)', () => {
       try {
         useMapStore.getState().replace(twoHexMap())
         const { container } = render(<Harness />)
-        frame(container, { x: -100, y: -800 }, 150)
+        frame(container, { x: -100, y: -800 }, 100)
         const before = viewportOf(container)
 
         act(() => void useMapStore.getState().importHexagon(toMap(STRESS_DIAGRAM), { context: 'same' }))
@@ -586,7 +586,7 @@ describe('Stage — auto-fit after a map-shape change (FIT-02, ADR-05)', () => {
     act(() => useMapStore.getState().addHexagon('h1', { context: 'same' }))
 
     const model = layoutMap(useMapStore.getState().map)
-    const expected = fitTo(model.bounds, model.bounds.width, model.bounds.height, inset, 0)
+    const expected = fitTo(canvasBounds(model), model.bounds.width, model.bounds.height, inset, 0)
     const after = viewportOf(container)
     expect(after.x).toBeCloseTo(expected.x, 6)
     expect(after.y).toBeCloseTo(expected.y, 6)
@@ -627,7 +627,7 @@ describe('Stage — the whole-map auto view survives a canvas focus switch (FIT-
       const inset = islandInset({ width: 1200, height: 800 }, false, false)
       const model = layoutMap(useMapStore.getState().map)
       expect(model.hexagons).toHaveLength(2)
-      const expected = fitTo(model.bounds, 1200, 800, inset, 0)
+      const expected = fitTo(canvasBounds(model), 1200, 800, inset, 0)
       expectViewport(container, expected)
     } finally {
       restore()
@@ -658,7 +658,7 @@ describe('Stage — the whole-map auto view survives a canvas focus switch (FIT-
 
       const model = layoutMap(useMapStore.getState().map)
       expect(model.hexagons).toHaveLength(2)
-      expectViewport(container, fitTo(model.bounds, 700, 900, insetOpen, 0))
+      expectViewport(container, fitTo(canvasBounds(model), 700, 900, insetOpen, 0))
     } finally {
       restore()
     }
@@ -675,7 +675,7 @@ describe('Stage — the whole-map auto view survives a canvas focus switch (FIT-
       const inset = islandInset({ width: 800, height: 600 }, false, false)
       const model = layoutMap(useMapStore.getState().map)
       expect(model.hexagons).toHaveLength(2)
-      const wholeFit = fitTo(model.bounds, 800, 600, inset, 0)
+      const wholeFit = fitTo(canvasBounds(model), 800, 600, inset, 0)
       const singleFit = fitMap(model.bounds, hexagonBounds(currentHexagon(model, useMapStore.getState().focus)), 800, 600, inset)
       // The premise: the whole map is genuinely too small to read, so fitMap's own current-hexagon fallback would
       // otherwise kick in — the only regime where 'auto' resolving to wholeFit vs. singleFit is distinguishable.
@@ -696,7 +696,7 @@ describe('Stage — wheel floor follows the whole-map fit, not a hardcoded MIN_S
     const fitted = viewportOf(container)
     const inset = islandInset({ width: 0, height: 0 }, false, false)
     const model = layoutMap(useMapStore.getState().map)
-    const wholeFit = fitTo(model.bounds, model.bounds.width, model.bounds.height, inset, 0)
+    const wholeFit = fitTo(canvasBounds(model), model.bounds.width, model.bounds.height, inset, 0)
     const zoomFloor = Math.min(MIN_SCALE, wholeFit.scale)
 
     const main = container.querySelector('main')!
@@ -767,7 +767,7 @@ describe('Stage — pinch, wheel floor, and the whole-map auto fit', () => {
       const fitted = viewportOf(container)
       const inset = islandInset({ width: 800, height: 600 }, false, false)
       const model = layoutMap(useMapStore.getState().map)
-      const wholeFit = fitTo(model.bounds, 800, 600, inset, 0)
+      const wholeFit = fitTo(canvasBounds(model), 800, 600, inset, 0)
       // The premise this test needs: a hardcoded MIN_SCALE floor and the real zoomFloor now genuinely differ.
       expect(wholeFit.scale).toBeLessThan(MIN_SCALE)
       const zoomFloor = Math.min(MIN_SCALE, wholeFit.scale)
@@ -795,7 +795,7 @@ describe('Stage — pinch, wheel floor, and the whole-map auto fit', () => {
       const modelBefore = layoutMap(useMapStore.getState().map)
       // The premise: the OLD current-hexagon fallback threshold (MIN_FIT_SCALE) would have fired for this map —
       // 'auto' follows the whole map anyway on 2+ hexagons, never falling back to it.
-      expect(fitTo(modelBefore.bounds, 800, 600, inset, 0).scale).toBeLessThan(0.4)
+      expect(fitTo(canvasBounds(modelBefore), 800, 600, inset, 0).scale).toBeLessThan(0.4)
 
       pan(container, 100000, 100000) // a manual viewport now looks far away from every hexagon
 
@@ -806,7 +806,7 @@ describe('Stage — pinch, wheel floor, and the whole-map auto fit', () => {
       })
 
       const modelAfter = layoutMap(useMapStore.getState().map)
-      const wholeAfter = fitTo(modelAfter.bounds, 800, 600, inset, 0)
+      const wholeAfter = fitTo(canvasBounds(modelAfter), 800, 600, inset, 0)
       const oldCurrentHexagonFallback = fitMap(modelAfter.bounds, hexagonBounds(currentHexagon(modelAfter, useMapStore.getState().focus)), 800, 600, inset)
       expect(oldCurrentHexagonFallback.scale).not.toBeCloseTo(wholeAfter.scale, 3)
 
@@ -828,7 +828,7 @@ describe('Stage — pinch, wheel floor, and the whole-map auto fit', () => {
       const modelBefore = layoutMap(useMapStore.getState().map)
       // Same premise as above, but this time the view is NEVER touched — the default 'auto' state must already
       // resolve to the whole-map fit on its own, with no button click and no prior manual viewport involved.
-      expect(fitTo(modelBefore.bounds, 800, 600, inset, 0).scale).toBeLessThan(MIN_FIT_SCALE)
+      expect(fitTo(canvasBounds(modelBefore), 800, 600, inset, 0).scale).toBeLessThan(MIN_FIT_SCALE)
 
       act(() => {
         useMapStore.getState().addHexagon('h1', { context: 'same' })
@@ -1288,7 +1288,7 @@ describe('Stage — compact neighbours on a large map', () => {
         act(() => useViewStore.setState({ expanded: new Set(['h6']) }))
 
         const model = layoutMap(useMapStore.getState().map, { current: 'h1', expanded: new Set(['h6']) })
-        expectViewport(container, fitTo(model.bounds, 1200, 900, islandInset({ width: 1200, height: 900 }, false, false), 0))
+        expectViewport(container, fitTo(canvasBounds(model), 1200, 900, islandInset({ width: 1200, height: 900 }, false, false), 0))
       } finally {
         restore()
       }
@@ -1365,7 +1365,7 @@ describe('Stage — compact neighbours on a large map', () => {
       act(() => useMapStore.getState().setFocus('h4'))
 
       const model = layoutMap(useMapStore.getState().map, { current: 'h4' })
-      expectViewport(container, fitTo(model.bounds, 1200, 900, islandInset({ width: 1200, height: 900 }, false, false), 0))
+      expectViewport(container, fitTo(canvasBounds(model), 1200, 900, islandInset({ width: 1200, height: 900 }, false, false), 0))
     } finally {
       restore()
     }
@@ -1377,7 +1377,7 @@ describe('Stage — compact neighbours on a large map', () => {
       useMapStore.getState().replace(manyHexagonMap(12))
       const { container } = render(<Harness />)
       const inset = islandInset({ width: 800, height: 600 }, false, false)
-      const scaleFor = (current: string) => fitTo(layoutMap(useMapStore.getState().map, { current }).bounds, 800, 600, inset, 0).scale
+      const scaleFor = (current: string) => fitTo(canvasBounds(layoutMap(useMapStore.getState().map, { current })), 800, 600, inset, 0).scale
 
       fireEvent.click(hexGroup(container, 'h9').querySelector('.compact-title')!)
 
@@ -1611,7 +1611,7 @@ describe('Stage — smooth fit changes (animated refit, panel open/close)', () =
     const settled = viewBoxOf(container)
     expect(settled).not.toBe(mid)
     const model = layoutMap(useMapStore.getState().map)
-    const expected = fitTo(model.bounds, SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false), 0)
+    const expected = fitTo(canvasBounds(model), SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false), 0)
     expectViewport(container, expected)
   })
 
@@ -1622,7 +1622,7 @@ describe('Stage — smooth fit changes (animated refit, panel open/close)', () =
     act(() => void useMapStore.getState().addHexagon('h1', { context: 'same' }))
     expect(viewBoxOf(container)).not.toBe(before)
     const model = layoutMap(useMapStore.getState().map)
-    expectViewport(container, fitTo(model.bounds, SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false), 0))
+    expectViewport(container, fitTo(canvasBounds(model), SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false), 0))
   })
 
   it('a wheel zoom is immediate and cancels a running ease', () => {
@@ -1669,7 +1669,7 @@ describe('Stage — smooth fit changes (animated refit, panel open/close)', () =
     const closePanel = () => act(() => useViewStore.setState({ editorOpen: false }))
     const wholeMapFit = (panelOpen: boolean) => {
       const model = layoutMap(useMapStore.getState().map)
-      return fitTo(model.bounds, SCREEN.width, SCREEN.height, islandInset(SCREEN, panelOpen, false), 0)
+      return fitTo(canvasBounds(model), SCREEN.width, SCREEN.height, islandInset(SCREEN, panelOpen, false), 0)
     }
     beforeEach(() => {
       allowMotion()
@@ -1761,6 +1761,30 @@ describe('Stage — hexagon titles stay readable when zoomed out', () => {
       const { container } = render(<Harness />)
       for (const label of titleOverlays(container)) expect(parseFloat(label.style.maxWidth)).toBeGreaterThan(0)
     })
+  })
+
+  it('draws the map title at 12px over the canvas, and hides the SVG one, once it would render smaller', () => {
+    withSize(700, 360, () => {
+      const { container } = render(<Harness />)
+      const title = container.querySelector<SVGTextElement>('[data-map-title]')!
+      expect(viewportOf(container).scale * Number(title.getAttribute('font-size'))).toBeLessThan(12)
+      const overlay = container.querySelector<HTMLElement>('[data-map-title-overlay]')!
+      expect(overlay.style.fontSize).toBe('12px')
+      expect(overlay.textContent).toBe(title.textContent)
+      expect(svg(container).classList.contains('map-title-overlaid')).toBe(true)
+    })
+  })
+
+  it('keeps the SVG map title, and draws no overlay, while it already renders at 12px or more', () => {
+    withSize(9000, 6000, () => {
+      const { container } = render(<Harness />)
+      expect(container.querySelector('[data-map-title-overlay]')).toBeNull()
+      expect(svg(container).classList.contains('map-title-overlaid')).toBe(false)
+    })
+  })
+
+  it('hides the SVG map title only on the canvas, never in an export', () => {
+    expect(readFileSync('src/styles.css', 'utf8')).toMatch(/\.canvas\.map-title-overlaid:not\(\.exporting\) \[data-map-title\]\s*\{\s*display:\s*none/)
   })
 
   it('hides the SVG titles only on the canvas, never in an export', () => {

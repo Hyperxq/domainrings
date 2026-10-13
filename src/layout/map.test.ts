@@ -454,6 +454,21 @@ describe('layoutMap — contexts (CB-01.1, ADR-04, SEAM-04)', () => {
   it('draws no context for a lone occupied context beside a declared, hexagon-less one', () => {
     const map: HexaMap = { ...oneContextMap(), contexts: [{ id: 'c1' }, { id: 'c2' }], hexagons: [oneContextMap().hexagons[0]] }
     expect(layoutMap(map).contexts).toEqual([])
+    expect(layoutMap(map).outline).toBeUndefined()
+  })
+
+  it('outlines the lone context of a 2+ hexagon map without a chip, whatever empty contexts are declared', () => {
+    const result = layoutMap(oneContextMap())
+    expect(result.contexts).toEqual([])
+    expect(result.outline!.length).toBeGreaterThan(0)
+    const loose = layoutMap({ ...oneContextMap(), contexts: [{ id: 'c1' }, { id: 'c2' }] })
+    expect(loose.outline).toEqual(result.outline)
+    expect(loose.bounds).toEqual(result.bounds)
+  })
+
+  it('outlines nothing on a single hexagon or from two contexts up', () => {
+    expect(layoutMap({ ...oneContextMap(), hexagons: [oneContextMap().hexagons[0]] }).outline).toBeUndefined()
+    expect(layoutMap(twoContextMap()).outline).toBeUndefined()
   })
 
   it('exposes one entry per context, with its display label, from two contexts up', () => {
