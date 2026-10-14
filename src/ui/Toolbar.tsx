@@ -170,9 +170,9 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
         choices={[
           { id: 'copy-link', label: 'Copy link', control: 'action', icon: 'link' },
           ...(showScope ? [{ id: 'scope' as const, label: 'Only the current hexagon', checked: exportScope === 'hexagon', control: 'switch' as const, group: 'Export image' }] : []),
-          { id: 'svg', label: 'SVG', control: 'action', group: 'Export image' },
-          { id: 'png', label: 'PNG', control: 'action', group: 'Export image' },
-          { id: 'png-copy', label: 'Copy PNG', description: `Or press ${mod}C`, control: 'action', group: 'Export image' },
+          { id: 'png', label: 'Download PNG', control: 'action', group: 'Export image' },
+          { id: 'svg', label: 'Download SVG', control: 'action', group: 'Export image' },
+          { id: 'png-copy', label: 'Copy image', shortcut: `${mod}C`, control: 'action', group: 'Export image' },
         ]}
         onChoose={(id) => (id === 'copy-link' ? onCopyLink() : id === 'scope' ? useViewStore.setState({ exportScope: exportScope === 'hexagon' ? 'map' : 'hexagon' }) : onExport(id))}
       />

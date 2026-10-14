@@ -426,6 +426,33 @@ describe('ChoiceMenu submenu', () => {
     }
   })
 
+  it('Tab inside the submenu closes everything, refocuses the trigger and reports the dismissal', () => {
+    const onDismiss = vi.fn()
+    render(<ChoiceMenu label="File" choices={WITH_SUB} onChoose={() => {}} onDismiss={onDismiss} />)
+    const trigger = screen.getByRole('button', { name: 'File' })
+    fireEvent.click(trigger)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Start from an example' }))
+    fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Basic hex' }), { key: 'Tab' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+    expect(onDismiss).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['ArrowDown', 'ArrowUp'])('%s in the parent menu closes an open submenu and keeps the menu', (key) => {
+    const { parent } = renderSub()
+    fireEvent.click(parent)
+    fireEvent.keyDown(parent, { key })
+    expect(screen.queryByRole('menu', { name: 'Start from an example' })).toBeNull()
+    expect(screen.getByRole('menu', { name: 'File' })).toBeTruthy()
+  })
+
+  it('a press outside closes the submenu and the menu', () => {
+    const { parent } = renderSub()
+    fireEvent.click(parent)
+    fireEvent.pointerDown(document.body)
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
   it('choosing a leaf reports its id once and closes everything', () => {
     const { parent, trigger, onChoose } = renderSub()
     fireEvent.click(parent)

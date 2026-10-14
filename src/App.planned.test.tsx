@@ -112,10 +112,10 @@ describe('exports while planned items are hidden', () => {
 
   it('leaves them out of an SVG export', async () => {
     render(<App />)
-    expect(await exportAs('Share', 'SVG')).toContain('SubmitChatFeedback')
+    expect(await exportAs('Share', 'Download SVG')).toContain('SubmitChatFeedback')
     vi.restoreAllMocks()
     hidePlanned()
-    expect(await exportAs('Share', 'SVG')).not.toContain('SubmitChatFeedback')
+    expect(await exportAs('Share', 'Download SVG')).not.toContain('SubmitChatFeedback')
   })
 
   it('still saves them in the .hexa file', async () => {

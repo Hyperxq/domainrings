@@ -503,7 +503,7 @@ describe('toolbar', () => {
     for (const name of ['New', 'Open .hexa…', 'Save .hexa']) expect(within(file).getByRole('menuitem', { name })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     const share = screen.getByRole('menu', { name: 'Share' })
-    expect([...share.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).toEqual(['Copy link', 'SVG', 'PNG', 'Copy PNGOr press Ctrl+C'])
+    expect([...share.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).toEqual(['Copy link', 'Download PNG', 'Download SVG', 'Copy imageCtrl+C'])
   })
 
   it('links to the source repository in a new tab', () => {
@@ -1304,7 +1304,7 @@ describe('expanding hexagons on a large map', () => {
     const exported = async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Share' }))
       await act(async () => {
-        choose('Share', 'SVG')
+        choose('Share', 'Download SVG')
         await Promise.resolve()
         await Promise.resolve()
       })
@@ -1409,7 +1409,7 @@ describe('export scope (EXPORT-03)', () => {
     pickScope('hexagon')
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -1445,7 +1445,7 @@ describe('export scope (EXPORT-03)', () => {
     // Scope defaults to Map, current hexagon (h1) unchanged: both hexagons' own headings should appear.
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -1457,7 +1457,7 @@ describe('export scope (EXPORT-03)', () => {
     pickScope('hexagon')
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -1501,7 +1501,7 @@ describe('export scope (EXPORT-03)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -1514,7 +1514,7 @@ describe('export scope (EXPORT-03)', () => {
     pickScope('hexagon')
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -1541,7 +1541,7 @@ describe('export scope (EXPORT-03)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -2280,7 +2280,7 @@ describe('journey', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -2854,7 +2854,7 @@ describe('Onion export (REQ-08)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -2903,7 +2903,7 @@ describe('Onion export (REQ-08)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'PNG')
+      choose('Share', 'Download PNG')
       await Promise.resolve()
       await Promise.resolve()
       await Promise.resolve()
@@ -2936,7 +2936,7 @@ describe('Onion export (REQ-08)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'PNG')
+      choose('Share', 'Download PNG')
       await new Promise((resolve) => setTimeout(resolve, 0))
     })
 
@@ -2960,7 +2960,7 @@ describe('Onion export (REQ-08)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -2998,7 +2998,7 @@ describe('Clean export (REQ-05)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -3048,7 +3048,7 @@ describe('Clean export (REQ-05)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'PNG')
+      choose('Share', 'Download PNG')
       await Promise.resolve()
       await Promise.resolve()
       await Promise.resolve()
@@ -3585,10 +3585,10 @@ describe('copy PNG to the clipboard', () => {
     vi.unstubAllGlobals()
   })
 
-  it('Share > Copy PNG puts the PNG on the clipboard instead of downloading it', async () => {
+  it('Share > Copy image puts the PNG on the clipboard instead of downloading it', async () => {
     render(<App />)
     const { write, click } = stubPng()
-    choose('Share', 'Copy PNGOr press Ctrl+C')
+    choose('Share', 'Copy image')
     await settle()
     expect(write).toHaveBeenCalledTimes(1)
     expect(await copied(write)).toBe('image/png')
@@ -3630,7 +3630,7 @@ describe('copy PNG to the clipboard', () => {
     render(<App />)
     const { write } = stubPng()
     write.mockRejectedValue(new Error('Write permission denied.'))
-    choose('Share', 'Copy PNGOr press Ctrl+C')
+    choose('Share', 'Copy image')
     await settle()
     expect(screen.getByText('Copy failed: Write permission denied.')).toBeTruthy()
   })
