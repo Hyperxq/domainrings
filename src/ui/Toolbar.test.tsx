@@ -53,6 +53,24 @@ function renderToolbar(
   return props
 }
 
+describe('Toolbar copy PNG hint', () => {
+  const open = (name: 'Share') => fireEvent.click(screen.getByRole('button', { name }))
+
+  it('names the Mac shortcut on a Mac', () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)')
+    renderToolbar()
+    open('Share')
+    expect(screen.getByRole('menuitem', { name: /Copy PNG/ }).textContent).toBe('Copy PNGOr press ⌘C')
+  })
+
+  it('hands the copy choice to onExport', () => {
+    const { onExport } = renderToolbar()
+    open('Share')
+    fireEvent.click(screen.getByRole('menuitem', { name: /Copy PNG/ }))
+    expect(onExport).toHaveBeenCalledWith('png-copy')
+  })
+})
+
 describe('Toolbar at wide width', () => {
   it('has a Dependents switch that shows its state, explains itself and flips on click', () => {
     renderToolbar({ dependents: false })
@@ -289,13 +307,13 @@ describe.each([
     expect(onOpen).toHaveBeenCalledWith(file)
   })
 
-  it('Share lists Copy link first, then an Export image group with SVG and PNG', () => {
+  it('Share lists Copy link first, then an Export image group with SVG, PNG and Copy PNG', () => {
     renderToolbar()
     open('Share')
     const menu = screen.getByRole('menu', { name: 'Share' })
-    expect([...menu.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(['Copy link', 'SVG', 'PNG'])
+    expect([...menu.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(['Copy link', 'SVG', 'PNG', 'Copy PNGOr press Ctrl+C'])
     const group = screen.getByRole('group', { name: 'Export image' })
-    expect([...group.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(['SVG', 'PNG'])
+    expect([...group.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(['SVG', 'PNG', 'Copy PNGOr press Ctrl+C'])
     expect(within(menu).getByRole('menuitem', { name: 'Copy link' }).querySelector('svg')).not.toBeNull()
   })
 
@@ -324,7 +342,7 @@ describe.each([
     const scope = within(group).getByRole('menuitemcheckbox', { name: 'Only the current hexagon' })
     expect(scope.getAttribute('aria-checked')).toBe('false')
     expect(scope.querySelector('.switch-track > .switch-knob')).not.toBeNull()
-    expect([...group.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(['Only the current hexagon', 'SVG', 'PNG'])
+    expect([...group.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(['Only the current hexagon', 'SVG', 'PNG', 'Copy PNGOr press Ctrl+C'])
     cleanup()
 
     renderToolbar({ showScope: false })

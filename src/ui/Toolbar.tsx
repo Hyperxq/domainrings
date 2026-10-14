@@ -3,6 +3,7 @@ import type { LayoutMode } from '../layout/layout'
 import { useRef, useSyncExternalStore } from 'react'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
+import type { ExportFormat } from './useExport'
 import { PALETTES, type PaletteId } from './palette'
 import { usePreferencesStore, type ThemeChoice } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
@@ -17,7 +18,7 @@ interface ToolbarProps {
   onOpen: (file: File) => void
   /** Always copies the whole map (REQ-05), regardless of the export scope selection. */
   onCopyLink: () => void
-  onExport: (format: 'hexa' | 'svg' | 'png') => void
+  onExport: (format: ExportFormat) => void
   /** Only a multi-hexagon map has more than one thing to export (EXPORT-03) — a single hexagon has nothing to choose between. */
   showScope: boolean
   /** The Planned switch only has something to show or hide once the map holds a planned item. */
@@ -159,6 +160,7 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
           ...(showScope ? [{ id: 'scope' as const, label: 'Only the current hexagon', checked: exportScope === 'hexagon', control: 'switch' as const, group: 'Export image' }] : []),
           { id: 'svg', label: 'SVG', control: 'action', group: 'Export image' },
           { id: 'png', label: 'PNG', control: 'action', group: 'Export image' },
+          { id: 'png-copy', label: 'Copy PNG', description: `Or press ${/Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘C' : 'Ctrl+C'}`, control: 'action', group: 'Export image' },
         ]}
         onChoose={(id) => (id === 'copy-link' ? onCopyLink() : id === 'scope' ? useViewStore.setState({ exportScope: exportScope === 'hexagon' ? 'map' : 'hexagon' }) : onExport(id))}
       />
