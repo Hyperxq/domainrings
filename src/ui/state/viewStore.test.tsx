@@ -115,3 +115,36 @@ describe('focusedFlow', () => {
     expect(useViewStore.getState().focusedFlow).toBeNull()
   })
 })
+
+describe('presentStep', () => {
+  const walking = () => {
+    useViewStore.getState().focusFlow('uc-submit')
+    useViewStore.getState().present(2)
+  }
+
+  it('is set through present and cleared when the flow changes', () => {
+    walking()
+    expect(useViewStore.getState().presentStep).toBe(2)
+    useViewStore.getState().focusFlow(null)
+    expect(useViewStore.getState().presentStep).toBeNull()
+  })
+
+  it('clears with the flow: another hexagon, a deleted use case, a swapped map, Edit mode', () => {
+    const map = toMap(EXAMPLE_DIAGRAM)
+    useMapStore.getState().replace({ ...map, hexagons: [...map.hexagons, { ...map.hexagons[0], id: 'h2', cell: { q: 1, r: 0 } }] })
+    walking()
+    useMapStore.getState().setFocus('h2')
+    expect(useViewStore.getState().presentStep).toBeNull()
+    useMapStore.getState().setFocus('h1')
+    walking()
+    useMapStore.getState().removeItem('h1', 'useCases', 'uc-submit')
+    expect(useViewStore.getState().presentStep).toBeNull()
+    walking()
+    useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM))
+    expect(useViewStore.getState().presentStep).toBeNull()
+    usePreferencesStore.setState({ viewOnly: true })
+    walking()
+    usePreferencesStore.setState({ viewOnly: false })
+    expect(useViewStore.getState().presentStep).toBeNull()
+  })
+})

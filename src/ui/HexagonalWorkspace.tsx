@@ -3,8 +3,10 @@ import { usePreferencesStore } from './state/preferencesStore'
 import { contextName, diagramOf } from '../model/map'
 import { Editor } from './Editor'
 import { FlowsPanel } from './FlowsPanel'
+import { PresentPanel } from './PresentPanel'
 import { Legend } from './Legend'
 import { Stage } from './Stage'
+import { useViewStore } from './state/viewStore'
 import { useHexagonalCommands } from './useHexagonalCommands'
 
 type CommandsContext = Parameters<typeof useHexagonalCommands>[0]
@@ -20,12 +22,13 @@ type HexagonalWorkspaceProps = Omit<StageProps, 'contextLabel' | 'onDelete' | 'o
 export function HexagonalWorkspace({ nameOf, parseFile, shown, ...stage }: HexagonalWorkspaceProps) {
   const { map, hexId, diagram } = stage
   const viewOnly = usePreferencesStore((s) => s.viewOnly)
+  const presenting = useViewStore((s) => s.presentStep !== null)
   const commands = useHexagonalCommands({ map, hexId, diagram, nameOf, parseFile })
   const contextLabel = contextName(map, map.hexagons.find((h) => h.id === hexId)!.contextId)
   return (
     <>
       {viewOnly ? (
-        <FlowsPanel />
+        presenting ? <PresentPanel /> : <FlowsPanel />
       ) : (
         <Editor
           onAddHexagon={(id) => commands.completeGrow(undefined, 'same', id)}

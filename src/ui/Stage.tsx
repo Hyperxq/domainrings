@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type Ref } from 'react'
 import { canCompact } from '../layout/compactHexagon'
+import { translatedNodeBox } from '../layout/linkEnds'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
 import type { LayoutNode } from '../layout/layout'
 import type { Point } from '../layout/geometry'
@@ -11,12 +12,13 @@ import { collectionOf, linkTargets, type LinkChoice } from '../model/links'
 import { noteToShow, notesOf } from '../model/notes'
 import { plannedOf } from '../model/planned'
 import { canLink, crossPortTargets, isCrossTarget, targetsByHexagon } from '../model/linkTargeting'
-import type { Destination } from '../model/map'
+import { diagramOf, type Destination } from '../model/map'
 import type { CollectionKey, Diagram as DiagramModel, DomainType, HexaMap, Wall } from '../model/schema'
 import { useMapStore } from '../model/store'
 import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
 import { hexIdOf, hullIdOf, layerOf, nodeRefOf, refOf } from './canvasTarget'
+import { PresentButton, StepCard, usePresentation } from './PresentPanel'
 import { NotePopover } from './stage/NotePopover'
 import { BoxLabels, ContextReveals, ExpandToggles, GrowButtons, HexagonTitles, LinkChip, MapTitle, mapTitleOverlaid, titlesOverlaid } from './stage/overlays'
 import { useCanvasShortcuts } from './stage/useCanvasShortcuts'
@@ -101,7 +103,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
 
   const reveal = useContextReveal(model.hexagons)
 
-  const { size, centre, view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useStageViewport({
+  const { size, centre, panTo, view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useStageViewport({
     model,
     hex,
     mainRef,
@@ -121,6 +123,20 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   useEffect(() => {
     if (viewOnly) onLinking(null)
   }, [viewOnly, onLinking])
+
+  // The step being presented is the selection (which lights it and shows its note), and is panned into view.
+  const stepNow = usePresentation()?.step
+  useEffect(() => {
+    if (!stepNow) return
+    setSelected(stepNow.hexId === hexId ? stepNow.id : null)
+    const at = model.hexagons.find((h) => h.id === stepNow.hexId)
+    const kind = NODE_KIND[collectionOf(diagramOf(map, stepNow.hexId), stepNow.id)!]
+    const node = at?.model.nodes.find((n) => n.ref === stepNow.id && n.kind === kind)
+    if (at && node) panTo(translatedNodeBox(node, at.centre))
+    return () => setSelected(null)
+    // Re-fires on the step alone: the view and layout move on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepNow?.hexId, stepNow?.id])
 
   const { announcement, focusHexagon } = useHexagonFocus({ hexId, model, mainRef, view, viewport, setView, setSelected, onLinking })
 
@@ -351,6 +367,8 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
         <InlineName key={`naming:${hexId}`} at={mapToScreen(hex.centre)} initial={diagram.title} label="Hexagon title" emptyCommits onCommit={onNamed} onCancel={onNamingCancel} />
       )}
 
+      <PresentButton />
+      <StepCard />
       <ZoomControls canExpandAll={canCompact(model.hexagons.length)} viewport={viewport} zoomFloor={zoomFloor} centre={centre} setView={setView} fullscreen={fullscreen} setFullscreen={setFullscreen} />
     </main>
   )

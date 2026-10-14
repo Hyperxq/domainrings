@@ -19,6 +19,7 @@ const PATHS = {
   hexagonMinus: 'M12 2.5l8.2 4.75v9.5L12 21.5l-8.2-4.75v-9.5zM8.5 12h7',
   panel: 'M4 4h16v16H4zM10 4v16',
   close: 'M18 6 6 18M6 6l12 12',
+  play: 'M7 4.5l12 7.5-12 7.5z',
   chevron: 'M9 6l6 6-6 6',
   info: 'M12 21a9 9 0 1 0 0-18a9 9 0 0 0 0 18zM12 11v5M12 8h.01',
   // Two overlapping chain links, a common "copy link" glyph.

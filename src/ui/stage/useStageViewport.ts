@@ -2,7 +2,8 @@ import { useState, type RefObject } from 'react'
 import { hexagonBounds } from '../../layout/lattice'
 import { type MapHexagonLayout, type MapLayout } from '../../layout/map'
 import { useViewStore } from '../state/viewStore'
-import { canvasBounds, contains, fitMap, fitTo, islandInset, visibleRect } from '../viewport'
+import type { Box } from '../../layout/geometry'
+import { canvasBounds, contains, fitMap, fitTo, islandInset, panInto, visibleRect } from '../viewport'
 import { useElementSize, useFreezeWhilePanelOpen, useViewportInteractions } from '../viewportChrome'
 
 /** The stage's size, fit and pan/zoom state for a map, including the reset that keeps a manual viewport only while
@@ -71,5 +72,10 @@ export function useStageViewport({
     setSeenHexagons({ key: hexKey, hexagons: model.hexagons })
     if (typeof view !== 'string' && !changed.every((h) => contains(visibleRect(view, effectiveSize, inset), hexagonBounds(h)))) setView('auto')
   }
-  return { ...interactions, size, centre }
+  /** Pans the least that brings `box` into the free area; a view that already shows it, or a box too big for it, stays. */
+  const panTo = (box: Box) => {
+    const next = panInto(heading.current, visibleRect(heading.current, effectiveSize, inset), box)
+    if (next && (next.x !== heading.current.x || next.y !== heading.current.y)) setView(next)
+  }
+  return { ...interactions, size, centre, panTo }
 }
