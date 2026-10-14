@@ -894,20 +894,20 @@ span.swatch-element { background: var(--card); border-color: var(--teal); }
 @media (max-width: 720px) {
   .toolbar { top: 8px; left: 8px; right: 8px; width: auto; margin: 0; max-width: none; }
   .editor { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 45dvh; }
-  .zoom { top: 60px; right: 8px; bottom: auto; left: auto; }
-  .notices { top: 108px; right: 8px; }
-  .toast { top: 108px; bottom: auto; }
-  .legend { top: 108px; bottom: auto; right: 8px; }
+  .zoom { top: calc(var(--toolbar-bottom, 50px) + 10px); right: 8px; bottom: auto; left: auto; }
+  .notices { top: calc(var(--toolbar-bottom, 50px) + 58px); right: 8px; }
+  .toast { top: calc(var(--toolbar-bottom, 50px) + 58px); bottom: auto; }
+  .legend { top: calc(var(--toolbar-bottom, 50px) + 58px); bottom: auto; right: 8px; }
 }
 
 /* Below this the toolbar no longer fits the ~340-374px available on a phone, so it
-   wraps into two centred rows instead of scrolling sideways; that grows it from one row (42px) to two (78px,
-   measured in Chrome), pushing every island stacked below it (zoom, notices, toast, legend) down by that 36px,
-   matched by `islandInset`'s width<=640 branch in viewport.ts. */
+   wraps into centred rows instead of scrolling sideways. How many depends on the width, so Toolbar publishes its
+   measured bottom edge as --toolbar-bottom and the islands below it (above) hang from that; the fallbacks assume
+   a one-row bar (50px), and here a two-row one (86px). */
 @media (max-width: 640px) {
   .toolbar { flex-wrap: wrap; justify-content: center; overflow-x: visible; touch-action: none; }
-  .zoom { top: 96px; }
-  .notices { top: 144px; }
-  .toast { top: 144px; }
-  .legend { top: 144px; }
+  .zoom { top: calc(var(--toolbar-bottom, 86px) + 10px); }
+  .notices { top: calc(var(--toolbar-bottom, 86px) + 58px); }
+  .toast { top: calc(var(--toolbar-bottom, 86px) + 58px); }
+  .legend { top: calc(var(--toolbar-bottom, 86px) + 58px); }
 }

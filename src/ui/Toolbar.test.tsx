@@ -7,9 +7,18 @@ import { useViewStore } from './state/viewStore'
 import { useMapStore } from '../model/store'
 import { manyHexagonMap } from '../test/fixtures'
 
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+} as unknown as typeof ResizeObserver
+
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+  document.documentElement.style.removeProperty('--toolbar-bottom')
+  useViewStore.setState({ toolbarBottom: null })
 })
 
 /** Seeds the stores the toolbar reads, then renders it; its choices land in those stores. */
@@ -400,6 +409,52 @@ describe('Toolbar at phone width', () => {
     for (const name of ['View options', 'File', 'Share']) expect(screen.getByRole('button', { name }).getAttribute('aria-haspopup')).toBe('menu')
     expect(screen.getByRole('radiogroup', { name: 'Detail level' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'View the source on GitHub' })).toBeTruthy()
+  })
+})
+
+describe('Toolbar height measurement', () => {
+  /** Stands in for ResizeObserver so a test decides when the bar's height changed. */
+  function observeToolbar() {
+    const disconnect = vi.fn()
+    let notify = () => {}
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(cb: () => void) {
+          notify = cb
+        }
+        observe() {}
+        disconnect = disconnect
+      },
+    )
+    return {
+      disconnect,
+      resizeTo(bottom: number) {
+        screen.getByRole('banner').getBoundingClientRect = () => ({ bottom }) as DOMRect
+        act(() => notify())
+      },
+    }
+  }
+
+  it('publishes the bar’s bottom edge and follows it as the bar wraps', () => {
+    const bar = observeToolbar()
+    renderToolbar()
+    bar.resizeTo(86)
+    expect(document.documentElement.style.getPropertyValue('--toolbar-bottom')).toBe('86px')
+    expect(useViewStore.getState().toolbarBottom).toBe(86)
+    bar.resizeTo(122)
+    expect(document.documentElement.style.getPropertyValue('--toolbar-bottom')).toBe('122px')
+    expect(useViewStore.getState().toolbarBottom).toBe(122)
+  })
+
+  it('stops observing and forgets the measurement when the bar unmounts', () => {
+    const bar = observeToolbar()
+    renderToolbar()
+    bar.resizeTo(86)
+    cleanup()
+    expect(bar.disconnect).toHaveBeenCalled()
+    expect(document.documentElement.style.getPropertyValue('--toolbar-bottom')).toBe('')
+    expect(useViewStore.getState().toolbarBottom).toBeNull()
   })
 })
 

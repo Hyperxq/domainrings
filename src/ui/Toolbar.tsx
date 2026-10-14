@@ -53,6 +53,22 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
   const map = useMapStore((s) => s.map)
   const focus = useMapStore((s) => s.focus)
   const openFile = useRef<HTMLInputElement>(null)
+  const bar = useRef<HTMLElement>(null)
+  // The bar wraps to a width-dependent number of rows on phones, so the islands below it follow its measured bottom edge.
+  useEffect(() => {
+    const root = document.documentElement
+    const observer = new ResizeObserver(() => {
+      const { bottom } = bar.current!.getBoundingClientRect()
+      root.style.setProperty('--toolbar-bottom', `${bottom}px`)
+      useViewStore.setState({ toolbarBottom: bottom })
+    })
+    observer.observe(bar.current!)
+    return () => {
+      observer.disconnect()
+      root.style.removeProperty('--toolbar-bottom')
+      useViewStore.setState({ toolbarBottom: null })
+    }
+  }, [])
   const mod = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl+'
   useEffect(() => {
     if (viewOnly) return
@@ -68,7 +84,7 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
     return () => document.removeEventListener('keydown', onKey)
   }, [viewOnly, onExport])
   return (
-    <header className="island toolbar">
+    <header ref={bar} className="island toolbar">
       <h1 className="wordmark">domainrings</h1>
 
       {showScope && (

@@ -26,6 +26,8 @@ interface ViewData {
   growing: { hexId: string; before: { map: HexaMap; focus: string } } | null
   /** Counts the requests to refit the view; the viewport chrome answers each one as it does the Fit button. */
   fitRequest: number
+  /** The toolbar's measured bottom edge in px, which the islands below it hang from; null until measured. */
+  toolbarBottom: number | null
 }
 
 interface ViewStore extends ViewData {
@@ -59,6 +61,7 @@ const initialView = (): ViewData => ({
   linking: null,
   growing: null,
   fitRequest: 0,
+  toolbarBottom: null,
 })
 
 export const useViewStore = create<ViewStore>()((set, get) => ({
