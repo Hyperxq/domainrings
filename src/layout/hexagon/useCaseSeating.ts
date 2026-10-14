@@ -49,7 +49,8 @@ export const seatWalls = (d: Diagram, wallOf: (p: Port) => Wall): Wall[] => {
     const score = (w: Wall) => (mine.length ? mine.filter((p) => wallOf(p) === w).length : -load.get(w)!)
     const best = Math.max(...WALLS.map(score))
     const tied = WALLS.filter((w) => score(w) === best)
-    const wall = explicit[i] ?? tied.find((w) => mine.some((p) => p.side === 'driving' && wallOf(p) === w)) ?? tied[0]
+    if (explicit[i]) return explicit[i]
+    const wall = tied.find((w) => mine.some((p) => p.side === 'driving' && wallOf(p) === w)) ?? tied[0]
     load.set(wall, load.get(wall)! + 1)
     return wall
   })

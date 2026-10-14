@@ -65,6 +65,12 @@ describe('seating every use case on a domain wall', () => {
       expect(wallsOf(d)).toEqual({ u0: 'nw', u1: 'w', u2: 'sw', u3: 'ne' })
     })
 
+    it('counts an explicitly placed use case once', () => {
+      const ids = ['b', 'c', 'd', 'e', 'f', 'g']
+      const walls = wallsOf({ ...base, useCases: [useCase('a', 'nw'), ...ids.map((id) => useCase(id))] })
+      expect(ids.map((id) => walls[id])).toEqual(['w', 'sw', 'ne', 'e', 'se', 'nw'])
+    })
+
     it('fills every wall before doubling up', () => {
       const ids = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
       const walls = wallsOf({ ...base, useCases: ids.map((id) => useCase(id)) })
