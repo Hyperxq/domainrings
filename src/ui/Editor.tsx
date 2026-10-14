@@ -5,10 +5,11 @@ import { useViewStore } from './state/viewStore'
 import { FlowsSection } from './FlowsSection'
 import { Icon } from './Icon'
 import { session } from './editor/fieldSession'
-import { ContextTree } from './editor/ContextTree'
+import { CollectionSections } from './editor/CollectionSections'
+import { Fold } from './Fold'
 import { LinksSection } from './editor/LinksSection'
 import { MapSection } from './editor/MapSection'
-import type { SubdomainActions } from './editor/SubdomainSection'
+import { SubdomainSection, type SubdomainActions } from './editor/SubdomainSection'
 
 export function Editor({
   onAddHexagon,
@@ -54,11 +55,16 @@ export function Editor({
       <div id="editor-body" className="editor-body" hidden={!open}>
         <FlowsSection />
 
-        <MapSection title={map.title} contextLabel={contextLabel} onAddFromFile={onAddFromFile} session={session} />
+        <div data-subdomain={hexId}>
+          <h2 className="elements-head">Elements</h2>
+          <CollectionSections hexId={hexId} map={map} diagram={d} />
+          {map.hexagons.length > 1 && <LinksSection map={map} onCreateLink={onCreateLink} onUpdateLink={onUpdateLink} onDeleteLink={onDeleteLink} />}
 
-        <ContextTree map={map} onRenameContext={onRenameContext} onAddHexagon={onAddHexagon} onDeleteHexagon={onDeleteHexagon} onMoveToContext={onMoveToContext} />
-
-        <LinksSection map={map} onCreateLink={onCreateLink} onUpdateLink={onUpdateLink} onDeleteLink={onDeleteLink} />
+          <Fold id="diagram-settings" title="Diagram settings · layers, titles" defaultOpen={false}>
+            <MapSection title={map.title} contextLabel={contextLabel} onAddFromFile={onAddFromFile} session={session} />
+            <SubdomainSection map={map} hexId={hexId} onRenameContext={onRenameContext} onAddHexagon={onAddHexagon} onDeleteHexagon={onDeleteHexagon} onMoveToContext={onMoveToContext} />
+          </Fold>
+        </div>
       </div>
     </aside>
   )
