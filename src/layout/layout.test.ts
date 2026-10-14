@@ -268,9 +268,10 @@ describe('layoutDiagram', () => {
     }
   })
 
-  it('sets every ring title at one shared depth under its top vertex, inside its ring, above its content', () => {
+  it('sets the layer titles at one shared depth under their top vertex, the domain title no deeper, all inside their ring, above their content', () => {
     const depths = model.rings.map((ring) => top(labelBox(ring)) + ring.apex)
-    for (const depth of depths) expect(Math.abs(depth - depths[0])).toBeLessThanOrEqual(1)
+    for (const depth of depths.slice(0, -1)) expect(Math.abs(depth - depths[0])).toBeLessThanOrEqual(1)
+    expect(depths.at(-1)!).toBeLessThanOrEqual(depths[0] + 1)
     model.rings.forEach((ring, i) => {
       const box = labelBox(ring)
       expect(box.x).toBe(0)
@@ -809,10 +810,11 @@ describe('domain title on sparse diagrams', () => {
   it.each([
     ['an empty diagram', empty],
     ['a single domain item', single],
-  ])('keeps every title at the shared depth for %s, the domain title above the ring centre', (_, diagram) => {
+  ])('keeps the layer titles at the shared depth for %s, the domain title no deeper and above the ring centre', (_, diagram) => {
     const m = layoutDiagram(diagram)
     const depths = m.rings.map((ring) => top(labelBox(ring)) + ring.apex)
-    for (const depth of depths) expect(Math.abs(depth - depths[0])).toBeLessThanOrEqual(1)
+    for (const depth of depths.slice(0, -1)) expect(Math.abs(depth - depths[0])).toBeLessThanOrEqual(1)
+    expect(depths.at(-1)!).toBeLessThanOrEqual(depths[0] + 1)
     expect(bottom(labelBox(m.rings.at(-1)!))).toBeLessThan(0)
   })
 })
@@ -1286,11 +1288,8 @@ describe('layoutDiagram growth (stress example)', () => {
   })
 
   it('keeps the two aggregate cards apart', () => {
-    const nodes = model.nodes.filter((n) => n.kind === 'domainItem')
-    const [leftCol, rightCol] = [nodes.filter((n) => n.x < 0), nodes.filter((n) => n.x > 0)]
-    expect(leftCol.length).toBeGreaterThan(0)
-    expect(rightCol.length).toBeGreaterThan(0)
-    expect(Math.max(...leftCol.map(right))).toBeLessThan(Math.min(...rightCol.map(left)))
+    const [a, b] = model.nodes.filter((n) => n.kind === 'aggregate')
+    expect(right(a) <= left(b) || right(b) <= left(a) || bottom(a) <= top(b) || bottom(b) <= top(a)).toBe(true)
   })
 
   it('still hugs the region to its content', () => {

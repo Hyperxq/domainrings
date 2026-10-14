@@ -1,4 +1,4 @@
-import { diagramOf, neighbour, UNTITLED_HEXAGON } from '../model/map'
+import { contextName, diagramOf, neighbour, occupiedContexts, UNTITLED_HEXAGON } from '../model/map'
 import type { HexaMap, Link, Wall } from '../model/schema'
 import { canCompact, compactOf, type CompactLayout } from './compactHexagon'
 import { layContexts } from './contextChips'
@@ -118,10 +118,12 @@ export const currentHexagon = (layout: MapLayout, hexId: string): MapHexagonLayo
 export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayout {
   const full = (id: string) => id === options.current || !!options.expanded?.has(id)
   const compacting = (options.current !== undefined || options.expanded !== undefined) && canCompact(map.hexagons.length) && !map.hexagons.every((h) => full(h.id))
+  const chipped = occupiedContexts(map).length >= 2
   const perHexagon = map.hexagons.map((hexagon) => ({
     hexagon,
     model: layoutDiagram(diagramOf(map, hexagon.id), options),
     compact: compacting && !full(hexagon.id),
+    ...(chipped ? { chipLabel: contextName(map, hexagon.contextId) } : {}),
   }))
 
   const { pitch, centres, unit } = layLattice(perHexagon, compacting)

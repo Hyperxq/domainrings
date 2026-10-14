@@ -6,16 +6,20 @@ import { COS30, halfWidthAt, hexagon, type Outline } from '../outline'
 import { DOMAIN_TAGS } from '../tags'
 import { styled } from '../text'
 import { frame, type Frame } from './boxFrames'
-import { GAP } from './spacing'
 import type { UseCaseSeating } from './useCaseSeating'
 import { WALLS, wallFrame } from './walls'
 
 /** An aggregate outline: 8 padding all round, plus its tag line above the root. */
 const OUTLINE_PAD = 8
+/** Room kept between two blocks of the region. */
+const BLOCK_GAP = 10
 /** Room kept between a block and the wall of the region it sits on. */
-const REGION_PAD = 10
+const REGION_PAD = 6
 /** The smallest region, so an empty domain still has a body under its title. */
 const MIN_REGION = 40
+/** A block that belongs to no face stays in the middle of the region. */
+const MIDDLE = 'middle'
+type Face = Wall | typeof MIDDLE
 /** Blocks nobody points at spread over the walls in this order: the first two face each other. */
 const SPREAD: Wall[] = ['w', 'e', 'ne', 'sw', 'nw', 'se']
 
@@ -47,7 +51,7 @@ export interface Placed extends Row {
 const inside = (o: Outline, p: Point) => Math.abs(p.y) <= o.apex + 1e-6 && Math.abs(p.x) <= halfWidthAt(o, p.y) + 1e-6
 const corners = (c: Point, w: number, h: number) => [-1, 1].flatMap((sx) => [-1, 1].map((sy) => ({ x: c.x + (sx * w) / 2, y: c.y + (sy * h) / 2 })))
 const apart = (a: { c: Point; w: number; h: number }, b: { c: Point; w: number; h: number }) =>
-  Math.abs(a.c.x - b.c.x) >= (a.w + b.w) / 2 + GAP - 1e-6 || Math.abs(a.c.y - b.c.y) >= (a.h + b.h) / 2 + GAP - 1e-6
+  Math.abs(a.c.x - b.c.x) >= (a.w + b.w) / 2 + BLOCK_GAP - 1e-6 || Math.abs(a.c.y - b.c.y) >= (a.h + b.h) / 2 + BLOCK_GAP - 1e-6
 
 /**
  * The domain body: the domain model region, a hexagon of its own inside the domain ring, holding one card per
@@ -106,34 +110,33 @@ export function layCentre({ d, overview, domainFrame, seating }: CentreInput) {
 
   // Each block's face: the one most of the use cases using it are seated on.
   const users = (block: Block) => d.useCases.flatMap((u, i) => (u.aggregateIds?.includes(block.root.id) ? [i] : []))
-  const load = new Map(WALLS.map((w) => [w, 0]))
   const wallOf = new Map<Block, Wall>()
   for (const block of blocks) {
     const counts = new Map<Wall, number>()
     for (const i of users(block)) counts.set(seating.walls[i], (counts.get(seating.walls[i]) ?? 0) + 1)
     const best = Math.max(0, ...counts.values())
     const wall = best ? WALLS.find((w) => counts.get(w) === best) : undefined
-    if (wall) {
-      wallOf.set(block, wall)
-      load.set(wall, load.get(wall)! + 1)
-    }
+    if (wall) wallOf.set(block, wall)
   }
-  for (const block of blocks) {
-    if (wallOf.has(block)) continue
-    const wall = SPREAD.reduce((best, w) => (load.get(w)! < load.get(best)! ? w : best))
-    wallOf.set(block, wall)
-    load.set(wall, load.get(wall)! + 1)
-  }
+
   /**
    * The blocks for a region of apex `apex`: each as far toward its face as its corners allow (against the wall where it
    * fits there, drawn in toward the middle where its height would stick out of the slope), the blocks sharing a face
    * side by side along it.
    */
-  const layBlocks = (apex: number) => {
+  const layBlocks = (apex: number, faces: ReadonlyMap<Block, Face>) => {
     const apothem = hexagon(apex).halfWidth - REGION_PAD
     const room = hexagon(apex - REGION_PAD / COS30)
-    return WALLS.flatMap((wall) => {
-      const here = blocks.filter((b) => wallOf.get(b) === wall)
+    const middle = [...faces].filter(([, w]) => w === MIDDLE).map(([b]) => b)
+    const stacked = middle.map((block) => ({ block, size: blockSize(block) }))
+    let top = -stacked.reduce((t, it) => t + it.size.height + BLOCK_GAP, -BLOCK_GAP) / 2
+    const inMiddle = stacked.map((it) => {
+      const c = { x: 0, y: top + it.size.height / 2 }
+      top += it.size.height + BLOCK_GAP
+      return { ...it, c }
+    })
+    return [...inMiddle, ...WALLS.flatMap((wall) => {
+      const here = [...faces].filter(([, w]) => w === wall).map(([b]) => b)
       if (!here.length) return []
       const { n, dir } = wallFrame(wall)
       const items = here.map((block) => {
@@ -141,32 +144,62 @@ export function layCentre({ d, overview, domainFrame, seating }: CentreInput) {
         return { block, size, along: reach(size.width, size.height, dir), across: reach(size.width, size.height, n) }
       })
       // Side by side along the face, centred on it.
-      const span = items.reduce((t, it) => t + 2 * it.along + GAP, -GAP)
+      const span = items.reduce((t, it) => t + 2 * it.along + BLOCK_GAP, -BLOCK_GAP)
       let start = -span / 2
       return items.map((it) => {
         const u = start + it.along
-        start += 2 * it.along + GAP
+        start += 2 * it.along + BLOCK_GAP
         const at = (depth: number) => ({ x: n.x * depth + dir.x * u, y: n.y * depth + dir.y * u })
-        const hug = apothem - it.across
-        let depth = hug
+        let depth = apothem - it.across
         while (depth > 0 && !corners(at(depth), it.size.width, it.size.height).every((p) => inside(room, p))) depth -= 2
         return { ...it, c: at(Math.max(depth, 0)) }
       })
-    })
+    })]
   }
-  const fits = (apex: number) => {
+  const fits = (apex: number, faces: ReadonlyMap<Block, Face>) => {
     const room = hexagon(apex - REGION_PAD / COS30)
-    const items = layBlocks(apex).map((it) => ({ c: it.c, w: it.size.width, h: it.size.height }))
+    const items = layBlocks(apex, faces).map((it) => ({ c: it.c, w: it.size.width, h: it.size.height }))
     return items.every((it, i) => corners(it.c, it.w, it.h).every((p) => inside(room, p)) && items.slice(i + 1).every((o) => apart(it, o)))
   }
-  let apex = MIN_REGION
-  while (!fits(apex) && apex < 1e5) apex = Math.ceil(apex * 1.01)
-  const boxes = layBlocks(apex).flatMap((it) => boxesOf(it.block, it.c.x, it.c.y - it.size.height / 2))
+  /** The smallest region, at least `from` across, that holds the blocks on these faces. */
+  const smallest = (faces: ReadonlyMap<Block, Face>, from: number) => {
+    let apex = from
+    while (!fits(apex, faces) && apex < 1e5) apex = Math.ceil(apex * 1.01)
+    return apex
+  }
+  // What no use case points at takes, one block at a time and the largest first, the face that keeps the region smallest
+  // (the first of SPREAD wins a tie, so equal blocks spread evenly); then each is offered every other face in turn,
+  // until no move makes the region smaller.
+  const free = blocks.filter((b) => !wallOf.has(b)).sort((a, b) => blockSize(b).width * blockSize(b).height - blockSize(a).width * blockSize(a).height)
+  const faces = new Map<Block, Face>(wallOf)
+  let apex = smallest(faces, MIN_REGION)
+  const optionsOf = (block: Block): Face[] => (block.root.type === 'aggregate' ? SPREAD : [...SPREAD, MIDDLE])
+  const settle = (block: Block, from: number) => {
+    const tried = optionsOf(block).map((face) => ({ face, apex: smallest(new Map(faces).set(block, face), from) }))
+    return tried.reduce((a, b) => (b.apex < a.apex ? b : a))
+  }
+  for (const block of free) {
+    const best = settle(block, apex)
+    faces.set(block, best.face)
+    apex = best.apex
+  }
+  for (let pass = 0, moved = true; moved && pass < 3; pass++) {
+    moved = false
+    for (const block of free) {
+      const [kept, best] = [faces.get(block)!, settle(block, MIN_REGION)]
+      if (best.apex < apex) {
+        faces.set(block, best.face)
+        apex = best.apex
+        moved = kept !== best.face
+      }
+    }
+  }
+  const boxes = layBlocks(apex, faces).flatMap((it) => boxesOf(it.block, it.c.x, it.c.y - it.size.height / 2))
   const servicesBlock = {
     width: Math.max(0, ...serviceFrames.map((f) => f.width)),
     height: serviceFrames.reduce((h, f) => h + f.height, 0),
   }
-  return { boxes, faces: new Map([...wallOf].map(([block, wall]) => [block.root.id, wall])), region: hexagon(apex), hasRegion: blocks.length > 0, serviceItems, serviceFrames, servicesBlock }
+  return { boxes, faces: new Map([...faces].flatMap(([block, wall]): [string, Wall][] => (wall === MIDDLE ? [] : [[block.root.id, wall]]))), region: hexagon(apex), hasRegion: blocks.length > 0, serviceItems, serviceFrames, servicesBlock }
 }
 
 export type CentreBlock = ReturnType<typeof layCentre>

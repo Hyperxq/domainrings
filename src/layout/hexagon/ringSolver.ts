@@ -10,6 +10,8 @@ import { DOMAIN_RUN, GAP, LABEL_PAD_X, OUTSIDE_GAP, PAD, RUN } from './spacing'
 import { faceOf, laneFoot, toLane, type UseCaseSeating } from './useCaseSeating'
 import { sectorApothem, wallFrame } from './walls'
 
+/** Room between the domain title and the region under it. */
+const TITLE_CLEAR = 8
 const nearest = (y: number, height: number) => Math.max(0, Math.abs(y) - height / 2)
 const farthest = (y: number, height: number) => Math.abs(y) + height / 2
 
@@ -30,7 +32,7 @@ export interface RingSolverInput {
  */
 export function solveRings({ d, overview, appIndex, titles, centre, plan, frames, seating }: RingSolverInput): Outline[] {
   const config = HEXAGONAL_KIND
-  const { titleWidth, titleHeight, titleDepth } = titles
+  const { titleWidth, titleHeight, titleDepth, depthOf } = titles
   const { serviceFrames, servicesBlock } = centre
   const { ports, wallOf, planned, of, widths, wallBoxes, hasSlanted, sectored, localCorners, inwardOf, columnCorners, portLabels } = plan
   const { labelReach } = frames
@@ -89,9 +91,12 @@ export function solveRings({ d, overview, appIndex, titles, centre, plan, frames
         )
       }
     }
-    // A run's quad is a hairline: its first edge follows the run, so sampling that edge walks the run.
+    // A run's quad is a hairline around the run: the middle of its short ends are the run's own.
     const inDomain = (p: Point) => Math.abs(p.y) < insideO.apex && Math.abs(p.x) < halfWidthAt(insideO, p.y)
-    const crossesDomain = ([a, b]: Point[]) => Array.from({ length: 21 }, (_, k) => k / 20).some((t) => inDomain({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }))
+    const crossesDomain = ([p0, p1, p2, p3]: Point[]) => {
+      const [a, b] = [{ x: (p0.x + p3.x) / 2, y: (p0.y + p3.y) / 2 }, { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }]
+      return Array.from({ length: 21 }, (_, k) => k / 20).some((t) => inDomain({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }))
+    }
     if (runs.some((r) => crossesDomain(r.quad))) return true
     if (slantedSocket.some((s) => runs.some((r) => r.ref !== s.ref && quadsOverlap(s.quad, r.quad)))) return true
     return seated.some((s) => runs.some((r) => r.useCase !== s.i && quadsOverlap(boxQuad(s), r.quad)))
@@ -106,7 +111,7 @@ export function solveRings({ d, overview, appIndex, titles, centre, plan, frames
     const inner = outlines[i + 1]
     if (role === 'domain') {
       // The region sits under the title, with the room around it for the use cases' arrows.
-      outlines[i] = hexagon(centre.region.apex + titleDepth + titleHeight(i) + GAP)
+      outlines[i] = hexagon(centre.region.apex + depthOf(i) + titleHeight(i) + TITLE_CLEAR)
       continue
     }
     const side: Need[] = []

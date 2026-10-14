@@ -27,19 +27,22 @@ export function ringTitles(d: Diagram) {
   }
   const titleHeight = (i: number) => titleLine(i) + (ringTitle(i).subtitle ? SUBTITLE_GAP + RING_SUBTITLE.size + 4 : 0)
   // One title depth for every ring: the depth under a hexagon's vertex where the widest title fits the slope.
-  const titleDepth = Math.max(LABEL_INSET, ...config.rings.map((_, i) => (titleWidth(i) / 2 + LABEL_PAD_X) / SQRT3))
+  const depthFor = (i: number) => Math.max(LABEL_INSET, (titleWidth(i) / 2 + LABEL_PAD_X) / SQRT3)
+  const titleDepth = Math.max(...config.rings.map((_, i) => depthFor(i)))
+  // The domain title is the only one with a region right under it, so it sits only as deep as its own width needs.
+  const depthOf = (i: number) => (i === last ? depthFor(i) : titleDepth)
 
-  /** The solved outlines as the diagram's rings, each with its title block tucked `titleDepth` under its top vertex. */
+  /** The solved outlines as the diagram's rings, each with its title block tucked `depthOf` under its top vertex. */
   const rings = (outlines: Outline[]): LayoutRing[] =>
     config.rings.map((spec, i) => ({
       key: `ring:${spec.role}`,
       role: spec.role,
       ...ringTitle(i),
       ...outlines[i],
-      labelAt: { x: 0, y: -outlines[i].apex + titleDepth + titleLine(i) / 2 },
-      titleBox: { x: -titleWidth(i) / 2, y: -outlines[i].apex + titleDepth, width: titleWidth(i), height: titleHeight(i) },
+      labelAt: { x: 0, y: -outlines[i].apex + depthOf(i) + titleLine(i) / 2 },
+      titleBox: { x: -titleWidth(i) / 2, y: -outlines[i].apex + depthOf(i), width: titleWidth(i), height: titleHeight(i) },
     }))
-  return { titleWidth, titleHeight, titleDepth, rings }
+  return { titleWidth, titleHeight, titleDepth, depthOf, rings }
 }
 
 export type RingTitles = ReturnType<typeof ringTitles>
