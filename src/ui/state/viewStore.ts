@@ -24,6 +24,8 @@ interface ViewData {
   openNodes: ReadonlySet<string>
   /** Grow: the just-added hexagon's own inline title field is open until it commits or is undone (GROW-03). */
   growing: { hexId: string; before: { map: HexaMap; focus: string } } | null
+  /** Counts the requests to refit the view; the viewport chrome answers each one as it does the Fit button. */
+  fitRequest: number
 }
 
 interface ViewStore extends ViewData {
@@ -34,6 +36,7 @@ interface ViewStore extends ViewData {
   /** Expands a compact hexagon in full, or compacts an expanded one back. */
   toggleExpanded: (id: string) => void
   expandAll: (ids: string[]) => void
+  requestFit: () => void
   /** Enters link mode on `ref`, or leaves it with `null`. */
   startLinking: (ref: string | null) => void
   /** Names the just-grown hexagon, which completes the add step Undo already covers. */
@@ -55,6 +58,7 @@ const initialView = (): ViewData => ({
   choosingArchitecture: false,
   linking: null,
   growing: null,
+  fitRequest: 0,
 })
 
 export const useViewStore = create<ViewStore>()((set, get) => ({
@@ -68,6 +72,7 @@ export const useViewStore = create<ViewStore>()((set, get) => ({
   toggleNode: (key) => set(({ openNodes }) => ({ openNodes: new Set(openNodes.has(key) ? [...openNodes].filter((k) => k !== key) : [...openNodes, key]) })),
   toggleExpanded: (id) => set(({ expanded }) => ({ expanded: new Set(expanded.has(id) ? [...expanded].filter((x) => x !== id) : [...expanded, id]) })),
   expandAll: (ids) => set({ expanded: new Set(ids) }),
+  requestFit: () => set(({ fitRequest }) => ({ fitRequest: fitRequest + 1 })),
   startLinking: (ref) => {
     if (ref) useNoticeStore.getState().clearStatus()
     set({ linking: ref })

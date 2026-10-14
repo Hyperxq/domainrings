@@ -506,3 +506,28 @@ describe('ChoiceMenu submenu', () => {
     expect(save.querySelector('.choice-shortcut')?.getAttribute('aria-hidden')).toBe('true')
   })
 })
+
+describe('ChoiceMenu disabled choice', () => {
+  const setup = () => {
+    const onChoose = vi.fn()
+    render(<ChoiceMenu label="Menu" choices={[{ id: 'a', label: 'A' }, { id: 'b', label: '+ New', description: 'No free side', disabled: true }]} onChoose={onChoose} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Menu' }))
+    return { onChoose, disabled: screen.getByRole('menuitem', { name: /\+ New/ }) }
+  }
+
+  it('is marked aria-disabled, shows its reason, and stays reachable by arrow keys', () => {
+    const { disabled } = setup()
+    expect(disabled.getAttribute('aria-disabled')).toBe('true')
+    expect(disabled.textContent).toContain('No free side')
+    fireEvent.keyDown(screen.getAllByRole('menuitem')[0], { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(disabled)
+  })
+
+  it('does not choose or close on click or Enter', () => {
+    const { onChoose, disabled } = setup()
+    fireEvent.click(disabled)
+    fireEvent.keyDown(disabled, { key: 'Enter' })
+    expect(onChoose).not.toHaveBeenCalled()
+    expect(screen.getByRole('menu')).toBeTruthy()
+  })
+})

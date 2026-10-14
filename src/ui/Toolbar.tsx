@@ -28,6 +28,8 @@ interface ToolbarProps {
   hasPlanned: boolean
   /** Adds a subdomain beside the current one, as the editor's "Add subdomain" does. */
   onNewDiagram: () => void
+  /** False when the current hexagon has no free side to add one beside. */
+  canAddDiagram: boolean
 }
 
 const MODES = ['overview', 'detailed'] as const
@@ -44,7 +46,7 @@ const VIEW_SWITCHES = [
 const MODE_LABEL: Record<LayoutMode, string> = { overview: 'Overview', detailed: 'Detailed' }
 const THEME_LABEL: Record<ThemeChoice, string> = { light: 'Light', dark: 'Dark', system: 'System' }
 
-export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showScope, hasPlanned, onNewDiagram }: ToolbarProps) {
+export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showScope, hasPlanned, onNewDiagram, canAddDiagram }: ToolbarProps) {
   const preferences = usePreferencesStore()
   const { mode, theme: themeChoice, palette, viewOnly } = preferences
   const exportScope = useViewStore((s) => s.exportScope)
@@ -83,9 +85,15 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
               map.hexagons.filter((h) => h.contextId === c.id).map((h) => ({ id: h.id, label: h.title || UNTITLED_HEXAGON, checked: h.id === focus, group: contextName(map, c.id) })),
             ),
             { id: 'overview', label: 'Map of all contexts', control: 'action' as const },
-            ...(viewOnly ? [] : [{ id: 'new-diagram', label: '+ New diagram', control: 'action' as const }]),
+            ...(viewOnly ? [] : [{ id: 'new-diagram', label: '+ New diagram', control: 'action' as const, ...(canAddDiagram ? {} : { disabled: true, description: 'No free side around this subdomain' }) }]),
           ]}
-          onChoose={(id) => (id === 'overview' ? useViewStore.getState().expandAll([]) : id === 'new-diagram' ? onNewDiagram() : useMapStore.getState().setFocus(id))}
+          onChoose={(id) => {
+            if (id === 'overview') {
+              useViewStore.getState().expandAll([])
+              useViewStore.getState().requestFit()
+            } else if (id === 'new-diagram') onNewDiagram()
+            else useMapStore.getState().setFocus(id)
+          }}
         />
       )}
 

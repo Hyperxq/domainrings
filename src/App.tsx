@@ -6,7 +6,7 @@ import { layoutClean } from './layout/clean'
 import { layoutOnion } from './layout/onion'
 import { EXAMPLES } from './model/example'
 import { collectionOf } from './model/links'
-import { diagramOf, UNTITLED_HEXAGON } from './model/map'
+import { diagramOf, freeSides, UNTITLED_HEXAGON } from './model/map'
 import { hasPlanned, withoutPlanned } from './model/planned'
 import { useCleanStore } from './model/cleanStore'
 import { useOnionStore } from './model/onionStore'
@@ -137,6 +137,7 @@ export function App({ boot = {} }: AppProps = {}) {
       <Toolbar
         showScope={canScopeExport}
         onNewDiagram={() => completeGrow(undefined, 'same')}
+        canAddDiagram={freeSides(map, map.hexagons.find((h) => h.id === hexId)!.cell).length > 0}
         hasPlanned={activeKind === 'hexagonal' && hasPlanned(map)}
         onNew={() => useViewStore.setState({ choosingArchitecture: true })}
         onExample={(id) => {

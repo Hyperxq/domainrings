@@ -222,3 +222,21 @@ describe('useViewportInteractions wheel', () => {
     expect(shown().scale).toBeCloseTo(Math.exp(200 * 0.0015), 9)
   })
 })
+
+describe('useViewportInteractions fit request', () => {
+  const setup = () => renderHook(() => useViewportInteractions({ mainRef: { current: null }, autoFit: { x: 0, y: 0, scale: 1 }, wholeFitScale: 0.1, fitKey: 'k' }))
+
+  it('returns a manual view to auto, exactly as pressing Fit does', () => {
+    const { result } = setup()
+    act(() => result.current.setView({ x: 10, y: 20, scale: 2 }))
+    act(() => useViewStore.getState().requestFit())
+    expect(result.current.view).toBe('auto')
+  })
+
+  it('leaves a manual view alone when no fit was requested', () => {
+    const { result, rerender } = setup()
+    act(() => result.current.setView({ x: 10, y: 20, scale: 2 }))
+    rerender()
+    expect(result.current.view).toEqual({ x: 10, y: 20, scale: 2 })
+  })
+})

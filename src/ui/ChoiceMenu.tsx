@@ -17,6 +17,8 @@ export interface Choice<Id extends string> {
   shortcut?: string
   /** Turns the item into a parent: pressing it (or ArrowRight) opens these choices beside it instead of choosing it. */
   submenu?: readonly Choice<Id>[]
+  /** Stays in the menu and focusable, but choosing it does nothing; `description` should say why. */
+  disabled?: boolean
 }
 
 type MenuAt = { top: number; left?: number; right?: number }
@@ -134,7 +136,9 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
       data-control={choice.control}
       aria-haspopup={choice.submenu ? 'menu' : undefined}
       aria-expanded={choice.submenu ? sub?.choice.id === choice.id : undefined}
+      aria-disabled={choice.disabled || undefined}
       onClick={(e) => {
+        if (choice.disabled) return
         if (choice.submenu) return openSub(choice, e.currentTarget)
         if (!(stayOpen && choice.checked !== undefined)) close()
         onChoose(choice.id)

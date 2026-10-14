@@ -143,6 +143,13 @@ export function useViewportInteractions({
     setView('auto')
   }
 
+  const fitRequest = useViewStore((s) => s.fitRequest)
+  const [seenFitRequest, setSeenFitRequest] = useState(fitRequest)
+  if (fitRequest !== seenFitRequest) {
+    setSeenFitRequest(fitRequest)
+    setView('auto')
+  }
+
   // Render-phase, like the fitKey reset: a manual view keeps the content under its centre as the stage resizes. Not for
   // the first measurement, when there was no stage to centre on.
   const [seenSize, setSeenSize] = useState(size)

@@ -26,13 +26,14 @@ function renderToolbar(
     exportScope?: 'map' | 'hexagon'
     themeChoice?: 'light' | 'dark' | 'system'
     palette?: 'default' | 'purple' | 'terracotta' | 'cool'
+    canAddDiagram?: boolean
   } = {},
 ) {
-  const { mode = 'detailed', guides = true, highlight = true, dependents = false, themeChoice = 'system', palette = 'default', exportScope = 'map', showScope = false, hasPlanned = true, showPlanned = true, viewOnly = false } = overrides
+  const { mode = 'detailed', guides = true, highlight = true, dependents = false, themeChoice = 'system', palette = 'default', exportScope = 'map', showScope = false, hasPlanned = true, showPlanned = true, viewOnly = false, canAddDiagram = true } = overrides
   usePreferencesStore.setState({ mode, guides, highlight, dependents, showPlanned, theme: themeChoice, palette, viewOnly })
   useViewStore.setState({ exportScope })
   const props = { onNew: vi.fn(), onExample: vi.fn(), onOpen: vi.fn(), onCopyLink: vi.fn(), onExport: vi.fn(), onNewDiagram: vi.fn() }
-  render(<Toolbar {...props} showScope={showScope} hasPlanned={hasPlanned} />)
+  render(<Toolbar {...props} showScope={showScope} hasPlanned={hasPlanned} canAddDiagram={canAddDiagram} />)
   return props
 }
 
@@ -529,6 +530,33 @@ describe('Toolbar diagram switcher', () => {
     open()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Map of all contexts' }))
     expect(useViewStore.getState().expanded.size).toBe(0)
+  })
+
+  it('Map of all contexts also asks the view to fit', () => {
+    seed()
+    renderToolbar({ showScope: true })
+    open()
+    const before = useViewStore.getState().fitRequest
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Map of all contexts' }))
+    expect(useViewStore.getState().fitRequest).toBe(before + 1)
+  })
+
+  it('disables + New diagram with a reason when the current hexagon has no free side', () => {
+    seed()
+    const { onNewDiagram } = renderToolbar({ showScope: true, canAddDiagram: false })
+    open()
+    const item = screen.getByRole('menuitem', { name: /\+ New diagram/ })
+    expect(item.getAttribute('aria-disabled')).toBe('true')
+    expect(item.textContent).toContain('No free side around this subdomain')
+    fireEvent.click(item)
+    expect(onNewDiagram).not.toHaveBeenCalled()
+  })
+
+  it('keeps + New diagram enabled while a side is free', () => {
+    seed()
+    renderToolbar({ showScope: true })
+    open()
+    expect(screen.getByRole('menuitem', { name: '+ New diagram' }).getAttribute('aria-disabled')).toBeNull()
   })
 
   it('offers + New diagram in Edit mode only, handing it to onNewDiagram', () => {
