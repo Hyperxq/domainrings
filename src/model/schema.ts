@@ -21,7 +21,7 @@ const LayerTextSchema = z.object({ title: z.string().optional(), subtitle: z.str
 const DomainItemSchema = z.object({ id, name: z.string(), type: DomainTypeSchema, parentId: id.optional(), note, status })
 // 'top' (the default) stacks a use case under the application title; a wall seats it in that wall's sector.
 export const PlacementSchema = z.enum(['top', ...WallSchema.options])
-/** The aggregates the use case works on: its arrow into the domain ends on their cards. Ids that are not an aggregate of the diagram are ignored. */
+/** The aggregates the use case works on: its arrow into the domain ends on their cards. Each id must be an aggregate of the diagram (checkIntegrity). */
 const UseCaseSchema = z.object({ id, name: z.string(), placement: PlacementSchema.optional(), aggregateIds: z.array(id).optional(), note, status })
 const PortSchema = z.object({ id, name: z.string(), side: SideSchema, wall: WallSchema.optional(), useCaseId: id.optional(), note, status })
 const AdapterSchema = z.object({ id, name: z.string(), portId: id.optional(), note, status })

@@ -70,6 +70,33 @@ describe('map store', () => {
       expect(currentDiagram().useCases[0].aggregateIds).toEqual(['d-second'])
     })
 
+    it.each(['entity', 'valueObject'] as const)('changing an aggregate to %s takes its id out of every use case', (type) => {
+      withAggregates([['d-feedback', 'd-second']])
+      state().updateItem(state().focus, 'domain', 'd-feedback', { type })
+      expect(currentDiagram().useCases[0].aggregateIds).toEqual(['d-second'])
+      // A value object cannot hold the aggregate's children, which is a different rule.
+      if (type === 'entity') expect(MapSchema.safeParse(state().map).success).toBe(true)
+    })
+
+    it('drops the field when the type change leaves no aggregate', () => {
+      withAggregates([['d-feedback']])
+      state().updateItem(state().focus, 'domain', 'd-feedback', { type: 'entity' })
+      expect('aggregateIds' in currentDiagram().useCases[0]).toBe(false)
+    })
+
+    it('keeps the ids of aggregates that stay aggregates through other edits', () => {
+      withAggregates([['d-feedback']])
+      state().updateItem(state().focus, 'domain', 'd-feedback', { name: 'Renamed' })
+      expect(currentDiagram().useCases[0].aggregateIds).toEqual(['d-feedback'])
+    })
+
+    it('moving the hexagon to another context leaves the ids valid', () => {
+      withAggregates([['d-feedback']])
+      state().moveToContext(state().focus, undefined)
+      expect(currentDiagram().useCases[0].aggregateIds).toEqual(['d-feedback'])
+      expect(MapSchema.safeParse(state().map).success).toBe(true)
+    })
+
     it('drops the field once no aggregate is left, so the file reads as before', () => {
       withAggregates([['d-feedback']])
       state().removeItem(state().focus, 'domain', 'd-feedback')

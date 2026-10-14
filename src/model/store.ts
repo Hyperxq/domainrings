@@ -120,7 +120,11 @@ export const useMapStore = create<MapState>()((set, get) => {
       return id
     },
     updateItem: (hexId, key, id, patch) =>
-      editAndPrune(hexId, (d) => withCollection(d, key, (d[key] as Item<typeof key>[]).map((i) => (i.id === id ? merge(i, patch) : i)))),
+      editAndPrune(hexId, (d) => {
+        const next = withCollection(d, key, (d[key] as Item<typeof key>[]).map((i) => (i.id === id ? merge(i, patch) : i)))
+        // An item that stops being an aggregate here can no longer be named by a use case.
+        return key === 'domain' ? { ...next, useCases: withoutAggregates(next.useCases, new Set(next.domain.filter((i) => i.type !== 'aggregate').map((i) => i.id))) } : next
+      }),
     removeItem: (hexId, key, id) =>
       editAndPrune(hexId, (d) => {
         let next = withCollection(d, key, (d[key] as Item<typeof key>[]).filter((i) => i.id !== id))
