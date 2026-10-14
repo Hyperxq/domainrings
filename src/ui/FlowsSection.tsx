@@ -19,7 +19,9 @@ export function FlowsSection() {
             const { map, focus } = useMapStore.getState()
             useHistoryStore.getState().record({ map, focus })
             flushSync(() => useViewStore.getState().focusFlow(addItem(focus, 'useCases')))
-            document.querySelector<HTMLInputElement>('input[aria-label="Flow name"]')?.select()
+            const name = document.querySelector<HTMLInputElement>('input[aria-label="Flow name"]')
+            name?.focus()
+            name?.select()
           }}
         >
           + New flow

@@ -16,6 +16,7 @@ export function useStageViewport({
   revision,
   legendOpen,
   panelOpen,
+  inspectorOpen,
   onPanStart,
 }: {
   model: MapLayout
@@ -24,10 +25,11 @@ export function useStageViewport({
   revision: number
   legendOpen: boolean
   panelOpen: boolean
+  inspectorOpen: boolean
   onPanStart: () => void
 }) {
   const size = useElementSize(mainRef)
-  const inset = islandInset(size, panelOpen, legendOpen, useViewStore((s) => s.toolbarBottom))
+  const inset = islandInset(size, panelOpen, legendOpen, useViewStore((s) => s.toolbarBottom), inspectorOpen)
   const effectiveSize = { width: size.width || model.bounds.width, height: size.height || model.bounds.height }
   const wholeFit = fitTo(canvasBounds(model), effectiveSize.width, effectiveSize.height, inset, 0)
   const singleFit = fitMap(model.bounds, hexagonBounds(hex), effectiveSize.width, effectiveSize.height, inset)

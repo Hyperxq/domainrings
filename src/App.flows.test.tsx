@@ -162,6 +162,15 @@ describe('flows in Edit mode', () => {
     expect(within(editor).getByRole('button', { name: '+ New flow' })).toBeTruthy()
   })
 
+  it('opens the inspector for the selected flow and closes it again in View mode', () => {
+    render(<App />)
+    expect(screen.queryByRole('complementary', { name: 'Flow inspector' })).toBeNull()
+    fireEvent.click(within(screen.getByRole('region', { name: 'Flows' })).getByRole('button', { name: /PlaceOrder/ }))
+    expect((screen.getByLabelText('Flow name') as HTMLInputElement).value).toBe('PlaceOrder')
+    act(() => usePreferencesStore.setState({ viewOnly: true }))
+    expect(screen.queryByRole('complementary', { name: 'Flow inspector' })).toBeNull()
+  })
+
   it('shows the whole diagram while a flow is selected', () => {
     const { container } = render(<App />)
     fireEvent.click(within(screen.getByRole('region', { name: 'Flows' })).getByRole('button', { name: /PlaceOrder/ }))

@@ -18,6 +18,7 @@ import { useMapStore } from '../model/store'
 import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
 import { hexIdOf, hullIdOf, layerOf, nodeRefOf, refOf } from './canvasTarget'
+import { useInspectedFlow } from './FlowInspector'
 import { PresentButton, StepCard, usePresentation } from './PresentPanel'
 import { NotePopover } from './stage/NotePopover'
 import { BoxLabels, ContextReveals, ExpandToggles, GrowButtons, HexagonTitles, LinkChip, MapTitle, mapTitleOverlaid, titlesOverlaid } from './stage/overlays'
@@ -73,6 +74,8 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   // View mode shows the Flows panel in the editor's place, so the fit leaves the same room for it.
   const panelOpen = useViewStore((s) => s.editorOpen) || viewOnly
   const focusedFlow = useViewStore((s) => s.focusedFlow)
+  // Edit mode's flow inspector takes the right column, so the fit leaves it free too.
+  const inspectorOpen = !!useInspectedFlow()
   const linking = useViewStore((s) => s.linking)
   // True right after growing: the current hexagon's title field is open inline (GROW-02.1).
   const naming = useViewStore((s) => s.growing !== null)
@@ -110,6 +113,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
     revision,
     legendOpen,
     panelOpen,
+    inspectorOpen,
     onPanStart: () => {
       setHovered(null)
       setHoveredRef(null)

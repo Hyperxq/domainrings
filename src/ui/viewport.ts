@@ -100,6 +100,8 @@ export function fitMap(mapBounds: Box, currentBounds: Box, width: number, height
 
 /** The open legend island's width (styles.css `.legend[data-open]`). */
 export const LEGEND_ISLAND_WIDTH = 260
+/** The flow inspector island's width (styles.css `.flow-inspector`); it sits 12px from the right edge. */
+export const INSPECTOR_ISLAND_WIDTH = 312
 /** Bottom edge of the collapsed editor chip: 72px from the top, a 32px button in 6px padding and a 1px border. */
 export const EDITOR_CHIP_BOTTOM = 72 + 46
 
@@ -107,8 +109,10 @@ export const EDITOR_CHIP_BOTTOM = 72 + 46
 // legend floats over the canvas: reserving its column would leave no room for the diagram.
 // On phones the islands hang from the toolbar's bottom edge, which wraps to a variable number of rows below 640px;
 // `toolbarBottom` is that measured edge (null until measured: one row at <=720px, two at <=640px).
-export function islandInset({ width, height }: { width: number; height: number }, panelOpen: boolean, legendOpen: boolean, toolbarBottom: number | null = null): Inset {
+export function islandInset({ width, height }: { width: number; height: number }, panelOpen: boolean, legendOpen: boolean, toolbarBottom: number | null = null, inspectorOpen = false): Inset {
   if (width <= 720) return { top: (toolbarBottom ?? (width <= 640 ? 86 : 50)) + 54, right: 8, bottom: panelOpen ? height * 0.45 + 16 : 64, left: 8 }
   // Open, the editor takes the left column; collapsed, its chip still sits top-left, where the diagram's title goes.
-  return { top: panelOpen ? 64 : EDITOR_CHIP_BOTTOM + 8, right: legendOpen ? LEGEND_ISLAND_WIDTH + 24 : 16, bottom: panelOpen ? 16 : 60, left: panelOpen ? 324 : 16 }
+  // The inspector takes the right column; an open legend then moves left of it.
+  const right = (inspectorOpen ? INSPECTOR_ISLAND_WIDTH + 12 : 0) + (legendOpen ? LEGEND_ISLAND_WIDTH + 24 : 16)
+  return { top: panelOpen ? 64 : EDITOR_CHIP_BOTTOM + 8, right, bottom: panelOpen ? 16 : 60, left: panelOpen ? 324 : 16 }
 }

@@ -652,6 +652,19 @@ a.icon-button { color: inherit; text-decoration: none; }
 .editor-body[hidden] { display: none; }
 .flows-section { margin-bottom: 12px; }
 .flows-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.flow-inspector { left: auto; right: 12px; width: 312px; }
+.flow-inspector .editor-head { gap: 8px; }
+.flow-inspector .editor-head .name { flex: 1; min-width: 0; font-weight: 700; }
+.flow-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.flow-step { margin: 14px 0 6px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; }
+.flow-list { display: grid; gap: 6px; margin: 0 0 6px; padding: 0; list-style: none; }
+.flow-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px; border-radius: 6px; background: var(--hover); }
+.flow-chain { display: flex; flex: 1 1 100%; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+.flow-chip { padding: 2px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--card); font-family: var(--font-mono); font-size: 11.5px; overflow-wrap: anywhere; }
+.flow-arrow { color: var(--muted); font-size: 12px; }
+.flow-add { flex: 1; width: 100%; font-size: 12px; }
+.flow-list .flow-add { flex: 1 1 100px; width: auto; }
+.flow-verb { flex: 1; font-size: 12px; }
 .flows-help { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
 .flow-row {
   display: grid;
@@ -934,7 +947,14 @@ span.swatch-element { background: var(--card); border-color: var(--teal); }
 .legend-footer { padding: 8px 0; border-top: 1px solid var(--line); }
 .legend-export { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 
+@media (min-width: 721px) {
+  /* The inspector holds the right column, so an open legend moves left of it. */
+  .flow-inspector ~ .legend { right: calc(312px + 12px + 12px); }
+}
+
 @media (max-width: 720px) {
+  .editor:has(~ .flow-inspector) { display: none; }
+  .flow-inspector { left: 8px; right: 8px; width: auto; }
   .toolbar { top: 8px; left: 8px; right: 8px; width: auto; margin: 0; max-width: none; }
   .editor { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 45dvh; }
   .zoom { top: calc(var(--toolbar-bottom, 50px) + 10px); right: 8px; bottom: auto; left: auto; }

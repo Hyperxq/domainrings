@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react'
 import { usePreferencesStore } from './state/preferencesStore'
 import { contextName, diagramOf } from '../model/map'
 import { Editor } from './Editor'
+import { FlowInspector } from './FlowInspector'
 import { FlowsPanel } from './FlowsPanel'
 import { PresentPanel } from './PresentPanel'
 import { Legend } from './Legend'
@@ -42,6 +43,8 @@ export function HexagonalWorkspace({ nameOf, parseFile, shown, ...stage }: Hexag
           onDeleteLink={commands.deleteLink}
         />
       )}
+      {/* Before the legend: styles.css moves a sibling legend left of it. */}
+      <FlowInspector />
       <Legend legend={stage.legend} />
       <Stage
         {...stage}
