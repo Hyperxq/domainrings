@@ -1033,3 +1033,11 @@ span.swatch-element { background: var(--card); border-color: var(--teal); }
   .toast { top: calc(var(--toolbar-bottom, 86px) + 58px); }
   .legend { top: calc(var(--toolbar-bottom, 86px) + 58px); }
 }
+.flow-chip { font: inherit; font-family: var(--font-mono); font-size: 12px; color: inherit; cursor: pointer; }
+.flow-chip[data-noted] { box-shadow: inset 0 -2px 0 var(--teal); }
+.flow-chip[aria-expanded='true'] { outline: 2px solid var(--teal); outline-offset: 1px; }
+.flow-note { flex: 1 1 100%; font-size: 12px; }
+.flow-more { margin-top: 12px; }
+.flow-more[open] { display: grid; gap: 8px; }
+.flow-more summary { margin-bottom: 0; }
+.flow-more .text-button.danger { justify-self: start; border: 1px solid var(--line); color: var(--ink); }
