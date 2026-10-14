@@ -1,6 +1,6 @@
 import { EXAMPLES } from '../model/example'
 import type { LayoutMode } from '../layout/layout'
-import { useRef, useSyncExternalStore } from 'react'
+import { useRef } from 'react'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
 import type { ExportFormat } from './useExport'
@@ -30,40 +30,19 @@ const EDITING = [
   { label: 'View', viewOnly: true },
   { label: 'Edit', viewOnly: false },
 ] as const
-const SWITCHES = [
-  { id: 'guides', label: 'Guides', title: 'Show the dashed guide spokes' },
-  { id: 'highlight', label: 'Highlight', title: 'Highlight the layer under the pointer' },
-  { id: 'dependents', label: 'Dependents', title: 'Emphasize what depends on the selection, not what it depends on' },
-  { id: 'showPlanned', label: 'Planned', title: 'Show what is not built yet; off hides it from the canvas and image exports' },
+const VIEW_SWITCHES = [
+  { id: 'guides', label: 'Corridor guides' },
+  { id: 'highlight', label: 'Dim other flows on hover' },
+  { id: 'dependents', label: 'Dependents' },
+  { id: 'showPlanned', label: 'Planned' },
 ] as const
 const MODE_LABEL: Record<LayoutMode, string> = { overview: 'Overview', detailed: 'Detailed' }
 const THEME_LABEL: Record<ThemeChoice, string> = { light: 'Light', dark: 'Dark', system: 'System' }
-/* The widest toolbar with the view controls in the bar (a multi-hexagon map, fallback fonts) plus the 12px side margins,
- * measured in Chrome, is 1112px: below 1136 the view controls fold into a menu. */
-export const ROOMY_TOOLBAR = '(min-width: 1136px)'
-/** The Planned switch adds about 104px (115px in fallback fonts) to that widest bar. */
-export const ROOMY_PLANNED_TOOLBAR = '(min-width: 1248px)'
-const media = (query: string) => ({
-  subscribe: (onChange: () => void) => {
-    const list = matchMedia(query)
-    list.addEventListener('change', onChange)
-    return () => list.removeEventListener('change', onChange)
-  },
-  matches: () => matchMedia(query).matches,
-})
-const roomyMedia = media(ROOMY_TOOLBAR)
-const roomyPlannedMedia = media(ROOMY_PLANNED_TOOLBAR)
-const darkMedia = media('(prefers-color-scheme: dark)')
 
 export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showScope, hasPlanned }: ToolbarProps) {
-  const switches = hasPlanned ? SWITCHES : SWITCHES.filter((s) => s.id !== 'showPlanned')
   const preferences = usePreferencesStore()
   const { mode, theme: themeChoice, palette, viewOnly } = preferences
   const exportScope = useViewStore((s) => s.exportScope)
-  const roomyFor = hasPlanned ? roomyPlannedMedia : roomyMedia
-  const roomy = useSyncExternalStore(roomyFor.subscribe, roomyFor.matches)
-  const systemDark = useSyncExternalStore(darkMedia.subscribe, darkMedia.matches)
-  const dark = themeChoice === 'system' ? systemDark : themeChoice === 'dark'
   const openFile = useRef<HTMLInputElement>(null)
   return (
     <header className="island toolbar">
@@ -71,56 +50,24 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
 
       <span className="divider" aria-hidden="true" />
 
-      {roomy ? (
-        <>
-          <span
-            className="segmented"
-            role="radiogroup"
-            aria-label="Detail level"
-            onKeyDown={(e) => {
-              if (!e.key.startsWith('Arrow')) return
-              e.preventDefault()
-              const next = MODES[(MODES.indexOf(mode) + (e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1) + MODES.length) % MODES.length]
-              usePreferencesStore.setState({ mode: next })
-              e.currentTarget.querySelector<HTMLElement>(`[data-mode="${next}"]`)?.focus()
-            }}
-          >
-            {MODES.map((m) => (
-              <button key={m} type="button" role="radio" aria-checked={mode === m} tabIndex={mode === m ? 0 : -1} data-mode={m} className="segmented-option" onClick={() => usePreferencesStore.setState({ mode: m })}>
-                {MODE_LABEL[m]}
-              </button>
-            ))}
-          </span>
-
-          <span className="divider" aria-hidden="true" />
-
-          {switches.map(({ id, label, title }) => (
-            <button key={id} type="button" role="switch" aria-checked={preferences[id]} className="switch" title={title} onClick={() => usePreferencesStore.setState({ [id]: !preferences[id] })}>
-              <span className="switch-track" aria-hidden="true">
-                <span className="switch-knob" />
-              </span>
-              {label}
-            </button>
-          ))}
-        </>
-      ) : (
-        <ChoiceMenu
-          label={
-            <>
-              View
-              <Icon name="chevron" />
-            </>
-          }
-          choices={[
-            ...MODES.map((m) => ({ id: m, label: MODE_LABEL[m], checked: mode === m, control: 'radio' as const })),
-            ...switches.map(({ id, label }) => ({ id, label, checked: preferences[id], control: 'switch' as const })),
-          ]}
-          onChoose={(id) => {
-            if (id === 'overview' || id === 'detailed') usePreferencesStore.setState({ mode: id })
-            else usePreferencesStore.setState({ [id]: !preferences[id] })
-          }}
-        />
-      )}
+      <span
+        className="segmented"
+        role="radiogroup"
+        aria-label="Detail level"
+        onKeyDown={(e) => {
+          if (!e.key.startsWith('Arrow')) return
+          e.preventDefault()
+          const next = MODES[(MODES.indexOf(mode) + (e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1) + MODES.length) % MODES.length]
+          usePreferencesStore.setState({ mode: next })
+          e.currentTarget.querySelector<HTMLElement>(`[data-mode="${next}"]`)?.focus()
+        }}
+      >
+        {MODES.map((m) => (
+          <button key={m} type="button" role="radio" aria-checked={mode === m} tabIndex={mode === m ? 0 : -1} data-mode={m} className="segmented-option" onClick={() => usePreferencesStore.setState({ mode: m })}>
+            {MODE_LABEL[m]}
+          </button>
+        ))}
+      </span>
 
       <span className="divider" aria-hidden="true" />
 
@@ -141,6 +88,26 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
           </button>
         ))}
       </span>
+
+      <ChoiceMenu
+        label={<Icon name="sliders" />}
+        ariaLabel="View options"
+        className="icon-trigger"
+        align="end"
+        stayOpen
+        choices={[
+          ...VIEW_SWITCHES.filter((s) => hasPlanned || s.id !== 'showPlanned').map(({ id, label }) => ({ id, label, checked: preferences[id], control: 'switch' as const })),
+          ...(['light', 'dark', 'system'] as const).map((id) => ({ id, label: THEME_LABEL[id], checked: themeChoice === id, control: 'radio' as const, group: 'Theme' })),
+          ...(Object.keys(PALETTES) as PaletteId[]).map((id) => ({ id, label: PALETTES[id].label, description: PALETTES[id].description, checked: palette === id, group: 'Palette' })),
+        ]}
+        onChoose={(id) =>
+          id === 'light' || id === 'dark' || id === 'system'
+            ? usePreferencesStore.setState({ theme: id })
+            : id in PALETTES
+              ? usePreferencesStore.setState({ palette: id as PaletteId })
+              : usePreferencesStore.setState({ [id]: !preferences[id as (typeof VIEW_SWITCHES)[number]['id']] })
+        }
+      />
 
       {!viewOnly && (
         <>
@@ -193,17 +160,6 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
 
       <span className="divider" aria-hidden="true" />
 
-      <ChoiceMenu
-        label={<Icon name={dark ? 'sun' : 'moon'} />}
-        ariaLabel="Appearance"
-        className="icon-trigger"
-        align="end"
-        choices={[
-          ...(['light', 'dark', 'system'] as const).map((id) => ({ id, label: THEME_LABEL[id], checked: themeChoice === id })),
-          ...(Object.keys(PALETTES) as PaletteId[]).map((id) => ({ id, label: PALETTES[id].label, description: PALETTES[id].description, checked: palette === id })),
-        ]}
-        onChoose={(id) => usePreferencesStore.setState(id === 'light' || id === 'dark' || id === 'system' ? { theme: id } : { palette: id })}
-      />
       <a className="icon-button" href={REPOSITORY_URL} target="_blank" rel="noreferrer" aria-label="View the source on GitHub" title="Source on GitHub">
         <Icon name="github" />
       </a>

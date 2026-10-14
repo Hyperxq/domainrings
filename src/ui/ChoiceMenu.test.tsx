@@ -296,3 +296,61 @@ describe('ChoiceMenu group headings', () => {
     expect(screen.queryByRole('menuitem', { name: 'Export image' })).toBeNull()
   })
 })
+
+describe('ChoiceMenu stayOpen', () => {
+  const MIXED = [
+    { id: 'a', label: 'Alpha', checked: false, control: 'switch' },
+    { id: 'b', label: 'Beta', checked: true, control: 'radio' },
+    { id: 'go', label: 'Go', control: 'action' },
+  ] as const
+
+  function renderStaying(stayOpen?: boolean) {
+    const onChoose = vi.fn()
+    render(
+      <>
+        <ChoiceMenu label="Options" choices={MIXED} onChoose={onChoose} stayOpen={stayOpen} />
+        <button type="button">Elsewhere</button>
+      </>,
+    )
+    const trigger = screen.getByRole('button', { name: 'Options' })
+    fireEvent.click(trigger)
+    return { onChoose, trigger }
+  }
+
+  it('keeps the menu open after a switch or a radio is chosen, still reporting each choice', () => {
+    const { onChoose } = renderStaying(true)
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Alpha' }))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Beta' }))
+    expect(onChoose.mock.calls).toEqual([['a'], ['b']])
+    expect(screen.getByRole('menu')).toBeTruthy()
+  })
+
+  it('still closes after an action', () => {
+    const { onChoose, trigger } = renderStaying(true)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Go' }))
+    expect(onChoose).toHaveBeenCalledWith('go')
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('still closes on Escape, Tab, an outside press and the trigger', () => {
+    const { trigger } = renderStaying(true)
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    fireEvent.click(trigger)
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Tab' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    fireEvent.click(trigger)
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Elsewhere' }))
+    expect(screen.queryByRole('menu')).toBeNull()
+    fireEvent.click(trigger)
+    fireEvent.click(trigger)
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('closes after a toggle by default', () => {
+    renderStaying()
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Alpha' }))
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+})

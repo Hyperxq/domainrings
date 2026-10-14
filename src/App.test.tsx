@@ -676,25 +676,23 @@ describe('dependents preference', () => {
     fireEvent.click(onCanvas(container, EXAMPLE_DIAGRAM.useCases[0].id))
     expect(container.querySelector('svg.canvas')!.getAttribute('data-emphasis')).toBe('')
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Dependents' }))
+    fireEvent.click(screen.getByRole('button', { name: 'View options' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Dependents' }))
 
     expect(container.querySelector('svg.canvas')!.getAttribute('data-emphasis')).toBe('dependents')
     expect(localStorage.getItem('domainrings:dependents')).toBe('true')
   })
 })
 
-describe('appearance menu', () => {
+describe('appearance in the view options menu', () => {
   const root = document.documentElement
-  const choose = (name: RegExp) => {
-    fireEvent.click(screen.getByRole('button', { name: 'Appearance' }))
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name }))
+  // The menu stays open while toggling, so it is opened only when it is not already.
+  const item = (name: RegExp) => {
+    if (!screen.queryByRole('menu')) fireEvent.click(screen.getByRole('button', { name: 'View options' }))
+    return screen.queryByRole('menuitemradio', { name }) ?? screen.getByRole('menuitemcheckbox', { name })
   }
-  const checked = (name: RegExp) => {
-    fireEvent.click(screen.getByRole('button', { name: 'Appearance' }))
-    const state = screen.getByRole('menuitemcheckbox', { name }).getAttribute('aria-checked')
-    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
-    return state
-  }
+  const choose = (name: RegExp) => fireEvent.click(item(name))
+  const checked = (name: RegExp) => item(name).getAttribute('aria-checked')
 
   afterEach(() => {
     delete root.dataset.theme
@@ -3481,8 +3479,8 @@ describe('Onion/Clean layout is memoised across renders that do not change the d
     fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
     vi.mocked(layoutOnion).mockClear()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Appearance' }))
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Dark' }))
+    fireEvent.click(screen.getByRole('button', { name: 'View options' }))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Dark' }))
 
     expect(layoutOnion).not.toHaveBeenCalled()
   })

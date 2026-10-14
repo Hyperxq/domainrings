@@ -45,7 +45,11 @@ beforeEach(() => {
 afterEach(cleanup)
 
 const canvas = (container: HTMLElement) => container.querySelector('svg.canvas')!
-const hidePlanned = () => fireEvent.click(screen.getByRole('switch', { name: 'Planned' }))
+const hidePlanned = () => {
+  // The View options menu stays open while toggling, so it is opened only when it is not already.
+  if (!screen.queryByRole('menu')) fireEvent.click(screen.getByRole('button', { name: 'View options' }))
+  fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Planned' }))
+}
 const LEGEND_ENTRY = 'Planned: not built yet'
 
 describe('planned items on the canvas', () => {

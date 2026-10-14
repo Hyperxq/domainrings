@@ -1,31 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { ROOMY_PLANNED_TOOLBAR, ROOMY_TOOLBAR, Toolbar } from './Toolbar'
+import { Toolbar } from './Toolbar'
 import { EXAMPLES } from '../model/example'
 import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
 
-type Listener = () => void
-const minWidth = (query: string) => Number(/min-width: (\d+)px/.exec(query)![1])
-const WIDE = 1600
-const ROOMY = minWidth(ROOMY_TOOLBAR)
-let viewport = WIDE
-let systemDark = false
-const listeners = new Set<Listener>()
-
-beforeEach(() => {
-  viewport = WIDE
-  systemDark = false
-  listeners.clear()
-  window.matchMedia = ((media: string) => ({
-    get matches() {
-      return media === '(prefers-color-scheme: dark)' ? systemDark : viewport >= minWidth(media)
-    },
-    media,
-    addEventListener: (_: string, l: Listener) => listeners.add(l),
-    removeEventListener: (_: string, l: Listener) => listeners.delete(l),
-  })) as unknown as typeof matchMedia
-})
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
@@ -72,31 +51,102 @@ describe('Toolbar copy PNG hint', () => {
   })
 })
 
-describe('Toolbar at wide width', () => {
-  it('has a Dependents switch that shows its state, explains itself and flips on click', () => {
-    renderToolbar({ dependents: false })
-    const toggle = screen.getByRole('switch', { name: 'Dependents' })
-    expect(toggle.getAttribute('aria-checked')).toBe('false')
-    expect(toggle.getAttribute('title')).toMatch(/what depends on the selection/i)
+describe('Toolbar View options', () => {
+  const openOptions = () => fireEvent.click(screen.getByRole('button', { name: 'View options' }))
+  const option = (name: string | RegExp) => screen.getByRole('menuitemcheckbox', { name })
 
-    fireEvent.click(toggle)
-
-    expect(usePreferencesStore.getState().dependents).toBe(true)
-    cleanup()
-    renderToolbar({ dependents: true })
-    expect(screen.getByRole('switch', { name: 'Dependents' }).getAttribute('aria-checked')).toBe('true')
-  })
-
-  it('draws every switch as a track with a knob, activated by Space and Enter because it is a native button', () => {
+  it('is one icon-only menu trigger, aligned to the end', () => {
     renderToolbar()
-    for (const name of ['Guides', 'Highlight', 'Dependents']) {
-      const toggle = screen.getByRole('switch', { name })
-      expect(toggle.tagName).toBe('BUTTON')
-      expect(toggle.querySelector('.switch-track > .switch-knob')).not.toBeNull()
-    }
-    expect(screen.queryByRole('button', { name: 'Guides' })).toBeNull()
+    const trigger = screen.getByRole('button', { name: 'View options' })
+    expect(trigger.getAttribute('aria-haspopup')).toBe('menu')
+    expect(trigger.classList.contains('icon-trigger')).toBe(true)
+    expect(trigger.textContent).toBe('')
   })
 
+  it('replaces the loose switches and the Appearance menu', () => {
+    renderToolbar()
+    expect(screen.queryAllByRole('switch')).toHaveLength(0)
+    expect(screen.queryByRole('button', { name: 'Appearance' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
+  })
+
+  it('lists the switches, then the Theme group, then the Palette group, each showing its state', () => {
+    renderToolbar({ guides: false, highlight: true, dependents: true, themeChoice: 'dark', palette: 'terracotta' })
+    openOptions()
+    const menu = screen.getByRole('menu', { name: 'View options' })
+    const state = (root: Element) => [...root.querySelectorAll('[role^="menuitem"]')].map((i) => [i.firstChild!.textContent, i.getAttribute('aria-checked')])
+    expect(state(menu)).toEqual([
+      ['Corridor guides', 'false'],
+      ['Dim other flows on hover', 'true'],
+      ['Dependents', 'true'],
+      ['Planned', 'true'],
+      ['Light', 'false'],
+      ['Dark', 'true'],
+      ['System', 'false'],
+      ['Default', 'false'],
+      ['Purple', 'false'],
+      ['Terracotta', 'true'],
+      ['Cool', 'false'],
+    ])
+    expect(state(within(menu).getByRole('group', { name: 'Theme' })).map(([n]) => n)).toEqual(['Light', 'Dark', 'System'])
+    expect(state(within(menu).getByRole('group', { name: 'Palette' })).map(([n]) => n)).toEqual(['Default', 'Purple', 'Terracotta', 'Cool'])
+  })
+
+  it('draws the switches as a track with a knob and the themes as one segmented pill', () => {
+    renderToolbar()
+    openOptions()
+    for (const name of ['Corridor guides', 'Dim other flows on hover', 'Dependents', 'Planned']) expect(option(name).querySelector('.switch-track > .switch-knob')).not.toBeNull()
+    const theme = screen.getAllByRole('menuitemradio', { name: 'Light' })[0].parentElement!
+    expect(theme.classList.contains('segmented')).toBe(true)
+  })
+
+  it('leaves Planned out when the map has nothing planned', () => {
+    renderToolbar({ hasPlanned: false })
+    openOptions()
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'Planned' })).toBeNull()
+  })
+
+  it.each([
+    ['Corridor guides', 'guides', false],
+    ['Dim other flows on hover', 'highlight', false],
+    ['Dependents', 'dependents', true],
+    ['Planned', 'showPlanned', false],
+  ] as const)('toggling %s sets %s to %s and nothing else', (name, field, value) => {
+    renderToolbar({ guides: true, highlight: true, dependents: false })
+    const before = usePreferencesStore.getState()
+    openOptions()
+    fireEvent.click(option(name))
+    expect(usePreferencesStore.getState()).toEqual({ ...before, [field]: value })
+  })
+
+  it.each([
+    ['Light', 'theme', 'light'],
+    ['Dark', 'theme', 'dark'],
+    ['System', 'theme', 'system'],
+    ['Default', 'palette', 'default'],
+    ['Cool', 'palette', 'cool'],
+  ] as const)('choosing %s sets %s to %s and nothing else', (name, field, value) => {
+    renderToolbar({ themeChoice: 'light', palette: 'terracotta' })
+    const before = usePreferencesStore.getState()
+    openOptions()
+    fireEvent.click(screen.getByRole(field === 'theme' ? 'menuitemradio' : 'menuitemcheckbox', { name: new RegExp(`^${name}`) }))
+    expect(usePreferencesStore.getState()).toEqual({ ...before, [field]: value })
+  })
+
+  it('stays open after a switch or a radio is toggled, and shows the new state', () => {
+    renderToolbar({ dependents: false, themeChoice: 'light' })
+    openOptions()
+    fireEvent.click(option('Dependents'))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Dark' }))
+    expect(screen.getByRole('menu', { name: 'View options' })).toBeTruthy()
+    expect(option('Dependents').getAttribute('aria-checked')).toBe('true')
+    expect(screen.getByRole('menuitemradio', { name: 'Dark' }).getAttribute('aria-checked')).toBe('true')
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
+describe('Toolbar at wide width', () => {
   it('offers the detail level as one radio group whose selected half is checked', () => {
     renderToolbar({ mode: 'overview' })
     const group = screen.getByRole('radiogroup', { name: 'Detail level' })
@@ -123,18 +173,13 @@ describe('Toolbar at wide width', () => {
     expect(document.activeElement).toBe(within(screen.getByRole('radiogroup', { name: 'Detail level' })).getByRole('radio', { checked: true }))
   })
 
-  it('separates the detail level, the switches and the actions with dividers', () => {
+  it('separates the detail level from the editing mode and the actions with dividers', () => {
     renderToolbar()
     const dividers = [...document.querySelectorAll('.toolbar .divider')]
     const before = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
     const between = (a: Element, b: Element) => dividers.some((d) => before(a, d) && before(d, b))
-    const mode = screen.getByRole('radiogroup', { name: 'Detail level' })
-    const guides = screen.getByRole('switch', { name: 'Guides' })
-    const dependents = screen.getByRole('switch', { name: 'Dependents' })
-    const file = screen.getByRole('button', { name: 'File' })
-    expect(between(mode, guides)).toBe(true)
-    expect(between(dependents, file)).toBe(true)
-    expect(between(guides, dependents)).toBe(false)
+    expect(between(screen.getByRole('radiogroup', { name: 'Detail level' }), screen.getByRole('radiogroup', { name: 'Editing mode' }))).toBe(true)
+    expect(between(screen.getByRole('button', { name: 'Share' }), screen.getByRole('link', { name: 'View the source on GitHub' }))).toBe(true)
   })
 
   it('offers File and Share as menus with no kind switcher or export buttons (REQ-01)', () => {
@@ -178,17 +223,18 @@ describe('Toolbar View and Edit switch', () => {
     expect(document.activeElement).toBe(within(modeGroup()).getByRole('radio', { name: 'View' }))
   })
 
-  it('sits between the view controls and File', () => {
+  it('sits between the detail level and View options, then File, Share and the GitHub link', () => {
     renderToolbar()
     const after = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
-    expect(after(screen.getByRole('radiogroup', { name: 'Detail level' }), modeGroup())).toBe(true)
-    expect(after(modeGroup(), screen.getByRole('button', { name: 'File' }))).toBe(true)
-  })
-
-  it('stays in the bar when the view controls fold', () => {
-    viewport = ROOMY - 1
-    renderToolbar()
-    expect(modeGroup()).toBeTruthy()
+    const order = [
+      screen.getByRole('radiogroup', { name: 'Detail level' }),
+      modeGroup(),
+      screen.getByRole('button', { name: 'View options' }),
+      screen.getByRole('button', { name: 'File' }),
+      screen.getByRole('button', { name: 'Share' }),
+      screen.getByRole('link', { name: 'View the source on GitHub' }),
+    ]
+    order.slice(1).forEach((el, i) => expect(after(order[i], el)).toBe(true))
   })
 
   it('shows File only while editing', () => {
@@ -201,122 +247,7 @@ describe('Toolbar View and Edit switch', () => {
   })
 })
 
-describe('Toolbar planned switch', () => {
-  beforeEach(() => {
-    viewport = WIDE
-  })
-
-  it('is on by default, explained by its title, and toggles whether planned items show', () => {
-    renderToolbar()
-    const planned = screen.getByRole('switch', { name: 'Planned' })
-    expect(planned.getAttribute('aria-checked')).toBe('true')
-    expect(planned.getAttribute('title')).toMatch(/not built yet/i)
-    fireEvent.click(planned)
-    expect(usePreferencesStore.getState().showPlanned).toBe(false)
-    expect(screen.getByRole('switch', { name: 'Planned' }).getAttribute('aria-checked')).toBe('false')
-  })
-
-  it('is left out, in the bar and in the View menu, when the map has nothing planned', () => {
-    renderToolbar({ hasPlanned: false })
-    expect(screen.queryByRole('switch', { name: 'Planned' })).toBeNull()
-    cleanup()
-    viewport = ROOMY - 1
-    renderToolbar({ hasPlanned: false })
-    fireEvent.click(screen.getByRole('button', { name: 'View' }))
-    expect(screen.queryByRole('menuitemcheckbox', { name: 'Planned' })).toBeNull()
-  })
-})
-
-describe('Toolbar between the two breakpoints', () => {
-  beforeEach(() => {
-    viewport = ROOMY
-  })
-
-  it('keeps the detail level and toggles in the bar, with File and Share as menus', () => {
-    renderToolbar({ hasPlanned: false })
-    for (const name of ['File', 'Share']) expect(screen.getByRole('button', { name })).toBeTruthy()
-    expect(screen.getByRole('radio', { name: 'Overview' })).toBeTruthy()
-    expect(screen.getByRole('switch', { name: 'Guides' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
-  })
-
-  it('folds the view controls into the View menu until the bar also has room for the Planned switch', () => {
-    renderToolbar({ hasPlanned: true })
-    expect(screen.getByRole('button', { name: 'View' })).toBeTruthy()
-    cleanup()
-    viewport = minWidth(ROOMY_PLANNED_TOOLBAR)
-    renderToolbar({ hasPlanned: true })
-    expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
-    expect(screen.getByRole('switch', { name: 'Planned' })).toBeTruthy()
-  })
-})
-
-
-describe('Toolbar below the compact breakpoint', () => {
-  beforeEach(() => {
-    viewport = ROOMY - 1
-  })
-
-  const openView = () => fireEvent.click(screen.getByRole('button', { name: 'View' }))
-
-  it('moves the detail level and the toggles into a View menu that shows their state', () => {
-    renderToolbar({ mode: 'overview', guides: false, highlight: true })
-    expect(screen.queryByRole('radio', { name: 'Overview' })).toBeNull()
-    expect(screen.queryByRole('switch', { name: 'Guides' })).toBeNull()
-    expect(screen.queryByRole('switch', { name: 'Highlight' })).toBeNull()
-    expect(screen.queryByRole('switch', { name: 'Dependents' })).toBeNull()
-
-    openView()
-
-    const state = [...screen.getAllByRole('menuitemradio'), ...screen.getAllByRole('menuitemcheckbox')].map((item) => [item.textContent, item.getAttribute('aria-checked')])
-    expect(state).toEqual([
-      ['Overview', 'true'],
-      ['Detailed', 'false'],
-      ['Guides', 'false'],
-      ['Highlight', 'true'],
-      ['Dependents', 'false'],
-      ['Planned', 'true'],
-    ])
-  })
-
-  it.each([
-    ['Overview', 'mode', 'overview'],
-    ['Detailed', 'mode', 'detailed'],
-    ['Guides', 'guides', true],
-    ['Highlight', 'highlight', false],
-    ['Dependents', 'dependents', true],
-    ['Planned', 'showPlanned', false],
-  ] as const)('choosing %s in the View menu sets %s to %s and nothing else', (name, field, value) => {
-    renderToolbar({ mode: 'detailed', guides: false, highlight: true })
-    const before = usePreferencesStore.getState()
-    openView()
-    fireEvent.click(screen.getByRole(field === 'mode' ? 'menuitemradio' : 'menuitemcheckbox', { name }))
-    expect(usePreferencesStore.getState()).toEqual({ ...before, [field]: value })
-  })
-
-  it('shows two kinds of control in the View menu: a segmented mode and switches, set apart', () => {
-    renderToolbar()
-    openView()
-    const menu = screen.getByRole('menu')
-    const pill = within(menu).getAllByRole('menuitemradio')[0].parentElement!
-    expect(pill.classList.contains('segmented')).toBe(true)
-    expect(within(pill).getAllByRole('menuitemradio')).toHaveLength(2)
-    for (const item of within(menu).getAllByRole('menuitemcheckbox')) expect(item.querySelector('.switch-track > .switch-knob')).not.toBeNull()
-    expect(within(menu).queryByRole('menuitem')).toBeNull()
-    expect(within(menu).getAllByRole('separator')).toHaveLength(1)
-  })
-
-})
-
-describe.each([
-  ['wide', WIDE],
-  ['compact', ROOMY - 1],
-  ['phone', 390],
-])('Toolbar File and Share menus at %s width', (_, width) => {
-  beforeEach(() => {
-    viewport = width
-  })
-
+describe('Toolbar File and Share menus', () => {
   const open = (name: 'File' | 'Share') => fireEvent.click(screen.getByRole('button', { name }))
 
   it('File lists New, Open… and Save (.hexa) together, then the examples to load under their architecture', () => {
@@ -427,81 +358,13 @@ describe.each([
 })
 
 
-// At a literal phone width (below styles.css's toolbar wrap point, TOOLBAR-PHONE-01) the markup is the same
-// icon-only tier as above — styles.css wraps it into two rows instead of scrolling sideways — so this pins the
-// requirement that drove the wrap: nothing is dropped for it to hide, every control stays reachable as one of
-// the three menus or a labelled icon/link.
+// styles.css wraps the bar into two rows below the phone breakpoint instead of scrolling it sideways, so nothing
+// is dropped for it to hide: every control must stay reachable as one of the menus or a labelled link.
 describe('Toolbar at phone width', () => {
-  beforeEach(() => {
-    viewport = 390
-  })
-
-  it('keeps every control reachable: the four menus and the GitHub link', () => {
+  it('keeps every control reachable: the three menus and the GitHub link', () => {
     renderToolbar({ showScope: true })
-    for (const name of ['View', 'File', 'Share', 'Appearance']) expect(screen.getByRole('button', { name })).toBeTruthy()
+    for (const name of ['View options', 'File', 'Share']) expect(screen.getByRole('button', { name }).getAttribute('aria-haspopup')).toBe('menu')
+    expect(screen.getByRole('radiogroup', { name: 'Detail level' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'View the source on GitHub' })).toBeTruthy()
-  })
-})
-
-describe('Toolbar appearance menu', () => {
-  const openAppearance = () => fireEvent.click(screen.getByRole('button', { name: 'Appearance' }))
-  const iconPath = () => screen.getByRole('button', { name: 'Appearance' }).querySelector('path')!.getAttribute('d')!
-  const MOON = /^M21 12\.8/
-  const SUN = /^M12 8a4/
-
-  it.each([WIDE, ROOMY, ROOMY - 1])('is one icon-sized trigger at a %ipx viewport', (width) => {
-    viewport = width
-    renderToolbar()
-    const trigger = screen.getByRole('button', { name: 'Appearance' })
-    expect(trigger.classList.contains('icon-trigger')).toBe(true)
-    expect(trigger.textContent).toBe('')
-  })
-
-  it('lists the theme choices and then the palettes, checking the stored theme and the active palette', () => {
-    renderToolbar({ themeChoice: 'dark', palette: 'terracotta' })
-    openAppearance()
-    const state = screen.getAllByRole('menuitemcheckbox').map((item) => [item.firstChild!.textContent, item.getAttribute('aria-checked')])
-    expect(state).toEqual([
-      ['Light', 'false'],
-      ['Dark', 'true'],
-      ['System', 'false'],
-      ['Default', 'false'],
-      ['Purple', 'false'],
-      ['Terracotta', 'true'],
-      ['Cool', 'false'],
-    ])
-  })
-
-  it('checks System and Default when nothing is chosen', () => {
-    renderToolbar()
-    openAppearance()
-    expect(screen.getByRole('menuitemcheckbox', { name: 'System' }).getAttribute('aria-checked')).toBe('true')
-    expect(screen.getByRole('menuitemcheckbox', { name: /^Default/ }).getAttribute('aria-checked')).toBe('true')
-  })
-
-  it.each([
-    ['Light', 'theme', 'light'],
-    ['Dark', 'theme', 'dark'],
-    ['System', 'theme', 'system'],
-    ['Default', 'palette', 'default'],
-    ['Cool', 'palette', 'cool'],
-  ] as const)('choosing %s sets %s to %s and nothing else', (name, field, value) => {
-    renderToolbar({ themeChoice: 'light', palette: 'terracotta' })
-    const before = usePreferencesStore.getState()
-    openAppearance()
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: new RegExp(`^${name}`) }))
-    expect(usePreferencesStore.getState()).toEqual({ ...before, [field]: value })
-  })
-
-  it('shows the moon on a light page and the sun on a dark one, resolving System from the OS', () => {
-    renderToolbar({ themeChoice: 'light' })
-    expect(iconPath()).toMatch(MOON)
-    cleanup()
-    renderToolbar({ themeChoice: 'dark' })
-    expect(iconPath()).toMatch(SUN)
-    cleanup()
-    systemDark = true
-    renderToolbar({ themeChoice: 'system' })
-    expect(iconPath()).toMatch(SUN)
   })
 })

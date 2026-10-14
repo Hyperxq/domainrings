@@ -51,13 +51,15 @@ interface ChoiceMenuProps<Id extends string> {
   autoOpen?: boolean
   /** Called when the menu closes without a choice (Escape, Tab, an outside press, or the trigger again). */
   onDismiss?: () => void
+  /** Keeps the menu open after a toggle (a choice with `checked`) so several can be set in one visit; actions still close it. */
+  stayOpen?: boolean
 }
 
 /**
  * A button that opens a menu of labelled choices. The menu is `position: fixed` under the trigger, so a scrolling
  * or clipping ancestor (the toolbar, the editor) never cuts it off — which holds only while no ancestor is transformed.
  */
-export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onChoose, className, align = 'start', onTrigger, autoOpen, onDismiss }: ChoiceMenuProps<Id>) {
+export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onChoose, className, align = 'start', onTrigger, autoOpen, onDismiss, stayOpen }: ChoiceMenuProps<Id>) {
   const [at, setAt] = useState<MenuAt | null>(null)
   const [anchor, setAnchor] = useState<DOMRect | null>(null)
   const menu = useRef<HTMLDivElement>(null)
@@ -99,7 +101,7 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
       className={choice.control === 'radio' ? 'segmented-option' : 'text-button'}
       data-control={choice.control}
       onClick={() => {
-        close()
+        if (!(stayOpen && choice.checked !== undefined)) close()
         onChoose(choice.id)
       }}
     >

@@ -587,7 +587,7 @@ a.icon-button { color: inherit; text-decoration: none; }
 [aria-checked='true'] > .switch-track > .switch-knob { background: var(--card); transform: translateX(12px); }
 .choice-trigger { display: inline-flex; align-items: center; gap: 4px; flex: none; font-size: 13px; }
 .choice-trigger .icon { width: 14px; height: 14px; color: var(--muted); transform: rotate(90deg); }
-/* An icon-only trigger (Appearance) sizes like an .icon-button and shows its icon upright. */
+/* An icon-only trigger (View options) sizes like an .icon-button and shows its icon upright. */
 .choice-trigger.icon-trigger { width: 32px; padding: 0; justify-content: center; }
 .choice-trigger.icon-trigger .icon { width: 18px; height: 18px; color: inherit; transform: none; }
 .choice-menu {
@@ -897,7 +897,7 @@ span.swatch-element { background: var(--card); border-color: var(--teal); }
   .legend { top: 108px; bottom: auto; right: 8px; }
 }
 
-/* Below this the icon-only toolbar (614-618px wide) no longer fits the ~340-374px available on a phone, so it
+/* Below this the toolbar no longer fits the ~340-374px available on a phone, so it
    wraps into two centred rows instead of scrolling sideways; that grows it from one row (42px) to two (78px,
    measured in Chrome), pushing every island stacked below it (zoom, notices, toast, legend) down by that 36px,
    matched by `islandInset`'s width<=640 branch in viewport.ts. */
