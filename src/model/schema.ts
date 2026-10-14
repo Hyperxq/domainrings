@@ -21,8 +21,10 @@ const LayerTextSchema = z.object({ title: z.string().optional(), subtitle: z.str
 const DomainItemSchema = z.object({ id, name: z.string(), type: DomainTypeSchema, parentId: id.optional(), note, status })
 // 'top' (the default) stacks a use case under the application title; a wall seats it in that wall's sector.
 export const PlacementSchema = z.enum(['top', ...WallSchema.options])
-const UseCaseSchema = z.object({ id, name: z.string(), placement: PlacementSchema.optional(), note, status })
-const PortSchema = z.object({ id, name: z.string(), side: SideSchema, wall: WallSchema.optional(), useCaseId: id.optional(), note, status })
+/** What a use case does, in the author's words, and the author's explanation of each step of its flow, keyed by element id. */
+const UseCaseSchema = z.object({ id, name: z.string(), placement: PlacementSchema.optional(), note, status, description: z.string().optional(), stepNotes: z.record(id, z.string()).optional() })
+/** `verb` labels the call a driven port stands for ("save", "charge"). */
+const PortSchema = z.object({ id, name: z.string(), side: SideSchema, wall: WallSchema.optional(), useCaseId: id.optional(), note, status, verb: z.string().optional() })
 const AdapterSchema = z.object({ id, name: z.string(), portId: id.optional(), note, status })
 const EndpointSchema = z.object({ id, name: z.string(), adapterId: id.optional(), note, status })
 
@@ -46,8 +48,8 @@ const { status: _status, ...diagramFieldsBeforeStatus } = DiagramFields
 export const LegacyDiagramFields = {
   ...diagramFieldsBeforeStatus,
   domain: z.array(DomainItemSchema.omit({ status: true })),
-  useCases: z.array(UseCaseSchema.omit({ status: true })),
-  ports: z.array(PortSchema.omit({ status: true })),
+  useCases: z.array(UseCaseSchema.omit({ status: true, description: true, stepNotes: true })),
+  ports: z.array(PortSchema.omit({ status: true, verb: true })),
   adapters: z.array(AdapterSchema.omit({ status: true })),
   actors: z.array(EndpointSchema.omit({ status: true })),
   externals: z.array(EndpointSchema.omit({ status: true })),
