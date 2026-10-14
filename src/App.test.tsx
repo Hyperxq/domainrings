@@ -502,7 +502,7 @@ describe('toolbar', () => {
     for (const name of ['New', 'Open…', 'Save (.hexa)']) expect(within(file).getByRole('menuitem', { name })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     const share = screen.getByRole('menu', { name: 'Share' })
-    expect([...share.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).toEqual(['Copy link', 'SVG', 'PNG'])
+    expect([...share.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).toEqual(['Copy link', 'SVG', 'PNG', 'Copy PNGOr press Ctrl+C'])
   })
 
   it('links to the source repository in a new tab', () => {
@@ -3554,5 +3554,84 @@ describe('view-only mode', () => {
     fireEvent.click(screen.getByRole('button', { name: 'View only' }))
     fireEvent.keyDown(document.body, { key: 'z', ctrlKey: true })
     expect(currentDiagram().useCases.some((u) => u.id === useCaseId)).toBe(true)
+  })
+})
+
+describe('copy PNG to the clipboard', () => {
+  const stubPng = () => {
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
+    ;(HTMLImageElement.prototype as unknown as { decode: () => Promise<void> }).decode = vi.fn().mockResolvedValue(undefined)
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D)
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (this: HTMLCanvasElement, cb: BlobCallback) {
+      cb(new Blob(['fake-png'], { type: 'image/png' }))
+    })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    // jsdom has no ClipboardItem; the stub keeps what it was handed so the test can await the PNG inside.
+    vi.stubGlobal('ClipboardItem', class {
+      constructor(public items: Record<string, Promise<Blob>>) {}
+    })
+    const write = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { write, writeText: vi.fn() }, configurable: true })
+    return { write, click }
+  }
+  const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 0)))
+  const copied = async (write: ReturnType<typeof vi.fn>) => {
+    const [[[item]]] = write.mock.calls as [[[{ items: Record<string, Promise<Blob>> }]]]
+    return (await item.items['image/png']).type
+  }
+  afterEach(() => {
+    delete (HTMLImageElement.prototype as unknown as { decode?: () => Promise<void> }).decode
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  it('Share > Copy PNG puts the PNG on the clipboard instead of downloading it', async () => {
+    render(<App />)
+    const { write, click } = stubPng()
+    choose('Share', 'Copy PNGOr press Ctrl+C')
+    await settle()
+    expect(write).toHaveBeenCalledTimes(1)
+    expect(await copied(write)).toBe('image/png')
+    expect(click).not.toHaveBeenCalled()
+    expect(screen.getByText('Copied the image to the clipboard.')).toBeTruthy()
+  })
+
+  it('Ctrl+C or Cmd+C on the canvas copies the PNG', async () => {
+    render(<App />)
+    const { write } = stubPng()
+    fireEvent.keyDown(document.body, { key: 'c', ctrlKey: true })
+    await settle()
+    fireEvent.keyDown(document.body, { key: 'C', metaKey: true })
+    await settle()
+    expect(write).toHaveBeenCalledTimes(2)
+    expect(await copied(write)).toBe('image/png')
+  })
+
+  it('leaves Ctrl+C alone while typing, with text selected, or with a menu open', async () => {
+    render(<App />)
+    const { write } = stubPng()
+    const field = document.body.appendChild(document.createElement('input'))
+    fireEvent.keyDown(field, { key: 'c', ctrlKey: true })
+    field.remove()
+    const text = document.body.appendChild(document.createElement('p'))
+    text.textContent = 'some words'
+    getSelection()!.selectAllChildren(text)
+    fireEvent.keyDown(document.body, { key: 'c', ctrlKey: true })
+    getSelection()!.removeAllRanges()
+    text.remove()
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
+    fireEvent.keyDown(document.body, { key: 'c', ctrlKey: true })
+    fireEvent.keyDown(document.body, { key: 'c', ctrlKey: true, shiftKey: true })
+    await settle()
+    expect(write).not.toHaveBeenCalled()
+  })
+
+  it('reports a clipboard the browser refuses', async () => {
+    render(<App />)
+    const { write } = stubPng()
+    write.mockRejectedValue(new Error('Write permission denied.'))
+    choose('Share', 'Copy PNGOr press Ctrl+C')
+    await settle()
+    expect(screen.getByText('Copy failed: Write permission denied.')).toBeTruthy()
   })
 })
