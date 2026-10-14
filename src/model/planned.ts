@@ -1,3 +1,4 @@
+import { withoutAggregates } from './aggregateIds'
 import { pruneLinks } from './map'
 import { COLLECTIONS, REFERENCES, type CollectionKey, type HexaMap, type Hexagon, type Linkable } from './schema'
 
@@ -30,7 +31,8 @@ function builtElements(hexagon: Hexagon): Hexagon {
     })
     next = { ...next, [owner]: cleared }
   }
-  return next
+  const plannedDomain = new Set(hexagon.domain.filter(isPlanned).map((item) => item.id))
+  return plannedDomain.size ? { ...next, useCases: withoutAggregates(next.useCases, plannedDomain) } : next
 }
 
 /**

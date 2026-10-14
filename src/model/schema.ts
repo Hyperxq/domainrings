@@ -21,7 +21,8 @@ const LayerTextSchema = z.object({ title: z.string().optional(), subtitle: z.str
 const DomainItemSchema = z.object({ id, name: z.string(), type: DomainTypeSchema, parentId: id.optional(), note, status })
 // 'top' (the default) stacks a use case under the application title; a wall seats it in that wall's sector.
 export const PlacementSchema = z.enum(['top', ...WallSchema.options])
-const UseCaseSchema = z.object({ id, name: z.string(), placement: PlacementSchema.optional(), note, status })
+/** The aggregates the use case works on: its arrow into the domain ends on their cards. Ids that are not an aggregate of the diagram are ignored. */
+const UseCaseSchema = z.object({ id, name: z.string(), placement: PlacementSchema.optional(), aggregateIds: z.array(id).optional(), note, status })
 const PortSchema = z.object({ id, name: z.string(), side: SideSchema, wall: WallSchema.optional(), useCaseId: id.optional(), note, status })
 const AdapterSchema = z.object({ id, name: z.string(), portId: id.optional(), note, status })
 const EndpointSchema = z.object({ id, name: z.string(), adapterId: id.optional(), note, status })
@@ -46,7 +47,7 @@ const { status: _status, ...diagramFieldsBeforeStatus } = DiagramFields
 export const LegacyDiagramFields = {
   ...diagramFieldsBeforeStatus,
   domain: z.array(DomainItemSchema.omit({ status: true })),
-  useCases: z.array(UseCaseSchema.omit({ status: true })),
+  useCases: z.array(UseCaseSchema.omit({ status: true, aggregateIds: true })),
   ports: z.array(PortSchema.omit({ status: true })),
   adapters: z.array(AdapterSchema.omit({ status: true })),
   actors: z.array(EndpointSchema.omit({ status: true })),
@@ -92,6 +93,14 @@ export function checkIntegrity(d: Pick<z.infer<typeof DiagramObject>, Collection
       }
     })
   }
+  const domainById = new Map(d.domain.map((item) => [item.id, item]))
+  d.useCases.forEach((u, i) =>
+    u.aggregateIds?.forEach((ref, j) => {
+      const item = domainById.get(ref)
+      if (!item) ctx.addIssue({ code: 'custom', message: `Unknown domain id "${ref}"`, path: ['useCases', i, 'aggregateIds', j] })
+      else if (item.type !== 'aggregate') ctx.addIssue({ code: 'custom', message: `"${item.name}" is not an aggregate`, path: ['useCases', i, 'aggregateIds', j] })
+    }),
+  )
   d.ports.forEach((p, i) => {
     if (p.wall && DRIVING_WALLS.has(p.wall) !== (p.side === 'driving')) {
       const half = p.side === 'driving' ? 'nw, w or sw' : 'ne, e or se'

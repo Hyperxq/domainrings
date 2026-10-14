@@ -298,6 +298,38 @@ describe('use case placement', () => {
   })
 })
 
+describe('use case aggregates', () => {
+  const withIds = (aggregateIds: unknown) => ({ ...EXAMPLE_DIAGRAM, useCases: EXAMPLE_DIAGRAM.useCases.map((u, i) => (i === 0 ? { ...u, aggregateIds } : u)) })
+
+  it('is optional: a use case without one parses with no such key', () => {
+    expect(DiagramSchema.parse(EXAMPLE_DIAGRAM).useCases.every((u) => !('aggregateIds' in u))).toBe(true)
+  })
+
+  it('keeps the aggregate ids a use case names', () => {
+    expect(DiagramSchema.parse(withIds(['d-feedback'])).useCases[0].aggregateIds).toEqual(['d-feedback'])
+  })
+
+  it('rejects an id that is not in the domain, like any other bad reference', () => {
+    const result = DiagramSchema.safeParse(withIds(['gone']))
+    expect(result.success).toBe(false)
+    expect(result.error!.issues[0]).toMatchObject({ message: 'Unknown domain id "gone"', path: ['useCases', 0, 'aggregateIds', 0] })
+  })
+
+  it('rejects the id of a domain item that is not an aggregate', () => {
+    const result = DiagramSchema.safeParse(withIds(['d-feedback', 'd-rating']))
+    expect(result.success).toBe(false)
+    expect(result.error!.issues[0]).toMatchObject({ message: '"FeedbackRating" is not an aggregate', path: ['useCases', 0, 'aggregateIds', 1] })
+  })
+
+  it('rejects anything but a list of ids, at the aggregateIds path', () => {
+    for (const bad of ['d-feedback', [1], ['']]) {
+      const result = DiagramSchema.safeParse(withIds(bad))
+      expect(result.success).toBe(false)
+      expect(result.error!.issues[0].path.slice(0, 3)).toEqual(['useCases', 0, 'aggregateIds'])
+    }
+  })
+})
+
 describe('ringed element kinds', () => {
   const onion = (elements: unknown[]) => ({ ...newOnionMap('Kinds'), elements })
   const clean = (elements: unknown[]) => ({

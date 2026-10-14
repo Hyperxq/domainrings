@@ -62,7 +62,7 @@ describe.each(CASES)('ports on slanted walls stay upright: %s', (_, diagram) => 
       for (const e of m.edges) {
         const [from, to] = e.key.split('->')
         for (const p of ports) {
-          const first = e.kind === 'declares' ? undefined : from === p.key
+          const first = from === p.key
           const last = to === p.key
           if (!first && !last) continue
           const [a, b] = last ? [e.points.at(-2)!, e.points.at(-1)!] : [e.points[1], e.points[0]]

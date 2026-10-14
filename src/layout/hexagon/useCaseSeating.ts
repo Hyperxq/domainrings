@@ -67,14 +67,12 @@ export interface SeatingInput {
   overview: boolean
   /** One frame per `d.useCases` entry, in the same order. */
   useCaseFrames: Frame[]
-  /** How many driven ports the domain declares: each keeps one extra lane for its dotted ownership link. */
-  declaredPorts: number
   plan: BoxPlan
   frames: BoxFrames
 }
 
 /** How the use cases sit in the application ring: each seated on a wall, with the bus lane its runs take to the sockets. */
-export function seatUseCases({ d, overview, useCaseFrames, declaredPorts, plan, frames }: SeatingInput) {
+export function seatUseCases({ d, overview, useCaseFrames, plan, frames }: SeatingInput) {
   const { wallBoxes, of, widths, ports, wallOf, inwardOf } = plan
   const { labelReach } = frames
   const walls = seatWalls(d, wallOf)
@@ -82,13 +80,10 @@ export function seatUseCases({ d, overview, useCaseFrames, declaredPorts, plan, 
   // Use-case buses: one vertical lane per use case and side, between the inner ring and the sockets. The first
   // use case takes the outermost lane so no exit crosses another bus. The lane next to the domain stays free for a
   // question that steps along the domain wall.
-  const busX = (side: Side, k: number, innerHalfWidth: number) =>
-    // The driven side also keeps one lane per declared port, for the dotted ownership links.
-    innerHalfWidth + LANE * (2 + (side === 'driven' ? declaredPorts : 0)) + LANE * (useCaseFrames.length - 1 - k)
+  const busX = (k: number, innerHalfWidth: number) => innerHalfWidth + LANE * (2 + useCaseFrames.length - 1 - k)
   /** The bus lane's x: the driving lanes run left of the centre, the driven ones right. */
-  const laneX = (side: Side, k: number, innerHalfWidth: number) => (side === 'driving' ? -1 : 1) * busX(side, k, innerHalfWidth)
-  const socketClearance = (side: Side, innerHalfWidth: number) =>
-    useCaseFrames.length && !overview ? busX(side, 0, innerHalfWidth) + RUN : 0
+  const laneX = (side: Side, k: number, innerHalfWidth: number) => (side === 'driving' ? -1 : 1) * busX(k, innerHalfWidth)
+  const socketClearance = (innerHalfWidth: number) => (useCaseFrames.length && !overview ? busX(0, innerHalfWidth) + RUN : 0)
   /**
    * Use cases seated on a wall, in wall coordinates: stacked along it like ports, the run centred on the ports they
    * serve on that wall, and set in past the wall's sockets (and their overview names) by the room an arrow needs.

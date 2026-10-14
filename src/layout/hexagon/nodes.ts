@@ -5,7 +5,6 @@ import { halfWidthAt, type Outline } from '../outline'
 import type { BoxFrames, Frame } from './boxFrames'
 import type { CentreBlock } from './centreBlock'
 import type { BoxPlan, Planned } from './columns'
-import type { RingTitles } from './ringTitles'
 import { GAP, OUTSIDE_GAP } from './spacing'
 import type { UseCaseSeating } from './useCaseSeating'
 import { wallFrame } from './walls'
@@ -16,9 +15,6 @@ export interface NodesInput {
   app: Outline
   outer: Outline
   domain: Outline
-  titles: RingTitles
-  /** How far the domain body sits below its title (see the ring solver). */
-  domainShift: number
   centre: CentreBlock
   plan: BoxPlan
   frames: BoxFrames
@@ -26,8 +22,7 @@ export interface NodesInput {
 }
 
 /** Every node of the diagram at its final position, in draw order: domain block, use cases, column boxes, wall boxes, overview port names, composition root; `composition` is that root, absent when none is drawn. */
-export function placeNodes({ d, overview, app, outer, domain, titles, domainShift, centre, plan, frames, seating }: NodesInput): { nodes: LayoutNode[]; composition: LayoutNode | undefined } {
-  const { titleDepth } = titles
+export function placeNodes({ d, overview, app, outer, domain, centre, plan, frames, seating }: NodesInput): { nodes: LayoutNode[]; composition: LayoutNode | undefined } {
   const { planned, widths, portOf, wallBoxes } = plan
   const seats = seating.seatsAt(app)
   const compositionFrame = d.composition && !overview ? frames.compositionFrame(d.composition) : undefined
@@ -37,10 +32,9 @@ export function placeNodes({ d, overview, app, outer, domain, titles, domainShif
     add({ key, ref, kind, tone, lines: f.lines, side, x, y, width: f.width, height: f.height })
   const leafX = (side: Side) => outer.halfWidth + OUTSIDE_GAP + widths[side].leaf / 2
 
-  const blockTop = -domain.apex + titleDepth
   // Outlines first so they draw under the lines they enclose.
   for (const r of centre.boxes) {
-    const node = place(r.key, r.ref, r.kind, 'domain', r.frame, r.x, blockTop + domainShift + r.top + r.frame.height / 2)
+    const node = place(r.key, r.ref, r.kind, 'domain', r.frame, r.x, r.y)
     if (r.kind !== 'aggregate') node.align = 'center'
   }
   let y = -(domain.apex + GAP + centre.servicesBlock.height)

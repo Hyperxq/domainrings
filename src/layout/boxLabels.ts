@@ -29,7 +29,6 @@ const TIER: Partial<Record<LayoutNode['kind'], BoxLabel['tier']>> = {
   actor: 1,
   external: 1,
   domainItem: 2,
-  portDecl: 2,
   composition: 2,
 }
 

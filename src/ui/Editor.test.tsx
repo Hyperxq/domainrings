@@ -659,6 +659,27 @@ describe('use case placement', () => {
   })
 })
 
+describe('use case aggregates', () => {
+  const uc = EXAMPLE_DIAGRAM.useCases[0]
+  const aggregate = EXAMPLE_DIAGRAM.domain.find((i) => i.type === 'aggregate')!
+  const idsOf = () => currentDiagram().useCases.find((u) => u.id === uc.id)!.aggregateIds
+  const group = (container: HTMLElement) => within(container.querySelector<HTMLElement>(`[data-item-id="${uc.id}"]`)!).getByRole('group', { name: 'Aggregates' })
+
+  it('lists the diagram’s aggregates as checkboxes and no other domain item', () => {
+    const { container } = renderEditor()
+    const names = within(group(container)).getAllByRole('checkbox').map((c) => c.closest('label')!.textContent)
+    expect(names).toEqual(EXAMPLE_DIAGRAM.domain.filter((i) => i.type === 'aggregate').map((i) => i.name))
+  })
+
+  it('binds the checked ones to the use case, and drops the field once none is left', () => {
+    const { container } = renderEditor()
+    fireEvent.click(within(group(container)).getByRole('checkbox', { name: aggregate.name }))
+    expect(idsOf()).toEqual([aggregate.id])
+    fireEvent.click(within(group(container)).getByRole('checkbox', { name: aggregate.name }))
+    expect(idsOf()).toBeUndefined()
+  })
+})
+
 describe('"Move to context…" in the Hexagon section', () => {
   const twoContexts = () => {
     const base = twoHexMap()

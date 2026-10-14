@@ -3,6 +3,7 @@ import { addLink as addLinkToMap, diagramOf, freeCell, freeSides, mergeMap, move
 import { EXAMPLE_DIAGRAM } from './example'
 import { toMap } from './hexa'
 import { browserStorage, loadMap } from './persistence'
+import { withoutAggregates } from './aggregateIds'
 import { MapSchema, REFERENCES, type CollectionKey, type Diagram, type HexaMap, type Hexagon, type Link, type LinkEnd, type Linkable, type Wall } from './schema'
 import { validated } from './validated'
 
@@ -128,7 +129,7 @@ export const useMapStore = create<MapState>()((set, get) => {
           const items: Linkable[] = next[owner]
           next = withCollection(next, owner, items.map((i) => (i[field] === id ? { ...i, [field]: undefined } : i)) as Item<typeof owner>[])
         }
-        return next
+        return key === 'domain' ? { ...next, useCases: withoutAggregates(next.useCases, new Set([id])) } : next
       }),
     addHexagon: (from, { side, context }) => {
       const map = get().map

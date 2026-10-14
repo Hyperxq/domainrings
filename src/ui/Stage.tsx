@@ -60,7 +60,6 @@ const NODE_KIND: Record<CollectionKey, LayoutNode['kind']> = {
   externals: 'external',
 }
 export function Stage({ model, map, hexId, diagram, legend, revision, title, svgRef, onDelete, onLink, contextLabel, onGrow }: StageProps) {
-  const mode = usePreferencesStore((s) => s.mode)
   const highlight = usePreferencesStore((s) => s.highlight)
   const dependents = usePreferencesStore((s) => s.dependents)
   const showGuides = usePreferencesStore((s) => s.guides)
@@ -168,7 +167,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
     selected && !linking && !viewOnly && canLink(map, diagram, hexId, selected)
       ? hexModel.nodes.find((n) => n.ref === selected && n.kind === NODE_KIND[collectionOf(diagram, selected)!])
       : undefined
-  const visiblePoints = hovered && !viewOnly ? insertionPoints(hexModel, diagram, mode).filter((p) => p.layer === hovered) : []
+  const visiblePoints = hovered && !viewOnly ? insertionPoints(hexModel, diagram).filter((p) => p.layer === hovered) : []
   const pick = (point: InsertionPoint, choice?: DomainType) => {
     const { collection, patch } = insertionItem(point.action, choice)
     const before = { map, focus: hexId }

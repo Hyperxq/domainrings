@@ -68,6 +68,12 @@ describe('withoutPlanned', () => {
     expect(withoutPlanned(clean, 'h2')).toBe(clean)
   })
 
+  it('takes a planned aggregate out of the use cases that name it, dropping the emptied field', () => {
+    const map = base()
+    map.hexagons[0].useCases = map.hexagons[0].useCases.map((u) => (u.id === 'uc-old' ? { ...u, aggregateIds: ['d-agg'] } : u))
+    expect('aggregateIds' in withoutPlanned(map, 'h1').hexagons[0].useCases[0]).toBe(false)
+  })
+
   it('removes planned elements and keeps the built ones', () => {
     const { hexagons } = withoutPlanned(base(), 'h1')
     expect(hexagons[0].domain.map((d) => d.id)).toEqual(['d-child'])

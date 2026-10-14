@@ -11,6 +11,9 @@ export const DOMAIN_TAGS: Record<DomainType, string> = {
 
 export const USE_CASE_TAG = '▶ use case'
 
-export const portTag = (side: Side, labels: KindLabels) => (side === 'driving' ? `⇥ ${labels.drivingPort}` : `⇤ ${labels.drivenPort}`)
+/** Marks a port the domain declares: the contract it owns and the adapters implement. */
+export const DRIVEN_GLYPH = '◇'
+
+export const portTag = (side: Side, labels: KindLabels) => (side === 'driving' ? `⇥ ${labels.drivingPort}` : `${DRIVEN_GLYPH} ${labels.drivenPort}`)
 
 export const adapterTag = (side: Side, labels: KindLabels) => (side === 'driving' ? `⇥ ${labels.adapterIn}` : `⇤ ${labels.adapterOut}`)

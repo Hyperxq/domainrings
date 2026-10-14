@@ -57,6 +57,26 @@ describe('map store', () => {
     expect(currentDiagram().domain.every((i) => i.parentId === undefined)).toBe(true)
   })
 
+  describe('use case aggregates', () => {
+    const withAggregates = (ids: string[][]) => {
+      const d = currentDiagram()
+      const agg = { id: 'd-second', name: 'Second', type: 'aggregate' as const }
+      state().replace(toMap({ ...d, domain: [...d.domain, agg], useCases: d.useCases.map((u, i) => (ids[i] ? { ...u, aggregateIds: ids[i] } : u)) }))
+    }
+
+    it('removing an aggregate takes its id out of every use case, keeping the others', () => {
+      withAggregates([['d-feedback', 'd-second']])
+      state().removeItem(state().focus, 'domain', 'd-feedback')
+      expect(currentDiagram().useCases[0].aggregateIds).toEqual(['d-second'])
+    })
+
+    it('drops the field once no aggregate is left, so the file reads as before', () => {
+      withAggregates([['d-feedback']])
+      state().removeItem(state().focus, 'domain', 'd-feedback')
+      expect('aggregateIds' in currentDiagram().useCases[0]).toBe(false)
+    })
+  })
+
   it('removing a use case unlinks its ports', () => {
     state().removeItem(state().focus, 'useCases', 'uc-submit')
     expect(currentDiagram().ports.every((p) => p.useCaseId === undefined)).toBe(true)

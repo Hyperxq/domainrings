@@ -7,38 +7,39 @@ import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
 import type { Diagram } from '../model/schema'
 
 const COS30 = Math.sqrt(3) / 2
-const pointsFor = (d: Diagram, mode: 'detailed' | 'overview' = 'detailed') => insertionPoints(layoutDiagram(d, { mode }), d, mode)
+const pointsFor = (d: Diagram, mode: 'detailed' | 'overview' = 'detailed') => insertionPoints(layoutDiagram(d, { mode }), d)
 const byLayer = (points: InsertionPoint[], layer: string) => points.filter((p) => p.layer === layer)
 
 describe('insertionPoints', () => {
   describe('domain', () => {
     const points = byLayer(pointsFor(EXAMPLE_DIAGRAM), 'domain')
 
-    it('offers one "+" under the roots, one inside each aggregate, one under the declared ports', () => {
-      expect(points.map((p) => p.action)).toEqual([
-        { kind: 'domainRoot' },
-        { kind: 'domainChild', parentId: 'd-feedback' },
-        { kind: 'drivenPortDecl' },
-      ])
-      expect(points.map((p) => p.label)).toEqual(['Add a domain item', 'Add an item inside Feedback', 'Add a driven port'])
+    it('offers one "+" for the model and one inside each aggregate', () => {
+      expect(points.map((p) => p.action)).toEqual([{ kind: 'domainRoot' }, { kind: 'domainChild', parentId: 'd-feedback' }])
+      expect(points.map((p) => p.label)).toEqual(['Add a domain item', 'Add an item inside Feedback'])
     })
 
-    it('puts the root "+" under the last root and the child "+" on its aggregate outline', () => {
+    it('puts the root "+" just under the region and the child "+" on its aggregate outline', () => {
       const m = layoutDiagram(EXAMPLE_DIAGRAM)
       const outline = m.nodes.find((n) => n.kind === 'aggregate')!
-      expect(points[0].at.y).toBeGreaterThan(outline.y + outline.height / 2)
+      expect(points[0].at.x).toBe(0)
+      expect(points[0].at.y).toBeGreaterThan(m.region!.apex)
+      expect(points[0].at.y).toBeLessThan(m.rings.at(-1)!.apex)
       expect(points[1].at).toEqual({ x: outline.x, y: outline.y + outline.height / 2 })
     })
 
-    it('has no declared-port "+" in overview, where that list is hidden', () => {
-      expect(byLayer(pointsFor(EXAMPLE_DIAGRAM, 'overview'), 'domain').map((p) => p.action.kind)).toEqual(['domainRoot'])
+    it('puts the root "+" under the last root when the domain has no aggregate', () => {
+      const d = { ...EXAMPLE_DIAGRAM, domain: [{ id: 'e1', name: 'Order', type: 'entity' as const }] }
+      const m = layoutDiagram(d)
+      const root = m.nodes.find((n) => n.kind === 'domainItem')!
+      expect(byLayer(pointsFor(d), 'domain')[0].at.y).toBeGreaterThan(root.y + root.height / 2)
     })
   })
 
   describe('application', () => {
     const model = layoutDiagram(EXAMPLE_DIAGRAM)
     const app = model.rings.find((r) => r.role === 'application')!
-    const points = byLayer(insertionPoints(model, EXAMPLE_DIAGRAM, 'detailed'), 'application')
+    const points = byLayer(insertionPoints(model, EXAMPLE_DIAGRAM), 'application')
     const ports = points.filter((p) => p.action.kind === 'port')
 
     it('offers no use case "+" without a wall: each one names the wall it adds to', () => {
@@ -71,7 +72,7 @@ describe('insertionPoints', () => {
 
     it('puts an overview wall "+" past the port names that run along that wall', () => {
       const model = layoutDiagram(STRESS_DIAGRAM, { mode: 'overview' })
-      const walls = insertionPoints(model, STRESS_DIAGRAM, 'overview').flatMap((p) => (p.action.kind === 'port' && p.action.wall ? [{ wall: p.action.wall, at: p.at }] : []))
+      const walls = insertionPoints(model, STRESS_DIAGRAM).flatMap((p) => (p.action.kind === 'port' && p.action.wall ? [{ wall: p.action.wall, at: p.at }] : []))
       for (const { wall, at } of walls.filter((w) => w.wall !== 'w' && w.wall !== 'e')) {
         const sockets = model.nodes.filter((n) => n.kind === 'port' && n.wall === wall)
         const { dir } = wallFrame(wall)
@@ -137,7 +138,6 @@ describe('insertionItem', () => {
     [{ kind: 'domainRoot' as const }, 'aggregate' as const, { collection: 'domain', patch: { name: 'NewAggregate', type: 'aggregate' } }],
     [{ kind: 'domainRoot' as const }, 'entity' as const, { collection: 'domain', patch: { name: 'NewEntity', type: 'entity' } }],
     [{ kind: 'domainChild' as const, parentId: 'g' }, 'valueObject' as const, { collection: 'domain', patch: { name: 'NewValueObject', type: 'valueObject', parentId: 'g' } }],
-    [{ kind: 'drivenPortDecl' as const }, undefined, { collection: 'ports', patch: { name: 'NewPort', side: 'driven', wall: 'e' } }],
     [{ kind: 'useCase' as const }, undefined, { collection: 'useCases', patch: { name: 'NewUseCase' } }],
     [{ kind: 'useCase' as const, placement: 'nw' as const }, undefined, { collection: 'useCases', patch: { name: 'NewUseCase', placement: 'nw' } }],
     [{ kind: 'port' as const, side: 'driving' as const, wall: 'sw' as const }, undefined, { collection: 'ports', patch: { name: 'newPort', side: 'driving', wall: 'sw' } }],
@@ -176,7 +176,7 @@ describe('insertion points never crowd the canvas', () => {
   ])('%s', (_, diagram) => {
     it.each(['detailed', 'overview'] as const)('keeps every "+" off the layer titles and 24 apart (%s)', (mode) => {
       const model = layoutDiagram(diagram, { mode })
-      const points = insertionPoints(model, diagram, mode)
+      const points = insertionPoints(model, diagram)
       for (const p of points) {
         for (const r of model.rings) expect(hits(box(p.at), r.titleBox) ? `${p.key} over the ${r.role} title` : 'clear').toBe('clear')
         for (const q of points) if (q !== p) expect(Math.hypot(q.at.x - p.at.x, q.at.y - p.at.y) >= PLUS ? 'apart' : `${p.key} near ${q.key}`).toBe('apart')
@@ -185,14 +185,14 @@ describe('insertion points never crowd the canvas', () => {
 
     it.each(['detailed', 'overview'] as const)('offers every use case "+" on a wall (%s)', (mode) => {
       const model = layoutDiagram(diagram, { mode })
-      const adds = insertionPoints(model, diagram, mode).filter((p) => p.action.kind === 'useCase')
+      const adds = insertionPoints(model, diagram).filter((p) => p.action.kind === 'useCase')
       expect(adds.filter((p) => !(p.action.kind === 'useCase' && p.action.placement))).toEqual([])
     })
 
     it.each(['detailed', 'overview'] as const)('keeps each sector "+" 8 clear of the spokes and off the use cases (%s)', (mode) => {
       const model = layoutDiagram(diagram, { mode })
       const useCases = model.nodes.filter((n) => n.kind === 'useCase')
-      for (const p of insertionPoints(model, diagram, mode)) {
+      for (const p of insertionPoints(model, diagram)) {
         if (p.action.kind !== 'useCase' || !p.action.placement) continue
         const { n, dir } = wallFrame(p.action.placement)
         const depth = p.at.x * n.x + p.at.y * n.y

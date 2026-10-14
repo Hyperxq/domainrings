@@ -2,16 +2,14 @@ import { HEXAGONAL_KIND } from '../../model/kinds'
 import type { Diagram } from '../../model/schema'
 import { dot, hairline, quadsOverlap, rectCorners, type Point } from '../geometry'
 import { COS30, fitRing, halfWidthAt, hexagon, type Need, type Outline } from '../outline'
-import { RING_LABEL } from '../text'
 import type { BoxFrames } from './boxFrames'
 import type { CentreBlock } from './centreBlock'
 import type { BoxPlan, Planned } from './columns'
 import type { RingTitles } from './ringTitles'
-import { DOMAIN_PAD, DOMAIN_RUN, GAP, LABEL_PAD_X, OUTSIDE_GAP, PAD, RUN } from './spacing'
+import { DOMAIN_RUN, GAP, LABEL_PAD_X, OUTSIDE_GAP, PAD, RUN } from './spacing'
 import { faceOf, laneFoot, toLane, type UseCaseSeating } from './useCaseSeating'
 import { sectorApothem, wallFrame } from './walls'
 
-const LABEL_LINE = RING_LABEL.size + 4
 const nearest = (y: number, height: number) => Math.max(0, Math.abs(y) - height / 2)
 const farthest = (y: number, height: number) => Math.abs(y) + height / 2
 
@@ -28,18 +26,16 @@ export interface RingSolverInput {
 }
 
 /**
- * Every ring's outline, inside-out, and how far the domain body drops below its title: each ring holds its own
- * content, fitted to the real box corners.
+ * Every ring's outline, inside-out: each ring holds its own content, fitted to the real box corners.
  */
-export function solveRings({ d, overview, appIndex, titles, centre, plan, frames, seating }: RingSolverInput): { outlines: Outline[]; domainShift: number } {
+export function solveRings({ d, overview, appIndex, titles, centre, plan, frames, seating }: RingSolverInput): Outline[] {
   const config = HEXAGONAL_KIND
   const { titleWidth, titleHeight, titleDepth } = titles
-  const { bodyShift, serviceFrames, servicesBlock } = centre
+  const { serviceFrames, servicesBlock } = centre
   const { ports, wallOf, planned, of, widths, wallBoxes, hasSlanted, sectored, localCorners, inwardOf, columnCorners, portLabels } = plan
   const { labelReach } = frames
   const { walls, laneX, socketClearance, seats, seatsAt } = seating
   const last = config.rings.length - 1
-  let domainShift = 0
   const boxQuad = (b: { x: number; y: number; frame: { width: number; height: number } }) => rectCorners(b.x, b.y, b.frame.width, b.frame.height)
 
   /**
@@ -93,6 +89,10 @@ export function solveRings({ d, overview, appIndex, titles, centre, plan, frames
         )
       }
     }
+    // A run's quad is a hairline: its first edge follows the run, so sampling that edge walks the run.
+    const inDomain = (p: Point) => Math.abs(p.y) < insideO.apex && Math.abs(p.x) < halfWidthAt(insideO, p.y)
+    const crossesDomain = ([a, b]: Point[]) => Array.from({ length: 21 }, (_, k) => k / 20).some((t) => inDomain({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }))
+    if (runs.some((r) => crossesDomain(r.quad))) return true
     if (slantedSocket.some((s) => runs.some((r) => r.ref !== s.ref && quadsOverlap(s.quad, r.quad)))) return true
     return seated.some((s) => runs.some((r) => r.useCase !== s.i && quadsOverlap(boxQuad(s), r.quad)))
   }
@@ -105,30 +105,8 @@ export function solveRings({ d, overview, appIndex, titles, centre, plan, frames
     const role = config.rings[i].role
     const inner = outlines[i + 1]
     if (role === 'domain') {
-      // The block hangs titleDepth under the apex, so its corners move with the radius; the width at a fixed
-      // depth under the apex only grows with r, which makes the smallest fitting radius a binary search.
-      const outline = (r: number) => hexagon(r)
-      const fits = (o: Outline) => {
-        const top = -o.apex + titleDepth
-        const shift = bodyShift(o)
-        const boxes = [
-          { x: titleWidth(i) / 2 + LABEL_PAD_X, from: 0, to: titleHeight(i) },
-          ...centre.boxes.map((r) => ({ x: Math.abs(r.x) + r.frame.width / 2 + DOMAIN_PAD, from: r.top + shift, to: r.top + shift + r.frame.height })),
-        ]
-        // The title stays in the upper half even when the domain is empty, so it never floats mid-ring.
-        const titleUp = top + titleHeight(i) <= -LABEL_LINE / 2
-        // A body shifted onto the slope touches it exactly; the tolerance keeps that tangency from failing on rounding.
-        return titleUp && boxes.every((b) => [top + b.from, top + b.to].every((y) => Math.abs(y) <= o.apex + 1e-6 && halfWidthAt(o, y) >= b.x - 1e-6))
-      }
-      let [lo, hi] = [1, 64]
-      while (!fits(outline(hi))) hi *= 2
-      for (let n = 0; n < 50; n++) {
-        const mid = (lo + hi) / 2
-        if (fits(outline(mid))) hi = mid
-        else lo = mid
-      }
-      outlines[i] = outline(hi)
-      domainShift = bodyShift(outlines[i])
+      // The region sits under the title, with the room around it for the use cases' arrows.
+      outlines[i] = hexagon(centre.region.apex + titleDepth + titleHeight(i) + GAP)
       continue
     }
     const side: Need[] = []
@@ -140,7 +118,7 @@ export function solveRings({ d, overview, appIndex, titles, centre, plan, frames
     }
     if (role === 'application') {
       for (const p of of('port')) {
-        const clear = Math.max(halfWidthAt(inner, nearest(p.y, p.height)) + GAP, socketClearance(p.side, inner.halfWidth))
+        const clear = Math.max(halfWidthAt(inner, nearest(p.y, p.height)) + GAP, socketClearance(inner.halfWidth))
         side.push({ x: clear + widths[p.side].socketHalf + labelReach(ports.get(p.ref)!), y: farthest(p.y, p.height) })
       }
     }
@@ -196,5 +174,5 @@ export function solveRings({ d, overview, appIndex, titles, centre, plan, frames
     const w = titleWidth(i) / 2 + LABEL_PAD_X
     outlines[i] = hexagon(Math.max(fitted.apex, w / COS30))
   }
-  return { outlines, domainShift }
+  return outlines
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Point } from './geometry'
 import { layoutDiagram, type LayoutModel, type LayoutNode, type LayoutRing } from './layout'
+import { halfWidthAt, hexagon } from './outline'
 import { DOMAIN_TITLE, measure, RING_LABEL, RING_SUBTITLE } from './text'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
 import { HEXAGONAL_KIND } from '../model/kinds'
@@ -61,15 +62,13 @@ const labelBox = (ring: LayoutRing): LayoutNode => {
   const line = metrics.size + 4
   const width = Math.max(measure(ring.title, metrics), ring.subtitle ? measure(ring.subtitle, RING_SUBTITLE) : 0)
   const height = line + (ring.subtitle ? 4 + RING_SUBTITLE.size + 4 : 0)
-  return { key: `label:${ring.key}`, ref: ring.key, kind: 'note', tone: 'muted', lines: [], x: 0, y: ring.labelAt.y - line / 2 + height / 2, width, height }
+  return { key: `label:${ring.key}`, ref: ring.key, kind: 'domainItem', tone: 'muted', lines: [], x: 0, y: ring.labelAt.y - line / 2 + height / 2, width, height }
 }
 
 type Segment = [Point, Point]
 const segments = (points: Point[]): Segment[] => points.slice(1).map((p, i) => [points[i], p])
 const sample = ([a, b]: Segment, step = 0.01): Point[] =>
   Array.from({ length: Math.round(1 / step) + 1 }, (_, i) => ({ x: a.x + (b.x - a.x) * i * step, y: a.y + (b.y - a.y) * i * step }))
-/** A dotted ownership link may pass behind a use case seated in front of its socket. */
-const passesBehind = (e: LayoutModel['edges'][number], n: LayoutNode) => e.kind === 'declares' && n.kind === 'useCase'
 const strictlyInside = (n: LayoutNode, p: Point) => Math.abs(p.x - n.x) < n.width / 2 - 1 && Math.abs(p.y - n.y) < n.height / 2 - 1
 
 /** Independent wall frames: outward normal n and along-wall dir for each wall of a pointy-top hexagon. */
@@ -95,8 +94,7 @@ function overlap(a: LayoutNode, b: LayoutNode) {
 const endpointsOf = (key: string) => key.split('->').filter((k) => !k.startsWith('trunk:'))
 
 
-const DOMAIN_TEXT = new Set<LayoutNode['kind']>(['domainItem', 'note', 'portDecl'])
-const DOMAIN_BLOCK = new Set<LayoutNode['kind']>([...DOMAIN_TEXT, 'aggregate'])
+const DOMAIN_BLOCK = new Set<LayoutNode['kind']>(['domainItem', 'aggregate'])
 const intoDomain = (key: string) => key.endsWith('->domain')
 
 function withManyDrivingPorts(count: number): Diagram {
@@ -176,9 +174,8 @@ describe('layoutDiagram', () => {
     }
   })
 
-  it('hugs the domain text block with at most 24 units of padding', () => {
-    const content = [...model.nodes.filter((n) => DOMAIN_BLOCK.has(n.kind)), labelBox(domainRing)]
-    const slack = Math.min(...content.flatMap(corners).map((c) => halfWidth(model.shape, domainRing, c.y) - Math.abs(c.x)))
+  it('hugs the domain blocks with the region, at most 24 units clear of it', () => {
+    const slack = Math.min(...model.nodes.filter((n) => DOMAIN_BLOCK.has(n.kind)).flatMap(corners).map((c) => halfWidthAt(model.region!, c.y) - Math.abs(c.x)))
     expect(slack).toBeGreaterThanOrEqual(-1e-6)
     expect(slack).toBeLessThanOrEqual(24 + 1e-6)
   })
@@ -303,7 +300,7 @@ describe('layoutDiagram', () => {
   it('never runs a segment through a box it does not connect', () => {
     for (const e of model.edges) {
       const allowed = new Set(endpointsOf(e.key))
-      const others = model.nodes.filter((n) => !allowed.has(n.key) && !passesBehind(e, n))
+      const others = model.nodes.filter((n) => !allowed.has(n.key))
       for (const seg of segments(e.points)) {
         for (const p of sample(seg)) {
           const hit = others.find((n) => strictlyInside(n, p))
@@ -378,54 +375,10 @@ describe('layoutDiagram', () => {
     expect(model.edges.find((e) => intoDomain(e.key))!.label).toBeUndefined()
   })
 
-  if (config.drivenPortNote) {
-    it('links every driven port declared in the domain to its socket with one dotted, axis-aligned line', () => {
-      const imports = model.edges.filter((e) => e.kind === 'import').flatMap((e) => segments(e.points))
-      const overlaps = ([a, b]: Segment, [c, d]: Segment) =>
-        (a.y === b.y && c.y === d.y && a.y === c.y && Math.max(Math.min(a.x, b.x), Math.min(c.x, d.x)) < Math.min(Math.max(a.x, b.x), Math.max(c.x, d.x))) ||
-        (a.x === b.x && c.x === d.x && a.x === c.x && Math.max(Math.min(a.y, b.y), Math.min(c.y, d.y)) < Math.min(Math.max(a.y, b.y), Math.max(c.y, d.y)))
-      for (const port of EXAMPLE_DIAGRAM.ports.filter((p) => p.side === 'driven')) {
-        const links = model.edges.filter((e) => e.kind === 'declares' && e.key === `portDecl:${port.id}->port:${port.id}`)
-        expect(links).toHaveLength(1)
-        const socket = find(model, 'port', port.id)
-        const declaration = find(model, 'portDecl', port.id)
-        expect(declaration.lines.map((l) => l.text).join('')).toBe(port.name)
-        const [first, last] = [links[0].points[0], links[0].points.at(-1)!]
-        expect(inside(model, domainRing, first)).toBe(true)
-        // Two-tone: the path splits on the domain ring edge, so each part can be drawn for its own background.
-        const split = links[0].insideTo!
-        const onEdge = links[0].points[split]
-        expect(Math.abs(Math.abs(onEdge.x) - halfWidth(model.shape, domainRing, onEdge.y))).toBeLessThan(1e-6)
-        for (const p of links[0].points.slice(0, split + 1)) expect(inside(model, domainRing, p)).toBe(true)
-        for (const seg of segments(links[0].points.slice(split))) {
-          for (const p of sample(seg).slice(1)) expect(inside(model, domainRing, p)).toBe(false)
-        }
-        expect(Math.abs(Math.abs(last.x) - (Math.abs(socket.x) - socket.width / 2))).toBeLessThan(1e-6)
-        expect(Math.abs(last.y - socket.y)).toBeLessThan(socket.height / 2)
-        for (const seg of segments(links[0].points)) {
-          expect(imports.some((imp) => overlaps(seg, imp)) ? `${links[0].key} runs along an arrow` : 'clear').toBe('clear')
-        }
-      }
-      for (const [i, link] of model.edges.filter((e) => e.kind === 'declares').entries()) {
-        for (const other of model.edges.filter((e) => e.kind === 'declares').slice(i + 1)) {
-          for (const s1 of segments(link.points)) {
-            for (const s2 of segments(other.points)) {
-              const [h, v] = s1[0].y === s1[1].y ? [s1, s2] : [s2, s1]
-              if (h[0].y !== h[1].y || v[0].x !== v[1].x) continue
-              const crosses =
-                Math.min(h[0].x, h[1].x) < v[0].x && v[0].x < Math.max(h[0].x, h[1].x) &&
-                Math.min(v[0].y, v[1].y) < h[0].y && h[0].y < Math.max(v[0].y, v[1].y)
-              expect(crosses ? `${link.key} crosses ${other.key}` : 'clear').toBe('clear')
-            }
-          }
-        }
-      }
-    })
-  }
-
-  it('centres every domain line on the ring axis, children as one smaller line under their parent', () => {
-    for (const n of model.nodes.filter((n) => DOMAIN_TEXT.has(n.kind))) {
-      expect(n.x).toBe(0)
+  it('centres every domain line on its card, children as one smaller line under their parent', () => {
+    const card = find(model, 'aggregate', 'd-feedback')
+    for (const n of model.nodes.filter((n) => n.kind === 'domainItem')) {
+      expect(n.x).toBe(card.x)
       expect(n.align).toBe('center')
     }
     const parent = find(model, 'domainItem', 'd-feedback')
@@ -441,7 +394,7 @@ describe('layoutDiagram', () => {
   })
 
   it('never overlaps the rows of the domain block', () => {
-    const rows = model.nodes.filter((n) => DOMAIN_TEXT.has(n.kind)).sort((a, b) => a.y - b.y)
+    const rows = model.nodes.filter((n) => n.kind === 'domainItem').sort((a, b) => a.y - b.y)
     for (let i = 1; i < rows.length; i++) expect(top(rows[i])).toBeGreaterThanOrEqual(bottom(rows[i - 1]) - 1e-6)
   })
 
@@ -505,7 +458,6 @@ describe('aggregates as consistency boundaries', () => {
     ['stress', STRESS_DIAGRAM],
   ] as const)('%s example', (_, diagram) => {
     const model = layoutDiagram(diagram)
-    const domainRing = model.rings[model.rings.length - 1]
     const outlines = model.nodes.filter((n) => n.kind === 'aggregate')
     const descendantsOf = (id: string): string[] =>
       diagram.domain.filter((i) => i.parentId === id).flatMap((i) => [i.id, ...descendantsOf(i.id)])
@@ -536,10 +488,8 @@ describe('aggregates as consistency boundaries', () => {
       }
     })
 
-    it('still hugs the domain ring to the outline corners', () => {
-      const slack = Math.min(
-        ...model.nodes.filter((n) => DOMAIN_BLOCK.has(n.kind)).flatMap(corners).map((c) => halfWidth(model.shape, domainRing, c.y) - Math.abs(c.x)),
-      )
+    it('still hugs the region to the outline corners', () => {
+      const slack = Math.min(...model.nodes.filter((n) => DOMAIN_BLOCK.has(n.kind)).flatMap(corners).map((c) => halfWidthAt(model.region!, c.y) - Math.abs(c.x)))
       expect(slack).toBeGreaterThanOrEqual(-1e-6)
       expect(slack).toBeLessThanOrEqual(24 + 1e-6)
     })
@@ -547,7 +497,7 @@ describe('aggregates as consistency boundaries', () => {
 })
 
 describe('type tags: one glyph + word per element', () => {
-  const GLYPHS = ['◆', '●', '○', '⚙', '▶', '⇥', '⇤']
+  const GLYPHS = ['◆', '●', '○', '⚙', '▶', '⇥', '⇤', '◇']
   const tagsOf = (nodes: LayoutNode[]) =>
     nodes.flatMap((n) => n.lines.flatMap((l) => [l.tag, GLYPHS.some((g) => l.text.startsWith(`${g} `)) ? l.text : undefined].filter(Boolean)))
   const expectedGlyph = { aggregate: '◆', entity: '●', valueObject: '○', domainService: '⚙' } as const
@@ -558,7 +508,7 @@ describe('type tags: one glyph + word per element', () => {
   ])('%s', (_, diagram) => {
     const model = layoutDiagram(diagram)
     const labels = HEXAGONAL_KIND.labels
-    const nodesOf = (ref: string) => model.nodes.filter((n) => n.ref === ref && n.kind !== 'portDecl')
+    const nodesOf = (ref: string) => model.nodes.filter((n) => n.ref === ref && n.kind !== 'portLabel')
 
     it('tags every domain item exactly once, with its type glyph', () => {
       for (const item of diagram.domain) {
@@ -571,7 +521,7 @@ describe('type tags: one glyph + word per element', () => {
     it('tags use cases, ports and adapters exactly once, ports and adapters in the kind vocabulary', () => {
       for (const u of diagram.useCases) expect(tagsOf(nodesOf(u.id))).toEqual(['▶ use case'])
       for (const p of diagram.ports) {
-        expect(tagsOf(nodesOf(p.id))).toEqual([p.side === 'driving' ? `⇥ ${labels.drivingPort}` : `⇤ ${labels.drivenPort}`])
+        expect(tagsOf(nodesOf(p.id))).toEqual([p.side === 'driving' ? `⇥ ${labels.drivingPort}` : `◇ ${labels.drivenPort}`])
       }
       for (const a of diagram.adapters) {
         const port = diagram.ports.find((p) => p.id === a.portId)
@@ -643,7 +593,7 @@ describe('guides, tones and modes', () => {
         expect(n.lines.length).toBeLessThanOrEqual(1)
         for (const l of n.lines) expect(l.tag).toBeUndefined()
       }
-      expect(overview.nodes.some((n) => n.kind === 'composition' || n.kind === 'note' || n.kind === 'portDecl' || n.kind === 'aggregate')).toBe(false)
+      expect(overview.nodes.some((n) => n.kind === 'composition' || n.kind === 'aggregate')).toBe(false)
     })
 
     it('lists only aggregate and entity roots in the domain', () => {
@@ -730,13 +680,13 @@ describe('overview port labels', () => {
       return [[a, b], [b, e], [e, c], [c, a]].flatMap(([p, q]) => sample([p, q] as Segment, 0.05))
     }
 
-    it('gives every socket exactly one label carrying just the port name', () => {
+    it('gives every socket exactly one label carrying just the port name, a driven one marked with a diamond', () => {
       expect(sockets.length).toBe(diagram.ports.length)
       for (const socket of sockets) {
         const own = labels.filter((l) => l.ref === socket.ref)
         expect(own).toHaveLength(1)
-        const name = diagram.ports.find((p) => p.id === socket.ref)!.name
-        expect(own[0].lines).toEqual([{ text: name, style: 'label' }])
+        const port = diagram.ports.find((p) => p.id === socket.ref)!
+        expect(own[0].lines).toEqual([{ text: port.side === 'driven' ? `◇ ${port.name}` : port.name, style: 'label' }])
       }
       expect(labels).toHaveLength(sockets.length)
     })
@@ -946,7 +896,7 @@ describe('ports on every wall (hexagonal stress example)', () => {
   it('never runs a segment through a box it does not connect', () => {
     for (const e of model.edges) {
       const allowed = new Set(endpointsOf(e.key))
-      const others = model.nodes.filter((n) => !allowed.has(n.key) && !passesBehind(e, n))
+      const others = model.nodes.filter((n) => !allowed.has(n.key))
       for (const seg of segments(e.points)) {
         for (const p of sample(seg)) {
           const hit = others.find((n) => strictlyInside(n, p))
@@ -1210,7 +1160,7 @@ describe('use cases placed on a wall', () => {
     it('never runs a segment through a box it does not connect', () => {
       const m = layoutDiagram(diagram)
       for (const e of m.edges) {
-        const others = m.nodes.filter((n) => !endpointsOf(e.key).includes(n.key) && !passesBehind(e, n))
+        const others = m.nodes.filter((n) => !endpointsOf(e.key).includes(n.key))
         for (const seg of segments(e.points)) {
           for (const q of sample(seg)) {
             const hit = others.find((n) => strictlyInside(n, q))
@@ -1313,7 +1263,6 @@ describe('sector clearance binds without use cases', () => {
 
 describe('layoutDiagram growth (stress example)', () => {
   const model = layoutDiagram(STRESS_DIAGRAM)
-  const domainRing = model.rings[model.rings.length - 1]
   const items = model.nodes.filter((n) => n.kind === 'domainItem')
   const rootOf = (id: string): string => {
     const item = STRESS_DIAGRAM.domain.find((i) => i.id === id)!
@@ -1336,35 +1285,32 @@ describe('layoutDiagram growth (stress example)', () => {
     }
   })
 
-  it('keeps the two columns apart', () => {
-    for (const kind of ['domainItem', 'portDecl'] as const) {
-      const nodes = model.nodes.filter((n) => n.kind === kind)
-      const [leftCol, rightCol] = [nodes.filter((n) => n.x < 0), nodes.filter((n) => n.x > 0)]
-      expect(leftCol.length).toBeGreaterThan(0)
-      expect(rightCol.length).toBeGreaterThan(0)
-      expect(Math.max(...leftCol.map(right))).toBeLessThan(Math.min(...rightCol.map(left)))
-    }
+  it('keeps the two aggregate cards apart', () => {
+    const nodes = model.nodes.filter((n) => n.kind === 'domainItem')
+    const [leftCol, rightCol] = [nodes.filter((n) => n.x < 0), nodes.filter((n) => n.x > 0)]
+    expect(leftCol.length).toBeGreaterThan(0)
+    expect(rightCol.length).toBeGreaterThan(0)
+    expect(Math.max(...leftCol.map(right))).toBeLessThan(Math.min(...rightCol.map(left)))
   })
 
-  it('still hugs the domain ring to its content', () => {
+  it('still hugs the region to its content', () => {
     const content = model.nodes.filter((n) => DOMAIN_BLOCK.has(n.kind))
-    const slack = Math.min(...content.flatMap(corners).map((c) => halfWidth(model.shape, domainRing, c.y) - Math.abs(c.x)))
+    const slack = Math.min(...content.flatMap(corners).map((c) => halfWidthAt(model.region!, c.y) - Math.abs(c.x)))
     expect(slack).toBeGreaterThanOrEqual(-1e-6)
     expect(slack).toBeLessThanOrEqual(24 + 1e-6)
   })
 
-  it('sizes the domain ring to its content: shrunk, with its content re-seated under the new top, a box sticks out', () => {
-    // The body hangs from the title, so it moves down with the top; only a ring that is really too big survives.
-    const shrunk = shrink(model.shape, domainRing, 2 * PADDING)
-    const drop = domainRing.apex - shrunk.apex
-    const content = model.nodes.filter((n) => DOMAIN_BLOCK.has(n.kind)).map((n) => ({ ...n, y: n.y + drop }))
-    expect(content.some((n) => corners(n).some((c) => !inside(model, shrunk, c)))).toBe(true)
+  it('sizes the region to its content: shrunk, a box sticks out', () => {
+    const region = model.region!
+    const shrunk = hexagon(region.apex - 2 * PADDING)
+    const content = model.nodes.filter((n) => DOMAIN_BLOCK.has(n.kind))
+    expect(content.some((n) => corners(n).some((c) => Math.abs(c.x) > halfWidthAt(shrunk, c.y) || Math.abs(c.y) > shrunk.apex))).toBe(true)
   })
 
   it('routes every edge (axis-aligned, or along a wall normal) without crossing a box it does not connect', () => {
     for (const e of model.edges) {
       const allowed = new Set(endpointsOf(e.key))
-      const others = model.nodes.filter((n) => !allowed.has(n.key) && !passesBehind(e, n))
+      const others = model.nodes.filter((n) => !allowed.has(n.key))
       for (const seg of segments(e.points)) {
         const deg = (Math.atan2(seg[1].y - seg[0].y, seg[1].x - seg[0].x) * 180) / Math.PI
         const slanted = [60, 120, -60, -120, ...(e.kind === 'wiring' ? [30, 150, -30, -150] : [])].some((t) => Math.abs(deg - t) < 1e-6)
@@ -1416,14 +1362,14 @@ describe('layoutDiagram placement rules', () => {
     expect(m.edges.some((e) => e.key === 'actor:act-x->adapter:a-knex')).toBe(false)
   })
 
-  it('lists childless domain services after the entity tree', () => {
+  it('places childless domain services after the entity tree', () => {
     const d: Diagram = {
       ...EXAMPLE_DIAGRAM,
       domain: [{ id: 'd-policy', name: 'RatingPolicy', type: 'domainService' }, ...EXAMPLE_DIAGRAM.domain],
     }
     const m = layoutDiagram(d)
     const service = find(m, 'domainItem', 'd-policy')
-    for (const id of ['d-feedback', 'd-rating', 'd-email']) expect(service.y).toBeGreaterThan(find(m, 'domainItem', id).y)
+    for (const id of ['d-feedback', 'd-rating', 'd-email']) expect(m.nodes.indexOf(service)).toBeGreaterThan(m.nodes.indexOf(find(m, 'domainItem', id)))
   })
 
   it('lays out an empty diagram with finite geometry', () => {
