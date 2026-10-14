@@ -14,7 +14,7 @@ export function FlowsSection() {
         <h2>Flows</h2>
         <button
           type="button"
-          className="text-button small"
+          className="text-button small pill"
           onClick={() => {
             const { map, focus } = useMapStore.getState()
             useHistoryStore.getState().record({ map, focus })

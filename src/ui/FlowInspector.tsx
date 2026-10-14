@@ -22,21 +22,22 @@ export function useInspectedFlow() {
   return viewOnly ? undefined : useCase
 }
 
-const Chip = ({ children }: { children: ReactNode }) => <span className="flow-chip">{children}</span>
+type Kind = 'actor' | 'port' | 'driving' | 'driven'
+const Chip = ({ kind, children }: { kind: Kind; children: ReactNode }) => <span className="flow-chip" data-kind={kind}>{children}</span>
 const Arrow = () => <span className="flow-arrow" aria-hidden="true">→</span>
-const Then = ({ named }: { named: Named[] }) => named.map(({ id, name }) => <Fragment key={id}><Arrow /><Chip>{name}</Chip></Fragment>)
+const Then = ({ named, kind }: { named: Named[]; kind: Kind }) => named.map(({ id, name }) => <Fragment key={id}><Arrow /><Chip kind={kind}>{name}</Chip></Fragment>)
 
 interface Named { id: string; name: string }
 
 /** Enter adds what was typed; `options` are the existing items it would link instead of creating. `onAdd` returns why a name was refused: the text stays, with the reason beneath it. */
-function AddName({ label, placeholder, options, onAdd }: { label: string; placeholder: string; options: Named[]; onAdd: (name: string) => string | undefined }) {
+function AddName({ label, placeholder, options, onAdd, wide }: { label: string; placeholder: string; wide?: boolean; options: Named[]; onAdd: (name: string) => string | undefined }) {
   const list = useId()
   const hint = useId()
   const [refusal, setRefusal] = useState<string>()
   return (
     <>
       <input
-        className="flow-add"
+        className={wide ? 'flow-add flow-add-wide' : 'flow-add'}
         aria-label={label}
         placeholder={placeholder}
         list={list}
@@ -119,21 +120,21 @@ export function FlowInspector() {
               <li key={port.id}>
                 {adapters.map((adapter) => (
                   <div key={adapter.id} className="flow-chain">
-                    {d.actors.filter((a) => a.adapterId === adapter.id).map((a) => <Chip key={a.id}>{a.name}</Chip>)}
+                    {d.actors.filter((a) => a.adapterId === adapter.id).map((a) => <Chip key={a.id} kind="actor">{a.name}</Chip>)}
                     <AddName label={`Add actor to ${adapter.name}`} placeholder="+ actor" options={free('actors', adapter.id)} onAdd={(name) => connect('actors', 'adapterId', name, adapter.id)} />
                     <Arrow />
-                    <Chip>{adapter.name}</Chip>
+                    <Chip kind="driving">{adapter.name}</Chip>
                     <Arrow />
-                    <Chip>{port.name}</Chip>
+                    <Chip kind="port">{port.name}</Chip>
                   </div>
                 ))}
-                {!adapters.length && <div className="flow-chain"><Chip>{port.name}</Chip></div>}
+                {!adapters.length && <div className="flow-chain"><Chip kind="port">{port.name}</Chip></div>}
                 <AddName label={`Add adapter to ${port.name}`} placeholder="+ adapter" options={free('adapters', port.id)} onAdd={(name) => connect('adapters', 'portId', name, port.id)} />
               </li>
             )
           })}
         </ul>
-        <AddName label="Add a way in" placeholder="type a port name" options={free('ports', useCase.id, 'driving')} onAdd={(name) => connect('ports', 'useCaseId', name, useCase.id, { side: 'driving', wall: defaultWall('driving') })} />
+        <AddName wide label="Add a way in" placeholder="type a port name" options={free('ports', useCase.id, 'driving')} onAdd={(name) => connect('ports', 'useCaseId', name, useCase.id, { side: 'driving', wall: defaultWall('driving') })} />
 
         <h3 className="flow-step">2 · WHAT IT DECIDES WITH</h3>
         <p className="flows-help">Available once use cases can list their aggregates.</p>
@@ -143,9 +144,9 @@ export function FlowInspector() {
           {calls.map((port) => (
             <li key={port.id}>
               <div className="flow-chain">
-                <Chip>{port.name}</Chip>
-                <Then named={d.adapters.filter((a) => a.portId === port.id)} />
-                <Then named={destinations(port.id)} />
+                <Chip kind="port">{port.name}</Chip>
+                <Then kind="driven" named={d.adapters.filter((a) => a.portId === port.id)} />
+                <Then kind="actor" named={destinations(port.id)} />
               </div>
               <input className="flow-verb" aria-label={`Verb for ${port.name}`} placeholder="verb" value={port.verb ?? ''} onChange={(e) => updateItem(hexId, 'ports', port.id, { verb: e.target.value || undefined })} {...session} />
               <button
@@ -163,9 +164,9 @@ export function FlowInspector() {
             </li>
           ))}
         </ul>
-        <AddName label="Add a call" placeholder="+ Add a call · type a port name" options={free('ports', useCase.id, 'driven')} onAdd={(name) => connect('ports', 'useCaseId', name, useCase.id, { side: 'driven', wall: defaultWall('driven') })} />
+        <AddName wide label="Add a call" placeholder="+ Add a call · type a port name" options={free('ports', useCase.id, 'driven')} onAdd={(name) => connect('ports', 'useCaseId', name, useCase.id, { side: 'driven', wall: defaultWall('driven') })} />
 
-        <p className="flows-help">Typing a name that doesn't exist yet creates it. Position on the diagram is automatic.</p>
+        <p className="flows-help flow-foot">Typing a name that doesn't exist yet creates it. Position on the diagram is automatic.</p>
       </div>
     </aside>
   )

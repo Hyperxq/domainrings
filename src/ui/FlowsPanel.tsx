@@ -39,7 +39,8 @@ export function FlowsPanel() {
         ) : (
           <>
             <p className="flows-help">Each flow is one use case, end to end. Pick one to follow it.</p>
-            <button type="button" className="flow-row" aria-pressed={focused === null} onClick={() => focusFlow(null)}>
+            <button type="button" className="flow-row flow-row-all" aria-pressed={focused === null} onClick={() => focusFlow(null)}>
+              <span className="flow-stack" aria-hidden="true"><i style={{ height: 16 }} /><i style={{ height: 11 }} /><i style={{ height: 14 }} /><i style={{ height: 8 }} /></span>
               <span className="flow-name">All flows</span> <span className="flow-count">{count}</span>
             </button>
             <FlowRows />

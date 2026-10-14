@@ -60,10 +60,12 @@ export function Editor({
           <CollectionSections hexId={hexId} map={map} diagram={d} />
           {map.hexagons.length > 1 && <LinksSection map={map} onCreateLink={onCreateLink} onUpdateLink={onUpdateLink} onDeleteLink={onDeleteLink} />}
 
-          <Fold id="diagram-settings" title="Diagram settings · layers, titles" defaultOpen={false}>
-            <MapSection title={map.title} contextLabel={contextLabel} onAddFromFile={onAddFromFile} session={session} />
-            <SubdomainSection map={map} hexId={hexId} onRenameContext={onRenameContext} onAddHexagon={onAddHexagon} onDeleteHexagon={onDeleteHexagon} onMoveToContext={onMoveToContext} />
-          </Fold>
+          <div className="settings-fold">
+            <Fold id="diagram-settings" title="Diagram settings · layers, titles" defaultOpen={false}>
+              <MapSection title={map.title} contextLabel={contextLabel} onAddFromFile={onAddFromFile} session={session} />
+              <SubdomainSection map={map} hexId={hexId} onRenameContext={onRenameContext} onAddHexagon={onAddHexagon} onDeleteHexagon={onDeleteHexagon} onMoveToContext={onMoveToContext} />
+            </Fold>
+          </div>
         </div>
       </div>
     </aside>
