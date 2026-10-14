@@ -1,4 +1,4 @@
-import { Fragment, useId, type KeyboardEvent, type ReactNode } from 'react'
+import { Fragment, useId, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { linkTargets } from '../model/links'
 import { diagramOf } from '../model/map'
 import { defaultWall, type Side } from '../model/schema'
@@ -24,11 +24,15 @@ export function useInspectedFlow() {
 
 const Chip = ({ children }: { children: ReactNode }) => <span className="flow-chip">{children}</span>
 const Arrow = () => <span className="flow-arrow" aria-hidden="true">→</span>
-const Then = ({ names }: { names: string[] }) => names.map((name) => <Fragment key={name}><Arrow /><Chip>{name}</Chip></Fragment>)
+const Then = ({ named }: { named: Named[] }) => named.map(({ id, name }) => <Fragment key={id}><Arrow /><Chip>{name}</Chip></Fragment>)
 
-/** Enter adds what was typed; `options` are the existing names it would link instead of creating. */
-function AddName({ label, placeholder, options, onAdd }: { label: string; placeholder: string; options: string[]; onAdd: (name: string) => void }) {
+interface Named { id: string; name: string }
+
+/** Enter adds what was typed; `options` are the existing items it would link instead of creating. `onAdd` returns why a name was refused: the text stays, with the reason beneath it. */
+function AddName({ label, placeholder, options, onAdd }: { label: string; placeholder: string; options: Named[]; onAdd: (name: string) => string | undefined }) {
   const list = useId()
+  const hint = useId()
+  const [refusal, setRefusal] = useState<string>()
   return (
     <>
       <input
@@ -36,13 +40,18 @@ function AddName({ label, placeholder, options, onAdd }: { label: string; placeh
         aria-label={label}
         placeholder={placeholder}
         list={list}
+        aria-invalid={refusal ? true : undefined}
+        aria-describedby={refusal ? hint : undefined}
+        onChange={() => setRefusal(undefined)}
         onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
           if (e.key !== 'Enter') return
-          onAdd(e.currentTarget.value)
-          e.currentTarget.value = ''
+          const reason = onAdd(e.currentTarget.value)
+          setRefusal(reason)
+          if (!reason) e.currentTarget.value = ''
         }}
       />
-      <datalist id={list}>{options.map((name) => <option key={name} value={name} />)}</datalist>
+      {refusal && <p id={hint} className="hint">{refusal}</p>}
+      <datalist id={list}>{options.map(({ id, name }) => <option key={id} value={name} />)}</datalist>
     </>
   )
 }
@@ -58,30 +67,32 @@ export function FlowInspector() {
   const before = { map, focus: hexId }
   const typed = (patch: { name?: string; description?: string }) => updateItem(hexId, 'useCases', useCase.id, patch)
 
-  // Typing a name links the existing item of that name when it may be linked there, else creates it already linked.
+  // Typing a name links an existing item of that name when it may be linked there, else creates it already linked.
+  // Names are not unique, so a same-named item that cannot be linked here (the wrong side) does not stop a new one.
   const connect = (key: 'ports' | 'adapters' | 'actors', field: Field, name: string, targetId: string, extra: { side?: Side; wall?: ReturnType<typeof defaultWall> } = {}) => {
     const wanted = name.trim()
-    if (!wanted) return
-    const items: { id: string; name: string; side?: Side }[] = d[key]
-    const hit = items.find((i) => i.name.toLowerCase() === wanted.toLowerCase() && (!extra.side || i.side === extra.side))
-    if (hit && !linkTargets(d, hit.id).some((t) => t.targetRef === targetId)) return
+    if (!wanted) return 'Type a name first'
+    const items: (Named & { side?: Side } & Partial<Record<Field, string>>)[] = d[key]
+    const same = items.filter((i) => i.name.toLowerCase() === wanted.toLowerCase() && (!extra.side || i.side === extra.side))
+    const hit = same.find((i) => linkTargets(d, i.id).some((t) => t.targetRef === targetId))
+    if (!hit && same.some((i) => i[field] === targetId)) return 'Already in this flow'
     record(before)
     if (hit) updateItem(hexId, key, hit.id, { [field]: targetId } as never)
     else addItem(hexId, key, { name: wanted, [field]: targetId, ...extra } as never)
   }
-  const free = (key: 'ports' | 'adapters' | 'actors', targetId: string, side?: Side) =>
-    d[key].filter((i) => (!side || ('side' in i && i.side === side)) && linkTargets(d, i.id).some((t) => t.targetRef === targetId)).map((i) => i.name)
+  const free = (key: 'ports' | 'adapters' | 'actors', targetId: string, side?: Side): Named[] =>
+    d[key].filter((i) => (!side || ('side' in i && i.side === side)) && linkTargets(d, i.id).some((t) => t.targetRef === targetId))
 
   const entries = d.ports.filter((p) => p.side === 'driving' && p.useCaseId === useCase.id)
   const calls = d.ports.filter((p) => p.side === 'driven' && p.useCaseId === useCase.id)
-  const destinations = (portId: string) => [
-    ...d.adapters.filter((a) => a.portId === portId).flatMap((a) => d.externals.filter((e) => e.adapterId === a.id).map((e) => e.name)),
+  const destinations = (portId: string): Named[] => [
+    ...d.adapters.filter((a) => a.portId === portId).flatMap((a) => d.externals.filter((e) => e.adapterId === a.id)),
     ...map.links
       .filter((l) => l.from.hexagonId === hexId && l.from.portId === portId)
       .flatMap((l) => {
         const target = map.hexagons.find((h) => h.id === l.to.hexagonId)
         const port = target?.ports.find((p) => p.id === l.to.portId)
-        return target && port ? [`${target.title} · ${port.name}`] : []
+        return target && port ? [{ id: l.id, name: `${target.title} · ${port.name}` }] : []
       }),
   ]
 
@@ -133,8 +144,8 @@ export function FlowInspector() {
             <li key={port.id}>
               <div className="flow-chain">
                 <Chip>{port.name}</Chip>
-                <Then names={d.adapters.filter((a) => a.portId === port.id).map((a) => a.name)} />
-                <Then names={destinations(port.id)} />
+                <Then named={d.adapters.filter((a) => a.portId === port.id)} />
+                <Then named={destinations(port.id)} />
               </div>
               <input className="flow-verb" aria-label={`Verb for ${port.name}`} placeholder="verb" value={port.verb ?? ''} onChange={(e) => updateItem(hexId, 'ports', port.id, { verb: e.target.value || undefined })} {...session} />
               <button

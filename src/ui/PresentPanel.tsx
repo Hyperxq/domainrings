@@ -44,6 +44,7 @@ export function PresentPanel() {
   useEffect(() => {
     if (!presenting) return
     const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return
       if (e.key === 'Escape') return present(null)
       if (typing(e.target) || e.metaKey || e.ctrlKey || e.altKey) return
       if (e.key === 'ArrowRight') present(Math.min(index + 1, count - 1))

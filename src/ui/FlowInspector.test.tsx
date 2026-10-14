@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { EXAMPLES } from '../model/example'
 import { diagramOf } from '../model/map'
@@ -195,6 +195,77 @@ describe('FlowInspector: who starts it', () => {
     add('Add actor to orders.routes', 'mobile app')
     expect(d().actors).toHaveLength(3)
     expect(d().actors.find((a) => a.id === 'act-free')!.adapterId).toBe('a-rest')
+  })
+})
+
+describe('FlowInspector: refused names', () => {
+  const input = (label: string) => screen.getByLabelText(label) as HTMLInputElement
+
+  it('keeps the typed text and says why when the name is already in the flow, and clears once the text changes', () => {
+    render(<FlowInspector />)
+    add('Add a call', 'PaymentGateway')
+    expect(input('Add a call').value).toBe('PaymentGateway')
+    expect(input('Add a call').getAttribute('aria-invalid')).toBe('true')
+    expect(screen.getByText('Already in this flow').id).toBe(input('Add a call').getAttribute('aria-describedby'))
+    fireEvent.change(input('Add a call'), { target: { value: 'Mailer' } })
+    expect(screen.queryByText('Already in this flow')).toBeNull()
+    expect(input('Add a call').getAttribute('aria-invalid')).toBeNull()
+  })
+
+  it('keeps an empty name refused with a reason, and clears the text after a name that was added', () => {
+    render(<FlowInspector />)
+    add('Add a call', '  ')
+    expect(screen.getByText('Type a name first')).toBeTruthy()
+    add('Add a call', 'Mailer')
+    expect(input('Add a call').value).toBe('')
+    expect(screen.queryByText('Type a name first')).toBeNull()
+  })
+
+  it('creates a new item when the only same-named one cannot be linked there, since names need not be unique', () => {
+    render(<FlowInspector />)
+    add('Add adapter to ordersApi', 'KnexOrderRepository')
+    expect(d().adapters.filter((a) => a.name === 'KnexOrderRepository')).toHaveLength(2)
+    expect(input('Add adapter to ordersApi').value).toBe('')
+  })
+
+  it('links a same-named item that is free even when another one of that name is already in the flow', () => {
+    load((h) => ({ ...h, ports: [...h.ports, { id: 'p-dup', name: 'PaymentGateway', side: 'driven' }] }))
+    render(<FlowInspector />)
+    add('Add a call', 'PaymentGateway')
+    expect(d().ports.find((p) => p.id === 'p-dup')!.useCaseId).toBe('uc-place')
+  })
+})
+
+describe('FlowInspector: same-named items', () => {
+  it('renders every same-named chip and option without a duplicate-key warning', () => {
+    load((h) => ({
+      ...h,
+      adapters: [...h.adapters, { id: 'a-pay-2', name: 'PaymentServiceClient', portId: 'p-payment-out' }],
+      externals: [...h.externals, { id: 'x-1', name: 'Stripe', adapterId: 'a-payment-client' }, { id: 'x-2', name: 'Stripe', adapterId: 'a-payment-client' }],
+      actors: [...h.actors, { id: 'act-b1', name: 'Bot' }, { id: 'act-b2', name: 'Bot' }],
+    }))
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { container } = render(<FlowInspector />)
+    const payment = within(screen.getByRole('list', { name: 'What it calls' })).getAllByRole('listitem')[0]
+    expect(within(payment).getAllByText('Stripe')).toHaveLength(2)
+    expect(within(payment).getAllByText('PaymentServiceClient')).toHaveLength(2)
+    expect(container.querySelectorAll('datalist option[value="Bot"]')).toHaveLength(2)
+    expect(error.mock.calls.filter(([m]) => String(m).includes('same key'))).toEqual([])
+    error.mockRestore()
+  })
+})
+
+describe('FlowInspector: clearing the flow name', () => {
+  it('leaves the use case unnamed and lists the flow as Unnamed', () => {
+    render(
+      <>
+        <FlowsSection />
+        <FlowInspector />
+      </>,
+    )
+    type('Flow name', '')
+    expect(useCase().name).toBe('')
+    expect(screen.getByRole('button', { name: /^Unnamed/ })).toBeTruthy()
   })
 })
 

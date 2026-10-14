@@ -81,6 +81,17 @@ describe('PresentPanel', () => {
     field.remove()
   })
 
+  it('leaves a key whose default was already prevented to whoever prevented it', () => {
+    present(1)
+    render(<PresentPanel />)
+    const claim = (e: Event) => e.preventDefault()
+    document.body.addEventListener('keydown', claim)
+    fireEvent.keyDown(document.body, { key: 'ArrowRight' })
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    document.body.removeEventListener('keydown', claim)
+    expect(stepNo()).toBe(1)
+  })
+
   it('Escape stops presenting but keeps the flow isolated; "All flows" also clears it', () => {
     present(3)
     render(<PresentPanel />)
