@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-li
 import { useRef, useState } from 'react'
 import { useFreezeWhilePanelOpen, useViewportInteractions, ZoomControls } from './viewportChrome'
 import { zoomAt, type Viewport } from './viewport'
-import { usePreferencesStore } from './state/preferencesStore'
+
 import { useViewStore } from './state/viewStore'
 import { useMapStore } from '../model/store'
 import { manyHexagonMap } from '../test/fixtures'
@@ -13,22 +13,9 @@ afterEach(cleanup)
 const renderControls = (canExpandAll = false) => render(<ZoomControls canExpandAll={canExpandAll} viewport={{ x: 0, y: 0, scale: 1 }} zoomFloor={0.1} centre={{ x: 0, y: 0 }} setView={() => {}} fullscreen={false} setFullscreen={() => {}} />)
 
 describe('ZoomControls view-only toggle', () => {
-  it('sits in the zoom group, off by default, and flips the preference on press', () => {
+  it('no longer carries the view-only button; the top bar owns that choice', () => {
     renderControls()
-    const toggle = screen.getByRole('button', { name: 'View only' })
-    expect(toggle.closest('[aria-label="Zoom"]')).not.toBeNull()
-    expect(toggle.getAttribute('aria-pressed')).toBe('false')
-    fireEvent.click(toggle)
-    expect(usePreferencesStore.getState().viewOnly).toBe(true)
-    expect(toggle.getAttribute('aria-pressed')).toBe('true')
-    fireEvent.click(toggle)
-    expect(usePreferencesStore.getState().viewOnly).toBe(false)
-  })
-
-  it('reflects a stored preference', () => {
-    usePreferencesStore.setState({ viewOnly: true })
-    renderControls()
-    expect(screen.getByRole('button', { name: 'View only' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.queryByRole('button', { name: 'View only' })).toBeNull()
   })
 })
 
@@ -51,11 +38,11 @@ describe('ZoomControls expand and collapse all', () => {
     expect(useViewStore.getState().expanded.size).toBe(0)
   })
 
-  it('sits next to fit and the view-only eye', () => {
+  it('sits next to fit and fullscreen', () => {
     renderControls(true)
     const names = [...screen.getByRole('group', { name: 'Zoom' }).querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))
     const at = names.indexOf('Expand all')
-    expect(names.slice(at - 1, at + 3)).toEqual(['Fit diagram to screen', 'Expand all', 'Collapse all', 'View only'])
+    expect(names.slice(at - 1, at + 3)).toEqual(['Fit diagram to screen', 'Expand all', 'Collapse all', 'Enter fullscreen'])
   })
 
   it('stands apart from the view controls: a divider on each side and an icon no other zoom button uses', () => {

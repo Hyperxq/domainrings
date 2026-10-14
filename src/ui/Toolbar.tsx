@@ -26,6 +26,10 @@ interface ToolbarProps {
 }
 
 const MODES = ['overview', 'detailed'] as const
+const EDITING = [
+  { label: 'View', viewOnly: true },
+  { label: 'Edit', viewOnly: false },
+] as const
 const SWITCHES = [
   { id: 'guides', label: 'Guides', title: 'Show the dashed guide spokes' },
   { id: 'highlight', label: 'Highlight', title: 'Highlight the layer under the pointer' },
@@ -54,7 +58,7 @@ const darkMedia = media('(prefers-color-scheme: dark)')
 export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showScope, hasPlanned }: ToolbarProps) {
   const switches = hasPlanned ? SWITCHES : SWITCHES.filter((s) => s.id !== 'showPlanned')
   const preferences = usePreferencesStore()
-  const { mode, theme: themeChoice, palette } = preferences
+  const { mode, theme: themeChoice, palette, viewOnly } = preferences
   const exportScope = useViewStore((s) => s.exportScope)
   const roomyFor = hasPlanned ? roomyPlannedMedia : roomyMedia
   const roomy = useSyncExternalStore(roomyFor.subscribe, roomyFor.matches)
@@ -120,34 +124,56 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
 
       <span className="divider" aria-hidden="true" />
 
-      <ChoiceMenu
-        label={
-          <>
-            File
-            <Icon name="chevron" />
-          </>
-        }
-        choices={[
-          { id: 'new', label: 'New', control: 'action', icon: 'new' },
-          { id: 'open', label: 'Open…', control: 'action', icon: 'upload' },
-          { id: 'save', label: 'Save (.hexa)', control: 'action', icon: 'download' },
-          ...EXAMPLES.map((x) => ({ id: x.id, label: x.label, control: 'action' as const, group: `Load example · ${x.architecture}` })),
-        ]}
-        onChoose={(id) => (id === 'new' ? onNew() : id === 'open' ? openFile.current?.click() : id === 'save' ? onExport('hexa') : onExample(id))}
-      />
-      <input
-        ref={openFile}
-        type="file"
-        accept=".hexa,application/json"
-        className="visually-hidden"
-        tabIndex={-1}
-        aria-label="Open a .hexa file, replacing the map"
-        onChange={(e) => {
-          const file = e.currentTarget.files?.[0]
-          if (file) onOpen(file)
-          e.currentTarget.value = ''
+      <span
+        className="segmented"
+        role="radiogroup"
+        aria-label="Editing mode"
+        onKeyDown={(e) => {
+          if (!e.key.startsWith('Arrow')) return
+          e.preventDefault()
+          usePreferencesStore.setState({ viewOnly: !viewOnly })
+          e.currentTarget.querySelector<HTMLElement>(`[data-view-only="${!viewOnly}"]`)?.focus()
         }}
-      />
+      >
+        {EDITING.map((o) => (
+          <button key={o.label} type="button" role="radio" aria-checked={viewOnly === o.viewOnly} tabIndex={viewOnly === o.viewOnly ? 0 : -1} data-view-only={o.viewOnly} className="segmented-option" onClick={() => usePreferencesStore.setState({ viewOnly: o.viewOnly })}>
+            {o.label}
+          </button>
+        ))}
+      </span>
+
+      {!viewOnly && (
+        <>
+          <ChoiceMenu
+            label={
+              <>
+                File
+                <Icon name="chevron" />
+              </>
+            }
+            choices={[
+              { id: 'new', label: 'New', control: 'action', icon: 'new' },
+              { id: 'open', label: 'Open…', control: 'action', icon: 'upload' },
+              { id: 'save', label: 'Save (.hexa)', control: 'action', icon: 'download' },
+              ...EXAMPLES.map((x) => ({ id: x.id, label: x.label, control: 'action' as const, group: `Load example · ${x.architecture}` })),
+            ]}
+            onChoose={(id) => (id === 'new' ? onNew() : id === 'open' ? openFile.current?.click() : id === 'save' ? onExport('hexa') : onExample(id))}
+          />
+          <input
+            ref={openFile}
+            type="file"
+            accept=".hexa,application/json"
+            className="visually-hidden"
+            tabIndex={-1}
+            aria-label="Open a .hexa file, replacing the map"
+            onChange={(e) => {
+              const file = e.currentTarget.files?.[0]
+              if (file) onOpen(file)
+              e.currentTarget.value = ''
+            }}
+          />
+        </>
+      )}
       <ChoiceMenu
         label={
           <>

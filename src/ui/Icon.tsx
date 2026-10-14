@@ -15,7 +15,6 @@ const PATHS = {
   // Expand all / Collapse all: a hexagon with + or −, so they read as acting on the map's hexagons, not the view.
   hexagonPlus: 'M12 2.5l8.2 4.75v9.5L12 21.5l-8.2-4.75v-9.5zM12 8.5v7M8.5 12h7',
   hexagonMinus: 'M12 2.5l8.2 4.75v9.5L12 21.5l-8.2-4.75v-9.5zM8.5 12h7',
-  eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z',
   panel: 'M4 4h16v16H4zM10 4v16',
   close: 'M18 6 6 18M6 6l12 12',
   chevron: 'M9 6l6 6-6 6',

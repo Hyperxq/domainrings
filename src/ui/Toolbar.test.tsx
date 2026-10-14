@@ -40,13 +40,14 @@ function renderToolbar(
     dependents?: boolean
     showScope?: boolean
     hasPlanned?: boolean
+    viewOnly?: boolean
     exportScope?: 'map' | 'hexagon'
     themeChoice?: 'light' | 'dark' | 'system'
     palette?: 'default' | 'purple' | 'terracotta' | 'cool'
   } = {},
 ) {
-  const { mode = 'detailed', guides = true, highlight = true, dependents = false, themeChoice = 'system', palette = 'default', exportScope = 'map', showScope = false, hasPlanned = true } = overrides
-  usePreferencesStore.setState({ mode, guides, highlight, dependents, theme: themeChoice, palette })
+  const { mode = 'detailed', guides = true, highlight = true, dependents = false, themeChoice = 'system', palette = 'default', exportScope = 'map', showScope = false, hasPlanned = true, viewOnly = false } = overrides
+  usePreferencesStore.setState({ mode, guides, highlight, dependents, theme: themeChoice, palette, viewOnly })
   useViewStore.setState({ exportScope })
   const props = { onNew: vi.fn(), onExample: vi.fn(), onOpen: vi.fn(), onCopyLink: vi.fn(), onExport: vi.fn() }
   render(<Toolbar {...props} showScope={showScope} hasPlanned={hasPlanned} />)
@@ -119,7 +120,7 @@ describe('Toolbar at wide width', () => {
     radio.focus()
     fireEvent.keyDown(radio, { key })
     expect(usePreferencesStore.getState().mode).toBe(mode)
-    expect(document.activeElement).toBe(screen.getByRole('radio', { checked: true }))
+    expect(document.activeElement).toBe(within(screen.getByRole('radiogroup', { name: 'Detail level' })).getByRole('radio', { checked: true }))
   })
 
   it('separates the detail level, the switches and the actions with dividers', () => {
@@ -145,6 +146,60 @@ describe('Toolbar at wide width', () => {
   })
 })
 
+
+describe('Toolbar View and Edit switch', () => {
+  const modeGroup = () => screen.getByRole('radiogroup', { name: 'Editing mode' })
+
+  it('offers View and Edit as one radio group that reflects the preference', () => {
+    renderToolbar({ viewOnly: false })
+    expect(within(modeGroup()).getAllByRole('radio').map((r) => [r.textContent, r.getAttribute('aria-checked'), r.getAttribute('tabindex')])).toEqual([
+      ['View', 'false', '-1'],
+      ['Edit', 'true', '0'],
+    ])
+    cleanup()
+    renderToolbar({ viewOnly: true })
+    expect(within(modeGroup()).getByRole('radio', { checked: true }).textContent).toBe('View')
+  })
+
+  it('writes viewOnly when a half is chosen', () => {
+    renderToolbar({ viewOnly: false })
+    fireEvent.click(within(modeGroup()).getByRole('radio', { name: 'View' }))
+    expect(usePreferencesStore.getState().viewOnly).toBe(true)
+    fireEvent.click(within(modeGroup()).getByRole('radio', { name: 'Edit' }))
+    expect(usePreferencesStore.getState().viewOnly).toBe(false)
+  })
+
+  it('moves the choice and the focus with the arrow keys', () => {
+    renderToolbar({ viewOnly: false })
+    const edit = within(modeGroup()).getByRole('radio', { name: 'Edit' })
+    edit.focus()
+    fireEvent.keyDown(edit, { key: 'ArrowLeft' })
+    expect(usePreferencesStore.getState().viewOnly).toBe(true)
+    expect(document.activeElement).toBe(within(modeGroup()).getByRole('radio', { name: 'View' }))
+  })
+
+  it('sits between the view controls and File', () => {
+    renderToolbar()
+    const after = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(after(screen.getByRole('radiogroup', { name: 'Detail level' }), modeGroup())).toBe(true)
+    expect(after(modeGroup(), screen.getByRole('button', { name: 'File' }))).toBe(true)
+  })
+
+  it('stays in the bar when the view controls fold', () => {
+    viewport = ROOMY - 1
+    renderToolbar()
+    expect(modeGroup()).toBeTruthy()
+  })
+
+  it('shows File only while editing', () => {
+    renderToolbar({ viewOnly: true })
+    expect(screen.queryByRole('button', { name: 'File' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Share' })).toBeTruthy()
+    cleanup()
+    renderToolbar({ viewOnly: false })
+    expect(screen.getByRole('button', { name: 'File' })).toBeTruthy()
+  })
+})
 
 describe('Toolbar planned switch', () => {
   beforeEach(() => {
