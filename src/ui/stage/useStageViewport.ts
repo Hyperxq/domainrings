@@ -1,6 +1,7 @@
 import { useState, type RefObject } from 'react'
 import { hexagonBounds } from '../../layout/lattice'
 import { type MapHexagonLayout, type MapLayout } from '../../layout/map'
+import { useViewStore } from '../state/viewStore'
 import { canvasBounds, contains, fitMap, fitTo, islandInset, visibleRect } from '../viewport'
 import { useElementSize, useFreezeWhilePanelOpen, useViewportInteractions } from '../viewportChrome'
 
@@ -25,7 +26,7 @@ export function useStageViewport({
   onPanStart: () => void
 }) {
   const size = useElementSize(mainRef)
-  const inset = islandInset(size, panelOpen, legendOpen)
+  const inset = islandInset(size, panelOpen, legendOpen, useViewStore((s) => s.toolbarBottom))
   const effectiveSize = { width: size.width || model.bounds.width, height: size.height || model.bounds.height }
   const wholeFit = fitTo(canvasBounds(model), effectiveSize.width, effectiveSize.height, inset, 0)
   const singleFit = fitMap(model.bounds, hexagonBounds(hex), effectiveSize.width, effectiveSize.height, inset)

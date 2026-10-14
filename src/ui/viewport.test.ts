@@ -66,6 +66,19 @@ describe('viewport', () => {
     expect(phone.left).toBe(tablet.left)
   })
 
+  it('reserves room below the measured toolbar on a phone, wherever the bar wraps to', () => {
+    const phone = { width: 390, height: 844 }
+    const measured = islandInset(phone, false, false, 122)
+    expect(measured.top).toBe(islandInset(phone, false, false, 86).top + 36)
+    expect(islandInset(phone, false, false, 86)).toEqual(islandInset(phone, false, false))
+    expect(islandInset({ width: 700, height: 800 }, false, false, 50)).toEqual(islandInset({ width: 700, height: 800 }, false, false))
+  })
+
+  it('ignores the measured toolbar on a desktop, where the bar does not push the islands down', () => {
+    const desktop = { width: 1440, height: 900 }
+    expect(islandInset(desktop, false, false, 122)).toEqual(islandInset(desktop, false, false))
+  })
+
   it('fits the whole map when it fits at a usable scale (CANVAS-04.1)', () => {
     const mapBounds = { x: -400, y: -300, width: 800, height: 600 }
     const currentBounds = { x: -400, y: -300, width: 200, height: 200 }

@@ -4,6 +4,8 @@ const PATHS = {
   download: 'M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3M12 4v12M7 11l5 5 5-5',
   moon: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z',
   sun: 'M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
+  // View options: two sliders, each with a handle.
+  sliders: 'M4 7h9M17 7h3M15 5v4M4 17h3M11 17h9M9 15v4',
   minus: 'M5 12h14',
   plus: 'M12 5v14M5 12h14',
   // Fit: arrows from the corners inward to a small centred frame.
@@ -15,7 +17,6 @@ const PATHS = {
   // Expand all / Collapse all: a hexagon with + or −, so they read as acting on the map's hexagons, not the view.
   hexagonPlus: 'M12 2.5l8.2 4.75v9.5L12 21.5l-8.2-4.75v-9.5zM12 8.5v7M8.5 12h7',
   hexagonMinus: 'M12 2.5l8.2 4.75v9.5L12 21.5l-8.2-4.75v-9.5zM8.5 12h7',
-  eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z',
   panel: 'M4 4h16v16H4zM10 4v16',
   close: 'M18 6 6 18M6 6l12 12',
   chevron: 'M9 6l6 6-6 6',

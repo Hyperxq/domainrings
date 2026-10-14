@@ -587,7 +587,7 @@ a.icon-button { color: inherit; text-decoration: none; }
 [aria-checked='true'] > .switch-track > .switch-knob { background: var(--card); transform: translateX(12px); }
 .choice-trigger { display: inline-flex; align-items: center; gap: 4px; flex: none; font-size: 13px; }
 .choice-trigger .icon { width: 14px; height: 14px; color: var(--muted); transform: rotate(90deg); }
-/* An icon-only trigger (Appearance) sizes like an .icon-button and shows its icon upright. */
+/* An icon-only trigger (View options) sizes like an .icon-button and shows its icon upright. */
 .choice-trigger.icon-trigger { width: 32px; padding: 0; justify-content: center; }
 .choice-trigger.icon-trigger .icon { width: 18px; height: 18px; color: inherit; transform: none; }
 .choice-menu {
@@ -600,7 +600,10 @@ a.icon-button { color: inherit; text-decoration: none; }
 }
 .choice-menu .text-button { justify-items: start; height: auto; min-height: 32px; padding: 4px 8px; font-size: 13px; }
 .choice-menu [aria-checked='true'] { background: var(--teal-soft); color: var(--teal); }
-.choice-menu .text-button[data-control] { display: flex; align-items: center; gap: 8px; }
+.choice-menu .text-button[data-control],
+.choice-menu .text-button[aria-haspopup='menu'] { display: flex; align-items: center; gap: 8px; }
+.choice-menu .text-button[aria-haspopup='menu']::after { content: '›'; margin-left: auto; padding-left: 8px; }
+.choice-shortcut { margin-left: auto; padding-left: 16px; color: var(--muted); font: inherit; font-size: 12px; font-weight: 400; }
 .choice-menu .text-button[data-control='switch'] { justify-content: space-between; }
 .choice-menu .text-button[data-control='switch'][aria-checked] { background: transparent; color: inherit; }
 .choice-menu .segmented { display: flex; }
@@ -891,20 +894,20 @@ span.swatch-element { background: var(--card); border-color: var(--teal); }
 @media (max-width: 720px) {
   .toolbar { top: 8px; left: 8px; right: 8px; width: auto; margin: 0; max-width: none; }
   .editor { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 45dvh; }
-  .zoom { top: 60px; right: 8px; bottom: auto; left: auto; }
-  .notices { top: 108px; right: 8px; }
-  .toast { top: 108px; bottom: auto; }
-  .legend { top: 108px; bottom: auto; right: 8px; }
+  .zoom { top: calc(var(--toolbar-bottom, 50px) + 10px); right: 8px; bottom: auto; left: auto; }
+  .notices { top: calc(var(--toolbar-bottom, 50px) + 58px); right: 8px; }
+  .toast { top: calc(var(--toolbar-bottom, 50px) + 58px); bottom: auto; }
+  .legend { top: calc(var(--toolbar-bottom, 50px) + 58px); bottom: auto; right: 8px; }
 }
 
-/* Below this the icon-only toolbar (614-618px wide) no longer fits the ~340-374px available on a phone, so it
-   wraps into two centred rows instead of scrolling sideways; that grows it from one row (42px) to two (78px,
-   measured in Chrome), pushing every island stacked below it (zoom, notices, toast, legend) down by that 36px,
-   matched by `islandInset`'s width<=640 branch in viewport.ts. */
+/* Below this the toolbar no longer fits the ~340-374px available on a phone, so it
+   wraps into centred rows instead of scrolling sideways. How many depends on the width, so Toolbar publishes its
+   measured bottom edge as --toolbar-bottom and the islands below it (above) hang from that; the fallbacks assume
+   a one-row bar (50px), and here a two-row one (86px). */
 @media (max-width: 640px) {
   .toolbar { flex-wrap: wrap; justify-content: center; overflow-x: visible; touch-action: none; }
-  .zoom { top: 96px; }
-  .notices { top: 144px; }
-  .toast { top: 144px; }
-  .legend { top: 144px; }
+  .zoom { top: calc(var(--toolbar-bottom, 86px) + 10px); }
+  .notices { top: calc(var(--toolbar-bottom, 86px) + 58px); }
+  .toast { top: calc(var(--toolbar-bottom, 86px) + 58px); }
+  .legend { top: calc(var(--toolbar-bottom, 86px) + 58px); }
 }

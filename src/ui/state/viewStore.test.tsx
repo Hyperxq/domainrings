@@ -69,4 +69,11 @@ describe('view store', () => {
     expect(open.has(`subdomain:${b}`)).toBe(true)
     expect(open.has(`subdomain:${c}`)).toBe(true)
   })
+
+  it('requestFit bumps the fit request so a watcher can tell each press apart', () => {
+    const before = useViewStore.getState().fitRequest
+    useViewStore.getState().requestFit()
+    useViewStore.getState().requestFit()
+    expect(useViewStore.getState().fitRequest).toBe(before + 2)
+  })
 })

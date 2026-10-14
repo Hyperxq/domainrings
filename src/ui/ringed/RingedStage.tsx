@@ -4,6 +4,7 @@ import { layerOf, refOf } from '../canvasTarget'
 import { keyOnCanvas } from '../keys'
 import { noteToShow } from '../../model/notes'
 import { NotePopover } from '../stage/NotePopover'
+import { useViewStore } from '../state/viewStore'
 import { fitTo, islandInset, visibleRect } from '../viewport'
 import { gridBackgroundStyle, useElementSize, useFreezeWhilePanelOpen, useViewportInteractions, ZoomControls } from '../viewportChrome'
 
@@ -66,7 +67,7 @@ export function RingedStage({ bounds, ariaLabel, svgRef, linking, onClick, selec
   const pointerPressed = useRef(false)
 
   const size = useElementSize(mainRef)
-  const inset = islandInset(size, panelOpen, legendOpen)
+  const inset = islandInset(size, panelOpen, legendOpen, useViewStore((s) => s.toolbarBottom))
   const effectiveSize = { width: size.width || bounds.width, height: size.height || bounds.height }
   const wholeFit = fitTo(bounds, effectiveSize.width, effectiveSize.height, inset, 0)
   const autoFit = fitTo(bounds, effectiveSize.width, effectiveSize.height, inset)
