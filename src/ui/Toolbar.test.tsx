@@ -19,14 +19,15 @@ function renderToolbar(
     dependents?: boolean
     showScope?: boolean
     hasPlanned?: boolean
+    showPlanned?: boolean
     viewOnly?: boolean
     exportScope?: 'map' | 'hexagon'
     themeChoice?: 'light' | 'dark' | 'system'
     palette?: 'default' | 'purple' | 'terracotta' | 'cool'
   } = {},
 ) {
-  const { mode = 'detailed', guides = true, highlight = true, dependents = false, themeChoice = 'system', palette = 'default', exportScope = 'map', showScope = false, hasPlanned = true, viewOnly = false } = overrides
-  usePreferencesStore.setState({ mode, guides, highlight, dependents, theme: themeChoice, palette, viewOnly })
+  const { mode = 'detailed', guides = true, highlight = true, dependents = false, themeChoice = 'system', palette = 'default', exportScope = 'map', showScope = false, hasPlanned = true, showPlanned = true, viewOnly = false } = overrides
+  usePreferencesStore.setState({ mode, guides, highlight, dependents, showPlanned, theme: themeChoice, palette, viewOnly })
   useViewStore.setState({ exportScope })
   const props = { onNew: vi.fn(), onExample: vi.fn(), onOpen: vi.fn(), onCopyLink: vi.fn(), onExport: vi.fn() }
   render(<Toolbar {...props} showScope={showScope} hasPlanned={hasPlanned} />)
@@ -53,7 +54,8 @@ describe('Toolbar copy PNG hint', () => {
 
 describe('Toolbar View options', () => {
   const openOptions = () => fireEvent.click(screen.getByRole('button', { name: 'View options' }))
-  const option = (name: string | RegExp) => screen.getByRole('menuitemcheckbox', { name })
+  // Some switches carry a hover hint as their description, so the accessible name is the label plus the hint.
+  const option = (name: string) => screen.getByRole('menuitemcheckbox', { name: new RegExp(`^${name}`) })
 
   it('is one icon-only menu trigger, aligned to the end', () => {
     renderToolbar()
@@ -71,7 +73,7 @@ describe('Toolbar View options', () => {
   })
 
   it('lists the switches, then the Theme group, then the Palette group, each showing its state', () => {
-    renderToolbar({ guides: false, highlight: true, dependents: true, themeChoice: 'dark', palette: 'terracotta' })
+    renderToolbar({ guides: false, highlight: true, dependents: true, showPlanned: true, themeChoice: 'dark', palette: 'terracotta' })
     openOptions()
     const menu = screen.getByRole('menu', { name: 'View options' })
     const state = (root: Element) => [...root.querySelectorAll('[role^="menuitem"]')].map((i) => [i.firstChild!.textContent, i.getAttribute('aria-checked')])
@@ -92,6 +94,13 @@ describe('Toolbar View options', () => {
     expect(state(within(menu).getByRole('group', { name: 'Palette' })).map(([n]) => n)).toEqual(['Default', 'Purple', 'Terracotta', 'Cool'])
   })
 
+  it('keeps the hover hints of Dependents and Planned as descriptions', () => {
+    renderToolbar()
+    openOptions()
+    expect(option('Dependents').querySelector('.choice-description')?.textContent).toBe('Emphasize what depends on the selection, not what it depends on')
+    expect(option('Planned').querySelector('.choice-description')?.textContent).toBe('Show what is not built yet; off hides it from the canvas and image exports')
+  })
+
   it('draws the switches as a track with a knob and the themes as one segmented pill', () => {
     renderToolbar()
     openOptions()
@@ -103,7 +112,7 @@ describe('Toolbar View options', () => {
   it('leaves Planned out when the map has nothing planned', () => {
     renderToolbar({ hasPlanned: false })
     openOptions()
-    expect(screen.queryByRole('menuitemcheckbox', { name: 'Planned' })).toBeNull()
+    expect(screen.queryByRole('menuitemcheckbox', { name: /^Planned/ })).toBeNull()
   })
 
   it.each([
@@ -250,16 +259,36 @@ describe('Toolbar View and Edit switch', () => {
 describe('Toolbar File and Share menus', () => {
   const open = (name: 'File' | 'Share') => fireEvent.click(screen.getByRole('button', { name }))
 
-  it('File lists New, Open… and Save (.hexa) together, then the examples to load under their architecture', () => {
+  const FILE_ITEMS = ['New', 'Open .hexa…Ctrl+O', 'Save .hexaCtrl+S', 'Start from an example']
+
+  it('File lists New, Open .hexa… and Save .hexa with their shortcuts, a separator, then the examples submenu', () => {
     renderToolbar()
     open('File')
     const menu = screen.getByRole('menu', { name: 'File' })
+    expect([...menu.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(FILE_ITEMS)
+    expect(menu.children[3]?.getAttribute('role')).toBe('separator')
+    expect(menu.children[4]?.textContent).toBe('Start from an example')
+    for (const name of ['New', 'Open .hexa…', 'Save .hexa']) expect(within(menu).getByRole('menuitem', { name }).querySelector('svg')).not.toBeNull()
+    expect(within(menu).getByRole('menuitem', { name: 'New' }).querySelector('.choice-shortcut')).toBeNull()
+  })
+
+  it('names the Mac shortcuts on a Mac', () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)')
+    renderToolbar()
+    open('File')
+    expect([...screen.getByRole('menu', { name: 'File' }).querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(['New', 'Open .hexa…⌘O', 'Save .hexa⌘S', 'Start from an example'])
+  })
+
+  it('Start from an example opens a submenu of the examples grouped by architecture', () => {
+    renderToolbar()
+    open('File')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Start from an example' }))
+    const sub = screen.getByRole('menu', { name: 'Start from an example' })
     const names = (root: Element) => [...root.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)
-    expect(names(menu)).toEqual(['New', 'Open…', 'Save (.hexa)', ...EXAMPLES.map((x) => x.label)])
+    expect(names(sub)).toEqual(EXAMPLES.map((x) => x.label))
     for (const architecture of ['Hexagonal', 'Onion', 'Clean']) {
-      expect(names(within(menu).getByRole('group', { name: `Load example · ${architecture}` }))).toEqual(EXAMPLES.filter((x) => x.architecture === architecture).map((x) => x.label))
+      expect(names(within(sub).getByRole('group', { name: architecture }))).toEqual(EXAMPLES.filter((x) => x.architecture === architecture).map((x) => x.label))
     }
-    for (const name of ['New', 'Open…', 'Save (.hexa)']) expect(within(menu).getByRole('menuitem', { name }).querySelector('svg')).not.toBeNull()
   })
 
   it('File > New and File > an example call their handlers', () => {
@@ -268,25 +297,27 @@ describe('Toolbar File and Share menus', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'New' }))
     expect(onNew).toHaveBeenCalledTimes(1)
     open('File')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Start from an example' }))
     fireEvent.click(screen.getByRole('menuitem', { name: EXAMPLES[4].label }))
     expect(onExample).toHaveBeenCalledTimes(1)
     expect(onExample).toHaveBeenCalledWith(EXAMPLES[4].id)
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 
-  it('File > Save (.hexa) exports a .hexa file and nothing else', () => {
+  it('File > Save .hexa exports a .hexa file and nothing else', () => {
     const { onExport } = renderToolbar()
     open('File')
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Save (.hexa)' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Save .hexa' }))
     expect(onExport).toHaveBeenCalledTimes(1)
     expect(onExport).toHaveBeenCalledWith('hexa')
   })
 
-  it('File > Open… opens the file picker, and the picked file goes to onOpen', () => {
+  it('File > Open .hexa… opens the file picker, and the picked file goes to onOpen', () => {
     const { onOpen } = renderToolbar()
     const input = screen.getByLabelText('Open a .hexa file, replacing the map') as HTMLInputElement
     const pick = vi.spyOn(input, 'click')
     open('File')
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Open…' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Open .hexa…' }))
     expect(pick).toHaveBeenCalledTimes(1)
     const file = new File(['{}'], 'map.hexa')
     fireEvent.change(input, { target: { files: [file] } })
@@ -366,5 +397,87 @@ describe('Toolbar at phone width', () => {
     for (const name of ['View options', 'File', 'Share']) expect(screen.getByRole('button', { name }).getAttribute('aria-haspopup')).toBe('menu')
     expect(screen.getByRole('radiogroup', { name: 'Detail level' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'View the source on GitHub' })).toBeTruthy()
+  })
+})
+
+describe('Toolbar file shortcuts', () => {
+  const press = (key: string, init: KeyboardEventInit = {}, target: EventTarget = document.body) =>
+    target.dispatchEvent(new KeyboardEvent('keydown', { key, ctrlKey: true, bubbles: true, cancelable: true, ...init }))
+  const picker = () => vi.spyOn(screen.getByLabelText('Open a .hexa file, replacing the map') as HTMLInputElement, 'click')
+
+  it.each([
+    ['Ctrl+S', 's', { ctrlKey: true }],
+    ['Cmd+S', 's', { ctrlKey: false, metaKey: true }],
+  ])('%s saves the .hexa and keeps the browser’s own save dialog away', (_name, key, init) => {
+    const { onExport } = renderToolbar()
+    expect(press(key, init)).toBe(false)
+    expect(onExport).toHaveBeenCalledTimes(1)
+    expect(onExport).toHaveBeenCalledWith('hexa')
+  })
+
+  it.each([
+    ['Ctrl+O', { ctrlKey: true }],
+    ['Cmd+O', { ctrlKey: false, metaKey: true }],
+  ])('%s opens the file picker', (_name, init) => {
+    renderToolbar()
+    const pick = picker()
+    expect(press('o', init)).toBe(false)
+    expect(pick).toHaveBeenCalledTimes(1)
+  })
+
+  it('does nothing in View mode, leaving the keys to the browser', () => {
+    const { onExport } = renderToolbar({ viewOnly: true })
+    expect(press('s')).toBe(true)
+    expect(press('o')).toBe(true)
+    expect(onExport).not.toHaveBeenCalled()
+  })
+
+  it('stops listening once the toolbar goes away', () => {
+    const { onExport } = renderToolbar()
+    cleanup()
+    press('s')
+    expect(onExport).not.toHaveBeenCalled()
+  })
+
+  it('leaves the keys alone while typing in a field', () => {
+    const { onExport } = renderToolbar()
+    const pick = picker()
+    const field = document.body.appendChild(document.createElement('input'))
+    try {
+      expect(press('s', {}, field)).toBe(true)
+      expect(press('o', {}, field)).toBe(true)
+      expect(onExport).not.toHaveBeenCalled()
+      expect(pick).not.toHaveBeenCalled()
+    } finally {
+      field.remove()
+    }
+  })
+
+  it('leaves the keys alone while a menu or a dialog is open', () => {
+    const { onExport } = renderToolbar()
+    fireEvent.click(screen.getByRole('button', { name: 'File' }))
+    expect(press('s')).toBe(true)
+    expect(onExport).not.toHaveBeenCalled()
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    const dialog = document.body.appendChild(document.createElement('dialog'))
+    dialog.setAttribute('open', '')
+    try {
+      expect(press('s')).toBe(true)
+      expect(onExport).not.toHaveBeenCalled()
+    } finally {
+      dialog.remove()
+    }
+  })
+
+  it.each([
+    ['without a modifier', 's', { ctrlKey: false }],
+    ['with Shift', 's', { shiftKey: true }],
+    ['with Alt', 'o', { altKey: true }],
+  ])('ignores the key %s', (_name, key, init) => {
+    const { onExport } = renderToolbar()
+    const pick = picker()
+    expect(press(key, init)).toBe(true)
+    expect(onExport).not.toHaveBeenCalled()
+    expect(pick).not.toHaveBeenCalled()
   })
 })

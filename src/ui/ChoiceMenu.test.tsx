@@ -354,3 +354,128 @@ describe('ChoiceMenu stayOpen', () => {
     expect(screen.queryByRole('menu')).toBeNull()
   })
 })
+
+describe('ChoiceMenu submenu', () => {
+  const WITH_SUB = [
+    { id: 'new', label: 'New', control: 'action' },
+    {
+      id: 'examples',
+      label: 'Start from an example',
+      control: 'action',
+      submenu: [
+        { id: 'hex-basic', label: 'Basic hex', control: 'action', group: 'Hexagonal' },
+        { id: 'hex-stress', label: 'Stress hex', control: 'action', group: 'Hexagonal' },
+        { id: 'onion-basic', label: 'Basic onion', control: 'action', group: 'Onion' },
+      ],
+    },
+  ] as const
+
+  function renderSub() {
+    const onChoose = vi.fn()
+    render(<ChoiceMenu label="File" choices={WITH_SUB} onChoose={onChoose} />)
+    const trigger = screen.getByRole('button', { name: 'File' })
+    fireEvent.click(trigger)
+    return { onChoose, trigger, parent: screen.getByRole('menuitem', { name: 'Start from an example' }) }
+  }
+
+  it('marks the parent as a menu button and keeps the submenu closed until it is asked for', () => {
+    const { parent } = renderSub()
+    expect(parent.getAttribute('aria-haspopup')).toBe('menu')
+    expect(parent.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.getAllByRole('menu')).toHaveLength(1)
+    expect(screen.getByRole('menuitem', { name: 'New' }).hasAttribute('aria-haspopup')).toBe(false)
+  })
+
+  it.each([
+    ['a click', (parent: HTMLElement) => fireEvent.click(parent)],
+    ['ArrowRight', (parent: HTMLElement) => fireEvent.keyDown(parent, { key: 'ArrowRight' })],
+  ])('opens on %s with its own labelled menu, grouped, focusing the first item and choosing nothing', (_name, act) => {
+    const { parent, onChoose } = renderSub()
+    act(parent)
+    const sub = screen.getByRole('menu', { name: 'Start from an example' })
+    expect(parent.getAttribute('aria-expanded')).toBe('true')
+    expect(within(sub).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Basic hex', 'Stress hex', 'Basic onion'])
+    expect(within(sub).getByRole('group', { name: 'Hexagonal' })).toBeTruthy()
+    expect(within(sub).getByRole('group', { name: 'Onion' })).toBeTruthy()
+    expect(document.activeElement).toBe(within(sub).getAllByRole('menuitem')[0])
+    expect(onChoose).not.toHaveBeenCalled()
+  })
+
+  it('keeps arrow-key navigation inside whichever menu has focus', () => {
+    const { parent } = renderSub()
+    fireEvent.click(parent)
+    const [first, second] = within(screen.getByRole('menu', { name: 'Start from an example' })).getAllByRole('menuitem')
+    fireEvent.keyDown(first, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(second)
+  })
+
+  it.each(['ArrowLeft', 'Escape'])('%s closes only the submenu and returns focus to its parent', (key) => {
+    const { parent } = renderSub()
+    const onDocumentKey = vi.fn()
+    document.addEventListener('keydown', onDocumentKey)
+    try {
+      fireEvent.click(parent)
+      fireEvent.keyDown(within(screen.getByRole('menu', { name: 'Start from an example' })).getAllByRole('menuitem')[0], { key })
+      expect(screen.queryByRole('menu', { name: 'Start from an example' })).toBeNull()
+      expect(screen.getByRole('menu', { name: 'File' })).toBeTruthy()
+      expect(parent.getAttribute('aria-expanded')).toBe('false')
+      expect(document.activeElement).toBe(parent)
+      expect(onDocumentKey).not.toHaveBeenCalled()
+    } finally {
+      document.removeEventListener('keydown', onDocumentKey)
+    }
+  })
+
+  it('choosing a leaf reports its id once and closes everything', () => {
+    const { parent, trigger, onChoose } = renderSub()
+    fireEvent.click(parent)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Stress hex' }))
+    expect(onChoose).toHaveBeenCalledTimes(1)
+    expect(onChoose).toHaveBeenCalledWith('hex-stress')
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('does not reopen a submenu when the menu is opened again', () => {
+    const { parent, trigger } = renderSub()
+    fireEvent.click(parent)
+    fireEvent.click(trigger)
+    fireEvent.click(trigger)
+    expect(screen.getAllByRole('menu')).toHaveLength(1)
+  })
+
+  it('sits beside the parent item, and flips to its left when there is no room on the right', () => {
+    const rectOf = (left: number, top: number, width: number, height: number) =>
+      ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top }) as DOMRect
+    vi.stubGlobal('innerWidth', 1000)
+    vi.stubGlobal('innerHeight', 700)
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return this.getAttribute('role') === 'menu' ? rectOf(0, 0, 200, 80) : this.textContent === 'Start from an example' ? this.dataset.far ? rectOf(780, 100, 200, 32) : rectOf(100, 100, 200, 32) : rectOf(100, 20, 32, 32)
+    })
+    try {
+      const { parent } = renderSub()
+      fireEvent.click(parent)
+      let sub = screen.getByRole('menu', { name: 'Start from an example' })
+      expect([sub.style.top, sub.style.left]).toEqual(['100px', '304px'])
+      cleanup()
+      render(<ChoiceMenu label="File" choices={WITH_SUB} onChoose={() => {}} />)
+      fireEvent.click(screen.getByRole('button', { name: 'File' }))
+      const far = screen.getByRole('menuitem', { name: 'Start from an example' })
+      far.dataset.far = '1'
+      fireEvent.click(far)
+      sub = screen.getByRole('menu', { name: 'Start from an example' })
+      expect([sub.style.top, sub.style.left]).toEqual(['100px', '576px'])
+    } finally {
+      spy.mockRestore()
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('shows a choice’s shortcut beside its label without adding it to the accessible name', () => {
+    render(<ChoiceMenu label="File" choices={[{ id: 'save', label: 'Save .hexa', shortcut: 'Ctrl+S' }]} onChoose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'File' }))
+    const save = screen.getByRole('menuitem', { name: 'Save .hexa' })
+    expect(save.textContent).toBe('Save .hexaCtrl+S')
+    expect(save.querySelector('.choice-shortcut')?.getAttribute('aria-hidden')).toBe('true')
+  })
+})

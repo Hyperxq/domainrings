@@ -44,6 +44,7 @@ import v4CleanExample from './model/fixtures/v4-clean-example.hexa?raw'
 /** Opens the toolbar menu (unless a step already left it open) and presses one of its items. */
 const choose = (menu: 'File' | 'Share', item: string) => {
   if (!screen.queryByRole('menu', { name: menu })) fireEvent.click(screen.getByRole('button', { name: menu }))
+  if (menu === 'File' && !screen.queryByRole('menuitem', { name: item })) fireEvent.click(screen.getByRole('menuitem', { name: 'Start from an example' }))
   fireEvent.click(screen.getByRole('menuitem', { name: item }))
 }
 const scopeSwitch = () => {
@@ -499,7 +500,7 @@ describe('toolbar', () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'File' }))
     const file = screen.getByRole('menu', { name: 'File' })
-    for (const name of ['New', 'Open…', 'Save (.hexa)']) expect(within(file).getByRole('menuitem', { name })).toBeTruthy()
+    for (const name of ['New', 'Open .hexa…', 'Save .hexa']) expect(within(file).getByRole('menuitem', { name })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     const share = screen.getByRole('menu', { name: 'Share' })
     expect([...share.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).toEqual(['Copy link', 'SVG', 'PNG', 'Copy PNGOr press Ctrl+C'])
@@ -522,7 +523,8 @@ describe('the Example menu — learning path (CANVAS-01/02/04, FOCUS-02)', () =>
   it('groups the menu into 3 architectures of 3 levels each, in basic/stress/advanced order', () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'File' }))
-    const groups = ['Hexagonal', 'Onion', 'Clean'].map((architecture) => screen.getByRole('group', { name: `Load example · ${architecture}` }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Start from an example' }))
+    const groups = ['Hexagonal', 'Onion', 'Clean'].map((architecture) => screen.getByRole('group', { name: architecture }))
     for (const group of groups) expect(group.querySelectorAll('[role="menuitem"]')).toHaveLength(3)
   })
 
@@ -677,7 +679,7 @@ describe('dependents preference', () => {
     expect(container.querySelector('svg.canvas')!.getAttribute('data-emphasis')).toBe('')
 
     fireEvent.click(screen.getByRole('button', { name: 'View options' }))
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Dependents' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /^Dependents/ }))
 
     expect(container.querySelector('svg.canvas')!.getAttribute('data-emphasis')).toBe('dependents')
     expect(localStorage.getItem('domainrings:dependents')).toBe('true')
@@ -1270,7 +1272,7 @@ describe('expanding hexagons on a large map', () => {
         captured = blob as Blob
         return 'blob:mock'
       })
-      choose('File', 'Save (.hexa)')
+      choose('File', 'Save .hexa')
       const text = await captured!.text()
       createSpy.mockRestore()
       clickSpy.mockRestore()
@@ -1347,7 +1349,7 @@ describe('export scope (EXPORT-03)', () => {
       return 'blob:mock'
     })
 
-    choose('File', 'Save (.hexa)')
+    choose('File', 'Save .hexa')
 
     expect(clickSpy).toHaveBeenCalledTimes(1)
     const anchor = clickSpy.mock.instances[0] as HTMLAnchorElement
@@ -1370,7 +1372,7 @@ describe('export scope (EXPORT-03)', () => {
 
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:mock')
-    choose('File', 'Save (.hexa)')
+    choose('File', 'Save .hexa')
 
     expect((clickSpy.mock.instances[0] as HTMLAnchorElement).download).toBe(`${fileSlug('Renamed whole map')}.hexa`)
     createSpy.mockRestore()
@@ -2072,7 +2074,7 @@ describe('journey', () => {
       captured = blob as Blob
       return 'blob:mock'
     })
-    choose('File', 'Save (.hexa)')
+    choose('File', 'Save .hexa')
     const text = await captured!.text()
     createSpy.mockRestore()
     clickSpy.mockRestore()
@@ -2540,7 +2542,7 @@ describe('save the current map as a .hexa file, per kind (mirrors "copy link"\'s
       captured = blob as Blob
       return 'blob:mock'
     })
-    choose('File', 'Save (.hexa)')
+    choose('File', 'Save .hexa')
     const text = await captured!.text()
     createSpy.mockRestore()
     clickSpy.mockRestore()
@@ -2579,7 +2581,7 @@ describe('save the current map as a .hexa file, per kind (mirrors "copy link"\'s
       return 'blob:mock'
     })
     onTestFinished(() => createSpy.mockRestore())
-    choose('File', 'Save (.hexa)')
+    choose('File', 'Save .hexa')
     const text = await captured!.text()
     const saved = parseHexa(text)
     expect(saved.ok && saved.map.title).toBe('Payments Core')

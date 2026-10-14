@@ -1,8 +1,9 @@
 import { EXAMPLES } from '../model/example'
 import type { LayoutMode } from '../layout/layout'
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
+import { typing } from './keys'
 import type { ExportFormat } from './useExport'
 import { PALETTES, type PaletteId } from './palette'
 import { usePreferencesStore, type ThemeChoice } from './state/preferencesStore'
@@ -33,8 +34,8 @@ const EDITING = [
 const VIEW_SWITCHES = [
   { id: 'guides', label: 'Corridor guides' },
   { id: 'highlight', label: 'Dim other flows on hover' },
-  { id: 'dependents', label: 'Dependents' },
-  { id: 'showPlanned', label: 'Planned' },
+  { id: 'dependents', label: 'Dependents', description: 'Emphasize what depends on the selection, not what it depends on' },
+  { id: 'showPlanned', label: 'Planned', description: 'Show what is not built yet; off hides it from the canvas and image exports' },
 ] as const
 const MODE_LABEL: Record<LayoutMode, string> = { overview: 'Overview', detailed: 'Detailed' }
 const THEME_LABEL: Record<ThemeChoice, string> = { light: 'Light', dark: 'Dark', system: 'System' }
@@ -44,6 +45,20 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
   const { mode, theme: themeChoice, palette, viewOnly } = preferences
   const exportScope = useViewStore((s) => s.exportScope)
   const openFile = useRef<HTMLInputElement>(null)
+  const mod = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl+'
+  useEffect(() => {
+    if (viewOnly) return
+    const onKey = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase()
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey || (key !== 'o' && key !== 's') || e.defaultPrevented || typing(e.target)) return
+      if (document.querySelector('[role="menu"], dialog[open]')) return
+      e.preventDefault()
+      if (key === 'o') openFile.current?.click()
+      else onExport('hexa')
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [viewOnly, onExport])
   return (
     <header className="island toolbar">
       <h1 className="wordmark">domainrings</h1>
@@ -96,7 +111,7 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
         align="end"
         stayOpen
         choices={[
-          ...VIEW_SWITCHES.filter((s) => hasPlanned || s.id !== 'showPlanned').map(({ id, label }) => ({ id, label, checked: preferences[id], control: 'switch' as const })),
+          ...VIEW_SWITCHES.filter((s) => hasPlanned || s.id !== 'showPlanned').map(({ id, label, ...hint }) => ({ id, label, ...hint, checked: preferences[id], control: 'switch' as const })),
           ...(['light', 'dark', 'system'] as const).map((id) => ({ id, label: THEME_LABEL[id], checked: themeChoice === id, control: 'radio' as const, group: 'Theme' })),
           ...(Object.keys(PALETTES) as PaletteId[]).map((id) => ({ id, label: PALETTES[id].label, description: PALETTES[id].description, checked: palette === id, group: 'Palette' })),
         ]}
@@ -120,9 +135,13 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
             }
             choices={[
               { id: 'new', label: 'New', control: 'action', icon: 'new' },
-              { id: 'open', label: 'Open…', control: 'action', icon: 'upload' },
-              { id: 'save', label: 'Save (.hexa)', control: 'action', icon: 'download' },
-              ...EXAMPLES.map((x) => ({ id: x.id, label: x.label, control: 'action' as const, group: `Load example · ${x.architecture}` })),
+              { id: 'open', label: 'Open .hexa…', control: 'action', icon: 'upload', shortcut: `${mod}O` },
+              { id: 'save', label: 'Save .hexa', control: 'action', icon: 'download', shortcut: `${mod}S` },
+              {
+                id: 'examples',
+                label: 'Start from an example',
+                submenu: EXAMPLES.map((x) => ({ id: x.id, label: x.label, control: 'action' as const, group: x.architecture })),
+              },
             ]}
             onChoose={(id) => (id === 'new' ? onNew() : id === 'open' ? openFile.current?.click() : id === 'save' ? onExport('hexa') : onExample(id))}
           />
@@ -153,7 +172,7 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
           ...(showScope ? [{ id: 'scope' as const, label: 'Only the current hexagon', checked: exportScope === 'hexagon', control: 'switch' as const, group: 'Export image' }] : []),
           { id: 'svg', label: 'SVG', control: 'action', group: 'Export image' },
           { id: 'png', label: 'PNG', control: 'action', group: 'Export image' },
-          { id: 'png-copy', label: 'Copy PNG', description: `Or press ${/Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘C' : 'Ctrl+C'}`, control: 'action', group: 'Export image' },
+          { id: 'png-copy', label: 'Copy PNG', description: `Or press ${mod}C`, control: 'action', group: 'Export image' },
         ]}
         onChoose={(id) => (id === 'copy-link' ? onCopyLink() : id === 'scope' ? useViewStore.setState({ exportScope: exportScope === 'hexagon' ? 'map' : 'hexagon' }) : onExport(id))}
       />

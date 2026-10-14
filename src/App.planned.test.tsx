@@ -48,7 +48,7 @@ const canvas = (container: HTMLElement) => container.querySelector('svg.canvas')
 const hidePlanned = () => {
   // The View options menu stays open while toggling, so it is opened only when it is not already.
   if (!screen.queryByRole('menu')) fireEvent.click(screen.getByRole('button', { name: 'View options' }))
-  fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Planned' }))
+  fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /^Planned/ }))
 }
 const LEGEND_ENTRY = 'Planned: not built yet'
 
@@ -121,7 +121,7 @@ describe('exports while planned items are hidden', () => {
   it('still saves them in the .hexa file', async () => {
     render(<App />)
     hidePlanned()
-    const file = JSON.parse(await exportAs('File', 'Save (.hexa)'))
+    const file = JSON.parse(await exportAs('File', 'Save .hexa'))
     expect(file.hexagons[0].useCases[0].status).toBe('planned')
     expect(file.hexagons).toHaveLength(2)
   })
