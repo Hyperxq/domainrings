@@ -183,3 +183,23 @@ describe('an arrow round the domain', () => {
     }
   })
 })
+
+describe('the domain title', () => {
+  const LONG = 'A domain title that runs on far wider than anything the domain holds'
+  const sparse: Array<[string, Diagram]> = [
+    ['an empty domain', { ...EXAMPLE_DIAGRAM, domain: [], layers: { domain: { title: LONG } } }],
+    ['a single entity', { ...EXAMPLE_DIAGRAM, domain: [{ id: 'e1', name: 'Order', type: 'entity' }], layers: { domain: { title: LONG } } }],
+    ['a short title', { ...EXAMPLE_DIAGRAM, domain: [], layers: { domain: { title: 'Core' } } }],
+  ]
+
+  it.each(sparse)('stays inside the domain ring and in its upper half over %s', (_, diagram) => {
+    const m = layoutDiagram(diagram)
+    const ring = m.rings.at(-1)!
+    const { x, y, width, height } = ring.titleBox
+    for (const c of [{ x, y }, { x: x + width, y }, { x, y: y + height }, { x: x + width, y: y + height }]) {
+      expect(Math.abs(c.y)).toBeLessThanOrEqual(ring.apex)
+      expect(Math.abs(c.x)).toBeLessThanOrEqual(halfWidthAt(ring, c.y) + 1e-6)
+    }
+    expect(y + height).toBeLessThanOrEqual(0)
+  })
+})

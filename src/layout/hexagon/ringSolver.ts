@@ -110,8 +110,9 @@ export function solveRings({ d, overview, appIndex, titles, centre, plan, frames
     const role = config.rings[i].role
     const inner = outlines[i + 1]
     if (role === 'domain') {
-      // The region sits under the title, with the room around it for the use cases' arrows.
-      outlines[i] = hexagon(centre.region.apex + depthOf(i) + titleHeight(i) + TITLE_CLEAR)
+      // The region sits under the title, with the room around it for the use cases' arrows; a title wider than the
+      // region needs still has to fit between the ring's sides.
+      outlines[i] = hexagon(Math.max(centre.region.apex + depthOf(i) + titleHeight(i) + TITLE_CLEAR, (titleWidth(i) / 2 + LABEL_PAD_X) / COS30))
       continue
     }
     const side: Need[] = []

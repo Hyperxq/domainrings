@@ -15,6 +15,8 @@ const OUTLINE_PAD = 8
 const BLOCK_GAP = 10
 /** Room kept between a block and the wall of the region it sits on. */
 const REGION_PAD = 6
+/** A region this large holds any block, so a search that gets here has a bug. */
+const MAX_REGION = 1e5
 /** The smallest region, so an empty domain still has a body under its title. */
 const MIN_REGION = 40
 /** A block that belongs to no face stays in the middle of the region. */
@@ -164,7 +166,8 @@ export function layCentre({ d, overview, domainFrame, seating }: CentreInput) {
   /** The smallest region, at least `from` across, that holds the blocks on these faces. */
   const smallest = (faces: ReadonlyMap<Block, Face>, from: number) => {
     let apex = from
-    while (!fits(apex, faces) && apex < 1e5) apex = Math.ceil(apex * 1.01)
+    while (apex < MAX_REGION && !fits(apex, faces)) apex = Math.ceil(apex * 1.01)
+    if (apex >= MAX_REGION) throw new Error('The domain model region has no size that holds its blocks')
     return apex
   }
   // What no use case points at takes, one block at a time and the largest first, the face that keeps the region smallest
