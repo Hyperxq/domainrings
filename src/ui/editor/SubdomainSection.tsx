@@ -1,16 +1,15 @@
-import type { ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { HEXAGONAL_KIND } from '../../model/kinds'
-import { contextName, diagramOf, freeSides, occupiedContexts } from '../../model/map'
+import { contextName, contextOrdinal, diagramOf, freeSides, occupiedContexts } from '../../model/map'
 import type { Diagram, HexaMap } from '../../model/schema'
 import { useMapStore } from '../../model/store'
 import { ChoiceMenu } from '../ChoiceMenu'
 import { Fold } from '../Fold'
 import { useHistoryStore } from '../state/historyStore'
-import { CollectionSections } from './CollectionSections'
 import { session } from './fieldSession'
 import { PlannedToggle } from './PlannedToggle'
 
-const { setMeta } = useMapStore.getState()
+const { setMeta, setContextName } = useMapStore.getState()
 const { record } = useHistoryStore.getState()
 
 /** Stands in for a context id in the move menu: a new context has none yet. */
@@ -34,6 +33,34 @@ function Hint({ id, children }: { id: string; children: ReactNode }) {
   )
 }
 
+/** A bounded context's name: every occupied one is renamed here, so no other subdomain has to be focused first. */
+function ContextName({ map, contextId, onRenameContext }: { map: HexaMap; contextId: string; onRenameContext: SubdomainProps['onRenameContext'] }) {
+  const before = useRef<HexaMap | undefined>(undefined)
+  const name = map.contexts.find((c) => c.id === contextId)?.name ?? ''
+  const ordinal = contextOrdinal(map, contextId)
+  return (
+    <input
+      className="name"
+      aria-label={`Name for ${ordinal}`}
+      placeholder={ordinal}
+      value={name}
+      onFocus={() => (before.current = map)}
+      onChange={(e) => setContextName(contextId, e.target.value)}
+      onBlur={(e) => {
+        // Trimmed on commit, not on every keystroke: the input is controlled by the stored name, so
+        // trimming live would eat a trailing space before the author can type the next word.
+        const trimmed = e.target.value.trim()
+        if (trimmed !== name) setContextName(contextId, trimmed)
+        const snapshot = before.current
+        before.current = undefined
+        // Stored names, not display labels: typing the placeholder's own text changes the data but not the label.
+        const storedName = (m: HexaMap) => m.contexts.find((c) => c.id === contextId)?.name || ''
+        if (snapshot && storedName(snapshot) !== storedName(useMapStore.getState().map)) onRenameContext(snapshot, contextId)
+      }}
+    />
+  )
+}
+
 export interface SubdomainActions {
   onAddHexagon: (hexId: string) => void
   onDeleteHexagon: (hexId: string) => void
@@ -41,9 +68,16 @@ export interface SubdomainActions {
   onMoveToContext: (hexId: string, contextId: string | undefined) => void
 }
 
-/** Everything one subdomain (a hexagon) owns, edited in place whichever hexagon is focused. Mounted only while its
- * tree branch is open, so a large map doesn't render every subdomain's fields. */
-export function SubdomainSection({ map, hexId, onAddHexagon, onDeleteHexagon, onMoveToContext }: { map: HexaMap; hexId: string } & SubdomainActions) {
+interface SubdomainProps extends SubdomainActions {
+  map: HexaMap
+  hexId: string
+  /** Reports a context rename/clear session (focus → blur) that actually changed the name, with the map from
+   * just before it started — the toast/undo snapshot (NAME-03). Not called when a blur never changed anything. */
+  onRenameContext: (before: HexaMap, contextId: string) => void
+}
+
+/** The current subdomain's own settings, and the bounded contexts' names. */
+export function SubdomainSection({ map, hexId, onRenameContext, onAddHexagon, onDeleteHexagon, onMoveToContext }: SubdomainProps) {
   const d = diagramOf(map, hexId)
   const hex = map.hexagons.find((h) => h.id === hexId)!
   const canGrow = freeSides(map, hex.cell).length > 0
@@ -56,7 +90,8 @@ export function SubdomainSection({ map, hexId, onAddHexagon, onDeleteHexagon, on
   const deleteHint = `last-subdomain-hint-${hexId}`
   const moveHint = `no-context-to-move-hint-${hexId}`
   return (
-    <div data-subdomain={hexId}>
+    <>
+      {occupiedContexts(map).map((c) => <ContextName key={c.id} map={map} contextId={c.id} onRenameContext={onRenameContext} />)}
       <label className="field" data-item-id="hexagon">
         <span>Subdomain title</span>
         <input value={d.title} onChange={(e) => setMeta(hexId, { title: e.target.value })} {...session} />
@@ -127,8 +162,6 @@ export function SubdomainSection({ map, hexId, onAddHexagon, onDeleteHexagon, on
           })}
         </ul>
       </Fold>
-
-      <CollectionSections hexId={hexId} map={map} diagram={d} />
-    </div>
+    </>
   )
 }

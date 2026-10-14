@@ -650,6 +650,63 @@ a.icon-button { color: inherit; text-decoration: none; }
   touch-action: pan-y;
 }
 .editor-body[hidden] { display: none; }
+.flows-section { margin-bottom: 12px; }
+.elements-head { margin: 0 0 2px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.flows-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.flow-inspector { left: auto; right: 12px; width: 312px; }
+.flow-inspector .editor-head { gap: 8px; }
+.flow-inspector .editor-head .name { flex: 1; min-width: 0; font-weight: 700; }
+.flow-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.flow-step { margin: 14px 0 6px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; }
+.flow-list { display: grid; gap: 6px; margin: 0 0 6px; padding: 0; list-style: none; }
+.flow-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px; border-radius: 6px; background: var(--hover); }
+.flow-chain { display: flex; flex: 1 1 100%; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+.flow-chip { padding: 2px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--card); font-family: var(--font-mono); font-size: 11.5px; overflow-wrap: anywhere; }
+.flow-arrow { color: var(--muted); font-size: 12px; }
+.flow-add { flex: 1; width: 100%; font-size: 12px; }
+.flow-list .flow-add { flex: 1 1 100px; width: auto; }
+.flow-verb { flex: 1; font-size: 12px; }
+.flows-help { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
+.flow-row {
+  display: grid;
+  grid-template-columns: 4px 1fr auto;
+  column-gap: 8px;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.flow-row[aria-pressed='true'] { background: var(--teal-soft); border-color: var(--teal); }
+.flow-row > :not(.flow-bar) { grid-column: 2; }
+.flow-bar { grid-column: 1; grid-row: 1 / span 2; align-self: stretch; border-radius: 2px; background: var(--muted); }
+.flow-name { font-family: var(--font-mono); font-weight: 700; font-size: 12px; }
+.flow-count { grid-column: 3 !important; grid-row: 1; color: var(--muted); font-size: 12px; }
+.flow-summary, .flow-gap { color: var(--muted); font-size: 12px; }
+.present-title { margin: 4px 0 8px; padding-left: 8px; border-left: 4px solid var(--teal); font-family: var(--font-mono); font-size: 14px; }
+.present-description { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
+.present-steps { margin: 0; padding: 0; list-style: none; }
+.present-steps button { display: grid; grid-template-columns: 22px 1fr auto; column-gap: 6px; align-items: baseline; width: 100%; padding: 4px 6px; border: 0; border-radius: 6px; background: none; color: var(--ink); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.present-steps [aria-current='step'] { background: var(--teal-soft); border-radius: 6px; }
+.present-steps [aria-current='step'] .present-name { font-weight: 700; }
+.present-no, .present-tag, .present-detail { color: var(--muted); }
+.present-detail { grid-column: 2 / span 2; }
+.present-note, .step-card-note { margin: 2px 6px 6px 34px; font-size: 12px; }
+.present-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--line); }
+.present-foot p { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 11px; }
+.present-button { right: 12px; bottom: 64px; display: flex; align-items: center; gap: 6px; font: inherit; font-weight: 600; color: var(--ink); cursor: pointer; }
+.present-button[data-legend-open] { right: 284px; bottom: 12px; }
+.step-card { bottom: 72px; left: calc(324px + (100% - 324px) / 2); max-width: 360px; translate: -50% 0; pointer-events: none; }
+.step-card p { margin: 0; }
+.step-card-kicker { color: var(--teal); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; }
+.step-card-name { font-family: var(--font-mono); font-weight: 700; font-size: 13px; }
+.step-card-note { margin-left: 0; color: var(--muted); }
 
 .section { position: relative; padding: 12px 2px; border-top: 1px solid var(--line); }
 .fold > :not(summary) { margin-top: 8px; }
@@ -891,13 +948,22 @@ span.swatch-element { background: var(--card); border-color: var(--teal); }
 .legend-footer { padding: 8px 0; border-top: 1px solid var(--line); }
 .legend-export { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 
+@media (min-width: 721px) {
+  /* The inspector holds the right column, so an open legend moves left of it. */
+  .flow-inspector ~ .legend { right: calc(312px + 12px + 12px); }
+}
+
 @media (max-width: 720px) {
+  .editor:has(~ .flow-inspector) { display: none; }
+  .flow-inspector { left: 8px; right: 8px; width: auto; }
   .toolbar { top: 8px; left: 8px; right: 8px; width: auto; margin: 0; max-width: none; }
   .editor { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 45dvh; }
   .zoom { top: calc(var(--toolbar-bottom, 50px) + 10px); right: 8px; bottom: auto; left: auto; }
   .notices { top: calc(var(--toolbar-bottom, 50px) + 58px); right: 8px; }
   .toast { top: calc(var(--toolbar-bottom, 50px) + 58px); bottom: auto; }
   .legend { top: calc(var(--toolbar-bottom, 50px) + 58px); bottom: auto; right: 8px; }
+  .present-button, .present-button[data-legend-open] { right: 8px; bottom: calc(45dvh + 16px); }
+  .step-card { left: 8px; right: 8px; bottom: calc(45dvh + 16px); max-width: none; translate: none; }
 }
 
 /* Below this the toolbar no longer fits the ~340-374px available on a phone, so it

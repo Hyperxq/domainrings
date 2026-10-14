@@ -2,12 +2,11 @@ import { useRef, useState } from 'react'
 import type { Destination } from '../../model/map'
 import { useMapStore } from '../../model/store'
 import { ChoiceMenu } from '../ChoiceMenu'
-import { Fold } from '../Fold'
 import type { session as fieldSession } from './fieldSession'
 
 const { setMapMeta } = useMapStore.getState()
 
-/** The map's own title and the "Add subdomain from file…" import. */
+/** The map's own title (a part of Diagram settings) and the "Add subdomain from file…" import. */
 export function MapSection({
   title,
   contextLabel,
@@ -24,7 +23,7 @@ export function MapSection({
   const [pendingImport, setPendingImport] = useState<((context: Destination) => void) | null>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
   return (
-    <Fold id="map" title="Map">
+    <>
       <label className="field">
         <span>Map title</span>
         <input value={title} onChange={(e) => setMapMeta({ title: e.target.value })} {...session} />
@@ -58,6 +57,6 @@ export function MapSection({
           if (choose) setPendingImport(() => choose)
         }}
       />
-    </Fold>
+    </>
   )
 }

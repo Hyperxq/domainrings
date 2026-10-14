@@ -948,6 +948,41 @@ describe('current hexagon (FOCUS-03, FOCUS-06)', () => {
     expect(container.querySelectorAll('[data-selected]')).toHaveLength(0)
   })
 
+  describe('revealing an element whose id repeats across subdomains', () => {
+    const port = EXAMPLE_DIAGRAM.ports[0]
+    const sharedIdMap = () => {
+      const map = twoHexMap()
+      const [h1, h2] = map.hexagons
+      return { ...map, hexagons: [h1, { ...h2, ports: h2.ports.map((p) => (p.id === port.id ? { ...p, name: 'Second slice port' } : p)) }] }
+    }
+    const gesture = (target: Element) => {
+      fireEvent.click(target, { detail: 1 })
+      fireEvent.click(target, { detail: 2 })
+      fireEvent.doubleClick(target)
+    }
+
+    it('double-clicking an element in a non-current hexagon moves focus there and lands in that subdomain', () => {
+      useMapStore.getState().replace(sharedIdMap())
+      const { container } = render(<App />)
+
+      gesture(hexGroup(container, 'h2').querySelector(`[data-ref="${port.id}"]`)!)
+
+      expect(useMapStore.getState().focus).toBe('h2')
+      expect(container.querySelector('[data-subdomain="h2"]')!.contains(document.activeElement)).toBe(true)
+    })
+
+    it('focuses the field of the element in the current subdomain, not its namesake in another', () => {
+      useMapStore.getState().replace(sharedIdMap())
+      const { container } = render(<App />)
+      fireEvent.click(hexGroup(container, 'h2'))
+      expect(useMapStore.getState().focus).toBe('h2')
+
+      gesture(hexGroup(container, 'h2').querySelector(`[data-ref="${port.id}"]`)!)
+
+      expect((document.activeElement as HTMLInputElement).value).toBe('Second slice port')
+    })
+  })
+
   it('undo restores both the map and whichever hexagon was current at edit time (FOCUS-06.1)', () => {
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<App />)
