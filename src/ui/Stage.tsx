@@ -6,6 +6,7 @@ import type { Point } from '../layout/geometry'
 import type { LegendModel } from '../layout/legend'
 import { currentHexagon, type MapLayout } from '../layout/map'
 import { dependencyChain } from '../model/chain'
+import { flowChain, flowOf } from '../model/flow'
 import { collectionOf, linkTargets, type LinkChoice } from '../model/links'
 import { noteToShow, notesOf } from '../model/notes'
 import { plannedOf } from '../model/planned'
@@ -67,7 +68,9 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   // The open legend island takes the right column, so the fit leaves it free.
   const legendOpen = usePreferencesStore((s) => s.legendOpen)
   const viewOnly = usePreferencesStore((s) => s.viewOnly)
-  const panelOpen = useViewStore((s) => s.editorOpen) && !viewOnly
+  // View mode shows the Flows panel in the editor's place, so the fit leaves the same room for it.
+  const panelOpen = useViewStore((s) => s.editorOpen) || viewOnly
+  const focusedFlow = useViewStore((s) => s.focusedFlow)
   const linking = useViewStore((s) => s.linking)
   // True right after growing: the current hexagon's title field is open inline (GROW-02.1).
   const naming = useViewStore((s) => s.growing !== null)
@@ -151,10 +154,11 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   const crossTargets = useMemo(() => (linking ? crossPortTargets(map, diagram, hexId, linking) : []), [map, diagram, hexId, linking])
   const crossLinkTargets = useMemo(() => targetsByHexagon(crossTargets), [crossTargets])
   // Only what is drawn can be followed, so the chain ends at the ports of a compact hexagon.
+  const isolated = !!focusedFlow && diagram.useCases.some((u) => u.id === focusedFlow)
   const chain = useMemo(
     () =>
-      highlight && !linking && selected ? dependencyChain(map, hexId, selected, new Set(model.hexagons.filter((h) => !h.compact).map((h) => h.id)), dependents ? 'dependents' : 'dependencies') : undefined,
-    [highlight, linking, selected, map, hexId, model, dependents],
+      isolated ? flowChain(map, flowOf(map, hexId, focusedFlow!)) : highlight && !linking && selected ? dependencyChain(map, hexId, selected, new Set(model.hexagons.filter((h) => !h.compact).map((h) => h.id)), dependents ? 'dependents' : 'dependencies') : undefined,
+    [isolated, focusedFlow, highlight, linking, selected, map, hexId, model, dependents],
   )
   const nameOf = (ref: string) => {
     const collection = collectionOf(diagram, ref)
@@ -242,7 +246,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
           }
         }}
         data-link-mode={linking ? '' : undefined}
-        data-emphasis={chain ? (dependents ? 'dependents' : '') : undefined}
+        data-emphasis={chain ? (dependents && !isolated ? 'dependents' : '') : undefined}
         onClick={(e) => {
           if (panned.current) return
           const target = e.target as Element

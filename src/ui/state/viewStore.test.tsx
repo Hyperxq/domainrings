@@ -77,3 +77,34 @@ describe('view store', () => {
     expect(useViewStore.getState().fitRequest).toBe(before + 2)
   })
 })
+
+describe('focusedFlow', () => {
+  const twoHex = () => {
+    const map = toMap(EXAMPLE_DIAGRAM)
+    useMapStore.getState().replace({ ...map, hexagons: [...map.hexagons, { ...map.hexagons[0], id: 'h2', cell: { q: 1, r: 0 } }] })
+  }
+
+  it('is set and cleared through focusFlow', () => {
+    expect(useViewStore.getState().focusedFlow).toBeNull()
+    useViewStore.getState().focusFlow('uc-submit')
+    expect(useViewStore.getState().focusedFlow).toBe('uc-submit')
+    useViewStore.getState().focusFlow(null)
+    expect(useViewStore.getState().focusedFlow).toBeNull()
+  })
+
+  it('clears when another hexagon becomes current', () => {
+    twoHex()
+    useViewStore.getState().focusFlow('uc-submit')
+    useMapStore.getState().setFocus('h2')
+    expect(useViewStore.getState().focusedFlow).toBeNull()
+  })
+
+  it('clears when its use case is deleted, and when the map is swapped', () => {
+    useViewStore.getState().focusFlow('uc-submit')
+    useMapStore.getState().removeItem('h1', 'useCases', 'uc-submit')
+    expect(useViewStore.getState().focusedFlow).toBeNull()
+    useViewStore.getState().focusFlow('x')
+    useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM))
+    expect(useViewStore.getState().focusedFlow).toBeNull()
+  })
+})

@@ -1,3 +1,4 @@
+import type { Chain } from './chain'
 import { diagramOf } from './map'
 import type { Diagram, HexaMap, Port } from './schema'
 
@@ -99,3 +100,11 @@ export function flowOf(map: HexaMap, hexId: string, useCaseId: string): Flow {
 
 /** One flow per use case of the hexagon, in its order. */
 export const flowsOf = (map: HexaMap, hexId: string): Flow[] => diagramOf(map, hexId).useCases.map((u) => flowOf(map, hexId, u.id))
+
+/** The flow as the canvas's emphasis chain: its elements per hexagon, and the map links joining two of them. */
+export function flowChain(map: HexaMap, flow: Flow): Chain {
+  const elements = new Map<string, Set<string>>()
+  for (const { hexId, id } of flow.steps) elements.set(hexId, (elements.get(hexId) ?? new Set()).add(id))
+  const links = map.links.filter((l) => elements.get(l.from.hexagonId)?.has(l.from.portId) && elements.get(l.to.hexagonId)?.has(l.to.portId))
+  return { elements, links: new Set(links.map((l) => l.id)) }
+}

@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react'
 import { usePreferencesStore } from './state/preferencesStore'
 import { contextName, diagramOf } from '../model/map'
 import { Editor } from './Editor'
+import { FlowsPanel } from './FlowsPanel'
 import { Legend } from './Legend'
 import { Stage } from './Stage'
 import { useHexagonalCommands } from './useHexagonalCommands'
@@ -23,7 +24,9 @@ export function HexagonalWorkspace({ nameOf, parseFile, shown, ...stage }: Hexag
   const contextLabel = contextName(map, map.hexagons.find((h) => h.id === hexId)!.contextId)
   return (
     <>
-      {!viewOnly && (
+      {viewOnly ? (
+        <FlowsPanel />
+      ) : (
         <Editor
           onAddHexagon={(id) => commands.completeGrow(undefined, 'same', id)}
           onDeleteHexagon={commands.handleDelete}

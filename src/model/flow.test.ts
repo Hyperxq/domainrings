@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { EXAMPLES } from './example'
-import { flowOf, flowsOf, type Flow } from './flow'
+import { flowChain, flowOf, flowsOf, type Flow } from './flow'
 import { parseHexa, toHexa } from './hexa'
 import { VERSION, type Diagram, type HexaMap } from './schema'
 
@@ -138,5 +138,17 @@ describe('the fields flows add to a file', () => {
     const bad = JSON.parse(toHexa(doc))
     bad.hexagons[0].ports[0].verb = 3
     expect(parseHexa(JSON.stringify(bad)).ok).toBe(false)
+  })
+})
+
+describe('flowChain', () => {
+  it('holds every element of the flow per hexagon, and the links between them', () => {
+    const map = example('hexagonal-advanced')
+    const chain = flowChain(map, flowOf(map, 'h1', 'uc-place'))
+    expect([...chain.elements.keys()].sort()).toEqual(['h1', 'h2', 'h3', 'h4'])
+    expect(chain.elements.get('h1')).toContain('uc-place')
+    expect(chain.elements.get('h2')).toEqual(new Set(['p-charge-in']))
+    expect(chain.links.size).toBeGreaterThan(0)
+    expect([...chain.links].every((id) => map.links.some((l) => l.id === id && l.from.hexagonId === 'h1'))).toBe(true)
   })
 })
