@@ -170,7 +170,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   const crossTargets = useMemo(() => (linking ? crossPortTargets(map, diagram, hexId, linking) : []), [map, diagram, hexId, linking])
   const crossLinkTargets = useMemo(() => targetsByHexagon(crossTargets), [crossTargets])
   // Only what is drawn can be followed, so the chain ends at the ports of a compact hexagon.
-  const isolated = !!focusedFlow && diagram.useCases.some((u) => u.id === focusedFlow)
+  const isolated = viewOnly && !!focusedFlow && diagram.useCases.some((u) => u.id === focusedFlow)
   const chain = useMemo(
     () =>
       isolated ? flowChain(map, flowOf(map, hexId, focusedFlow!)) : highlight && !linking && selected ? dependencyChain(map, hexId, selected, new Set(model.hexagons.filter((h) => !h.compact).map((h) => h.id)), dependents ? 'dependents' : 'dependencies') : undefined,

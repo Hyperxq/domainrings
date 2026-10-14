@@ -2,6 +2,7 @@ import type { HexaMap, LinkEnd } from '../model/schema'
 import { diagramOf, UNTITLED_HEXAGON, type Destination, type LinkPatch } from '../model/map'
 import { useMapStore } from '../model/store'
 import { useViewStore } from './state/viewStore'
+import { FlowsSection } from './FlowsSection'
 import { Icon } from './Icon'
 import { session } from './editor/fieldSession'
 import { ContextTree } from './editor/ContextTree'
@@ -51,6 +52,8 @@ export function Editor({
       </header>
 
       <div id="editor-body" className="editor-body" hidden={!open}>
+        <FlowsSection />
+
         <MapSection title={map.title} contextLabel={contextLabel} onAddFromFile={onAddFromFile} session={session} />
 
         <ContextTree map={map} onRenameContext={onRenameContext} onAddHexagon={onAddHexagon} onDeleteHexagon={onDeleteHexagon} onMoveToContext={onMoveToContext} />

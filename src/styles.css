@@ -650,6 +650,8 @@ a.icon-button { color: inherit; text-decoration: none; }
   touch-action: pan-y;
 }
 .editor-body[hidden] { display: none; }
+.flows-section { margin-bottom: 12px; }
+.flows-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .flows-help { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
 .flow-row {
   display: grid;

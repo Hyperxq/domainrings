@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { App } from './App'
 import { layoutMap } from './layout/map'
 import { EXAMPLES } from './model/example'
@@ -149,5 +149,23 @@ describe('presenting a flow', () => {
       act(() => useViewStore.getState().present(15))
       expect(shows(box('ext-orders-db'))).toBe(true)
     })
+  })
+})
+
+describe('flows in Edit mode', () => {
+  beforeEach(() => usePreferencesStore.setState({ viewOnly: false, highlight: false }))
+
+  it('lists the flows at the top of the editor', () => {
+    render(<App />)
+    const editor = screen.getByRole('complementary', { name: 'Diagram editor' })
+    expect(within(editor).getByRole('heading', { name: 'Flows' })).toBeTruthy()
+    expect(within(editor).getByRole('button', { name: '+ New flow' })).toBeTruthy()
+  })
+
+  it('shows the whole diagram while a flow is selected', () => {
+    const { container } = render(<App />)
+    fireEvent.click(within(screen.getByRole('region', { name: 'Flows' })).getByRole('button', { name: /PlaceOrder/ }))
+    expect(useViewStore.getState().focusedFlow).toBe('uc-place')
+    expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
   })
 })
