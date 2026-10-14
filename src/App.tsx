@@ -30,6 +30,7 @@ import { NoticeColumn } from './ui/NoticeColumn'
 import { OnionWorkspace } from './ui/OnionWorkspace'
 import { Toast } from './ui/Toast'
 import { Toolbar } from './ui/Toolbar'
+import { useHexagonalCommands } from './ui/useHexagonalCommands'
 
 
 const { show } = useNoticeStore.getState()
@@ -129,11 +130,13 @@ export function App({ boot = {} }: AppProps = {}) {
   }
 
   const { svgRef, exportAs } = useExport(active, legend, hexId)
+  const { completeGrow } = useHexagonalCommands({ map, hexId, diagram, nameOf, parseFile })
 
   return (
     <>
       <Toolbar
         showScope={canScopeExport}
+        onNewDiagram={() => completeGrow(undefined, 'same')}
         hasPlanned={activeKind === 'hexagonal' && hasPlanned(map)}
         onNew={() => useViewStore.setState({ choosingArchitecture: true })}
         onExample={(id) => {

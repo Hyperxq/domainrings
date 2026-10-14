@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { Toolbar } from './Toolbar'
 import { EXAMPLES } from '../model/example'
 import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
+import { useMapStore } from '../model/store'
+import { manyHexagonMap } from '../test/fixtures'
 
 afterEach(() => {
   cleanup()
@@ -29,7 +31,7 @@ function renderToolbar(
   const { mode = 'detailed', guides = true, highlight = true, dependents = false, themeChoice = 'system', palette = 'default', exportScope = 'map', showScope = false, hasPlanned = true, showPlanned = true, viewOnly = false } = overrides
   usePreferencesStore.setState({ mode, guides, highlight, dependents, showPlanned, theme: themeChoice, palette, viewOnly })
   useViewStore.setState({ exportScope })
-  const props = { onNew: vi.fn(), onExample: vi.fn(), onOpen: vi.fn(), onCopyLink: vi.fn(), onExport: vi.fn() }
+  const props = { onNew: vi.fn(), onExample: vi.fn(), onOpen: vi.fn(), onCopyLink: vi.fn(), onExport: vi.fn(), onNewDiagram: vi.fn() }
   render(<Toolbar {...props} showScope={showScope} hasPlanned={hasPlanned} />)
   return props
 }
@@ -479,5 +481,72 @@ describe('Toolbar file shortcuts', () => {
     expect(press(key, init)).toBe(true)
     expect(onExport).not.toHaveBeenCalled()
     expect(pick).not.toHaveBeenCalled()
+  })
+})
+
+describe('Toolbar diagram switcher', () => {
+  const seed = () => {
+    useMapStore.getState().replace({ ...manyHexagonMap(4), contexts: [{ id: 'c1', name: 'Orders' }, { id: 'c2', name: 'Billing' }, { id: 'c3', name: 'Shipping' }] })
+    useViewStore.setState({ expanded: new Set(['h1', 'h2']) })
+  }
+  const trigger = () => screen.getByRole('button', { name: 'Diagram' })
+  const open = () => fireEvent.click(trigger())
+
+  it('is labelled with the current subdomain and sits right after the wordmark', () => {
+    seed()
+    renderToolbar({ showScope: true })
+    expect(trigger().textContent).toBe('Slice 1')
+    expect(screen.getByRole('heading', { name: 'domainrings' }).nextElementSibling?.contains(trigger())).toBe(true)
+    act(() => useMapStore.getState().setFocus('h2'))
+    expect(trigger().textContent).toBe('Slice 2')
+  })
+
+  it('lists the subdomains under their bounded context, marking the current one', () => {
+    seed()
+    renderToolbar({ showScope: true })
+    open()
+    const menu = screen.getByRole('menu', { name: 'Diagram' })
+    for (const [context, titles] of [['Orders', ['Slice 1', 'Slice 4']], ['Billing', ['Slice 2']], ['Shipping', ['Slice 3']]] as const) {
+      const group = within(menu).getByRole('group', { name: context })
+      expect(within(group).getAllByRole('menuitemcheckbox').map((i) => i.textContent)).toEqual(titles)
+    }
+    expect(within(menu).getByRole('menuitemcheckbox', { name: 'Slice 1' }).getAttribute('aria-checked')).toBe('true')
+    expect(within(menu).getByRole('menuitemcheckbox', { name: 'Slice 2' }).getAttribute('aria-checked')).toBe('false')
+  })
+
+  it('choosing a subdomain makes it the current hexagon', () => {
+    seed()
+    renderToolbar({ showScope: true })
+    open()
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Slice 3' }))
+    expect(useMapStore.getState().focus).toBe('h3')
+    expect(trigger().textContent).toBe('Slice 3')
+  })
+
+  it('Map of all contexts compacts every hexagon but the current one', () => {
+    seed()
+    renderToolbar({ showScope: true })
+    open()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Map of all contexts' }))
+    expect(useViewStore.getState().expanded.size).toBe(0)
+  })
+
+  it('offers + New diagram in Edit mode only, handing it to onNewDiagram', () => {
+    seed()
+    const { onNewDiagram } = renderToolbar({ showScope: true })
+    open()
+    fireEvent.click(screen.getByRole('menuitem', { name: '+ New diagram' }))
+    expect(onNewDiagram).toHaveBeenCalledOnce()
+    cleanup()
+    renderToolbar({ showScope: true, viewOnly: true })
+    open()
+    expect(screen.getByRole('menuitem', { name: 'Map of all contexts' })).toBeTruthy()
+    expect(screen.queryByRole('menuitem', { name: '+ New diagram' })).toBeNull()
+  })
+
+  it('is absent unless the map is a multi-hexagon hexagonal one', () => {
+    seed()
+    renderToolbar({ showScope: false })
+    expect(screen.queryByRole('button', { name: 'Diagram' })).toBeNull()
   })
 })

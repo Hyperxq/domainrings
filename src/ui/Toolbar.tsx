@@ -1,6 +1,8 @@
 import { EXAMPLES } from '../model/example'
 import type { LayoutMode } from '../layout/layout'
 import { useEffect, useRef } from 'react'
+import { contextName, occupiedContexts, UNTITLED_HEXAGON } from '../model/map'
+import { useMapStore } from '../model/store'
 import { ChoiceMenu } from './ChoiceMenu'
 import { Icon } from './Icon'
 import { typing } from './keys'
@@ -24,6 +26,8 @@ interface ToolbarProps {
   showScope: boolean
   /** The Planned switch only has something to show or hide once the map holds a planned item. */
   hasPlanned: boolean
+  /** Adds a subdomain beside the current one, as the editor's "Add subdomain" does. */
+  onNewDiagram: () => void
 }
 
 const MODES = ['overview', 'detailed'] as const
@@ -40,10 +44,12 @@ const VIEW_SWITCHES = [
 const MODE_LABEL: Record<LayoutMode, string> = { overview: 'Overview', detailed: 'Detailed' }
 const THEME_LABEL: Record<ThemeChoice, string> = { light: 'Light', dark: 'Dark', system: 'System' }
 
-export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showScope, hasPlanned }: ToolbarProps) {
+export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showScope, hasPlanned, onNewDiagram }: ToolbarProps) {
   const preferences = usePreferencesStore()
   const { mode, theme: themeChoice, palette, viewOnly } = preferences
   const exportScope = useViewStore((s) => s.exportScope)
+  const map = useMapStore((s) => s.map)
+  const focus = useMapStore((s) => s.focus)
   const openFile = useRef<HTMLInputElement>(null)
   const mod = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl+'
   useEffect(() => {
@@ -62,6 +68,26 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
   return (
     <header className="island toolbar">
       <h1 className="wordmark">domainrings</h1>
+
+      {showScope && (
+        <ChoiceMenu
+          label={
+            <>
+              {map.hexagons.find((h) => h.id === focus)?.title || UNTITLED_HEXAGON}
+              <Icon name="chevron" />
+            </>
+          }
+          ariaLabel="Diagram"
+          choices={[
+            ...occupiedContexts(map).flatMap((c) =>
+              map.hexagons.filter((h) => h.contextId === c.id).map((h) => ({ id: h.id, label: h.title || UNTITLED_HEXAGON, checked: h.id === focus, group: contextName(map, c.id) })),
+            ),
+            { id: 'overview', label: 'Map of all contexts', control: 'action' as const },
+            ...(viewOnly ? [] : [{ id: 'new-diagram', label: '+ New diagram', control: 'action' as const }]),
+          ]}
+          onChoose={(id) => (id === 'overview' ? useViewStore.getState().expandAll([]) : id === 'new-diagram' ? onNewDiagram() : useMapStore.getState().setFocus(id))}
+        />
+      )}
 
       <span className="divider" aria-hidden="true" />
 
