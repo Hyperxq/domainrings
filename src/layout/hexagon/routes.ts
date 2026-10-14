@@ -1,4 +1,3 @@
-import { HEXAGONAL_KIND } from '../../model/kinds'
 import { SideSchema, type Diagram, type Side, type Wall } from '../../model/schema'
 import { dedupe, dot, enterBox, reach, type Point } from '../geometry'
 import type { LayoutEdge, LayoutNode } from '../layout'
@@ -47,10 +46,8 @@ export interface RouteInput {
 
 /** Every edge of the diagram: each planned import, the use cases' asks into the domain, the domain's port declarations and the composition trunks. */
 export function routeEdges({ d, overview, nodes, composition, plan, app, insideApp, domain, outer, seating }: RouteInput): LayoutEdge[] {
-  const { labels } = HEXAGONAL_KIND
   const { edgePlan } = plan
-  const { stack, laneX } = seating
-  const blockWidth = seating.useCaseBlock.width
+  const { laneX } = seating
   const byKey = new Map(nodes.map((n) => [n.key, n]))
   const faceX = (n: LayoutNode, towardX: number) => n.x + (Math.sign(towardX - n.x) * n.width) / 2
 
@@ -68,17 +65,13 @@ export function routeEdges({ d, overview, nodes, composition, plan, app, insideA
     return [{ x: ax, y: a.y }, { x: mx, y: a.y }, { x: mx, y: b.y }, { x: bx, y: b.y }]
   }
 
-  /** Use case to the head of its bus lane for this socket's side (see toLane). */
-  const laneHead = (useCase: LayoutNode, socket: LayoutNode) => {
-    const side = socket.side ?? 'driven'
-    const lane = laneX(side, d.useCases.findIndex((u) => `useCase:${u.id}` === useCase.key), insideApp.halfWidth)
-    return toLane({ ...useCase, seated: !!useCase.wall }, lane, insideApp.apex, socket.y)
-  }
+  /** The x of the bus lane a use case takes to this socket's side. */
+  const laneOf = (useCase: LayoutNode, socket: LayoutNode) =>
+    laneX(socket.side ?? 'driven', d.useCases.findIndex((u) => `useCase:${u.id}` === useCase.key), insideApp.halfWidth)
   /** Use case → bus → socket: sideways out of the use case, down its lane, then straight into the socket. */
   const busRoute = (useCase: LayoutNode, socket: LayoutNode): Point[] => {
-    const head = laneHead(useCase, socket)
-    const lane = head.at(-1)!.x
-    return [...head, { x: lane, y: socket.y }, { x: socket.x - (Math.sign(lane) * socket.width) / 2, y: socket.y }]
+    const lane = laneOf(useCase, socket)
+    return dedupe([...toLane(useCase, lane, insideApp.apex, socket.y), { x: lane, y: socket.y }, { x: socket.x - (Math.sign(lane) * socket.width) / 2, y: socket.y }])
   }
 
   const slantedWall = (n: LayoutNode) => (n.wall && SLANTED_WALLS.has(n.wall) ? n.wall : undefined)
@@ -105,11 +98,11 @@ export function routeEdges({ d, overview, nodes, composition, plan, app, insideA
 
   /** Use case → bus → slanted socket: out of the use case, along its lane, then along the wall normal. */
   const slantedBusRoute = (useCase: LayoutNode, socket: LayoutNode): Point[] => {
-    const head = laneHead(useCase, socket)
-    const lane = head.at(-1)!.x
+    const lane = laneOf(useCase, socket)
     const { dir } = wallFrame(socket.wall!)
     const q = socketFace(socket, -1, dot(socket, dir))
-    return [...head, laneFoot(q, socket.wall!, lane), q]
+    const foot = laneFoot(q, socket.wall!, lane)
+    return dedupe([...toLane(useCase, lane, insideApp.apex, foot.y), foot, q])
   }
 
   /** A use case seated on its port's wall meets the socket straight along the wall normal, where the two overlap. */
@@ -153,40 +146,14 @@ export function routeEdges({ d, overview, nodes, composition, plan, app, insideA
       labelled.add(lane)
       edge.label = label
       // Over the leg that crosses to the lane: every bus route ends lane head, lane foot, socket.
-      const [a, b] = route.slice(-4, -2)
+      const from = Math.max(0, route.length - 4)
+      const [a, b] = route.slice(from, from + 2)
       edge.labelAt = { x: (a.x + b.x) / 2, y: a.y - 10 }
     }
     return edge
   })
 
-  // Use case → domain: the lowest use case drops straight onto the top of the ring it asks; use cases stacked
-  // above it leave sideways, run down beside the stack and merge into that same final run.
-  const useCaseNodes = stack.map((i) => byKey.get(`useCase:${d.useCases[i].id}`)!)
-  const lowest = useCaseNodes.at(-1)
-  if (lowest && !overview) {
-    const target = { x: 0, y: -insideApp.apex }
-    const start = lowest.y + lowest.height / 2
-    const merge = (start + target.y) / 2
-    const beside = -(blockWidth / 2 + LANE)
-    for (const u of useCaseNodes) {
-      const exitY = u.y + u.height / 4
-      const edge: LayoutEdge = {
-        key: `${u.key}->domain`,
-        kind: 'import',
-        points:
-          u === lowest
-            ? [{ x: 0, y: start }, target]
-            : [{ x: u.x - u.width / 2, y: exitY }, { x: beside, y: exitY }, { x: beside, y: merge }, { x: 0, y: merge }, target],
-      }
-      if (u === lowest) {
-        edge.label = labels.asks
-        edge.labelAt = { x: -8 - measure(labels.asks, EDGE_LABEL) / 2, y: (start + target.y) / 2 }
-      }
-      edges.push(edge)
-    }
-  }
-
-  // A seated use case asks along its sector's bisector: in along the wall normal, square onto the domain's matching
+  // A use case asks along its sector's bisector: in along the wall normal, square onto the domain's matching
   // wall. Level with that wall it runs straight; past its end it steps along the wall first, just outside the domain.
   for (const node of overview ? [] : nodes.filter((n) => n.kind === 'useCase' && n.wall)) {
     const { n, dir } = wallFrame(node.wall!)
@@ -222,7 +189,7 @@ export function routeEdges({ d, overview, nodes, composition, plan, app, insideA
   const ranks = laneOrder(links.map((l) => [l.from, l.to]))
   const isInsideDomain = (p: Point) => Math.abs(p.x) <= halfWidthAt(domain, p.y) && Math.abs(p.y) <= domain.apex
   links.forEach(({ declaration, socket, head, face, from, to }, i) => {
-    const lane = insideApp.halfWidth + LANE * (ranks[i] + 1)
+    const lane = insideApp.halfWidth + LANE * (ranks[i] + 2)
     const tail = face
       ? (() => {
           const { n } = wallFrame(socket.wall!)

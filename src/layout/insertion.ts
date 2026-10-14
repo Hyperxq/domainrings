@@ -86,17 +86,10 @@ export function insertionPoints(model: LayoutModel, d: Diagram, mode: 'detailed'
     points.push({ key: 'domain:port', layer: 'domain', at: { x: last.x, y: bottom(last) + GAP }, action: { kind: 'drivenPortDecl' }, label: 'Add a driven port' })
   }
 
-  // Application: one "+" under the stacked use cases (under the title block when there are none), one per sector,
-  // and one past the end of each wall's port run (the midpoint when empty).
-  const stacked = nodesOf('useCase').filter((u) => !u.wall)
-  const stackPlus = stacked.length ? { x: 0, y: bottom(lowest(stacked)) + GAP } : { x: 0, y: app.titleBox.y + app.titleBox.height + GAP }
-  points.push({ key: 'application:useCase', layer: 'application', at: stackPlus, action: { kind: 'useCase' }, label: 'Add a use case' })
-  // The stack's column, title to "+": another "+" there would cover the title or repeat the stack's own.
-  const stackWidth = Math.max(app.titleBox.width, ...stacked.map((u) => u.width))
-  const stackArea = { x: -stackWidth / 2, y: app.titleBox.y, width: stackWidth, height: stackPlus.y - app.titleBox.y }
+  // Application: one use case "+" per sector, and one past the end of each wall's port run (the midpoint when empty).
   const covers = (b: { x: number; y: number; width: number; height: number }, q: Point) =>
     q.x + PLUS / 2 > b.x && q.x - PLUS / 2 < b.x + b.width && q.y + PLUS / 2 > b.y && q.y - PLUS / 2 < b.y + b.height
-  const free = (q: Point) => !covers(stackArea, q) && !model.rings.some((r) => covers(r.titleBox, q))
+  const free = (q: Point) => !model.rings.some((r) => covers(r.titleBox, q))
   {
     const inner = model.rings[model.rings.indexOf(app) + 1]
     for (const wall of WALLS) {
@@ -109,7 +102,7 @@ export function insertionPoints(model: LayoutModel, d: Diagram, mode: 'detailed'
       const ends = seated.length
         ? [Math.max(...seated.map((u, k) => us[k] + halfReach(u, dir))) + GAP + PLUS / 2, Math.min(...seated.map((u, k) => us[k] - halfReach(u, dir))) - GAP - PLUS / 2]
         : [0]
-      // The free end away from the top and bottom vertices first, where the stack and the title are.
+      // The free end away from the top and bottom vertices first, where the title is.
       const at = ends
         .map((u) => Math.min(Math.max(u, -limit), limit))
         .map((u) => ({ x: n.x * depth + dir.x * u, y: n.y * depth + dir.y * u }))
@@ -117,8 +110,6 @@ export function insertionPoints(model: LayoutModel, d: Diagram, mode: 'detailed'
         .find(
           (q) =>
             free(q) &&
-            // The upper sectors share their height with the stack; up there the stack's own "+" is the one to use.
-            !((wall === 'nw' || wall === 'ne') && q.y < stackPlus.y + PLUS) &&
             !seated.some((u) => covers({ x: u.x - u.width / 2, y: u.y - u.height / 2, width: u.width, height: u.height }, q)),
         )
       if (!at) continue
@@ -132,7 +123,7 @@ export function insertionPoints(model: LayoutModel, d: Diagram, mode: 'detailed'
     // An overview port name can run past its notch along the wall; the "+" goes past both.
     const onWall = [...sockets.filter((s) => s.wall === wall), ...nodesOf('portLabel').filter((l) => sockets.some((s) => s.ref === l.ref && s.wall === wall))]
     const along = onWall.length ? Math.max(...onWall.map((s) => s.x * dir.x + s.y * dir.y + (s.rotation !== undefined ? s.width : s.height) / 2)) + GAP : 0
-    // Where the title or the stack is in the way, slide down the wall, away from the vertical axis, within the wall.
+    // Where the title is in the way, slide down the wall, away from the vertical axis, within the wall.
     const away = Math.sign(dir.x * n.x) || 1
     const at = Array.from({ length: Math.ceil(app.apex / PLUS) + 1 }, (_, k) => along + away * k * (PLUS / 2))
       .filter((u) => Math.abs(u) <= app.apex / 2)

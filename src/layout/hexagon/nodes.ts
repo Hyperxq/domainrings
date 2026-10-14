@@ -14,7 +14,6 @@ export interface NodesInput {
   d: Diagram
   overview: boolean
   app: Outline
-  insideApp: Outline
   outer: Outline
   domain: Outline
   titles: RingTitles
@@ -23,16 +22,13 @@ export interface NodesInput {
   centre: CentreBlock
   plan: BoxPlan
   frames: BoxFrames
-  useCaseFrames: Frame[]
   seating: UseCaseSeating
 }
 
 /** Every node of the diagram at its final position, in draw order: domain block, use cases, column boxes, wall boxes, overview port names, composition root; `composition` is that root, absent when none is drawn. */
-export function placeNodes({ d, overview, app, insideApp, outer, domain, titles, domainShift, centre, plan, frames, useCaseFrames, seating }: NodesInput): { nodes: LayoutNode[]; composition: LayoutNode | undefined } {
+export function placeNodes({ d, overview, app, outer, domain, titles, domainShift, centre, plan, frames, seating }: NodesInput): { nodes: LayoutNode[]; composition: LayoutNode | undefined } {
   const { titleDepth } = titles
   const { planned, widths, portOf, wallBoxes } = plan
-  const { stack } = seating
-  const useCaseCentres = seating.useCaseCentres(app, insideApp)
   const seats = seating.seatsAt(app)
   const compositionFrame = d.composition && !overview ? frames.compositionFrame(d.composition) : undefined
   const nodes: LayoutNode[] = []
@@ -52,12 +48,6 @@ export function placeNodes({ d, overview, app, insideApp, outer, domain, titles,
     const f = centre.serviceFrames[i]
     place(`domainItem:${item.id}`, item.id, 'domainItem', 'domain', f, 0, y + f.height / 2)
     y += f.height
-  })
-  // Use cases hang right under the application title at the centres `seating` resolved, which lower them only
-  // where the ring is too narrow for a box or for its bus corners.
-  stack.forEach((i, j) => {
-    const u = d.useCases[i]
-    place(`useCase:${u.id}`, u.id, 'useCase', 'teal', useCaseFrames[i], 0, useCaseCentres[j]).align = 'center'
   })
   for (const s of seats) {
     const u = d.useCases[s.i]

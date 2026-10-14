@@ -109,7 +109,7 @@ export function planBoxes(d: Diagram, overview: boolean, { NOTCH, portLabel, ada
   const hasSlanted = slantedPorts.length > 0
   // Once any wall hosts something of its own (a slanted port, a seated use case), w/e column content keeps to its
   // sector too, so no two walls' content can meet.
-  const sectored = hasSlanted || d.useCases.some((u) => u.placement && u.placement !== 'top')
+  const sectored = hasSlanted || d.useCases.length > 0
 
   // Rows: a uniform pitch fitted to the tallest single-row box, centred on the ring centre.
   const pending = SideSchema.options.flatMap((side) => {

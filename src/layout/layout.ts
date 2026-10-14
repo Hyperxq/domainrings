@@ -120,15 +120,15 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   const centre = layCentre({ d, overview, domainFrame: frames.domainFrame, titles })
   const useCaseFrames = d.useCases.map(frames.useCaseFrame)
   const appIndex = config.rings.findIndex((r) => r.role === 'application')
-  const seating = seatUseCases({ d, overview, appIndex, useCaseFrames, declaredPorts: centre.declared.length, titles, plan, frames })
+  const seating = seatUseCases({ d, overview, useCaseFrames, declaredPorts: centre.declared.length, plan, frames })
 
-  const { outlines, domainShift } = solveRings({ d, overview, appIndex, titles, centre, plan, frames, useCaseFrames, seating })
+  const { outlines, domainShift } = solveRings({ d, overview, appIndex, titles, centre, plan, frames, seating })
   const app = outlines[appIndex]
   const insideApp = outlines[appIndex + 1]
   const outer = outlines[0]
   const domain = outlines[config.rings.length - 1]
 
-  const { nodes, composition } = placeNodes({ d, overview, app, insideApp, outer, domain, titles, domainShift, centre, plan, frames, useCaseFrames, seating })
+  const { nodes, composition } = placeNodes({ d, overview, app, outer, domain, titles, domainShift, centre, plan, frames, seating })
   const edges = routeEdges({ d, overview, nodes, composition, plan, app, insideApp, domain, outer, seating })
   const { texts, bounds } = layoutBounds(d, outer, nodes, edges)
   assignLayers(nodes, centre.serviceItems)
