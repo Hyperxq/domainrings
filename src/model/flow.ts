@@ -37,6 +37,8 @@ export interface Flow {
   gaps: FlowGap[]
 }
 
+const portAt = (map: HexaMap, end: { hexagonId: string; portId: string }) => map.hexagons.find((h) => h.id === end.hexagonId)?.ports.find((p) => p.id === end.portId)
+
 const titleOf = (map: HexaMap, hexId: string) => map.hexagons.find((h) => h.id === hexId)!.title
 
 /** The flow of use case `useCaseId` in hexagon `hexId`; ports without a use case belong to no flow. Notes keyed by
@@ -51,10 +53,9 @@ export function flowOf(map: HexaMap, hexId: string, useCaseId: string): Flow {
   const portsOf = (side: Port['side']) => d.ports.filter((p) => p.side === side && p.useCaseId === useCaseId)
 
   for (const port of portsOf('driving')) {
-    const callers = map.links.filter((l) => l.to.hexagonId === hexId && l.to.portId === port.id)
+    const callers = map.links.filter((l) => l.to.hexagonId === hexId && l.to.portId === port.id && portAt(map, l.from))
     for (const { from } of callers) {
-      const caller = diagramOf(map, from.hexagonId).ports.find((p) => p.id === from.portId)!
-      step('linkedPort', caller, from.hexagonId)
+      step('linkedPort', portAt(map, from)!, from.hexagonId)
       flow.starters.push(titleOf(map, from.hexagonId))
     }
     const adapters = d.adapters.filter((a) => a.portId === port.id)
@@ -76,7 +77,7 @@ export function flowOf(map: HexaMap, hexId: string, useCaseId: string): Flow {
   for (const port of portsOf('driven')) {
     step('drivenPort', port)
     const adapters = d.adapters.filter((a) => a.portId === port.id)
-    const calls = map.links.filter((l) => l.from.hexagonId === hexId && l.from.portId === port.id)
+    const calls = map.links.filter((l) => l.from.hexagonId === hexId && l.from.portId === port.id && portAt(map, l.to))
     if (!adapters.length && !calls.length) gap('noAdapter', port.id)
     for (const adapter of adapters) {
       step('drivenAdapter', adapter)
@@ -89,7 +90,7 @@ export function flowOf(map: HexaMap, hexId: string, useCaseId: string): Flow {
     }
     for (const { to } of calls) {
       const target = diagramOf(map, to.hexagonId)
-      const callee = target.ports.find((p) => p.id === to.portId)!
+      const callee = portAt(map, to)!
       step('linkedPort', callee, to.hexagonId)
       flow.steps.at(-1)!.useCaseName = target.useCases.find((u) => u.id === callee.useCaseId)?.name
       flow.destinations.push(titleOf(map, to.hexagonId))

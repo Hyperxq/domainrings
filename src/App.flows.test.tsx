@@ -50,4 +50,13 @@ describe('flows in View mode', () => {
     act(() => useViewStore.getState().focusFlow(null))
     expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
   })
+
+  it('stops dimming the canvas once the author switches to Edit', () => {
+    usePreferencesStore.setState({ viewOnly: true, highlight: false })
+    const { container } = render(<App />)
+    act(() => useViewStore.getState().focusFlow('uc-place'))
+    expect(canvas(container).hasAttribute('data-emphasis')).toBe(true)
+    act(() => usePreferencesStore.setState({ viewOnly: false }))
+    expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
+  })
 })

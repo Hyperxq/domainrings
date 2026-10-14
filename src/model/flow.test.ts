@@ -152,3 +152,35 @@ describe('flowChain', () => {
     expect([...chain.links].every((id) => map.links.some((l) => l.id === id && l.from.hexagonId === 'h1'))).toBe(true)
   })
 })
+
+describe('flowOf with a dangling link', () => {
+  const base = (links: HexaMap['links']) =>
+    mapOf(
+      [
+        hexagon('h1', {
+          useCases: [{ id: 'u', name: 'Charge' }],
+          ports: [{ id: 'in1', name: 'in1', side: 'driving', useCaseId: 'u' }, { id: 'out1', name: 'out1', side: 'driven', useCaseId: 'u' }],
+        }),
+      ],
+      links,
+    )
+  const link = (from: { hexagonId: string; portId: string }, to: { hexagonId: string; portId: string }) => ({ id: 'l1', from, to })
+
+  it('skips a caller whose port or hexagon is gone, keeping the gap it would have hidden', () => {
+    for (const from of [{ hexagonId: 'h1', portId: 'gone' }, { hexagonId: 'hx', portId: 'p' }]) {
+      const flow = flowOf(base([link(from, { hexagonId: 'h1', portId: 'in1' })]), 'h1', 'u')
+      expect(chain(flow)).toBe('in1 > Charge > out1')
+      expect(flow.starters).toEqual([])
+      expect(flow.gaps).toContainEqual({ kind: 'noAdapter', hexId: 'h1', id: 'in1' })
+    }
+  })
+
+  it('skips a callee whose port or hexagon is gone', () => {
+    for (const to of [{ hexagonId: 'h1', portId: 'gone' }, { hexagonId: 'hx', portId: 'p' }]) {
+      const flow = flowOf(base([link({ hexagonId: 'h1', portId: 'out1' }, to)]), 'h1', 'u')
+      expect(chain(flow)).toBe('in1 > Charge > out1')
+      expect(flow.destinations).toEqual([])
+      expect(flow.gaps).toContainEqual({ kind: 'noAdapter', hexId: 'h1', id: 'out1' })
+    }
+  })
+})

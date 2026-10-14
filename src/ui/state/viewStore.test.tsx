@@ -107,4 +107,11 @@ describe('focusedFlow', () => {
     useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM))
     expect(useViewStore.getState().focusedFlow).toBeNull()
   })
+
+  it('clears when switching to Edit mode', () => {
+    usePreferencesStore.setState({ viewOnly: true })
+    useViewStore.getState().focusFlow('uc-submit')
+    usePreferencesStore.setState({ viewOnly: false })
+    expect(useViewStore.getState().focusedFlow).toBeNull()
+  })
 })

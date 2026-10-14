@@ -111,3 +111,8 @@ useMapStore.subscribe(({ map, focus, revision }, prev) => {
     if (focus !== prev.focus) useViewStore.setState(({ openNodes }) => ({ openNodes: new Set([...[...openNodes].filter((k) => k !== `subdomain:${prev.focus}`), ...branchOf(map, focus)]) }))
   }
 })
+
+// Isolating a flow is a View mode reading aid: Edit mode shows the whole diagram.
+usePreferencesStore.subscribe(({ viewOnly }, prev) => {
+  if (prev.viewOnly && !viewOnly) useViewStore.setState({ focusedFlow: null })
+})
