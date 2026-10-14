@@ -5,7 +5,7 @@ import { COS30, halfWidthAt, type Outline } from '../outline'
 import { EDGE_LABEL, measure } from '../text'
 import type { BoxPlan } from './columns'
 import { COLUMN_GAP, LANE, OUTSIDE_GAP } from './spacing'
-import { laneFoot, toLane, type UseCaseSeating } from './useCaseSeating'
+import { faceAt, laneFoot, toLane, type UseCaseSeating } from './useCaseSeating'
 import { SLANTED_WALLS, VERTEX, wallFrame } from './walls'
 
 /** The composition trunk hugs the outer hexagon this far out. */
@@ -37,7 +37,6 @@ export interface RouteInput {
   /** The composition root node, when one is drawn. */
   composition: LayoutNode | undefined
   plan: BoxPlan
-  app: Outline
   insideApp: Outline
   domain: Outline
   outer: Outline
@@ -45,7 +44,7 @@ export interface RouteInput {
 }
 
 /** Every edge of the diagram: each planned import, the use cases' asks into the domain, the domain's port declarations and the composition trunks. */
-export function routeEdges({ d, overview, nodes, composition, plan, app, insideApp, domain, outer, seating }: RouteInput): LayoutEdge[] {
+export function routeEdges({ d, overview, nodes, composition, plan, insideApp, domain, outer, seating }: RouteInput): LayoutEdge[] {
   const { edgePlan } = plan
   const { laneX } = seating
   const byKey = new Map(nodes.map((n) => [n.key, n]))
@@ -75,24 +74,23 @@ export function routeEdges({ d, overview, nodes, composition, plan, app, insideA
   }
 
   const slantedWall = (n: LayoutNode) => (n.wall && SLANTED_WALLS.has(n.wall) ? n.wall : undefined)
-  /** A point on a socket's inner (−1) or outer (+1) face, at lane u along its wall. */
-  const socketFace = (socket: LayoutNode, face: 1 | -1, u: number) => {
-    const { n, dir } = wallFrame(socket.wall!)
-    const depth = app.halfWidth + (face * socket.height) / 2
-    return { x: n.x * depth + dir.x * u, y: n.y * depth + dir.y * u }
-  }
-
   /**
-   * Slanted walls: socket, adapter and endpoint connect along the wall normal, on the lane of the outer box of the
-   * pair, so each run is perpendicular to the wall and every box stays upright.
+   * Slanted walls: socket, adapter and endpoint connect along the wall normal, on the outer box's lane or the nearest
+   * lane both boxes share, so each run is perpendicular to the wall and every box stays upright. Boxes that share no
+   * lane (a port with several adapters) fall back to axis-aligned runs.
    */
   const alongNormal = (a: LayoutNode, b: LayoutNode): Point[] => {
     const wall = slantedWall(a) ?? slantedWall(b)!
     const { n, dir } = wallFrame(wall)
     const [outerBox, innerBox] = dot(a, n) > dot(b, n) ? [a, b] : [b, a]
-    const back = { x: -n.x, y: -n.y }
-    const exit = enterBox(outerBox, { x: outerBox.x + back.x * 1e4, y: outerBox.y + back.y * 1e4 }, n)
-    const entry = innerBox.kind === 'port' ? socketFace(innerBox, 1, dot(outerBox, dir)) : enterBox(innerBox, exit, back)
+    const [outerU, innerU] = [dot(outerBox, dir), dot(innerBox, dir)]
+    const [outerR, innerR] = [reach(outerBox.width, outerBox.height, dir), reach(innerBox.width, innerBox.height, dir)]
+    const lo = Math.max(outerU - outerR, innerU - innerR) + 4
+    const hi = Math.min(outerU + outerR, innerU + innerR) - 4
+    if (lo > hi) return horizontal(a, b)
+    const u = Math.min(Math.max(outerU, lo), hi)
+    const exit = faceAt(outerBox, wall, -1, u)
+    const entry = faceAt(innerBox, wall, 1, u)
     return a === outerBox ? [exit, entry] : [entry, exit]
   }
 
@@ -100,7 +98,7 @@ export function routeEdges({ d, overview, nodes, composition, plan, app, insideA
   const slantedBusRoute = (useCase: LayoutNode, socket: LayoutNode): Point[] => {
     const lane = laneOf(useCase, socket)
     const { dir } = wallFrame(socket.wall!)
-    const q = socketFace(socket, -1, dot(socket, dir))
+    const q = faceAt(socket, socket.wall!, -1, dot(socket, dir))
     const foot = laneFoot(q, socket.wall!, lane)
     return dedupe([...toLane(useCase, lane, insideApp.apex, foot.y), foot, q])
   }
@@ -109,14 +107,11 @@ export function routeEdges({ d, overview, nodes, composition, plan, app, insideA
   const directRoute = (useCase: LayoutNode, socket: LayoutNode): Point[] | undefined => {
     if (!useCase.wall || useCase.wall !== socket.wall) return undefined
     const { n, dir } = wallFrame(socket.wall)
-    const [length, thickness] = SLANTED_WALLS.has(socket.wall) ? [socket.width, socket.height] : [socket.height, socket.width]
-    const [su, uu, ua] = [dot(socket, dir), dot(useCase, dir), reach(useCase.width, useCase.height, dir)]
-    const lo = Math.max(su - length / 2, uu - ua) + 4
-    const hi = Math.min(su + length / 2, uu + ua) - 4
+    const [su, sa, uu, ua] = [dot(socket, dir), reach(socket.width, socket.height, dir), dot(useCase, dir), reach(useCase.width, useCase.height, dir)]
+    const lo = Math.max(su - sa, uu - ua) + 4
+    const hi = Math.min(su + sa, uu + ua) - 4
     if (lo > hi) return undefined
-    const u = Math.min(Math.max(su, lo), hi)
-    const depth = dot(socket, n) - thickness / 2
-    const face = { x: n.x * depth + dir.x * u, y: n.y * depth + dir.y * u }
+    const face = faceAt(socket, socket.wall, -1, Math.min(Math.max(su, lo), hi))
     return [enterBox(useCase, face, { x: -n.x, y: -n.y }), face]
   }
 
@@ -183,7 +178,9 @@ export function routeEdges({ d, overview, nodes, composition, plan, app, insideA
     const exitY = detour ? declaration.y + declaration.height / 2 : declaration.y
     const head = detour ? [start, { x: columnGap, y: start.y }, { x: columnGap, y: exitY }] : [start]
     // A slanted socket is met along its wall normal, a quarter of its length off-centre (clear of the use-case run).
-    const face = slantedWall(socket) ? socketFace(socket, -1, dot(socket, wallFrame(socket.wall!).dir) + socket.width / 4) : undefined
+    const face = slantedWall(socket)
+      ? faceAt(socket, socket.wall!, -1, dot(socket, wallFrame(socket.wall!).dir) + reach(socket.width, socket.height, wallFrame(socket.wall!).dir) / 2)
+      : undefined
     return { declaration, socket, head, face, from: exitY, to: face ? face.y : socket.y + socket.height / 4 }
   })
   const ranks = laneOrder(links.map((l) => [l.from, l.to]))

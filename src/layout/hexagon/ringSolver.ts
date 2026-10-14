@@ -7,9 +7,9 @@ import type { BoxFrames } from './boxFrames'
 import type { CentreBlock } from './centreBlock'
 import type { BoxPlan, Planned } from './columns'
 import type { RingTitles } from './ringTitles'
-import { DOMAIN_PAD, DOMAIN_RUN, GAP, LABEL_GAP, LABEL_PAD_X, OUTSIDE_GAP, PAD, RUN } from './spacing'
+import { DOMAIN_PAD, DOMAIN_RUN, GAP, LABEL_PAD_X, OUTSIDE_GAP, PAD, RUN } from './spacing'
 import { faceOf, laneFoot, toLane, type UseCaseSeating } from './useCaseSeating'
-import { sectorApothem, wallAngle, wallFrame } from './walls'
+import { sectorApothem, wallFrame } from './walls'
 
 const LABEL_LINE = RING_LABEL.size + 4
 const nearest = (y: number, height: number) => Math.max(0, Math.abs(y) - height / 2)
@@ -35,8 +35,8 @@ export function solveRings({ d, overview, appIndex, titles, centre, plan, frames
   const config = HEXAGONAL_KIND
   const { titleWidth, titleHeight, titleDepth } = titles
   const { bodyShift, serviceFrames, servicesBlock } = centre
-  const { ports, wallOf, planned, of, widths, wallBoxes, hasSlanted, sectored, localCorners, columnCorners, labelU, portLabels } = plan
-  const { portLabel, labelReach } = frames
+  const { ports, wallOf, planned, of, widths, wallBoxes, hasSlanted, sectored, localCorners, inwardOf, columnCorners, portLabels } = plan
+  const { labelReach } = frames
   const { walls, laneX, socketClearance, seats, seatsAt } = seating
   const last = config.rings.length - 1
   let domainShift = 0
@@ -54,13 +54,16 @@ export function solveRings({ d, overview, appIndex, titles, centre, plan, frames
       .map((b) => {
         const { n, dir } = wallFrame(b.wall)
         const centre = { x: n.x * appO.halfWidth + dir.x * b.u, y: n.y * appO.halfWidth + dir.y * b.u }
-        const face = faceOf(b, appO)
-        return { ref: b.ref, side: b.side, wall: b.wall, face, quad: rectCorners(centre.x, centre.y, b.width, b.height, wallAngle(b.wall)) }
+        const face = faceOf(b, appO.halfWidth)
+        return { ref: b.ref, side: b.side, wall: b.wall, face, quad: rectCorners(centre.x, centre.y, b.width, b.height) }
       })
     const seated = seatsAt(appO)
     const title = rectCorners(0, -appO.apex + titleDepth + titleHeight(appIndex) / 2, titleWidth(appIndex), titleHeight(appIndex))
-    const labels = portLabels(appO).map((l) => rectCorners(l.x, l.y, l.frame.width, l.frame.height, l.rotation))
+    const labels = portLabels(appO).map((l) => rectCorners(l.x, l.y, l.frame.width, l.frame.height))
     const seatQuads = seated.map(boxQuad)
+    // A port name is text like the title: touching it would read as one line.
+    const titleRoom = rectCorners(0, -appO.apex + titleDepth + titleHeight(appIndex) / 2, titleWidth(appIndex) + GAP, titleHeight(appIndex) + GAP)
+    if (labels.some((q) => quadsOverlap(q, titleRoom))) return true
     if ([...slantedSocket.map((s) => s.quad), ...labels, ...seatQuads].some((q) => quadsOverlap(q, title))) return true
     if (overview) return false
     // Every use-case run, tagged with the port and use case it serves.
@@ -152,21 +155,14 @@ export function solveRings({ d, overview, appIndex, titles, centre, plan, frames
     if (role === 'application') {
       for (const b of wallBoxes.filter((b) => !b.outer)) for (const c of localCorners(b)) minApothem = Math.max(minApothem, sectorApothem(c.u, c.v))
       for (const b of wallBoxes.filter((b) => b.kind === 'port')) {
-        const label = portLabel(ports.get(b.ref)!)
-        const labelDepth = overview ? LABEL_GAP + label.height : 0
-        minApothem = Math.max(minApothem, inner.halfWidth + GAP + b.height / 2 + labelDepth)
-        if (overview) {
-          for (const u of [labelU(b, label) - label.width / 2, labelU(b, label) + label.width / 2]) {
-            for (const v of [-(b.height / 2 + LABEL_GAP), -(b.height / 2 + labelDepth)]) minApothem = Math.max(minApothem, sectorApothem(u, v))
-          }
-        }
+        minApothem = Math.max(minApothem, inner.halfWidth + GAP + inwardOf(b))
         const port = d.ports.find((p) => p.id === b.ref)!
         const k = d.useCases.findIndex((u) => u.id === port.useCaseId)
         if (k >= 0 && !overview && walls[k] !== b.wall) {
           // The run from the bus lane to the socket, along the wall normal, keeps at least RUN.
-          const { n, dir } = wallFrame(b.wall)
+          const { n } = wallFrame(b.wall)
           const bus = laneX(b.side, k, inner.halfWidth)
-          minApothem = Math.max(minApothem, (bus + RUN * n.x - b.u * dir.x) / n.x + b.height / 2)
+          minApothem = Math.max(minApothem, (bus + RUN * n.x - faceOf(b, 0).x) / n.x)
         }
       }
       for (const s of seats()) {

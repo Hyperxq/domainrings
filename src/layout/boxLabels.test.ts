@@ -83,19 +83,12 @@ describe('boxObstacles', () => {
     expect(boxObstacles(detailed, twoHexMap())).toHaveLength(nodes.length)
   })
 
-  it('places a box on the map and takes the axis-aligned bounds of a rotated one', () => {
+  it('places a box on the map', () => {
     const [h1] = detailed.hexagons
-    const upright = h1.model.nodes.find((n) => !n.rotation && n.kind === 'useCase')!
+    const upright = h1.model.nodes.find((n) => n.kind === 'useCase')!
     const rect = boxObstacles(detailed, twoHexMap()).find((o) => o.owner === `h1:${upright.ref}`)!.rect
     const placed = { x: upright.x + h1.centre.x - upright.width / 2, y: upright.y + h1.centre.y - upright.height / 2, width: upright.width, height: upright.height }
     for (const side of ['x', 'y', 'width', 'height'] as const) expect(rect[side]).toBeCloseTo(placed[side])
-
-    const slanted = { ...upright, x: 0, y: 0, width: 40, height: 10, rotation: 90 }
-    const model = { ...detailed, hexagons: [{ ...h1, centre: { x: 100, y: 100 }, model: { ...h1.model, nodes: [slanted] } }] }
-    const [turned] = boxObstacles(model, twoHexMap())
-    expect(turned.rect.width).toBeCloseTo(10)
-    expect(turned.rect.height).toBeCloseTo(40)
-    expect(turned.rect.x).toBeCloseTo(95)
   })
 
   it('leaves out the compact hexagons', () => {

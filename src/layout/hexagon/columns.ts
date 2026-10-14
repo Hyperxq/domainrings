@@ -1,11 +1,11 @@
 import { HEXAGONAL_KIND } from '../../model/kinds'
 import { defaultWall, SideSchema, type Adapter, type Diagram, type Endpoint, type Port, type Side, type Wall } from '../../model/schema'
-import { dot, reach, rectCorners } from '../geometry'
+import { dot, reach, rectCorners, type Point } from '../geometry'
 import type { NodeKind } from '../layout'
 import { halfWidthAt, type Outline } from '../outline'
 import type { BoxFrames, Frame } from './boxFrames'
 import { GAP, LABEL_GAP, OUTSIDE_GAP } from './spacing'
-import { SLANTED_WALLS, wallAngle, wallFrame } from './walls'
+import { SLANTED_WALLS, wallFrame } from './walls'
 
 const ROW_GAP = 18
 
@@ -37,7 +37,7 @@ export interface Planned {
   height: number
 }
 
-/** A box on a slanted wall: u runs along the wall, v steps out along its normal. */
+/** A box on a slanted wall: u runs along the wall, v steps out along its normal. Every one stays upright. */
 export interface WallBox {
   key: string
   ref: string
@@ -187,22 +187,23 @@ export function planBoxes(d: Diagram, overview: boolean, { NOTCH, portLabel, ada
     const groups = portGroups(d, side, onWall)
     const lanes = groups.reduce((k, g) => k + groupRows(g), 0)
     const boxes = groups.flatMap((g) => g.slots.flatMap((s) => [adapterFrame(s.adapter, side), ...s.leaves.map((l) => leafFrame(l, side))]))
-    // Overview sockets are notches, but each keeps its whole name beside it along the wall.
-    const socketLength = (p: Port) => (overview ? Math.max(NOTCH.height, portLabel(p).width) : socketFrame(p).width)
-    const pitch = Math.max(36, ...boxes.map((f) => 2 * reach(f.width, f.height, dir)), ...onWall.map(socketLength)) + ROW_GAP
+    const sockets = onWall.map(socketFrame)
+    // An overview notch keeps its name flat beside it, so neighbouring rows must clear each other vertically.
+    const nameHeight = Math.max(0, ...onWall.map((p) => portLabel(p).height))
+    const rowPitch = overview ? (NOTCH.height + LABEL_GAP + nameHeight) / Math.abs(dir.y) : 0
+    const pitch = Math.max(36, rowPitch, ...[...boxes, ...sockets].map((f) => 2 * reach(f.width, f.height, dir))) + ROW_GAP
     const uOf = (lane: number) => (lane - (lanes - 1) / 2) * pitch
     let lane = 0
     for (const group of groups) {
       const port = group.port!
       const start = lane
       const socket = socketFrame(port)
-      const thickness = overview ? NOTCH.width : socket.height
       const adapterKeys: string[] = []
       for (const { adapter, leaves } of group.slots) {
         const span = Math.max(1, leaves.length)
         const f = adapterFrame(adapter, side)
         const key = `adapter:${adapter.id}`
-        wallBoxes.push({ key, ref: adapter.id, kind: 'adapter', side, wall, frame: f, u: (uOf(lane) + uOf(lane + span - 1)) / 2, v: thickness / 2 + GAP + reach(f.width, f.height, n), outer: false, width: f.width, height: f.height })
+        wallBoxes.push({ key, ref: adapter.id, kind: 'adapter', side, wall, frame: f, u: (uOf(lane) + uOf(lane + span - 1)) / 2, v: reach(socket.width, socket.height, n) + GAP + reach(f.width, f.height, n), outer: false, width: f.width, height: f.height })
         adapterKeys.push(key)
         leaves.forEach((leaf, i) => {
           const lf = leafFrame(leaf, side)
@@ -214,8 +215,7 @@ export function planBoxes(d: Diagram, overview: boolean, { NOTCH, portLabel, ada
       }
       if (!group.slots.length) lane += 1
       const portKey = `port:${port.id}`
-      const length = overview ? NOTCH.height : Math.max(socket.width, (lane - start) * pitch - ROW_GAP)
-      wallBoxes.push({ key: portKey, ref: port.id, kind: 'port', side, wall, frame: socket, u: (uOf(start) + uOf(lane - 1)) / 2, v: 0, outer: false, width: length, height: thickness })
+      wallBoxes.push({ key: portKey, ref: port.id, kind: 'port', side, wall, frame: socket, u: (uOf(start) + uOf(lane - 1)) / 2, v: 0, outer: false, width: socket.width, height: socket.height })
       for (const key of adapterKeys) edgePlan.push([key, portKey])
       if (!overview && port.useCaseId && d.useCases.some((u) => u.id === port.useCaseId)) {
         const ucKey = `useCase:${port.useCaseId}`
@@ -223,24 +223,31 @@ export function planBoxes(d: Diagram, overview: boolean, { NOTCH, portLabel, ada
       }
     }
   }
-  /** A wall box's corners in its wall frame: u along the wall, v off the wall line it counts from. */
+  /**
+   * An overview port name hangs flat under its notch (over it, on a lower wall), on the side that faces the ring
+   * centre and flush with the notch's far edge, so it stays inside the wall and clear of the notch.
+   */
+  const nameOffset = (b: WallBox, name: Frame): Point => {
+    const { n } = wallFrame(b.wall)
+    return { x: -Math.sign(n.x) * (name.width - b.width) / 2, y: -Math.sign(n.y) * (b.height / 2 + LABEL_GAP + name.height / 2) }
+  }
+  /** A wall box's corners in its wall frame (u along the wall, v off the wall line it counts from), with an overview port's name. */
   const localCorners = (b: WallBox) => {
     const { n, dir } = wallFrame(b.wall)
-    if (b.kind === 'port') return [-1, 1].flatMap((su) => [-1, 1].map((sv) => ({ u: b.u + (su * b.width) / 2, v: (sv * b.height) / 2 })))
-    return rectCorners(0, 0, b.width, b.height).map((c) => ({ u: b.u + dot(c, dir), v: b.v + dot(c, n) }))
+    const name = overview && b.kind === 'port' ? portLabel(ports.get(b.ref)!) : undefined
+    const at = name && nameOffset(b, name)
+    const quads = [rectCorners(0, 0, b.width, b.height), ...(name && at ? [rectCorners(at.x, at.y, name.width, name.height)] : [])]
+    return quads.flat().map((c) => ({ u: b.u + dot(c, dir), v: b.v + dot(c, n) }))
   }
+  /** How far a wall box (and an overview port's name) reaches in from its wall line. */
+  const inwardOf = (b: WallBox) => Math.max(...localCorners(b).map((c) => -c.v))
   // Once any wall is slanted, the w/e columns keep to their sectors too, so no two walls' boxes can meet.
   const columnCorners = (kind: NodeKind, v: (p: Planned) => number[]) =>
     planned
       .filter((p) => p.kind === kind)
       .flatMap((p) => [p.y - p.height / 2, p.y + p.height / 2].flatMap((y) => v(p).map((vv) => ({ u: y, v: vv }))))
 
-  /**
-   * A slanted name starts level with its notch's upper end and runs downhill: centred, an upper wall's name would
-   * reach toward the top vertex and the application title, and the ring would have to grow to clear it.
-   */
-  const labelU = (b: WallBox, f: Frame) => b.u + Math.sign(wallFrame(b.wall).dir.y) * (f.width - b.width) / 2
-  /** Overview port names for a candidate application ring: flat beside a side-wall socket, along a slanted wall. */
+  /** Overview port names for a candidate application ring, each flat beside its socket. */
   const portLabels = (appO: Outline) =>
     overview
       ? [
@@ -248,20 +255,19 @@ export function planBoxes(d: Diagram, overview: boolean, { NOTCH, portLabel, ada
             const f = portLabel(ports.get(p.ref)!)
             const sign = p.side === 'driving' ? -1 : 1
             const x = sign * (halfWidthAt(appO, p.y) - widths[p.side].socketHalf - LABEL_GAP - f.width / 2)
-            return { ref: p.ref, side: p.side, frame: f, x, y: p.y, rotation: undefined, align: p.side === 'driving' ? ('start' as const) : ('end' as const) }
+            return { ref: p.ref, side: p.side, frame: f, x, y: p.y, align: p.side === 'driving' ? ('start' as const) : ('end' as const) }
           }),
           ...wallBoxes
             .filter((b) => b.kind === 'port')
             .map((b) => {
               const f = portLabel(ports.get(b.ref)!)
               const { n, dir } = wallFrame(b.wall)
-              const depth = appO.halfWidth - b.height / 2 - LABEL_GAP - f.height / 2
-              const u = labelU(b, f)
-              return { ref: b.ref, side: b.side, frame: f, x: n.x * depth + dir.x * u, y: n.y * depth + dir.y * u, rotation: wallAngle(b.wall), align: 'center' as const }
+              const at = nameOffset(b, f)
+              return { ref: b.ref, side: b.side, frame: f, x: n.x * appO.halfWidth + dir.x * b.u + at.x, y: n.y * appO.halfWidth + dir.y * b.u + at.y, align: 'center' as const }
             }),
         ]
       : []
-  return { ports, portOf, wallOf, hasSlanted, sectored, planned, of, edgePlan, widths, wallBoxes, localCorners, columnCorners, labelU, portLabels }
+  return { ports, portOf, wallOf, hasSlanted, sectored, planned, of, edgePlan, widths, wallBoxes, localCorners, inwardOf, columnCorners, portLabels }
 }
 
 export type BoxPlan = ReturnType<typeof planBoxes>

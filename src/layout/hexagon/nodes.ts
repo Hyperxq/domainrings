@@ -8,7 +8,7 @@ import type { BoxPlan, Planned } from './columns'
 import type { RingTitles } from './ringTitles'
 import { GAP, OUTSIDE_GAP } from './spacing'
 import type { UseCaseSeating } from './useCaseSeating'
-import { wallAngle, wallFrame } from './walls'
+import { wallFrame } from './walls'
 
 export interface NodesInput {
   d: Diagram
@@ -88,7 +88,6 @@ export function placeNodes({ d, overview, app, outer, domain, titles, domainShif
       align: 'center',
       side: b.side,
       wall: b.wall,
-      rotation: b.kind === 'port' ? wallAngle(b.wall) : undefined,
       x: n.x * depth + dir.x * b.u,
       y: n.y * depth + dir.y * b.u,
       width: b.width,
@@ -96,7 +95,7 @@ export function placeNodes({ d, overview, app, outer, domain, titles, domainShif
     })
   }
   for (const l of plan.portLabels(app)) {
-    add({ key: `portLabel:${l.ref}`, ref: l.ref, kind: 'portLabel', tone: 'teal', lines: l.frame.lines, align: l.align, side: l.side, rotation: l.rotation, x: l.x, y: l.y, width: l.frame.width, height: l.frame.height })
+    add({ key: `portLabel:${l.ref}`, ref: l.ref, kind: 'portLabel', tone: 'teal', lines: l.frame.lines, align: l.align, side: l.side, x: l.x, y: l.y, width: l.frame.width, height: l.frame.height })
   }
 
   const composition = compositionFrame ? Object.assign(place('composition', 'composition', 'composition', 'muted', compositionFrame, 0, outer.apex + GAP + compositionFrame.height / 2), { align: 'center' as const }) : undefined

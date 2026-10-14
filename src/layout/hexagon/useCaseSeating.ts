@@ -1,9 +1,9 @@
 import { defaultWall, type Diagram, type Port, type Side, type Wall } from '../../model/schema'
-import { reach, type Point } from '../geometry'
+import { dot, enterBox, reach, type Box, type Point } from '../geometry'
 import type { Outline } from '../outline'
 import type { BoxFrames, Frame } from './boxFrames'
 import type { BoxPlan, WallBox } from './columns'
-import { DOMAIN_RUN, GAP, LABEL_GAP, LANE, RUN } from './spacing'
+import { DOMAIN_RUN, GAP, LANE, RUN } from './spacing'
 import { WALLS, wallFrame } from './walls'
 
 /** Where a bus lane turns onto the wall normal that ends on a slanted socket's face. */
@@ -11,10 +11,16 @@ export const laneFoot = (face: Point, wall: Wall, lane: number): Point => {
   const { n } = wallFrame(wall)
   return { x: lane, y: face.y - (n.y * (face.x - lane)) / n.x }
 }
-/** The socket's inner face on a slanted wall of a candidate application ring. */
-export const faceOf = (b: WallBox, appO: Outline): Point => {
+/** Where the wall-normal line at lane u meets an upright box: on its outer (+1) or inner (−1) face. */
+export const faceAt = (box: Box, wall: Wall, face: 1 | -1, u: number): Point => {
+  const { n, dir } = wallFrame(wall)
+  const depth = dot(box, n) + face * (reach(box.width, box.height, n) + 1)
+  return enterBox(box, { x: n.x * depth + dir.x * u, y: n.y * depth + dir.y * u }, { x: -face * n.x, y: -face * n.y })
+}
+/** The inner face of the socket on a slanted wall whose apothem is `apothem`, on its own lane. */
+export const faceOf = (b: WallBox, apothem: number): Point => {
   const { n, dir } = wallFrame(b.wall)
-  return { x: n.x * (appO.halfWidth - b.height / 2) + dir.x * b.u, y: n.y * (appO.halfWidth - b.height / 2) + dir.y * b.u }
+  return faceAt({ x: n.x * apothem + dir.x * b.u, y: n.y * apothem + dir.y * b.u, width: b.width, height: b.height }, b.wall, -1, b.u)
 }
 
 /**
@@ -69,8 +75,8 @@ export interface SeatingInput {
 
 /** How the use cases sit in the application ring: each seated on a wall, with the bus lane its runs take to the sockets. */
 export function seatUseCases({ d, overview, useCaseFrames, declaredPorts, plan, frames }: SeatingInput) {
-  const { wallBoxes, of, widths, ports, wallOf } = plan
-  const { portLabel, labelReach } = frames
+  const { wallBoxes, of, widths, ports, wallOf, inwardOf } = plan
+  const { labelReach } = frames
   const walls = seatWalls(d, wallOf)
 
   // Use-case buses: one vertical lane per use case and side, between the inner ring and the sockets. The first
@@ -96,7 +102,7 @@ export function seatUseCases({ d, overview, useCaseFrames, declaredPorts, plan, 
       const sockets = [
         ...wallBoxes
           .filter((b) => b.kind === 'port' && b.wall === wall)
-          .map((b) => ({ port: ports.get(b.ref)!, u: b.u, inward: b.height / 2 + (overview ? LABEL_GAP + portLabel(ports.get(b.ref)!).height : 0) })),
+          .map((b) => ({ port: ports.get(b.ref)!, u: b.u, inward: inwardOf(b) })),
         ...of('port')
           .filter((p) => defaultWall(p.side) === wall)
           .map((p) => ({ port: ports.get(p.ref)!, u: p.y * dir.y, inward: widths[p.side].socketHalf + labelReach(ports.get(p.ref)!) })),

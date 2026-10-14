@@ -42,8 +42,6 @@ export interface LayoutNode {
   side?: Side
   /** Hexagons: the application-ring wall a port sits on; its adapter and actor or external share it. */
   wall?: Wall
-  /** Degrees; a socket on a slanted wall lies along it. Every other box stays upright. */
-  rotation?: number
   x: number
   y: number
   width: number
@@ -129,7 +127,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   const domain = outlines[config.rings.length - 1]
 
   const { nodes, composition } = placeNodes({ d, overview, app, outer, domain, titles, domainShift, centre, plan, frames, seating })
-  const edges = routeEdges({ d, overview, nodes, composition, plan, app, insideApp, domain, outer, seating })
+  const edges = routeEdges({ d, overview, nodes, composition, plan, insideApp, domain, outer, seating })
   const { texts, bounds } = layoutBounds(d, outer, nodes, edges)
   assignLayers(nodes, centre.serviceItems)
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { insertionItem, insertionPoints, type InsertionPoint } from './insertion'
+import { reach } from './geometry'
 import { wallFrame } from './hexagon/walls'
 import { layoutDiagram } from './layout'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
@@ -73,10 +74,11 @@ describe('insertionPoints', () => {
       const walls = insertionPoints(model, STRESS_DIAGRAM, 'overview').flatMap((p) => (p.action.kind === 'port' && p.action.wall ? [{ wall: p.action.wall, at: p.at }] : []))
       for (const { wall, at } of walls.filter((w) => w.wall !== 'w' && w.wall !== 'e')) {
         const sockets = model.nodes.filter((n) => n.kind === 'port' && n.wall === wall)
-        const dir = { x: Math.cos((sockets[0].rotation! * Math.PI) / 180), y: Math.sin((sockets[0].rotation! * Math.PI) / 180) }
+        const { dir } = wallFrame(wall)
         const along = (q: { x: number; y: number }) => q.x * dir.x + q.y * dir.y
         const labels = model.nodes.filter((n) => n.kind === 'portLabel' && sockets.some((s) => s.ref === n.ref))
-        const [lo, hi] = [Math.min(...labels.map((l) => along(l) - l.width / 2)), Math.max(...labels.map((l) => along(l) + l.width / 2))]
+        const half = (l: { width: number; height: number }) => reach(l.width, l.height, dir)
+        const [lo, hi] = [Math.min(...labels.map((l) => along(l) - half(l))), Math.max(...labels.map((l) => along(l) + half(l)))]
         expect(along(at) < lo || along(at) > hi).toBe(true)
       }
     })

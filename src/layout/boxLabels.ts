@@ -1,5 +1,5 @@
 import type { HexaMap } from '../model/schema'
-import { rectCorners, unionBox, type Box } from './geometry'
+import type { Box } from './geometry'
 import type { LayoutNode } from './layout'
 import type { MapLayout } from './map'
 
@@ -71,6 +71,6 @@ export function boxObstacles(model: MapLayout, map: HexaMap): BoxObstacle[] {
     if (h.compact || !map.hexagons.some((m) => m.id === h.id)) return []
     return h.model.nodes
       .filter((n) => n.kind !== 'aggregate')
-      .map((n) => ({ owner: ownerOf(h.id, n.ref), rect: unionBox(rectCorners(n.x + h.centre.x, n.y + h.centre.y, n.width, n.height, n.rotation).map((p): Box => ({ ...p, width: 0, height: 0 }))) }))
+      .map((n) => ({ owner: ownerOf(h.id, n.ref), rect: { x: n.x + h.centre.x - n.width / 2, y: n.y + h.centre.y - n.height / 2, width: n.width, height: n.height } }))
   })
 }

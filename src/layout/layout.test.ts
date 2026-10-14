@@ -37,19 +37,14 @@ const top = (n: LayoutNode) => n.y - n.height / 2
 const bottom = (n: LayoutNode) => n.y + n.height / 2
 const left = (n: LayoutNode) => n.x - n.width / 2
 const right = (n: LayoutNode) => n.x + n.width / 2
-/** A node's four corners, turned by its rotation (degrees) when it has one. */
-const corners = (n: LayoutNode): Point[] => {
-  const a = ((n.rotation ?? 0) * Math.PI) / 180
-  return [
+/** A node's four corners. */
+const corners = (n: LayoutNode): Point[] =>
+  [
     [-1, -1],
     [1, -1],
     [-1, 1],
     [1, 1],
-  ].map(([sx, sy]) => {
-    const [ox, oy] = [(sx * n.width) / 2, (sy * n.height) / 2]
-    return { x: n.x + ox * Math.cos(a) - oy * Math.sin(a), y: n.y + ox * Math.sin(a) + oy * Math.cos(a) }
-  })
-}
+  ].map(([sx, sy]) => ({ x: n.x + (sx * n.width) / 2, y: n.y + (sy * n.height) / 2 }))
 const inside = (m: LayoutModel, ring: LayoutRing, p: Point) =>
   Math.abs(p.x) <= halfWidth(m.shape, ring, p.y) + 1e-6 && Math.abs(p.y) <= ring.apex + 1e-6
 
@@ -75,12 +70,7 @@ const sample = ([a, b]: Segment, step = 0.01): Point[] =>
   Array.from({ length: Math.round(1 / step) + 1 }, (_, i) => ({ x: a.x + (b.x - a.x) * i * step, y: a.y + (b.y - a.y) * i * step }))
 /** A dotted ownership link may pass behind a use case seated in front of its socket. */
 const passesBehind = (e: LayoutModel['edges'][number], n: LayoutNode) => e.kind === 'declares' && n.kind === 'useCase'
-const strictlyInside = (n: LayoutNode, p: Point) => {
-  const a = (-(n.rotation ?? 0) * Math.PI) / 180
-  const [dx, dy] = [p.x - n.x, p.y - n.y]
-  const [lx, ly] = [dx * Math.cos(a) - dy * Math.sin(a), dx * Math.sin(a) + dy * Math.cos(a)]
-  return Math.abs(lx) < n.width / 2 - 1 && Math.abs(ly) < n.height / 2 - 1
-}
+const strictlyInside = (n: LayoutNode, p: Point) => Math.abs(p.x - n.x) < n.width / 2 - 1 && Math.abs(p.y - n.y) < n.height / 2 - 1
 
 /** Independent wall frames: outward normal n and along-wall dir for each wall of a pointy-top hexagon. */
 const WALL_NORMAL_DEG = { e: 0, se: 60, sw: 120, w: 180, nw: 240, ne: 300 } as const
@@ -92,7 +82,7 @@ const wallFrame = (wall: keyof typeof WALL_NORMAL_DEG) => {
 const dot = (a: Point, b: Point) => a.x * b.x + a.y * b.y
 const SLANTED = new Set(['nw', 'sw', 'ne', 'se'])
 
-/** Separating-axis test for two (possibly rotated) boxes; touching edges do not count as overlap. */
+/** Separating-axis test for two boxes; touching edges do not count as overlap. */
 function overlap(a: LayoutNode, b: LayoutNode) {
   const [ca, cb] = [corners(a), corners(b)]
   const axes = [ca, cb].flatMap((c) => [0, 1].map((i) => ({ x: c[i === 0 ? 1 : 2].x - c[0].x, y: c[i === 0 ? 1 : 2].y - c[0].y })))
@@ -762,7 +752,7 @@ describe('overview port labels', () => {
     })
 
     // As with every column box, sectors only bind once some wall is slanted; w/e-only hexagons have no neighbour to meet.
-    it.runIf(sockets.some((s) => s.rotation !== undefined))('keeps each label 8 clear of the spokes, inside its own wall sector', () => {
+    it.runIf(sockets.some((s) => SLANTED.has(s.wall!)))('keeps each label 8 clear of the spokes, inside its own wall sector', () => {
       const tan30 = Math.tan(Math.PI / 6)
       for (const label of labels) {
         const { n, dir } = wallFrame(sockets.find((s) => s.ref === label.ref)!.wall!)
@@ -780,17 +770,15 @@ describe('overview port labels', () => {
       }
     })
 
-    it('reads upright: slanted labels lie along their wall, side-wall labels stay flat and start just inside the socket', () => {
+    it('reads upright: slanted labels hang under their notch (over it on a lower wall), side-wall labels start just inside the socket', () => {
       for (const label of labels) {
         const socket = sockets.find((s) => s.ref === label.ref)!
-        const rotation = label.rotation ?? 0
-        expect(rotation).toBeGreaterThanOrEqual(-90)
-        expect(rotation).toBeLessThanOrEqual(90)
-        if (socket.rotation !== undefined) {
-          expect(rotation).toBeCloseTo(socket.rotation)
+        if (SLANTED.has(socket.wall!)) {
           expect(label.align).toBe('center')
+          const { n } = wallFrame(socket.wall!)
+          const gap = n.y < 0 ? top(label) - bottom(socket) : top(socket) - bottom(label)
+          expect(gap).toBeCloseTo(4)
         } else {
-          expect(label.rotation).toBeUndefined()
           expect(label.y).toBeCloseTo(socket.y)
           const driving = socket.side === 'driving'
           expect(label.align).toBe(driving ? 'start' : 'end')
@@ -806,7 +794,7 @@ describe('overview port labels', () => {
     const m = layoutDiagram(STRESS_DIAGRAM, { mode: 'overview' })
     const walls = new Set(m.nodes.filter((n) => n.kind === 'port').map((n) => n.wall))
     expect(walls).toEqual(new Set(['nw', 'w', 'sw', 'ne', 'e', 'se']))
-    for (const socket of m.nodes.filter((n) => n.kind === 'port' && n.rotation !== undefined)) {
+    for (const socket of m.nodes.filter((n) => n.kind === 'port' && SLANTED.has(n.wall!))) {
       const label = find(m, 'portLabel', socket.ref)
       expect(Math.hypot(label.x, label.y)).toBeLessThan(Math.hypot(socket.x, socket.y))
     }
@@ -892,14 +880,11 @@ describe('ports on every wall (hexagonal stress example)', () => {
     for (const p of ports) expect(['nw', 'w', 'sw'].includes(p.wall!)).toBe(p.side === 'driving')
   })
 
-  it('puts every socket on its wall segment, rotated with the wall', () => {
+  it('puts every socket on its wall segment', () => {
     for (const p of ports) {
       const { n, dir } = wallFrame(p.wall!)
       expect(dot({ x: p.x, y: p.y }, n)).toBeCloseTo(app.halfWidth, 6)
       expect(Math.abs(dot({ x: p.x, y: p.y }, dir))).toBeLessThanOrEqual(app.apex / 2 + 1e-6)
-      const wallAngle = ((Math.atan2(dir.y, dir.x) * 180) / Math.PI + 450) % 180 - 90
-      if (SLANTED.has(p.wall!)) expect(p.rotation).toBeCloseTo(wallAngle, 6)
-      else expect(p.rotation ?? 0).toBe(0)
     }
   })
 
@@ -913,7 +898,6 @@ describe('ports on every wall (hexagonal stress example)', () => {
       expect(dot(offset, n)).toBeGreaterThan(0)
       expect(overlap(node, socket)).toBe(false)
       for (const c of corners(node)) expect(inside(model, adapterRing, c)).toBe(true)
-      expect(node.rotation ?? 0).toBe(0)
     }
   })
 
@@ -1015,7 +999,7 @@ describe('ports on every wall (hexagonal stress example)', () => {
           .some((u) => {
             const { n } = wallFrame(u.wall!)
             const outer = dot(u, n) + (u.width / 2) * Math.abs(n.x) + (u.height / 2) * Math.abs(n.y)
-            return seated.filter((b) => b.kind === 'port' && b.wall === u.wall).some((b) => dot(b, n) - (b.rotation !== undefined ? b.height : b.width) / 2 - outer < RUN_MIN)
+            return seated.filter((b) => b.kind === 'port' && b.wall === u.wall).some((b) => dot(b, n) - ((b.width / 2) * Math.abs(n.x) + (b.height / 2) * Math.abs(n.y)) - outer < RUN_MIN)
           })
       expect({ ring: ring.role, breaks: sectorBroken || clash || titleClash || outOfRing || hitsInner || runHitsSocket || runTooShort }).toEqual({
         ring: ring.role,
@@ -1046,7 +1030,6 @@ describe('use cases placed on a wall', () => {
 
     it('sits upright in the nw sector, 8 clear of the spokes, inside the application band', () => {
       expect(node.wall).toBe('nw')
-      expect(node.rotation).toBeUndefined()
       const clearOfInner = shrink(m.shape, inner, -14 + 1e-3)
       for (const c of corners(node)) {
         expect(Math.abs(dot(c, dir))).toBeLessThanOrEqual(dot(c, n) * tan30 - 8 / COS30 + 1e-6)

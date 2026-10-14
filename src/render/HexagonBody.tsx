@@ -82,7 +82,6 @@ function Node({ node, selected, target, chained, interactive, noted, planned }: 
       role={interactive ? 'button' : undefined}
       aria-label={interactive ? `Edit ${node.lines.map((l) => l.text).join(' ')}` : undefined}
       aria-describedby={selected && noted ? NOTE_POPOVER_ID : undefined}
-      transform={node.rotation ? `rotate(${node.rotation} ${node.x} ${node.y})` : undefined}
     >
       {node.kind === 'aggregate' ? (
         <rect className="aggregate-outline" x={left} y={top} width={node.width} height={node.height} rx={6} />

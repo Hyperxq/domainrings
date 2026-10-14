@@ -1096,11 +1096,7 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
       const m = layoutDiagram(diagramOf(map, h.id), { mode: 'detailed' })
       const domain = m.rings.at(-1)!
       const inDomain = (p: { x: number; y: number }) => Math.abs(p.y) < domain.apex && Math.abs(p.x) < (Math.abs(p.y) <= domain.straight ? domain.halfWidth : domain.halfWidth - (Math.abs(p.y) - domain.straight) * SQRT3)
-      const inBox = (n: (typeof m.nodes)[number], p: { x: number; y: number }) => {
-        const a = (-(n.rotation ?? 0) * Math.PI) / 180
-        const [dx, dy] = [p.x - n.x, p.y - n.y]
-        return Math.abs(dx * Math.cos(a) - dy * Math.sin(a)) < n.width / 2 - 1 && Math.abs(dx * Math.sin(a) + dy * Math.cos(a)) < n.height / 2 - 1
-      }
+      const inBox = (n: (typeof m.nodes)[number], p: { x: number; y: number }) => Math.abs(p.x - n.x) < n.width / 2 - 1 && Math.abs(p.y - n.y) < n.height / 2 - 1
       for (const e of m.edges) {
         const ends = e.key.split('->')
         if (!ends.some((k) => k.startsWith('useCase:')) || !ends.some((k) => k.startsWith('port:'))) continue
