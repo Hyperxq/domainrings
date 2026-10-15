@@ -5,6 +5,7 @@ import { COS30, fitRing, halfWidthAt, hexagon, type Need, type Outline } from '.
 import type { BoxFrames } from './boxFrames'
 import type { CentreBlock } from './centreBlock'
 import type { BoxPlan, Planned } from './columns'
+import { growToClear } from './ringGrowth'
 import type { RingTitles } from './ringTitles'
 import { DOMAIN_RUN, GAP, LABEL_PAD_X, OUTSIDE_GAP, PAD } from './spacing'
 import type { UseCaseSeating } from './useCaseSeating'
@@ -121,7 +122,7 @@ export function solveRings({ d, overview, appIndex, titles, centre, plan, frames
     // Sockets on the upper walls, and overview port names, lean in toward the use cases and the title: grow until
     // none of them touch.
     if (role === 'application' && (hasSlanted || overview || d.useCases.length > 0)) {
-      for (let guard = 0; guard < 4000 && appClashes(fitted); guard++) fitted = hexagon(fitted.apex * 1.001)
+      fitted = hexagon(growToClear((apex) => appClashes(hexagon(apex)), fitted.apex).apex)
     }
     // The title must fit titleDepth under the top: the hexagon's slope is wide enough by construction, so only
     // its straight width can bind.
