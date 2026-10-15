@@ -1,29 +1,30 @@
 import { useEffect } from 'react'
 import { legendFor } from '../layout/legend'
-import { flowsOf, type Flow } from '../model/flow'
+import { flowOf, type Flow } from '../model/flow'
 import { diagramOf, UNTITLED_HEXAGON } from '../model/map'
+import { withoutPlannedUseCases } from '../model/planned'
 import { useMapStore } from '../model/store'
 import { threadSlots } from '../model/threads'
 import { threadStyle } from '../render/ThreadDots'
 import { PresentButton } from './PresentPanel'
+import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
 
-/** One row per use case of hexagon `hexId` (the current one by default); picking one focuses its hexagon and flow, picking the focused one again clears it. */
-export function FlowRows({ hexId: given }: { hexId?: string } = {}) {
+/** One row per use case of hexagon `hexId` (the current one by default); picking one focuses its hexagon and flow, picking the focused one again clears it. The editor lists planned ones too, as it edits the whole map. */
+export function FlowRows({ hexId: given, hidePlanned = false }: { hexId?: string; hidePlanned?: boolean } = {}) {
   const map = useMapStore((s) => s.map)
   const current = useMapStore((s) => s.focus)
   const hexId = given ?? current
   const focused = useViewStore((s) => (hexId === current ? s.focusedFlow : null))
   const focusFlow = useViewStore((s) => s.focusFlow)
   const diagram = diagramOf(map, hexId)
-  const names = new Map(diagram.useCases.map((u) => [u.id, u.name]))
   const slots = threadSlots(diagram)
   const pick = (id: string | null) => {
     useMapStore.getState().setFocus(hexId)
     focusFlow(id)
   }
-  return flowsOf(map, hexId).map((flow) => (
-    <FlowRow key={flow.useCaseId} flow={flow} name={names.get(flow.useCaseId) || 'Unnamed'} slot={slots.get(flow.useCaseId)!} pressed={focused === flow.useCaseId} onPick={pick} />
+  return withoutPlannedUseCases(diagram.useCases, hidePlanned).map(({ id, name }) => (
+    <FlowRow key={id} flow={flowOf(map, hexId, id)} name={name || 'Unnamed'} slot={slots.get(id)!} pressed={focused === id} onPick={pick} />
   ))
 }
 
@@ -63,10 +64,11 @@ export function FlowsPanel() {
   const hexId = useMapStore((s) => s.focus)
   const focused = useViewStore((s) => s.focusedFlow)
   const focusFlow = useViewStore((s) => s.focusFlow)
+  const hidePlanned = !usePreferencesStore((s) => s.showPlanned)
   // Map order, never current-first: picking another hexagon's flow must not reshuffle the list under the pointer.
   const layers = legendFor(diagramOf(map, hexId)).colours
-  const hexagons = map.hexagons.filter((h) => h.useCases.length > 0)
-  const count = hexagons.reduce((n, h) => n + h.useCases.length, 0)
+  const hexagons = map.hexagons.filter((h) => withoutPlannedUseCases(h.useCases, hidePlanned).length > 0)
+  const count = hexagons.reduce((n, h) => n + withoutPlannedUseCases(h.useCases, hidePlanned).length, 0)
 
   return (
     <aside className="island editor flows-panel" aria-label="Flows">
@@ -86,7 +88,7 @@ export function FlowsPanel() {
             {hexagons.map((h) => (
               <section key={h.id} className="flow-group">
                 {map.hexagons.length > 1 && <h3>{h.title || UNTITLED_HEXAGON}</h3>}
-                <FlowRows hexId={h.id} />
+                <FlowRows hexId={h.id} hidePlanned={hidePlanned} />
               </section>
             ))}
           </>

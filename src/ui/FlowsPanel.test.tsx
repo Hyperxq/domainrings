@@ -232,3 +232,62 @@ describe('FlowsPanel on a map of several hexagons', () => {
     expect(headings()).toEqual([])
   })
 })
+
+describe('planned flows while Planned is off', () => {
+  const plan = (...ids: string[]) => {
+    const map = useMapStore.getState().map
+    useMapStore.getState().replace({
+      ...map,
+      hexagons: map.hexagons.map((h) => ({ ...h, useCases: h.useCases.map((u) => (ids.includes(u.id) ? { ...u, status: 'planned' as const } : u)) })),
+    })
+  }
+  const names = () => [...document.querySelectorAll('.flow-row:not(.flow-row-all) .flow-name')].map((n) => n.textContent)
+  beforeEach(() => {
+    useMapStore.getState().replace(TWO_SLICES_MAP)
+    usePreferencesStore.setState({ viewOnly: true, showPlanned: false })
+  })
+  afterEach(() => usePreferencesStore.setState({ showPlanned: true }))
+
+  it('drops a planned flow, its hexagon group and its share of the All flows count', () => {
+    plan('uc-receive')
+    render(<FlowsPanel />)
+    expect(names()).toEqual(['PlaceOrder'])
+    expect(screen.queryByRole('heading', { level: 3, name: 'Shipping' })).toBeNull()
+    expect(screen.getByRole('button', { name: /^All flows\s*1$/ })).toBeTruthy()
+  })
+
+  it('lists planned flows again once Planned is on', () => {
+    plan('uc-receive')
+    usePreferencesStore.setState({ showPlanned: true })
+    render(<FlowsPanel />)
+    expect(names()).toEqual(['PlaceOrder', 'ReceiveOrder'])
+  })
+
+  it('falls back to the empty help when nothing but planned flows is left', () => {
+    plan('uc-place', 'uc-receive')
+    render(<FlowsPanel />)
+    expect(screen.getByText('No use cases yet. Switch to Edit to add one.')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Present' })).toBeNull()
+  })
+
+  it('keeps the colours of the flows still listed, and the editor Flows section keeps listing planned ones', () => {
+    useMapStore.getState().replace(single(example()))
+    const map = useMapStore.getState().map
+    useMapStore.getState().replace({ ...map, hexagons: map.hexagons.map((h) => ({ ...h, useCases: [{ id: 'uc-first', name: 'First', status: 'planned' as const }, ...h.useCases] })) })
+    const slot = threadSlots(diagramOf(useMapStore.getState().map, 'h1')).get('uc-place')
+    const { unmount } = render(<FlowsPanel />)
+    expect(names()).toEqual(['PlaceOrder'])
+    expect(screen.getByRole('button', { name: /PlaceOrder/ }).style.getPropertyValue('--thread')).toBe(`var(--thread-${slot})`)
+    unmount()
+    render(<FlowsSection />)
+    expect(names()).toEqual(['First', 'PlaceOrder'])
+  })
+
+  it('has Present start at the first flow still listed', () => {
+    plan('uc-place')
+    render(<FlowsPanel />)
+    fireEvent.click(screen.getByRole('button', { name: 'Present' }))
+    expect(useViewStore.getState()).toMatchObject({ focusedFlow: 'uc-receive', presentStep: 0 })
+    expect(useMapStore.getState().focus).toBe('h2')
+  })
+})
