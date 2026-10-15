@@ -151,6 +151,8 @@ export function layCentre({ d, overview, domainFrame, seating }: CentreInput) {
   /** The smallest region, at least `from` across, that holds the blocks on these faces; the largest one allowed when none does. */
   const smallest = (faces: ReadonlyMap<Block, Wall>, from: number) => {
     let apex = Math.min(from, MAX_REGION)
+    // A region only gets roomier as it grows, so blocks that do not fit the largest one fit none: skip the walk.
+    if (!fits(MAX_REGION, faces)) return MAX_REGION
     while (apex < MAX_REGION && !fits(apex, faces)) apex = Math.min(Math.ceil(apex * 1.01), MAX_REGION)
     return apex
   }
