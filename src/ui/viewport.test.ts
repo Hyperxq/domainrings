@@ -106,8 +106,9 @@ describe('viewport', () => {
     // On 2+ hexagons the app's auto view is the whole-map fit with no floor (useStageViewport), so that is what is measured here.
     const fit = fitTo(model.bounds, size.width, size.height, inset, 0)
 
-    // v2 placement: Overview keeps every box and edge; bands are 2 × (half box + margin + tracks). Measured 0.3395, below MIN_FIT_SCALE (0.35).
-    expect(fit.scale).toBeGreaterThanOrEqual(0.33)
+    // v2 placement: Overview keeps every box and edge; bands are 2 × (half box + clearance + tracks).
+    // 0.33 → 0.35: the box clearance in a band went from 16 to 6 (BOX_CLEAR); measured 0.3585.
+    expect(fit.scale).toBeGreaterThanOrEqual(0.35)
     const topLeft = toDiagram(fit, { x: inset.left, y: inset.top })
     const bottomRight = toDiagram(fit, { x: size.width - inset.right, y: size.height - inset.bottom })
     for (const hex of model.hexagons) {

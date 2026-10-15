@@ -6,8 +6,13 @@ import type { RingTitles } from './ringTitles'
 import { GAP, LABEL_PAD_X, TRACK_GAP } from './spacing'
 import { wallFrame } from './walls'
 
-/** Room kept clear on each side of a corridor's outermost tracks, and around a box. */
+/** Room kept clear on each side of a corridor's outermost tracks. */
 export const MARGIN = 16
+/**
+ * Room between a box and the band's corridor, on top of the corridor's own margin. Tight on purpose: a hop between a
+ * box face and its corridor is where the edge labels sit, and below 6 the project-builder map drops more labels than it did at 16.
+ */
+export const BOX_CLEAR = 6
 /** Room left between two boxes that are not on the same wall. */
 const CLASH_GAP = 6
 /** Room between the domain title and the region under it. */
@@ -39,7 +44,7 @@ export interface BandInput {
  */
 export function sizeBands({ elements, inside, core, tracks, titles }: BandInput): number[] {
   const extent = (layer: number) => Math.max(0, ...elements.filter((e) => e.layer === layer).map((e) => reach(e.frame.width, e.frame.height, wallFrame(e.wall).n)))
-  const z = [1, 2, 3, 4].map((layer) => Math.max(extent(layer - 1 || 1), extent(layer)) + MARGIN)
+  const z = [1, 2, 3, 4].map((layer) => Math.max(extent(layer - 1 || 1), extent(layer)) + BOX_CLEAR)
   const radii = [core.halfWidth]
 
   const rectOf = (e: Element, apothem: number): Box => {
