@@ -388,8 +388,8 @@ describe('layoutDiagram', () => {
     expect(outbound).toEqual([])
   })
 
-  it('leaves the question into the domain unlabelled', () => {
-    expect(model.edges.find((e) => intoDomain(e.key))!.label).toBeUndefined()
+  it('says the question into the domain is asked of the domain', () => {
+    expect(model.edges.find((e) => intoDomain(e.key))!.label).toBe(HEXAGONAL_KIND.labels.asks)
   })
 
   it('centres the root on its card and sets the children as one smaller row under it, name left and type right', () => {
@@ -445,9 +445,9 @@ describe('layoutDiagram edges', () => {
     expect(end(['adapter:a-knex', 'port:p-repo']).x).toBeLessThan(start(['adapter:a-knex', 'port:p-repo']).x)
   })
 
-  it('labels a use case\'s corridor runs once per side, flat beside the run, and its straight runs each', () => {
-    const labelled = model.edges.filter((e) => e.label && !e.key.endsWith('->domain'))
-    expect(labelled.map((e) => e.label).sort()).toEqual(['runs the use case', 'uses'])
+  it('labels each port run, flat beside the run', () => {
+    const labelled = model.edges.filter((e) => e.label && e.labelAt && !e.key.endsWith('->domain'))
+    expect([...new Set(labelled.map((e) => e.label))].sort()).toEqual(['runs the use case', 'uses'])
     const distanceTo = (e: LayoutModel['edges'][number], q: { x: number; y: number }) =>
       Math.min(...segments(e.points).map(([a, b]) => {
         const len2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2 || 1

@@ -2,7 +2,6 @@ import { SideSchema, type Side, type Wall } from '../../model/schema'
 import { dedupe, dot, enterBox, reach, type Point } from '../geometry'
 import type { LayoutEdge, LayoutNode } from '../layout'
 import { COS30, SQRT3 } from '../outline'
-import { EDGE_LABEL, measure } from '../text'
 import { corridorHalf, MARGIN } from './bands'
 import { onWall, travel } from './corridors'
 import type { Layer, Pair } from './elements'
@@ -84,7 +83,6 @@ export const corridorCentre = (radii: number[], corridor: number) => (radii[corr
  * enters the next box square to its wall.
  */
 export function routeEdges({ hops, radii, owners, nodes, composition }: RouteInput): LayoutEdge[] {
-  const byKey = new Map(nodes.map((n) => [n.key, n]))
   const centreOf = (t: Terminal) => onWall(t.wall, t.depth ?? radii[t.layer], t.u)
   /** Where a line along the wall normal at lateral `l` meets the face of the box looking `sign` (-1 in, +1 out). */
   const face = (t: Terminal, l: number, sign: 1 | -1): Point => {
@@ -94,7 +92,6 @@ export function routeEdges({ hops, radii, owners, nodes, composition }: RouteInp
     return { x: c.x + dir.x * l + n.x * sign * through, y: c.y + dir.y * l + n.y * sign * through }
   }
 
-  const labelled = new Set<string>()
   const edges = hops.map(({ pair, a, b, la, lb, corridor, run }): LayoutEdge => {
     const start = face(a, la, b.layer < a.layer ? -1 : 1)
     const end = face(b, lb, a.layer < b.layer ? -1 : 1)
@@ -107,30 +104,7 @@ export function routeEdges({ hops, radii, owners, nodes, composition }: RouteInp
       points = [start, face(b, a.u + la - b.u, a.layer < b.layer ? -1 : 1)]
     }
     const edge: LayoutEdge = { key: pair.key, kind: 'import', from: pair.fromRef, ...(pair.toRef ? { to: pair.toRef } : {}), points, ...(b.layer === 0 ? { intoDomain: 0 } : {}) }
-    if (!pair.label) return edge
-    edge.label = pair.label
-    const port = a.layer === 2 ? a : b
-    if (points.length === 2) {
-      // Written flat beside the short run, clear of it along the wall.
-      const { dir } = wallFrame(port.wall)
-      const mid = { x: (points[0].x + points[1].x) / 2, y: (points[0].y + points[1].y) / 2 }
-      const off = reach(measure(pair.label, EDGE_LABEL), EDGE_LABEL.size + 4, dir) + 4
-      edge.labelAt = { x: mid.x + dir.x * off, y: mid.y + dir.y * off }
-      return edge
-    }
-    // The verb is written once per use case and side, flat beside the longest stretch of the first run.
-    const lane = `${pair.owner}:${byKey.get(a.layer === 2 ? pair.from : pair.to)!.side}`
-    if (labelled.has(lane)) {
-      delete edge.label
-      return edge
-    }
-    labelled.add(lane)
-    const [from, to] = points.slice(1).map((q, i) => [points[i], q]).reduce((longest, seg) => (Math.hypot(seg[1].x - seg[0].x, seg[1].y - seg[0].y) > Math.hypot(longest[1].x - longest[0].x, longest[1].y - longest[0].y) ? seg : longest))
-    const len = Math.hypot(to.x - from.x, to.y - from.y)
-    const toward = { x: -(to.y - from.y) / len, y: (to.x - from.x) / len }
-    const side = toward.y > 1e-9 || (Math.abs(toward.y) <= 1e-9 && toward.x < 0) ? -1 : 1
-    const off = reach(measure(pair.label, EDGE_LABEL), EDGE_LABEL.size + 4, toward) + 4
-    edge.labelAt = { x: (from.x + to.x) / 2 + side * toward.x * off, y: (from.y + to.y) / 2 + side * toward.y * off }
+    if (pair.label) edge.label = pair.label
     return edge
   })
   const leavesOf = new Map<string, string[]>()
