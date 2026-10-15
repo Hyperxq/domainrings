@@ -73,6 +73,10 @@ export function flowOf(map: HexaMap, hexId: string, useCaseId: string): Flow {
   }
 
   step('useCase', useCase)
+  for (const id of useCase.aggregateIds ?? []) {
+    const aggregate = d.domain.find((i) => i.id === id)
+    if (aggregate) step('aggregate', aggregate)
+  }
 
   for (const port of portsOf('driven')) {
     step('drivenPort', port)
