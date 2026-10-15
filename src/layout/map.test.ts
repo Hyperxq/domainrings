@@ -1067,10 +1067,10 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
   const map = projectBuilderMap()
   const STAGE = { width: 1440, height: 900 }
   const INSET = islandInset(STAGE, true, false)
-  // v2 placement: Overview keeps every box and edge; bands are 2 × (half box + margin + tracks). Fit scales measured at the
-  // reference stage above with Execution current: 0.2543 detailed, 0.3099 overview.
-  // v2 cards: the Overview domain region holds real card headers
-  const FIT_FLOOR = { detailed: 0.25, overview: 0.25 }
+  // v2 placement: Overview keeps every box and edge; bands are 2 × (half box + clearance + tracks), measured at the
+  // reference stage above with Execution current. v2 cards: the Overview domain region holds real card headers.
+  // 0.25 → 0.26: the box clearance in a band went from 16 to 6 (BOX_CLEAR); measured 0.2661 detailed, 0.2646 overview.
+  const FIT_FLOOR = { detailed: 0.26, overview: 0.26 }
   const MODES_UNDER_TEST = ['detailed', 'overview'] as const
   const layoutFor = (mode: LayoutMode, current: string) => layoutMap(map, { mode, current })
   const fit = (mode: LayoutMode, current: string) => fitTo(layoutFor(mode, current).bounds, STAGE.width, STAGE.height, INSET, 0).scale
@@ -1136,6 +1136,13 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
   it.each(MODES_UNDER_TEST)('fits %s at the v2-placement floor, with Execution current', (mode) => {
     const scale = fit(mode, 'h-exec')
     expect(scale).toBeGreaterThanOrEqual(FIT_FLOOR[mode])
+  })
+
+  it.each(MODES_UNDER_TEST)('drops no more edge labels than it did before the band clearance was tightened, in %s', (mode) => {
+    // The drops per hexagon (map order, Execution current) with the old box clearance of 16; the tighter bands may only match or beat them.
+    const before = [0, 1, 0, 2, 1, 0]
+    const dropped = layoutFor(mode, 'h-exec').hexagons.map((h) => h.model.edges.filter((e) => e.label && !e.labelAt).length)
+    dropped.forEach((n, i) => expect(n).toBeLessThanOrEqual(before[i]))
   })
 
   it.each(MODES_UNDER_TEST)('keeps MAP_GAP between every pair of hexagon boxes in %s, whichever hexagon is current', (mode) => {

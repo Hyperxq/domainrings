@@ -5,8 +5,10 @@ import { parseHexa } from '../model/hexa'
 import { diagramOf } from '../model/map'
 import type { Diagram, HexaMap } from '../model/schema'
 import { dot, quadsOverlap, reach, rectCorners } from './geometry'
+import { BOX_CLEAR } from './hexagon/bands'
 import { GAP } from './hexagon/spacing'
 import { wallFrame } from './hexagon/walls'
+import { fitTo, islandInset } from '../ui/viewport'
 import { layoutDiagram, type LayoutMode, type LayoutModel, type LayoutNode } from './layout'
 
 const MODES: LayoutMode[] = ['detailed', 'overview']
@@ -96,6 +98,7 @@ describe('radial chains', () => {
 
 describe('bands as v2 sizes them', () => {
   const M = 16
+  const Z = BOX_CLEAR
   /** Half the largest extent of the boxes of each layer along their wall normals. */
   const extent = (m: LayoutModel, kinds: LayoutNode['kind'][]) => Math.max(0, ...m.nodes.filter((n) => kinds.includes(n.kind)).map((n) => reach(n.width, n.height, normal(n))))
 
@@ -103,7 +106,7 @@ describe('bands as v2 sizes them', () => {
     const m = layoutDiagram(SMALL)
     const [uc, port, adapter, ext] = [extent(m, ['useCase']), extent(m, ['port']), extent(m, ['adapter']), extent(m, ['actor', 'external'])]
     const walls = [m.region!.halfWidth, m.rings[2].halfWidth, m.rings[1].halfWidth, m.rings[0].halfWidth, m.externalWall.halfWidth]
-    const z = [uc, Math.max(uc, port), Math.max(port, adapter), Math.max(adapter, ext)].map((e) => e + M)
+    const z = [uc, Math.max(uc, port), Math.max(port, adapter), Math.max(adapter, ext)].map((e) => e + Z)
     const bands = walls.slice(1).map((w, i) => w - walls[i])
     // One thread per corridor: a single track, so its half-width is the margin alone.
     bands.forEach((band, i) => expect(band, `band ${i}`).toBeCloseTo(2 * (z[i] + M), 4))
@@ -113,7 +116,7 @@ describe('bands as v2 sizes them', () => {
     const m = layoutDiagram(d, { mode })
     const [uc, port, adapter, ext] = [extent(m, ['useCase']), extent(m, ['port']), extent(m, ['adapter']), extent(m, ['actor', 'external'])]
     const walls = [m.region?.halfWidth ?? 0, m.rings[2].halfWidth, m.rings[1].halfWidth, m.rings[0].halfWidth, m.externalWall.halfWidth]
-    const z = [uc, Math.max(uc, port), Math.max(port, adapter), Math.max(adapter, ext)].map((e) => e + M)
+    const z = [uc, Math.max(uc, port), Math.max(port, adapter), Math.max(adapter, ext)].map((e) => e + Z)
     const bands = walls.slice(1).map((w, i) => w - walls[i])
     bands.slice(1).forEach((band, i) => expect(band, `band ${i + 1}`).toBeGreaterThanOrEqual(2 * (z[i + 1] + M) - 0.01))
   })
@@ -121,6 +124,19 @@ describe('bands as v2 sizes them', () => {
   it('draws the external wall as a hexagon about the rings', () => {
     const m = layoutDiagram(SMALL)
     expect(m.externalWall.apex).toBeGreaterThan(m.rings[0].apex)
+  })
+})
+
+describe('boxes read large at fit zoom', () => {
+  // Fit to the 1440x900 stage with the editor closed, as the app does for a single hexagon. Measured with BOX_CLEAR 6:
+  // stress 0.2886 and chat 0.3178 in Detailed (0.2709 and 0.2965 with 16).
+  const fit = (d: Diagram, mode: LayoutMode) => fitTo(layoutDiagram(d, { mode }).bounds, 1440, 900, islandInset({ width: 1440, height: 900 }, false, false), 0).scale
+
+  it.each([
+    ['stress', STRESS_DIAGRAM, 0.28],
+    ['chat', EXAMPLE_DIAGRAM, 0.31],
+  ] as const)('%s fits at its raised floor in Detailed', (_, d, floor) => {
+    expect(fit(d, 'detailed')).toBeGreaterThanOrEqual(floor)
   })
 })
 
@@ -159,28 +175,28 @@ describe('the rings that pinned the empty bands', () => {
     expect(got).toMatchInlineSnapshot(`
       {
         "advanced detailed": {
-          "app": 705,
-          "infra": 986,
+          "app": 658,
+          "infra": 917,
         },
         "advanced overview": {
-          "app": 648,
-          "infra": 929,
+          "app": 601,
+          "infra": 860,
         },
         "chat-feedback detailed": {
-          "app": 731,
-          "infra": 1013,
+          "app": 685,
+          "infra": 944,
         },
         "chat-feedback overview": {
-          "app": 678,
-          "infra": 960,
+          "app": 632,
+          "infra": 891,
         },
         "stress detailed": {
-          "app": 841,
-          "infra": 1123,
+          "app": 795,
+          "infra": 1053,
         },
         "stress overview": {
-          "app": 724,
-          "infra": 1006,
+          "app": 678,
+          "infra": 936,
         },
       }
     `)
