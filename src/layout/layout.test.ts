@@ -513,7 +513,7 @@ describe('type tags: one glyph + word per element', () => {
   ])('%s', (_, diagram) => {
     const model = layoutDiagram(diagram)
     const labels = HEXAGONAL_KIND.labels
-    const nodesOf = (ref: string) => model.nodes.filter((n) => n.ref === ref && n.kind !== 'portLabel')
+    const nodesOf = (ref: string) => model.nodes.filter((n) => n.ref === ref)
 
     it('tags every domain item exactly once, with its type glyph', () => {
       for (const item of diagram.domain) {

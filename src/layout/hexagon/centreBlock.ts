@@ -1,4 +1,3 @@
-import { HEXAGONAL_KIND } from '../../model/kinds'
 import type { Diagram, DomainItem, Wall } from '../../model/schema'
 import { reach, type Point } from '../geometry'
 import type { NodeKind } from '../layout'
@@ -58,14 +57,9 @@ const apart = (a: { c: Point; w: number; h: number }, b: { c: Point; w: number; 
  * at spreads evenly over the faces. The region is the smallest one in which everything fits clear of the rest.
  */
 export function layCentre({ d, overview, domainFrame, seating }: CentreInput) {
-  const config = HEXAGONAL_KIND
-  const splitServices = config.rings.some((r) => r.role === 'domainServices')
-  const coreItems = d.domain.filter((i) => !splitServices || i.type !== 'domainService')
-  const serviceItems = splitServices ? d.domain.filter((i) => i.type === 'domainService') : []
-  const serviceFrames = serviceItems.map(domainFrame)
-  const coreIds = new Set(coreItems.map((i) => i.id))
+  const coreIds = new Set(d.domain.map((i) => i.id))
   const childrenOf = (id: string | undefined) =>
-    coreItems.filter((i) => (i.parentId && coreIds.has(i.parentId) ? i.parentId : undefined) === id)
+    d.domain.filter((i) => (i.parentId && coreIds.has(i.parentId) ? i.parentId : undefined) === id)
   const itemFrame = (item: DomainItem, depth: number) =>
     depth === 0 ? domainFrame(item) : frame([{ text: item.name, style: 'minor', tag: DOMAIN_TAGS[item.type] }], 0, 2, 0)
   const walk = (item: DomainItem, depth: number): Row[] => [
@@ -189,11 +183,7 @@ export function layCentre({ d, overview, domainFrame, seating }: CentreInput) {
   }
   const { faces, apex } = search(free)
   const boxes = layBlocks(apex, faces).flatMap((it) => boxesOf(it.block, it.c.x, it.c.y - it.size.height / 2))
-  const servicesBlock = {
-    width: Math.max(0, ...serviceFrames.map((f) => f.width)),
-    height: serviceFrames.reduce((h, f) => h + f.height, 0),
-  }
-  return { boxes, faces: new Map([...faces].map(([block, face]) => [block.root.id, face])), region: hexagon(apex), hasRegion: blocks.length > 0, serviceItems, serviceFrames, servicesBlock }
+  return { boxes, faces: new Map([...faces].map(([block, face]) => [block.root.id, face])), region: hexagon(apex), hasRegion: blocks.length > 0 }
 }
 
 export type CentreBlock = ReturnType<typeof layCentre>

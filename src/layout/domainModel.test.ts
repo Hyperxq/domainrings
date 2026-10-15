@@ -135,7 +135,7 @@ describe('a use case that names its aggregates', () => {
     for (const id of ['g-order', 'g-customer']) {
       const e = edge(`useCase:uc-place->aggregate:${id}`)!
       const card = cardOf(m, 'detailed', id)
-      const others = m.nodes.filter((n) => n.kind !== 'portLabel' && n.key !== 'useCase:uc-place' && n !== card && !strictlyInside(card, n))
+      const others = m.nodes.filter((n) => n.key !== 'useCase:uc-place' && n !== card && !strictlyInside(card, n))
       for (const [a, b] of e.points.slice(1).map((p, i) => [e.points[i], p])) {
         for (let t = 0; t <= 1; t += 0.01) {
           const p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
@@ -154,9 +154,9 @@ describe('a use case that names its aggregates', () => {
     expect(edge('useCase:uc-earn->domain')).toBeDefined()
   })
 
-  it('draws no arrow to a card in the overview', () => {
+  it('draws every use case arrow in the overview too, into the domain where it has no card to reach', () => {
     const o = layoutDiagram(diagram, { mode: 'overview' })
-    expect(o.edges.filter((e) => e.key.includes('->aggregate:') || e.key.endsWith('->domain'))).toEqual([])
+    expect(o.edges.filter((e) => e.key.endsWith('->domain') || e.key.includes('->aggregate:')).length).toBeGreaterThanOrEqual(diagram.useCases.length)
   })
 })
 

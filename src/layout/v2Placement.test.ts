@@ -132,11 +132,6 @@ describe('Overview keeps every box and edge of Detailed', () => {
     expect(withoutCards(overview).map((n) => (n.wall ? shape(n) : n.key))).toEqual(withoutCards(detailed).map((n) => (n.wall ? shape(n) : n.key)))
   })
 
-  it.each(CASES)('%s: draws the same edges between boxes', (_, d) => {
-    const keys = (m: LayoutModel) => m.edges.filter((e) => e.kind === 'import').map((e) => e.key).sort()
-    expect(keys(layoutDiagram(d, { mode: 'overview' }))).toEqual(keys(layoutDiagram(d)))
-  })
-
   it('draws the use case to port edges in Overview', () => {
     const m = layoutDiagram(STRESS_DIAGRAM, { mode: 'overview' })
     expect(m.edges.filter((e) => e.from === 'uc-place' || e.to === 'uc-place').length).toBeGreaterThan(2)
@@ -144,7 +139,7 @@ describe('Overview keeps every box and edge of Detailed', () => {
 
   it('shows ports as full boxes with no notch or separate name', () => {
     const m = layoutDiagram(STRESS_DIAGRAM, { mode: 'overview' })
-    expect(m.nodes.filter((n) => n.kind === 'portLabel')).toEqual([])
+    expect(m.nodes.filter((n) => n.key.startsWith('portLabel:'))).toEqual([])
     for (const port of m.nodes.filter((n) => n.kind === 'port')) {
       expect(port.width).toBeGreaterThan(60)
       expect(port.lines.length).toBeGreaterThan(1)

@@ -100,8 +100,8 @@ describe('markThreads', () => {
     expect(nodes[0].threads).toEqual([{ id: 'u1', slot: 7 }, { id: 'u2', slot: 3 }])
   })
 
-  it('gives no dots to labels, the composition root or a thread-less box', () => {
-    const nodes = [node('portLabel', 'p'), node('composition', 'p'), node('adapter', 'z')]
+  it('gives no dots to the composition root or a thread-less box', () => {
+    const nodes = [node('composition', 'p'), node('adapter', 'z')]
     markThreads(nodes, [], [thread('u1', 0, 'p')])
     expect(nodes.every((n) => n.threads === undefined)).toBe(true)
   })

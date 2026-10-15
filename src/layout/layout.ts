@@ -28,7 +28,6 @@ export type NodeKind =
   | 'domainItem'
   | 'aggregate'
   | 'composition'
-  | 'portLabel'
 
 /** A use case's thread as the layout carries it: whose flow, and the palette slot it draws with. */
 export interface ThreadMark {
@@ -48,7 +47,7 @@ export interface LayoutNode {
   /** The ring this element belongs to, for layer highlighting; none for elements outside every ring. */
   layer?: RingRole
   side?: Side
-  /** Hexagons: the application-ring wall a port sits on; its adapter and actor or external share it. */
+  /** Hexagons: the wall the box sits on; a port's adapters and their actors or externals share its wall. */
   wall?: Wall
   /** Hexagons: the threads whose flow passes through this box, in use case order. */
   threads?: ThreadMark[]
@@ -106,7 +105,7 @@ export interface LayoutText {
   size?: number
 }
 
-/** Overview drops everything but names, the rings, notched sockets and the horizontal flow. */
+/** Overview shrinks the domain model's aggregate cards to their headers; every other box, wall and edge stays as in Detailed. */
 export type LayoutMode = 'detailed' | 'overview'
 
 export interface LayoutOptions {

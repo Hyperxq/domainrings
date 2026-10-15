@@ -409,7 +409,6 @@ svg[data-emphasis='dependents'] .compact-port[data-chain] circle { stroke-dashar
 svg[data-link-mode] :is(.edge, .edge-label, .guide, .ring-label, .ring-subtitle, .domain-title, .node:not([data-link-target], [data-selected])) { opacity: 0.55; }
 svg[data-link-mode] .node[data-link-target] { outline: 1.5px dashed var(--teal); outline-offset: 3px; cursor: pointer; }
 svg[data-link-mode] .node[data-link-target] .box { stroke-width: 2; filter: brightness(1.2); }
-.canvas .node-portLabel text { font-family: var(--font-mono); fill: var(--ink); fill-opacity: 0.85; }
 .canvas .line-title { font-weight: 600; }
 .canvas .line-mono { font-family: var(--font-mono); }
 .canvas .line-eyebrow { font-family: var(--font-mono); fill: var(--muted); }

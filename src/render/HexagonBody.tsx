@@ -10,7 +10,7 @@ import { ThreadDots, threadStyle } from './ThreadDots'
 
 const BOX_PAD_X = 12
 // The domain block is plain text on the solid domain ring.
-const FRAMELESS = new Set<LayoutNode['kind']>(['domainItem', 'portLabel'])
+const FRAMELESS = new Set<LayoutNode['kind']>(['domainItem'])
 // A note belongs to the element's box, not to its outline, its declaration or its overview label.
 const NOTE_CARRIERS = new Set<LayoutNode['kind']>(['actor', 'adapter', 'port', 'useCase', 'external', 'domainItem', 'composition'])
 

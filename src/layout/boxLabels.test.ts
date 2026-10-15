@@ -67,9 +67,9 @@ describe('boxLabels', () => {
     }
   })
 
-  it('names the element a label belongs to, shared by its socket and its beside-the-notch text', () => {
+  it('names the element a label belongs to', () => {
     const overview = layoutMap(twoHexMap(), { mode: 'overview' })
-    const ports = boxLabels(overview, twoHexMap()).filter((l) => l.hexagonId === 'h1' && (l.kind === 'port' || l.kind === 'portLabel'))
+    const ports = boxLabels(overview, twoHexMap()).filter((l) => l.hexagonId === 'h1' && l.kind === 'port')
     expect(ports.length).toBeGreaterThan(0)
     for (const l of ports) expect(l.owner).toBe(`h1:${l.ref}`)
   })
