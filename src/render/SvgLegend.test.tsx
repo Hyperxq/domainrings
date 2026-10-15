@@ -1,6 +1,6 @@
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { legendFor, legendForOnion, legendSize } from '../layout/legend'
+import { legendFor, legendForOnion, legendSize, LEGEND_PAD, LEGEND_ROW } from '../layout/legend'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
 import { threadSlots } from '../model/threads'
 import { SvgLegend } from './SvgLegend'
@@ -23,7 +23,8 @@ describe('the exported legend\'s threads block', () => {
     const c = draw(legend)
     expect([...c.querySelectorAll('.legend-heading')].map((h) => h.textContent)).toContain('Threads')
     const lastRow = [...c.querySelectorAll('.legend-thread text')].at(-1)!
-    expect(Number(lastRow.getAttribute('y'))).toBeLessThan(legendSize(legend).height)
+    const rowBottom = Number(lastRow.getAttribute('y')) + LEGEND_ROW / 2
+    expect(rowBottom + LEGEND_PAD).toBeLessThanOrEqual(legendSize(legend).height)
   })
 
   it('is left out of the Onion legend', () => {

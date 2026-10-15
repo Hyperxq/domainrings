@@ -115,6 +115,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
     onPanStart: () => {
       setHovered(null)
       setHoveredRef(null)
+      hoverFlows([])
       reveal.rest(null)
     },
   })
@@ -174,8 +175,8 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   // Only what is drawn can be followed, so the chain ends at the ports of a compact hexagon.
   const isolated = viewOnly && !!focusedFlow && diagram.useCases.some((u) => u.id === focusedFlow)
   // A hover previews the union of the hovered element's flows, in either mode, where highlighting is on and nothing is
-  // selected or being linked; a focused flow wins.
-  const previewed = highlight && !focusedFlow && !selected && !linking ? hoveredFlows.filter((id) => diagram.useCases.some((u) => u.id === id)) : []
+  // selected or being linked; an isolated flow wins (Edit mode never isolates, so a leftover focus there does not block it).
+  const previewed = highlight && !isolated && !selected && !linking ? hoveredFlows.filter((id) => diagram.useCases.some((u) => u.id === id)) : []
   const shownFlows = isolated ? [focusedFlow!] : previewed
   const chain = useMemo(
     () =>

@@ -105,6 +105,15 @@ describe('hoveredFlows', () => {
     useViewStore.getState().hoverFlows([])
     expect(useViewStore.getState().hoveredFlows).toEqual([])
   })
+
+  it('keeps its reference when the hovered set is unchanged, so subscribers do not re-render', () => {
+    useViewStore.getState().hoverFlows(['uc-submit', 'uc-other'])
+    const before = useViewStore.getState().hoveredFlows
+    useViewStore.getState().hoverFlows(['uc-submit', 'uc-other'])
+    expect(useViewStore.getState().hoveredFlows).toBe(before)
+    useViewStore.getState().hoverFlows(['uc-other', 'uc-submit'])
+    expect(useViewStore.getState().hoveredFlows).not.toBe(before)
+  })
 })
 
 describe('focusedFlow', () => {

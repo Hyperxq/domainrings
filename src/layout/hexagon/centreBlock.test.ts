@@ -1,9 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { Diagram, DomainItem } from '../../model/schema'
 import { WALLS } from './walls'
 import { boxFrames } from './boxFrames'
 import { layCentre } from './centreBlock'
 import type { UseCaseSeating } from './useCaseSeating'
+
+const regions = vi.hoisted(() => ({ tried: 0 }))
+vi.mock('../outline', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../outline')>()
+  return { ...real, hexagon: (apex: number) => (regions.tried++, real.hexagon(apex)) }
+})
 
 const diagramOf = (domain: DomainItem[]) => ({ version: 1, kind: 'hexagonal', title: '', domain, useCases: [], ports: [], adapters: [], actors: [], externals: [] }) as Diagram
 const centre = (domain: DomainItem[]) => layCentre({ d: diagramOf(domain), overview: false, domainFrame: boxFrames().domainFrame, seating: { walls: [] } as unknown as UseCaseSeating })
@@ -14,6 +20,16 @@ describe('layCentre', () => {
     const result = centre([{ id: 'wide', name: 'W'.repeat(30000), type: 'entity' }])
     expect(Number.isFinite(result.region.apex)).toBe(true)
     expect(result.region.apex).toBe(1e5)
+  })
+
+  it('gives up on a block that can never fit after a handful of regions, however many blocks follow', () => {
+    const domain: DomainItem[] = [{ id: 'wide', name: 'W'.repeat(30000), type: 'entity' }, ...['One', 'Two', 'Three'].map((name, i): DomainItem => ({ id: `e${i}`, name, type: 'entity' }))]
+    regions.tried = 0
+    const result = centre(domain)
+    expect(result.region.apex).toBe(1e5)
+    expect(result.boxes.map((b) => b.ref)).toContain('wide')
+    expect(regions.tried).toBeGreaterThan(0)
+    expect(regions.tried).toBeLessThan(1000)
   })
 
   it('gives every root a wall of the region', () => {
