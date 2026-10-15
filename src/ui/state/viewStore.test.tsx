@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
-import { EXAMPLE_DIAGRAM } from '../../model/example'
+import { EXAMPLE_DIAGRAM, TWO_SLICES_MAP } from '../../model/example'
 import { toMap } from '../../model/hexa'
 import { useMapStore } from '../../model/store'
 import { usePreferencesStore } from './preferencesStore'
@@ -46,6 +46,15 @@ describe('view store', () => {
     const field = document.activeElement as HTMLInputElement
     expect(field.getAttribute('aria-label')).toBe('Flow name')
     expect([field.selectionStart, field.selectionEnd]).toEqual([0, 4])
+  })
+
+  it("reveal on another hexagon's use case focuses that hexagon and its flow", () => {
+    usePreferencesStore.setState({ viewOnly: false })
+    useMapStore.getState().replace(TWO_SLICES_MAP)
+    useMapStore.getState().setFocus('h1')
+    useViewStore.getState().reveal('uc-receive', false, 'h2')
+    expect(useMapStore.getState().focus).toBe('h2')
+    expect(useViewStore.getState().focusedFlow).toBe('uc-receive')
   })
 
   it('reveal on a use case only focuses the flow in Edit mode', () => {

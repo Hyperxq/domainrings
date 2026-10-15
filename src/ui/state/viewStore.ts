@@ -74,7 +74,9 @@ export const useViewStore = create<ViewStore>()((set, get) => ({
     if (usePreferencesStore.getState().viewOnly) return
     // A use case has no card in the editor: its flow, in the inspector, is where it is edited.
     const { map, focus: current } = useMapStore.getState()
-    if ((hexId ?? current) === current && diagramOf(map, current).useCases.some((u) => u.id === ref)) {
+    const owner = hexId ?? current
+    if (diagramOf(map, owner).useCases.some((u) => u.id === ref)) {
+      useMapStore.getState().setFocus(owner)
       flushSync(() => set({ focusedFlow: ref, presentStep: null }))
       const field = document.querySelector<HTMLInputElement>('input[aria-label="Flow name"]')
       if (focus) {
