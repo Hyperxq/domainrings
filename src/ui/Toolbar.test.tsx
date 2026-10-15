@@ -95,6 +95,7 @@ describe('Toolbar View options', () => {
       ['Corridor guides', 'false'],
       ['Dim other flows on hover', 'true'],
       ['Dependents', 'true'],
+      ['Legend in exports', 'true'],
       ['Planned', 'true'],
       ['Light', 'false'],
       ['Dark', 'true'],
@@ -113,6 +114,7 @@ describe('Toolbar View options', () => {
     openOptions()
     expect(option('Dependents').querySelector('.choice-description')?.textContent).toBe('Emphasize what depends on the selection, not what it depends on')
     expect(option('Planned').querySelector('.choice-description')?.textContent).toBe('Show what is not built yet; off hides it from the canvas and image exports')
+    expect(option('Legend in exports').querySelector('.choice-description')?.textContent).toBe('Draw the legend under the diagram in SVG and PNG exports')
   })
 
   it('opens a narrow menu and shows each palette with a strip of its own colours', () => {
@@ -150,7 +152,7 @@ describe('Toolbar View options', () => {
   it('draws the switches as a track with a knob and the themes as one segmented pill', () => {
     renderToolbar()
     openOptions()
-    for (const name of ['Corridor guides', 'Dim other flows on hover', 'Dependents', 'Planned']) expect(option(name).querySelector('.switch-track > .switch-knob')).not.toBeNull()
+    for (const name of ['Corridor guides', 'Dim other flows on hover', 'Dependents', 'Legend in exports', 'Planned']) expect(option(name).querySelector('.switch-track > .switch-knob')).not.toBeNull()
     const theme = screen.getAllByRole('menuitemradio', { name: 'Light' })[0].parentElement!
     expect(theme.classList.contains('segmented')).toBe(true)
   })

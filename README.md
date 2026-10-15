@@ -106,13 +106,13 @@ Then ask your assistant to draw your hexagon. The skill lives in `skills/domainr
 
 ### Visual language
 
-Each meaning has one channel, and a collapsible legend in the bottom-right corner lists them:
+Each meaning has one channel:
 
 - **Colour = layer or side:** indigo for the driving side, rust for the driven side, teal for the application ring and a solid teal domain, slate for the outer ring and external systems.
 - **Stroke = role:** dashed for contracts (ports), solid for implementations (adapters, use cases), dotted for wiring and ownership.
 - **Glyph + word = type:** `◆ aggregate`, `● entity`, `○ value object`, `⚙ domain service`, `▶ use case`, `⇥` for the driving side and `⇤` for the driven side.
 
-The legend shows only the types your diagram uses, and it is drawn into SVG and PNG exports unless you untick **Include legend in export**.
+A small **Layers** key sits at the bottom of the Flows panel. SVG and PNG exports draw a legend under the diagram, listing the layers and one thread per use case; turn it off with **Legend in exports** in the View options. Onion and Clean keep their collapsible legend in the bottom-right corner.
 
 ### Modes and guides
 

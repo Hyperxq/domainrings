@@ -625,11 +625,16 @@ describe('notices never overlap', () => {
 describe('legend island', () => {
   const legendButton = () => document.querySelector<HTMLButtonElement>('.legend .legend-head')!
   const headings = () => [...document.querySelectorAll('.legend h3')].map((h) => h.textContent)
+  const open = (kind: 'Onion' | 'Clean') => {
+    render(<App />)
+    choose('File', 'New')
+    fireEvent.click(screen.getByRole('button', { name: kind }))
+  }
 
   beforeEach(() => localStorage.removeItem('domainrings:legend-open'))
 
   it('reads as a help panel when closed, and shows its close control when open', () => {
-    render(<App />)
+    open('Onion')
     const button = legendButton()
     expect(button.getAttribute('aria-expanded')).toBe('false')
     expect(button.getAttribute('title')).toBe('Show legend')
@@ -640,7 +645,7 @@ describe('legend island', () => {
   })
 
   it('closes on Esc while focus is inside it', () => {
-    render(<App />)
+    open('Onion')
     fireEvent.click(legendButton())
     const checkbox = screen.getByLabelText('Include legend in export')
     checkbox.focus()
@@ -649,20 +654,30 @@ describe('legend island', () => {
   })
 
   it('never shows an empty section', () => {
-    useMapStore.getState().replace(toMap({ ...EXAMPLE_DIAGRAM, domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [] }))
-    render(<App />)
+    open('Onion')
     fireEvent.click(legendButton())
     expect(headings()).toEqual(['Colour · layer', 'Stroke · role'])
   })
 
-  it('explains the glyphs present in the diagram even in Overview, where the canvas hides them', () => {
-    localStorage.setItem('domainrings:overview', 'true')
-    usePreferencesStore.persist.rehydrate()
-    render(<App />)
+  it('adds the wedge channel in Clean, where sectors exist', () => {
+    open('Clean')
     fireEvent.click(legendButton())
-    expect(headings()).toContain('Glyph · type')
-    expect([...document.querySelectorAll('.legend-tags li')].map((li) => li.textContent)).toContain('◆ aggregate')
-    localStorage.removeItem('domainrings:overview')
+    expect(headings()).toEqual(['Colour · layer', 'Stroke · role', 'Wedge · division'])
+  })
+})
+
+describe('legend in exports', () => {
+  afterEach(() => localStorage.removeItem('domainrings:legend-export'))
+
+  it('is a switch in the View options, and the Hexagonal canvas has no legend island', () => {
+    render(<App />)
+    expect(document.querySelector('.legend')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'View options' }))
+    const toggle = screen.getByRole('menuitemcheckbox', { name: /^Legend in exports/ })
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(toggle)
+    expect(usePreferencesStore.getState().legendInExport).toBe(false)
+    expect(localStorage.getItem('domainrings:legend-export')).toBe('false')
   })
 })
 

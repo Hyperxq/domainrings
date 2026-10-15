@@ -41,6 +41,7 @@ const VIEW_SWITCHES = [
   { id: 'guides', label: 'Corridor guides' },
   { id: 'highlight', label: 'Dim other flows on hover' },
   { id: 'dependents', label: 'Dependents', description: 'Emphasize what depends on the selection, not what it depends on' },
+  { id: 'legendInExport', label: 'Legend in exports', description: 'Draw the legend under the diagram in SVG and PNG exports' },
   { id: 'showPlanned', label: 'Planned', description: 'Show what is not built yet; off hides it from the canvas and image exports' },
 ] as const
 const SWATCH_TOKENS = ['bg', 'teal', 'driving-fill', 'driven-fill'] as const
