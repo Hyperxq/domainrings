@@ -85,7 +85,8 @@ describe('planned items on the canvas', () => {
     useViewStore.setState({ editorOpen: true })
     const { container } = render(<App />)
     hidePlanned()
-    expect(card(container, 'uc-submit')).not.toBeNull()
+    expect(card(container, 'p-submit')).not.toBeNull()
+    expect(within(screen.getByRole('region', { name: 'Flows' })).getByText('SubmitChatFeedback')).toBeTruthy()
   })
 
   it('leaves the stored map untouched', () => {
@@ -134,20 +135,20 @@ describe('editor Planned controls', () => {
   }
   const undoKey = () => fireEvent.keyDown(document.body, { key: 'z', ctrlKey: true })
   const store = () => useMapStore.getState().map
-  const itemBox = (container: HTMLElement, id: string) => within(card(container, id)).getByRole('checkbox', { name: 'Planned' }) as HTMLInputElement
+  const flowBox = () => screen.getByRole('checkbox', { name: 'Flow planned' }) as HTMLInputElement
 
   beforeEach(() => {
     useMapStore.getState().replace(built())
-    useViewStore.setState({ editorOpen: true })
+    useViewStore.setState({ editorOpen: true, focusedFlow: 'uc-submit' })
   })
 
-  it('marks an element planned and back, removing the key, each step undoable', () => {
-    const { container } = render(<App />)
-    expect(itemBox(container, 'uc-submit').checked).toBe(false)
-    fireEvent.click(itemBox(container, 'uc-submit'))
+  it('marks a flow planned and back from the inspector, removing the key, each step undoable', () => {
+    render(<App />)
+    expect(flowBox().checked).toBe(false)
+    fireEvent.click(flowBox())
     expect(store().hexagons[0].useCases[0].status).toBe('planned')
-    expect(itemBox(container, 'uc-submit').checked).toBe(true)
-    fireEvent.click(itemBox(container, 'uc-submit'))
+    expect(flowBox().checked).toBe(true)
+    fireEvent.click(flowBox())
     expect('status' in store().hexagons[0].useCases[0]).toBe(false)
     undoKey()
     expect(store().hexagons[0].useCases[0].status).toBe('planned')
@@ -155,9 +156,9 @@ describe('editor Planned controls', () => {
     expect('status' in store().hexagons[0].useCases[0]).toBe(false)
   })
 
-  it('offers it on every kind of element', () => {
+  it('offers it on every kind of element in the lists', () => {
     const { container } = render(<App />)
-    for (const id of ['d-feedback', 'uc-submit', 'p-submit', 'a-knex', 'ext-pg']) expect(within(card(container, id)).queryByRole('checkbox', { name: 'Planned' }), id).not.toBeNull()
+    for (const id of ['d-feedback', 'p-submit', 'a-knex', 'ext-pg']) expect(within(card(container, id)).queryByRole('checkbox', { name: 'Planned' }), id).not.toBeNull()
   })
 
   it('marks the subdomain planned and back, and undoes it', () => {

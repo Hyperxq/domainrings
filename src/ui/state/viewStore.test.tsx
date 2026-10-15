@@ -31,6 +31,30 @@ describe('view store', () => {
     expect(useViewStore.getState().editorOpen).toBe(false)
   })
 
+  it('reveal on a use case focuses its flow and selects the inspector name field', () => {
+    function Inspector() {
+      const flow = useViewStore((s) => s.focusedFlow)
+      return flow ? <input aria-label="Flow name" defaultValue="Name" /> : null
+    }
+    usePreferencesStore.setState({ viewOnly: false })
+    useViewStore.setState({ focusedFlow: null })
+    render(<Inspector />)
+
+    useViewStore.getState().reveal(EXAMPLE_DIAGRAM.useCases[0].id, true, 'h1')
+
+    expect(useViewStore.getState().focusedFlow).toBe(EXAMPLE_DIAGRAM.useCases[0].id)
+    const field = document.activeElement as HTMLInputElement
+    expect(field.getAttribute('aria-label')).toBe('Flow name')
+    expect([field.selectionStart, field.selectionEnd]).toEqual([0, 4])
+  })
+
+  it('reveal on a use case only focuses the flow in Edit mode', () => {
+    usePreferencesStore.setState({ viewOnly: true })
+    useViewStore.setState({ focusedFlow: null })
+    useViewStore.getState().reveal(EXAMPLE_DIAGRAM.useCases[0].id, true, 'h1')
+    expect(useViewStore.getState().focusedFlow).toBeNull()
+  })
+
   it('toggles a hexagon in and out of the expanded set', () => {
     useViewStore.getState().toggleExpanded('h1')
     expect([...useViewStore.getState().expanded]).toEqual(['h1'])
