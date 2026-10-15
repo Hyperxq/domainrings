@@ -79,8 +79,9 @@ async function renderOne(browser, url, format, path, appearance) {
     await page.waitForFunction(() => !location.hash.startsWith('#m='))
     const alert = page.getByRole('alert')
     if (await alert.count()) throw new Error(`The app could not open the link: ${(await alert.first().innerText()).trim()}`)
-    await page.getByRole('button', { name: 'Share' }).click()
-    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('menuitem', { name: `Download ${format.toUpperCase()}` }).click()])
+    // Exact names: map boxes are buttons too, and their labels can contain "Share".
+    await page.getByRole('button', { name: 'Share', exact: true }).click()
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('menuitem', { name: `Download ${format.toUpperCase()}`, exact: true }).click()])
     await download.saveAs(path)
   } finally {
     await context.close()
