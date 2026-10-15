@@ -1,5 +1,6 @@
 import { HEXAGONAL_KIND, type RingRole } from '../model/kinds'
 import type { Diagram, Side, Wall } from '../model/schema'
+import type { Thread } from '../model/threads'
 import { dot, reach, type Box, type Point } from './geometry'
 import { layoutBounds } from './hexagon/bounds'
 import { boxFrames } from './hexagon/boxFrames'
@@ -9,6 +10,7 @@ import { assignLayers, placeNodes } from './hexagon/nodes'
 import { solveRings } from './hexagon/ringSolver'
 import { ringTitles } from './hexagon/ringTitles'
 import { routeEdges } from './hexagon/routes'
+import { markThreads } from './hexagon/threadMarks'
 import { GAP, TRACK_GAP } from './hexagon/spacing'
 import { seatUseCases } from './hexagon/useCaseSeating'
 import { VERTEX, wallFrame } from './hexagon/walls'
@@ -28,6 +30,12 @@ export type NodeKind =
   | 'composition'
   | 'portLabel'
 
+/** A use case's thread as the layout carries it: whose flow, and the palette slot it draws with. */
+export interface ThreadMark {
+  id: string
+  slot: number
+}
+
 /** Centre-anchored box holding typed text lines. */
 export interface LayoutNode {
   key: string
@@ -42,6 +50,8 @@ export interface LayoutNode {
   side?: Side
   /** Hexagons: the application-ring wall a port sits on; its adapter and actor or external share it. */
   wall?: Wall
+  /** Hexagons: the threads whose flow passes through this box, in use case order. */
+  threads?: ThreadMark[]
   x: number
   y: number
   width: number
@@ -78,6 +88,8 @@ export interface LayoutEdge {
   labelAt?: Point
   /** Index of the point where the path crosses into the domain fill; the part from there on is drawn in the domain's own tone. */
   intoDomain?: number
+  /** Hexagons: the one thread this edge belongs to; absent when none or several do. */
+  thread?: ThreadMark
 }
 
 /** Left-anchored at (x, y). */
@@ -96,6 +108,8 @@ export type LayoutMode = 'detailed' | 'overview'
 
 export interface LayoutOptions {
   mode?: LayoutMode
+  /** Hexagons: the flows to mark on boxes and edges (`threadsOf`); without them the layout carries none. */
+  threads?: readonly Thread[]
 }
 
 export interface LayoutModel {
@@ -113,7 +127,7 @@ export interface LayoutModel {
   bounds: Box
 }
 
-export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions = {}): LayoutModel {
+export function layoutDiagram(d: Diagram, { mode = 'detailed', threads = [] }: LayoutOptions = {}): LayoutModel {
   const overview = mode === 'overview'
   const config = HEXAGONAL_KIND
   const frames = boxFrames(overview)
@@ -134,6 +148,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   const edges = routeEdges({ d, overview, nodes, composition, plan, app, insideApp, region: centre.region, faces: centre.faces, outer, seating })
   const { texts, bounds } = layoutBounds(d, outer, nodes, edges)
   assignLayers(nodes, centre.serviceItems)
+  markThreads(nodes, edges, threads)
 
   // Spokes run along the centre-to-vertex lines, from each outer vertex in to the domain's, never over its fill.
   const guides = VERTEX.map((v) => ({ from: { x: v.x * outer.apex, y: v.y * outer.apex }, to: { x: v.x * domain.apex, y: v.y * domain.apex } }))

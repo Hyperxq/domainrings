@@ -11,6 +11,7 @@ import { layoutDiagram, type LayoutMode } from './layout'
 import { parseHexa, toMap } from '../model/hexa'
 import { EXAMPLE_DIAGRAM, EXAMPLES, RETIRED_SEEDS, STRESS_DIAGRAM } from '../model/example'
 import { diagramOf, freeCell, freeSides, neighbour, removeHexagon, SIDE_ORDER } from '../model/map'
+import { threadsOf } from '../model/threads'
 import { MapSchema, VERSION, type Diagram, type HexaMap, type Hexagon, type Wall } from '../model/schema'
 import { contains, fitTo, islandInset, visibleRect } from '../ui/viewport'
 import projectBuilder from '../model/fixtures/project-builder.hexa?raw'
@@ -51,7 +52,7 @@ describe('layoutMap — one-hexagon equivalence (MIG-05)', () => {
       it(`matches layoutDiagram for ${label} in ${mode} mode`, () => {
         const map = toMap(diagram)
         const result = layoutMap(map, { mode })
-        const expected = layoutDiagram(diagram, { mode })
+        const expected = layoutDiagram(diagram, { mode, threads: threadsOf(map, map.hexagons[0].id) })
         expect(result.hexagons).toHaveLength(1)
         expect(result.hexagons[0].model).toStrictEqual(expected)
         expect(result.hexagons[0].centre).toStrictEqual({ x: 0, y: 0 })

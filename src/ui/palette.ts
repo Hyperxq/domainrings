@@ -1,3 +1,5 @@
+import { THREAD_SLOTS, threadColour } from '../model/threadPalette'
+
 /**
  * The single source of the colour tokens. `paletteCss` turns these tables into the theme CSS (system default plus
  * the explicit data-theme override, per palette), and the contrast test reads the same tables.
@@ -264,6 +266,7 @@ function block(id: PaletteId, theme: Theme) {
     ...Object.entries(table).map(([k, v]) => `--${k}: ${v};`),
     ...RING_FILLS.map((k) => `--${k}-hover: ${hoverTint(table[k], theme)};`),
     `--guide-opacity: ${GUIDE_OPACITY[theme]};`,
+    ...Array.from({ length: THREAD_SLOTS }, (_, slot) => `--thread-${slot}: ${threadColour(slot, theme)};`),
   ]
   return [`color-scheme: ${theme};`, ...colours, `--shadow: ${SHADOW[theme]};`, `--chevron: ${chevron(table.muted)};`].join('\n  ')
 }

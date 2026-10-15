@@ -5,6 +5,7 @@ import { EDGE_LABEL, LINE_METRICS, SUBTITLE, TAG_GAP, TITLE } from '../layout/te
 import { bandPath } from './band'
 import { NOTE_INSET, NOTE_POPOVER_ID, NoteMarker } from './NoteMarker'
 import { Ring } from './Ring'
+import { ThreadDots, threadStyle } from './ThreadDots'
 
 const BOX_PAD_X = 12
 // The domain block is plain text on the solid domain ring.
@@ -39,14 +40,15 @@ function inChain(edge: LayoutEdge, refs: ReadonlySet<string> | undefined): boole
 }
 
 function Edge({ edge, chained }: { edge: LayoutEdge; chained: boolean }) {
-  const marker = edge.kind === 'import' ? 'url(#arrow)' : undefined
+  const marker = edge.kind === 'import' ? `url(#arrow${edge.thread ? `-thread-${edge.thread.slot}` : ''})` : undefined
   const chain = chained ? '' : undefined
+  const thread = edge.thread ? { 'data-thread': edge.thread.id, style: threadStyle(edge.thread.slot) } : {}
   if (edge.intoDomain === undefined) {
-    return <path className={`edge edge-${edge.kind}`} data-chain={chain} d={orthogonalPath(edge.points)} markerEnd={marker} />
+    return <path className={`edge edge-${edge.kind}`} data-chain={chain} {...thread} d={orthogonalPath(edge.points)} markerEnd={marker} />
   }
   return (
     <>
-      <path className={`edge edge-${edge.kind}`} data-chain={chain} d={orthogonalPath(edge.points.slice(0, edge.intoDomain + 1))} />
+      <path className={`edge edge-${edge.kind}`} data-chain={chain} {...thread} d={orthogonalPath(edge.points.slice(0, edge.intoDomain + 1))} />
       <path className={`edge edge-${edge.kind} on-domain`} data-chain={chain} d={orthogonalPath(edge.points.slice(edge.intoDomain))} markerEnd="url(#arrow-on-domain)" />
     </>
   )
@@ -108,6 +110,7 @@ function Node({ node, selected, target, chained, interactive, noted, planned }: 
           )
         })}
       </text>
+      {node.threads && <ThreadDots node={node} />}
       {noted && NOTE_CARRIERS.has(node.kind) && <NoteMarker x={left + node.width - NOTE_INSET} y={top + NOTE_INSET} />}
     </g>
   )
