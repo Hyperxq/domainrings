@@ -121,7 +121,7 @@ export function solveRings({ d, overview, appIndex, titles, centre, plan, frames
     // Sockets on the upper walls, and overview port names, lean in toward the use cases and the title: grow until
     // none of them touch.
     if (role === 'application' && (hasSlanted || overview || d.useCases.length > 0)) {
-      for (let guard = 0; guard < 400 && appClashes(fitted); guard++) fitted = hexagon(fitted.apex * 1.01)
+      for (let guard = 0; guard < 4000 && appClashes(fitted); guard++) fitted = hexagon(fitted.apex * 1.001)
     }
     // The title must fit titleDepth under the top: the hexagon's slope is wide enough by construction, so only
     // its straight width can bind.

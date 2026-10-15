@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Point } from './geometry'
+import { hairline, quadsOverlap, rectCorners, reach, type Point } from './geometry'
 import { layoutDiagram, type LayoutModel, type LayoutNode, type LayoutRing } from './layout'
 import { TRACK_GAP } from './hexagon/spacing'
 import { halfWidthAt, hexagon } from './outline'
@@ -1061,12 +1061,13 @@ describe('use cases placed on a wall', () => {
     useCases: [{ id: 'u0', name: 'PlaceOrder' }, { id: 'u1', name: 'SettleTheDailyLedger', placement: 'w' }],
     ports: Array.from({ length: sockets }, (_, i) => ({ id: `w${i}`, name: `receiveEvent${i}`, side: 'driving' as const, wall: 'w' as const, useCaseId: 'u0' })),
   })
-  it.each([1, 2, 3])('seats a use case clear of the %i sockets other use cases serve on its wall', (sockets) => {
+  it.each([1, 2, 3])('runs no link of another use case through a seat beside the %i sockets that use case serves on its wall', (sockets) => {
     const m = layoutDiagram(seatBesideForeignSockets(sockets))
+    const links = m.edges.filter((e) => e.kind === 'import' && e.key.includes('useCase:u0') && e.key.includes('port:'))
+    expect(links).toHaveLength(sockets)
     const seat = m.nodes.find((n) => n.kind === 'useCase' && n.ref === 'u1')!
-    const foreign = m.nodes.filter((n) => n.kind === 'port')
-    expect(foreign).toHaveLength(sockets)
-    for (const port of foreign) expect(Math.abs(seat.y - port.y), port.ref).toBeGreaterThanOrEqual(seat.height / 2 + 14 - 1e-6)
+    const box = rectCorners(seat.x, seat.y, seat.width - 2, seat.height - 2)
+    for (const e of links) for (const [i, a] of e.points.slice(0, -1).entries()) expect(quadsOverlap(hairline(a, e.points[i + 1]), box), e.key).toBe(false)
   })
 
   // A seat beside a tall west column with no slanted port: column sockets keep no sector, so only the clash check parts them.
@@ -1217,12 +1218,14 @@ describe('use cases placed on a wall', () => {
     }
   })
 
-  it('centres a run of seats on the ports they serve, the wall midpoint when they serve none', () => {
+  it('centres a run of seats on the wall as a group, not on the ports they serve', () => {
     const m = layoutDiagram(BY_COLUMN)
     const { dir } = wallFrame('sw')
-    const us = m.nodes.filter((u) => u.kind === 'useCase' && u.wall === 'sw').map((u) => dot(u, dir))
-    expect(us).toHaveLength(3)
-    expect(us.reduce((a, b) => a + b, 0) / us.length).toBeCloseTo(0, 6)
+    const seats = m.nodes.filter((u) => u.kind === 'useCase' && u.wall === 'sw')
+    expect(seats).toHaveLength(3)
+    const lo = Math.min(...seats.map((u) => dot(u, dir) - reach(u.width, u.height, dir)))
+    const hi = Math.max(...seats.map((u) => dot(u, dir) + reach(u.width, u.height, dir)))
+    expect((lo + hi) / 2).toBeCloseTo(0, 6)
   })
 
   it('treats an explicit top placement as no placement', () => {

@@ -63,7 +63,8 @@ export function around(from: Wall, to: Wall, apothem: number, clip: number): Poi
   const r = apothem / COS30
   const { clockwise, vertices } = arcBetween(from, to)
   return vertices.flatMap((vertex) => {
-    if (vertex !== 0 || clip >= r) return [{ x: VERTEX[vertex].x * r, y: VERTEX[vertex].y * r }]
+    // The side vertices lie exactly on the vertical walls, so a run up a vertical wall stays exactly vertical.
+    if (vertex !== 0 || clip >= r) return [{ x: VERTEX[vertex].x === 0 ? 0 : Math.sign(VERTEX[vertex].x) * apothem, y: VERTEX[vertex].y * r }]
     const half = Math.min((r - clip) * SQRT3, apothem)
     return clockwise ? [{ x: -half, y: -clip }, { x: half, y: -clip }] : [{ x: half, y: -clip }, { x: -half, y: -clip }]
   })
@@ -78,7 +79,9 @@ export function hexHit(from: Point, dir: Point, apothem: number): Point {
   })
   if (!bounds.length) return from
   const t = inside ? Math.min(...bounds) : Math.max(...bounds)
-  return { x: from.x + dir.x * t, y: from.y + dir.y * t }
+  // A hit on a vertical wall lies exactly on it.
+  const wall = NORMALS.find((n) => n.y === 0 && (inside ? dot(dir, n) > EPS : dot(dir, n) < -EPS) && Math.abs((apothem - dot(from, n)) / dot(dir, n) - t) < EPS)
+  return { x: wall ? wall.x * apothem : from.x + dir.x * t, y: from.y + dir.y * t }
 }
 
 /**

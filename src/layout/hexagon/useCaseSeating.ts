@@ -63,37 +63,29 @@ export function seatUseCases({ d, overview, useCaseFrames, plan, frames, titleRo
   }
 
   /**
-   * Use cases seated on a wall, in wall coordinates: stacked along it like ports, the run centred on the ports they
-   * serve on that wall.
+   * Use cases seated on a wall, in wall coordinates: stacked along it like ports, ordered by where their own sockets
+   * sit and the run centred on the wall. Links to sockets out of line run round the corridor, so a seat never needs to
+   * stand beside its sockets.
    */
   const placed = WALLS.flatMap((wall) => {
     const here = d.useCases.flatMap((_, i) => (walls[i] === wall ? [i] : []))
     if (!here.length) return []
     const { n, dir } = wallFrame(wall)
     const sockets = socketsOn(wall)
-    const socketsAlong = sockets.map((s) => s.u).sort((a, b) => a - b)
     const items = here
       .map((i) => {
         const f = useCaseFrames[i]
-        const own = sockets.find((s) => s.port.useCaseId === d.useCases[i].id)?.u
-        const along = reach(f.width, f.height, dir)
-        // Another use case's run to a socket on this wall passes through any seat level with that socket, at every
-        // ring size, so a seat with no socket of its own here steps past them along the wall.
-        let want = own ?? 0
-        if (own === undefined) {
-          for (const u of socketsAlong) if (Math.abs(u - want) < along + GAP) want = u + along + GAP
-        }
-        return { i, wall, frame: f, want, along, across: reach(f.width, f.height, n), inward: Math.max(0, ...sockets.map((s) => s.inward)) }
+        const own = sockets.find((s) => s.port.useCaseId === d.useCases[i].id)?.u ?? 0
+        return { i, wall, frame: f, own, along: reach(f.width, f.height, dir), across: reach(f.width, f.height, n), inward: Math.max(0, ...sockets.map((s) => s.inward)) }
       })
-      .sort((a, b) => a.want - b.want)
-    let end = -Infinity
+      .sort((a, b) => a.own - b.own)
+    let end = 0
     const packed = items.map((it) => {
-      const u = Math.max(it.want, end + it.along)
+      const u = end + it.along
       end = u + it.along + GAP
       return { ...it, u }
     })
-    const shift = packed.reduce((t, it) => t + it.want - it.u, 0) / packed.length
-    return packed.map((it) => ({ ...it, u: it.u + shift }))
+    return packed.map((it) => ({ ...it, u: it.u - (end - GAP) / 2 }))
   })
 
   // Every port reaching a use case seated elsewhere, or beside it but out of line, runs round the corridor.
