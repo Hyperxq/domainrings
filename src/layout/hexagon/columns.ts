@@ -88,7 +88,7 @@ function buildColumn(
 }
 
 /** Where every box outside the rings sits: rows in the w/e columns, lanes along the slanted walls, and the overview port names beside their sockets. */
-export function planBoxes(d: Diagram, overview: boolean, { NOTCH, portLabel, adapterFrame, socketFrame, leafFrame }: BoxFrames) {
+export function planBoxes(d: Diagram, overview: boolean, { portLabel, adapterFrame, socketFrame, leafFrame }: BoxFrames) {
   const config = HEXAGONAL_KIND
   const { labels } = config
   const ports = new Map(d.ports.map((p) => [p.id, p]))
@@ -190,7 +190,7 @@ export function planBoxes(d: Diagram, overview: boolean, { NOTCH, portLabel, ada
     const sockets = onWall.map(socketFrame)
     // An overview notch keeps its name flat beside it, so neighbouring rows must clear each other vertically.
     const nameHeight = Math.max(0, ...onWall.map((p) => portLabel(p).height))
-    const rowPitch = overview ? (NOTCH.height + LABEL_GAP + nameHeight) / Math.abs(dir.y) : 0
+    const rowPitch = overview ? (Math.max(...sockets.map((f) => f.height)) + LABEL_GAP + nameHeight) / Math.abs(dir.y) : 0
     const pitch = Math.max(36, rowPitch, ...[...boxes, ...sockets].map((f) => 2 * reach(f.width, f.height, dir))) + ROW_GAP
     const uOf = (lane: number) => (lane - (lanes - 1) / 2) * pitch
     let lane = 0
