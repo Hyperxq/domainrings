@@ -8,7 +8,9 @@ import { plannedOf } from '../model/planned'
 import { diagramOf } from '../model/map'
 import type { HexaMap } from '../model/schema'
 import { MapDiagram } from './Diagram'
-import { dotsOf, MAX_DOTS } from './ThreadDots'
+import type { LayoutNode } from '../layout/layout'
+import { NOTE_INSET } from './NoteMarker'
+import { dotsOf, MAX_DOTS, ThreadDots } from './ThreadDots'
 
 afterEach(cleanup)
 
@@ -98,5 +100,32 @@ describe('thread dots', () => {
   it('keep the note marker where it was', () => {
     const { container } = draw()
     expect(container.querySelectorAll('circle.thread-dot[data-note-marker]')).toHaveLength(0)
+  })
+
+  describe('placement', () => {
+    const box = { kind: 'adapter', x: 100, y: 50, width: 120, height: 60, threads: [{ id: 'u0', slot: 0 }, { id: 'u1', slot: 1 }] } as unknown as LayoutNode
+    const dotsIn = (node: LayoutNode, noted = false) => {
+      const { container } = render(<svg><ThreadDots node={node} noted={noted} /></svg>)
+      return [...container.querySelectorAll('circle.thread-dot')].map((c) => ({ x: Number(c.getAttribute('cx')), y: Number(c.getAttribute('cy')), r: Number(c.getAttribute('r')) }))
+    }
+    const [left, right, top] = [box.x - box.width / 2, box.x + box.width / 2, box.y - box.height / 2]
+
+    it('sits inside the top-right corner of any box, clear of its rounded corner, the first nearest it', () => {
+      const dots = dotsIn(box)
+      for (const d of dots) {
+        expect(d.x + d.r).toBeLessThan(right)
+        expect(d.x - d.r).toBeGreaterThan(left)
+        expect(d.y - d.r).toBeGreaterThan(top)
+      }
+      expect(dots[0].x).toBeGreaterThan(dots[1].x)
+      expect(Math.hypot(right - dots[0].x, dots[0].y - top)).toBeGreaterThan(10)
+    })
+
+    it('steps left of the note marker when the box carries a note', () => {
+      const [plain, noted] = [dotsIn(box)[0], dotsIn(box, true)[0]]
+      const marker = { x: right - NOTE_INSET, y: top + NOTE_INSET }
+      expect(noted.x).toBeLessThan(plain.x)
+      expect(Math.hypot(noted.x - marker.x, noted.y - marker.y)).toBeGreaterThan(noted.r + 4 + 2.5)
+    })
   })
 })

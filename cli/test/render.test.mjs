@@ -181,6 +181,13 @@ describe('render', () => {
     expect(localStorage.removeItem).toHaveBeenCalledWith('domainrings:palette')
   })
 
+  it('finds the Share button and download item by their exact names, not by a substring a map element could share', async () => {
+    const { browser, page } = browserWith(() => false)
+    await render(file, { flow: 'Charge', out: dirname(file) }, { chromium: { launch: async () => browser }, log: () => {}, warn: () => {} })
+    expect(page.getByRole).toHaveBeenCalledWith('button', { name: 'Share', exact: true })
+    expect(page.getByRole).toHaveBeenCalledWith('menuitem', { name: 'Download PNG', exact: true })
+  })
+
   it('asks the app to frame a flow image, and leaves a whole-map image alone', async () => {
     const { browser, page } = browserWith(() => false)
     await render(file, { flow: 'Charge', out: dirname(file) }, { chromium: { launch: async () => browser }, log: () => {}, warn: () => {} })

@@ -124,7 +124,7 @@ function Node({ node, selected, target, chained, interactive, noted, planned }: 
           )
         })}
       </text>
-      {node.threads && <ThreadDots node={node} />}
+      {node.threads && <ThreadDots node={node} noted={noted && NOTE_CARRIERS.has(node.kind)} />}
       {noted && NOTE_CARRIERS.has(node.kind) && <NoteMarker x={left + node.width - NOTE_INSET} y={top + NOTE_INSET} />}
     </g>
   )
