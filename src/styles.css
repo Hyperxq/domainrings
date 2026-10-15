@@ -614,6 +614,19 @@ a.icon-button { color: inherit; text-decoration: none; }
 .choice-heading { padding: 4px 8px 2px; color: var(--muted); font-size: 12px; font-weight: 600; }
 .choice-separator { height: 1px; margin: 2px 4px; background: var(--line); }
 .choice-description { color: var(--muted); font-size: 12px; font-weight: 400; }
+/* View options: one narrow column. A switch's description sits under its label, the track spans both rows. */
+.choice-menu.narrow-menu { box-sizing: border-box; width: 300px; max-width: calc(100vw - 16px); }
+.narrow-menu .text-button[data-control='switch']:has(.choice-description) { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; align-items: center; }
+.narrow-menu .text-button[data-control='switch'] .choice-description { grid-column: 1; white-space: normal; text-align: start; }
+.narrow-menu .text-button[data-control='switch'] .switch-track { grid-column: 2; grid-row: 1 / span 2; }
+.narrow-menu .segmented { margin: 0 4px; }
+.narrow-menu [role='group']:has(.choice-swatches) { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 0 4px; }
+.narrow-menu .choice-heading { grid-column: 1 / -1; }
+.narrow-menu .text-button:has(.choice-swatches) { flex-direction: column; align-items: flex-start; gap: 6px; border: 1px solid var(--line); }
+.narrow-menu .text-button:has(.choice-swatches)[aria-checked='true'] { border-color: var(--teal); box-shadow: inset 0 0 0 1px var(--teal); }
+.choice-swatches { display: flex; gap: 3px; }
+.choice-swatches > span { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15); }
+.narrow-menu .choice-swatches + .choice-description { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 
 .architecture-choice-dialog {
   inset: 0;

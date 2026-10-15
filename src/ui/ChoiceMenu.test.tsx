@@ -531,3 +531,19 @@ describe('ChoiceMenu disabled choice', () => {
     expect(screen.getByRole('menu')).toBeTruthy()
   })
 })
+
+describe('ChoiceMenu on a narrow viewport', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('pulls a menu wider than the room left of its trigger back inside, with a gutter', () => {
+    vi.stubGlobal('innerWidth', 390)
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const box = this.getAttribute('role') === 'menu' ? { width: 300, height: 100 } : { left: 140, right: 173, top: 10, bottom: 42, width: 33, height: 32 }
+      return { x: 0, y: 0, left: 0, right: 0, top: 0, bottom: 0, toJSON: () => ({}), ...box } as DOMRect
+    })
+    render(<ChoiceMenu label="Options" choices={CHOICES} onChoose={vi.fn()} align="end" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }))
+    expect(screen.getByRole('menu').style.left).toBe('8px')
+    vi.unstubAllGlobals()
+  })
+})
