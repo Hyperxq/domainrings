@@ -4,7 +4,10 @@ import { App } from './App'
 import { EXAMPLE_DIAGRAM } from './model/example'
 import { toHexa, toMap } from './model/hexa'
 import { useMapStore } from './model/store'
+import { encodeSharePayload, SHARE_HASH_PREFIX } from './ui/shareLink'
 import { useNoticeStore } from './ui/state/noticeStore'
+import { usePreferencesStore } from './ui/state/preferencesStore'
+import { useViewStore } from './ui/state/viewStore'
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class {
@@ -42,5 +45,43 @@ describe('opening a remote link', () => {
     await act(async () => void (await vi.advanceTimersByTimeAsync(0)))
     expect(screen.queryByText('Opening the linked map…')).toBeNull()
     expect(useMapStore.getState().map).toStrictEqual(shared)
+  })
+})
+
+describe('opening a link that selects a flow', () => {
+  const [first] = toMap(EXAMPLE_DIAGRAM).hexagons
+  const twin = { ...first, id: 'h-twin', cell: { q: 1, r: 0 } }
+  const shared = { ...toMap(EXAMPLE_DIAGRAM), hexagons: [first, twin] }
+  const open = async (options: string) => {
+    history.replaceState(null, '', `/${SHARE_HASH_PREFIX}${await encodeSharePayload(shared)}${options}`)
+    render(<App />)
+    await act(async () => void (await new Promise((resolve) => setTimeout(resolve, 50))))
+  }
+
+  it('focuses the flow on the first hexagon that holds it', async () => {
+    await open('&flow=uc-submit')
+    expect(useMapStore.getState().focus).toBe(first.id)
+    expect(useViewStore.getState().focusedFlow).toBe('uc-submit')
+  })
+
+  it('focuses the flow on the hexagon the link names', async () => {
+    await open('&flow=uc-submit&hex=h-twin')
+    expect(useMapStore.getState().focus).toBe('h-twin')
+    expect(useViewStore.getState().focusedFlow).toBe('uc-submit')
+  })
+
+  it('honours the view option together with the flow', async () => {
+    await open('&view=detailed&flow=uc-submit')
+    expect(usePreferencesStore.getState()).toMatchObject({ viewOnly: true, mode: 'detailed' })
+    expect(useViewStore.getState().focusedFlow).toBe('uc-submit')
+  })
+
+  it('opens the map without focus when the flow or hexagon is unknown', async () => {
+    await open('&flow=uc-nope')
+    expect(useViewStore.getState().focusedFlow).toBeNull()
+    expect(useMapStore.getState().map).toStrictEqual(shared)
+    cleanup()
+    await open('&flow=uc-submit&hex=h-nope')
+    expect(useViewStore.getState().focusedFlow).toBeNull()
   })
 })
