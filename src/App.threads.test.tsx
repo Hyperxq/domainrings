@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { App } from './App'
 import { EXAMPLES } from './model/example'
 import type { HexaMap } from './model/schema'
@@ -21,7 +21,7 @@ beforeAll(() => {
 beforeEach(() => {
   useMapStore.getState().replace(EXAMPLES.find((e) => e.id === 'hexagonal-advanced')!.map as HexaMap)
   useViewStore.setState({ editorOpen: true, focusedFlow: null, hoveredFlows: [], presentStep: null })
-  usePreferencesStore.setState({ viewOnly: true, highlight: true, legendOpen: true })
+  usePreferencesStore.setState({ viewOnly: true, highlight: true })
 })
 afterEach(cleanup)
 
@@ -117,17 +117,10 @@ describe('hovering a thread', () => {
   })
 })
 
-describe('the Threads legend', () => {
-  const rows = () => within(screen.getByRole('region', { name: 'Threads' })).getAllByRole('button')
+describe('the Flows rows', () => {
+  const rows = () => [...document.querySelectorAll<HTMLButtonElement>('.flow-row:not(.flow-row-all)')]
 
-  it('lists every use case of the hexagon with a dot in its colour', () => {
-    render(<App />)
-    const names = useMapStore.getState().map.hexagons[0].useCases.map((u) => u.name)
-    expect(rows().map((r) => r.textContent)).toEqual(names)
-    expect(rows()[0].querySelector('.thread-swatch')?.getAttribute('style')).toMatch(/--thread: var\(--thread-\d+\)/)
-  })
-
-  it('previews a flow while a row is hovered', () => {
+  it('preview a flow on the canvas while hovered, and end with the pointer', () => {
     const { container } = render(<App />)
     fireEvent.pointerEnter(rows()[0])
     expect(canvas(container).hasAttribute('data-emphasis')).toBe(true)
@@ -135,32 +128,30 @@ describe('the Threads legend', () => {
     expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
   })
 
-  it('focuses the flow on click', () => {
-    render(<App />)
-    const first = useMapStore.getState().map.hexagons[0].useCases[0].id
-    fireEvent.click(rows()[0])
-    expect(useViewStore.getState().focusedFlow).toBe(first)
+  it('preview in Edit mode too, while nothing is selected', () => {
+    usePreferencesStore.setState({ viewOnly: false })
+    const { container } = render(<App />)
+    fireEvent.pointerEnter(rows()[0])
+    expect(canvas(container).hasAttribute('data-emphasis')).toBe(true)
   })
 
-  it('marks the focused flow as pressed and carries its thread colour', () => {
-    render(<App />)
-    expect(rows().map((r) => r.getAttribute('aria-pressed'))).toEqual(rows().map(() => 'false'))
-    expect(rows()[0].getAttribute('style')).toMatch(/--thread: var\(--thread-\d+\)/)
-    fireEvent.click(rows()[0])
-    expect(rows().map((r) => r.getAttribute('aria-pressed'))).toEqual(rows().map((_, i) => String(i === 0)))
+  it('yield to a focused flow', () => {
+    useMapStore.getState().replace(EXAMPLES.find((e) => e.id === 'hexagonal-stress')!.map as HexaMap)
+    const { container } = render(<App />)
+    act(() => useViewStore.getState().focusFlow('uc-cancel'))
+    const before = chained(container)
+    fireEvent.pointerEnter(rows()[0])
+    expect(chained(container)).toEqual(before)
   })
 
-  it('clears the focus on a second click of the pressed row', () => {
-    render(<App />)
-    fireEvent.click(rows()[0])
-    fireEvent.click(rows()[0])
-    expect(useViewStore.getState().focusedFlow).toBeNull()
-    expect(rows()[0].getAttribute('aria-pressed')).toBe('false')
-  })
-
-  it('is absent when the hexagon has no use case', () => {
-    useMapStore.getState().replace({ ...(EXAMPLES[0].map as HexaMap), hexagons: (EXAMPLES[0].map as HexaMap).hexagons.map((h) => ({ ...h, useCases: [], ports: [], adapters: [], actors: [], externals: [] })) })
-    render(<App />)
-    expect(screen.queryByRole('region', { name: 'Threads' })).toBeNull()
+  it('stop previewing when the hovered flow is deleted', () => {
+    const { container } = render(<App />)
+    const map = useMapStore.getState().map
+    const [first] = map.hexagons[0].useCases
+    fireEvent.pointerEnter(rows()[0])
+    expect(useViewStore.getState().hoveredFlows).toEqual([first.id])
+    act(() => useMapStore.getState().replace({ ...map, hexagons: map.hexagons.map((h, i) => (i ? h : { ...h, useCases: h.useCases.filter((u) => u.id !== first.id) })) }))
+    expect(useViewStore.getState().hoveredFlows).toEqual([])
+    expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
   })
 })

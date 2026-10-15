@@ -285,7 +285,6 @@ svg[data-emphasis='dependents'] .compact-port[data-chain] circle { stroke-dashar
 .stroke-dashed { stroke: var(--teal); stroke-width: 2; stroke-dasharray: 6 4; }
 .stroke-solid { stroke: var(--ink); stroke-width: 1.6; }
 .stroke-dotted { stroke: var(--muted); stroke-width: 1.6; stroke-dasharray: 2 3; }
-.stroke-planned { stroke: var(--ink); stroke-width: 1.6; stroke-dasharray: 4 3; opacity: 0.55; }
 .canvas .line-strong { font-family: var(--font-mono); font-weight: 600; }
 
 .edge { fill: none; stroke-width: 1.6; stroke-linejoin: round; }
@@ -741,6 +740,10 @@ a.icon-button { color: inherit; text-decoration: none; }
 .present-foot .text-button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 38px; border: 1px solid var(--line); font-size: 13px; }
 .present-foot .text-button.primary { border-color: var(--teal); background: var(--teal); color: var(--card); }
 .present-foot .text-button[disabled] { opacity: 0.45; cursor: not-allowed; }
+.present-foot .layers-key { flex-basis: 100%; display: grid; gap: 6px; }
+.layers-key h4 { margin: 0; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.layers-key ul { display: grid; grid-template-columns: repeat(2, auto); justify-content: start; gap: 4px 16px; margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 12px; }
+.layers-key li { display: flex; align-items: center; gap: 8px; }
 .present-foot p { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 11.5px; }
 .step-card { bottom: 72px; left: calc(324px + (100% - 324px) / 2); max-width: 360px; padding: 14px 16px; translate: -50% 0; border-radius: 12px; border-left: 4px solid var(--thread, transparent); background: var(--ink); color: var(--bg); pointer-events: none; }
 .step-card p { margin: 0; }
@@ -1048,10 +1051,6 @@ span.swatch-external { background: var(--slate-soft); border-color: var(--slate)
 span.swatch-element { background: var(--card); border-color: var(--teal); }
 .legend-line { flex: none; }
 .legend-tags { font-family: var(--font-mono); }
-.legend-threads button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 2px 4px; margin: 0 -4px; border: 0; border-radius: 4px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.legend-threads button:hover, .legend-threads button:focus-visible { background: var(--hover); color: var(--ink); }
-.legend-threads button[aria-pressed='true'] { box-shadow: inset 0 0 0 1px var(--thread, var(--teal)); background: color-mix(in srgb, var(--thread, var(--teal)) 14%, transparent); color: var(--ink); }
-.thread-swatch { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--thread); }
 .legend-footer { padding: 8px 0; border-top: 1px solid var(--line); }
 .legend-export { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 

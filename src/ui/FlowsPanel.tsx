@@ -1,4 +1,6 @@
-import { flowsOf } from '../model/flow'
+import { useEffect } from 'react'
+import { legendFor } from '../layout/legend'
+import { flowsOf, type Flow } from '../model/flow'
 import { diagramOf, UNTITLED_HEXAGON } from '../model/map'
 import { useMapStore } from '../model/store'
 import { threadSlots } from '../model/threads'
@@ -21,21 +23,48 @@ export function FlowRows({ hexId: given }: { hexId?: string } = {}) {
     focusFlow(id)
   }
   return flowsOf(map, hexId).map((flow) => (
-    <button key={flow.useCaseId} type="button" className="flow-row" aria-pressed={focused === flow.useCaseId} style={threadStyle(slots.get(flow.useCaseId)!)} onClick={() => pick(focused === flow.useCaseId ? null : flow.useCaseId)}>
+    <FlowRow key={flow.useCaseId} flow={flow} name={names.get(flow.useCaseId) || 'Unnamed'} slot={slots.get(flow.useCaseId)!} pressed={focused === flow.useCaseId} onPick={pick} />
+  ))
+}
+
+/** A row previews its flow on the canvas while hovered or focused; it must also let go when it unmounts mid-hover. */
+function FlowRow({ flow, name, slot, pressed, onPick }: { flow: Flow; name: string; slot: number; pressed: boolean; onPick: (id: string | null) => void }) {
+  const hoverFlows = useViewStore((s) => s.hoverFlows)
+  const id = flow.useCaseId
+  useEffect(
+    () => () => {
+      if (useViewStore.getState().hoveredFlows.includes(id)) hoverFlows([])
+    },
+    [id, hoverFlows],
+  )
+  return (
+    <button
+      type="button"
+      className="flow-row"
+      aria-pressed={pressed}
+      style={threadStyle(slot)}
+      onPointerEnter={() => hoverFlows([id])}
+      onPointerLeave={() => hoverFlows([])}
+      onFocus={() => hoverFlows([id])}
+      onBlur={() => hoverFlows([])}
+      onClick={() => onPick(pressed ? null : id)}
+    >
       <span className="flow-bar" aria-hidden="true" />
-      <span className="flow-name">{names.get(flow.useCaseId) || 'Unnamed'}</span>
+      <span className="flow-name">{name}</span>
       <span className="flow-summary">{flow.starters.join(', ')} → {flow.destinations.join(', ')}</span>
       {flow.gaps.length > 0 && <span className="flow-gap">incomplete</span>}
     </button>
-  ))
+  )
 }
 
 /** View mode's sidebar: one row per use case, grouped by hexagon on a map of several; picking one isolates its flow on the canvas. */
 export function FlowsPanel() {
   const map = useMapStore((s) => s.map)
+  const hexId = useMapStore((s) => s.focus)
   const focused = useViewStore((s) => s.focusedFlow)
   const focusFlow = useViewStore((s) => s.focusFlow)
   // Map order, never current-first: picking another hexagon's flow must not reshuffle the list under the pointer.
+  const layers = legendFor(diagramOf(map, hexId)).colours
   const hexagons = map.hexagons.filter((h) => h.useCases.length > 0)
   const count = hexagons.reduce((n, h) => n + h.useCases.length, 0)
 
@@ -63,11 +92,20 @@ export function FlowsPanel() {
           </>
         )}
       </div>
-      {count > 0 && (
-        <footer className="present-foot">
-          <PresentButton />
-        </footer>
-      )}
+      <footer className="present-foot">
+        <section className="layers-key" aria-label="Layers">
+          <h4>Layers</h4>
+          <ul>
+            {layers.map((l) => (
+              <li key={l.swatch}>
+                <span className={`legend-swatch swatch-${l.swatch}`} aria-hidden="true" />
+                {l.label}
+              </li>
+            ))}
+          </ul>
+        </section>
+        {count > 0 && <PresentButton />}
+      </footer>
     </aside>
   )
 }

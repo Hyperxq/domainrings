@@ -35,7 +35,7 @@ describe('svgMarkup — planned styling survives an export', () => {
       <svg>
         <MapDiagram
           map={model}
-          legend={legendFor(diagramOf(map, 'h1'), true)}
+          legend={legendFor(diagramOf(map, 'h1'))}
           showGuides={false}
           focus="h1"
           selected={null}
