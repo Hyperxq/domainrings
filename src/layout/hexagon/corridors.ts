@@ -4,7 +4,6 @@ import { SQRT3 } from '../outline'
 import { wallFrame } from './walls'
 
 const T30 = 1 / SQRT3
-const EPS = 1e-6
 
 /** The walls in the order they come round the hexagon: neighbours share a vertex, wall i and i + 1 the one at the end of i along its direction. */
 export const CYCLE: Wall[] = ['e', 'se', 'sw', 'w', 'nw', 'ne']
@@ -39,6 +38,5 @@ export function travel(from: Wall, u1: number, to: Wall, u2: number, apothem: nu
   }
   const [cw, ccw] = [walk(1), walk(-1)]
   if (cw.walls === ccw.walls && cw.crossesTop !== ccw.crossesTop) return (cw.crossesTop ? ccw : cw).points
-  if (Math.abs(cw.length - ccw.length) < EPS) return (cw.crossesTop ? ccw : cw).points
   return (cw.length < ccw.length ? cw : ccw).points
 }

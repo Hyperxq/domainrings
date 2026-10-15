@@ -13,7 +13,11 @@ const fixed = (v: number) => String(Math.round(v * 100) / 100)
  * run at most), so a route reads as one continuous stroke.
  */
 export function roundedPath(points: Point[]): string {
-  const p = points.reduce<Point[]>((kept, q) => (!kept.length || Math.hypot(q.x - kept[kept.length - 1].x, q.y - kept[kept.length - 1].y) > SAME ? [...kept, q] : kept), [])
+  const p: Point[] = []
+  for (const q of points) {
+    const last = p[p.length - 1]
+    if (!last || Math.hypot(q.x - last.x, q.y - last.y) > SAME) p.push(q)
+  }
   if (!p.length) return ''
   let d = `M${fixed(p[0].x)} ${fixed(p[0].y)}`
   for (let i = 1; i < p.length - 1; i++) {

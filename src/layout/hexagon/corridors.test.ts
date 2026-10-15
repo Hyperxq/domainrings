@@ -39,6 +39,18 @@ describe('travel', () => {
     }
   })
 
+  // Walls an even number apart round the hexagon cross as many walls either way, and exactly one of the two ways passes the top vertex.
+  it('never turns at the top vertex between walls facing each other, whichever way is shorter', () => {
+    const top = { x: 0, y: -100 / COS30 }
+    const opposite = CYCLE.map((w, i) => [w, CYCLE[(i + 3) % 6]] as const)
+    for (const [from, to] of opposite) {
+      for (const [u1, u2] of [[0, 0], [-50, 50], [50, -50], [57, 57], [-57, 57]]) {
+        const run = travel(from, u1, to, u2, 100)
+        expect(run.some((p) => Math.hypot(p.x - top.x, p.y - top.y) < 1e-6)).toBe(false)
+      }
+    }
+  })
+
   it('still takes the way that crosses fewer walls over the top vertex', () => {
     expect(travel('nw', 0, 'ne', 0, 100)).toHaveLength(3)
   })
