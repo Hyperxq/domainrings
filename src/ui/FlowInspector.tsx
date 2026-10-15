@@ -47,10 +47,12 @@ const Then = ({ named, kind, notable = true }: { named: Named[]; kind: Kind; not
 interface Named { id: string; name: string }
 
 /** Enter adds what was typed; `options` are the existing items it would link instead of creating. `onAdd` returns why a name was refused: the text stays, with the reason beneath it. */
-function AddName({ label, placeholder, options, onAdd, wide }: { label: string; placeholder: string; wide?: boolean; options: Named[]; onAdd: (name: string) => string | undefined }) {
+function AddName({ label, placeholder, options, onAdd, wide, createHint }: { label: string; placeholder: string; wide?: boolean; options: Named[]; onAdd: (name: string) => string | undefined; createHint?: (typed: string) => string | undefined }) {
   const list = useId()
   const hint = useId()
   const [refusal, setRefusal] = useState<string>()
+  const [typed, setTyped] = useState('')
+  const creating = createHint?.(typed)
   return (
     <>
       <input
@@ -60,15 +62,21 @@ function AddName({ label, placeholder, options, onAdd, wide }: { label: string; 
         list={list}
         aria-invalid={refusal ? true : undefined}
         aria-describedby={refusal ? hint : undefined}
-        onChange={() => setRefusal(undefined)}
+        onChange={(e) => {
+          setRefusal(undefined)
+          setTyped(e.currentTarget.value)
+        }}
         onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
           if (e.key !== 'Enter') return
           const reason = onAdd(e.currentTarget.value)
           setRefusal(reason)
-          if (!reason) e.currentTarget.value = ''
+          if (!reason) {
+            e.currentTarget.value = ''
+            setTyped('')
+          }
         }}
       />
-      {refusal && <p id={hint} className="hint">{refusal}</p>}
+      {refusal ? <p id={hint} className="hint">{refusal}</p> : creating && <p className="hint">{creating}</p>}
       <datalist id={list}>{options.map(({ id, name }) => <option key={id} value={name} />)}</datalist>
     </>
   )
@@ -125,6 +133,10 @@ export function FlowInspector() {
     record(before)
     const id = hit?.id ?? addItem(hexId, 'domain', { name: wanted, type: 'aggregate' })
     typed({ aggregateIds: [...(useCase.aggregateIds ?? []), id] })
+  }
+  const createsAggregate = (typed: string) => {
+    const wanted = typed.trim()
+    return wanted && !rootAggregates(d).some((a) => a.name.toLowerCase() === wanted.toLowerCase()) ? `Create aggregate “${wanted}”` : undefined
   }
   const unlinkAggregate = (id: string) => {
     record(before)
@@ -197,7 +209,7 @@ export function FlowInspector() {
           ))}
         </ul>
         {noteField(decides)}
-        <AddName wide label="Add aggregate" placeholder="+ domain item" options={rootAggregates(d).filter((a) => !useCase.aggregateIds?.includes(a.id))} onAdd={linkAggregate} />
+        <AddName wide label="Add aggregate" placeholder="+ domain item" options={rootAggregates(d).filter((a) => !useCase.aggregateIds?.includes(a.id))} onAdd={linkAggregate} createHint={createsAggregate} />
 
         <h3 className="flow-step">3 · WHAT IT CALLS</h3>
         <ul className="flow-list" aria-label="What it calls">

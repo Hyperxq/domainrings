@@ -151,6 +151,15 @@ describe('FlowInspector: aggregates', () => {
     expect(d().domain.some((i) => i.name === 'Basket')).toBe(false)
   })
 
+  it('says what Enter will create while the typed name matches no root aggregate', () => {
+    render(<FlowInspector />)
+    const field = screen.getByLabelText('Add aggregate')
+    fireEvent.change(field, { target: { value: 'Basket' } })
+    expect(screen.getByText('Create aggregate “Basket”')).toBeTruthy()
+    fireEvent.change(field, { target: { value: 'order' } })
+    expect(screen.queryByText(/^Create aggregate/)).toBeNull()
+  })
+
   it('refuses a blank name and an aggregate already linked, keeping the text', () => {
     named(['d-order'])
     render(<FlowInspector />)
