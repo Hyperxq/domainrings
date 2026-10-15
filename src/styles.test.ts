@@ -6,9 +6,8 @@ import { TEXT_PAIRS } from './ui/palette'
 const css = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf-8')
 const motion = [...css.matchAll(/(?<![-\w])(?:transition|animation)(?:-duration|-timing-function)?\s*:\s*([^;}]+)/g)]
   .map((m) => m[1].trim())
-  // The editor's reveal flash is a 1.2 s highlight whose reduced-motion stand-in is an outline, not stillness; the
-  // loading spinner is a continuous rotation, which no entrance token describes.
-  .filter((value) => !/^none\b/.test(value) && !value.startsWith('flash') && !value.startsWith('spin'))
+  // The editor's reveal flash is a 1.2 s highlight whose reduced-motion stand-in is an outline, not stillness.
+  .filter((value) => !/^none\b/.test(value) && !value.startsWith('flash'))
 
 describe('motion tokens', () => {
   it('reads the motion declarations, not a vacuous subset', () => {
