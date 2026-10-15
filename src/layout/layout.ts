@@ -1,6 +1,6 @@
 import { HEXAGONAL_KIND, type RingRole } from '../model/kinds'
 import type { Diagram, Side, Wall } from '../model/schema'
-import type { Box, Point } from './geometry'
+import { dot, reach, type Box, type Point } from './geometry'
 import { layoutBounds } from './hexagon/bounds'
 import { boxFrames } from './hexagon/boxFrames'
 import { layCentre } from './hexagon/centreBlock'
@@ -9,9 +9,10 @@ import { assignLayers, placeNodes } from './hexagon/nodes'
 import { solveRings } from './hexagon/ringSolver'
 import { ringTitles } from './hexagon/ringTitles'
 import { routeEdges } from './hexagon/routes'
+import { GAP, TRACK_GAP } from './hexagon/spacing'
 import { seatUseCases } from './hexagon/useCaseSeating'
-import { VERTEX } from './hexagon/walls'
-import type { Outline } from './outline'
+import { VERTEX, wallFrame } from './hexagon/walls'
+import { COS30, hexagon, type Outline } from './outline'
 import type { TextLine } from './text'
 
 /** Colour = side or layer: driving and driven pills, slate external systems, teal ports and use cases. */
@@ -104,6 +105,8 @@ export interface LayoutModel {
   region?: Outline
   /** Hexagons only: dashed spokes from each outer vertex in to the matching domain vertex. */
   guides: { from: Point; to: Point }[]
+  /** Hexagons only: the corridors the connections run along, as hexagons concentric with the rings: the domain's, the application's and the infrastructure's, innermost first. */
+  corridors: Outline[]
   nodes: LayoutNode[]
   edges: LayoutEdge[]
   texts: LayoutText[]
@@ -118,7 +121,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   const titles = ringTitles(d)
   const useCaseFrames = d.useCases.map(frames.useCaseFrame)
   const appIndex = config.rings.findIndex((r) => r.role === 'application')
-  const seating = seatUseCases({ d, overview, useCaseFrames, plan, frames })
+  const seating = seatUseCases({ d, overview, useCaseFrames, plan, frames, titleRoom: GAP + titles.titleHeight(appIndex) + titles.titleDepth })
   const centre = layCentre({ d, overview, domainFrame: frames.domainFrame, seating })
 
   const outlines = solveRings({ d, overview, appIndex, titles, centre, plan, frames, seating })
@@ -128,18 +131,28 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   const domain = outlines[config.rings.length - 1]
 
   const { nodes, composition } = placeNodes({ d, overview, app, outer, domain, centre, plan, frames, seating })
-  const edges = routeEdges({ d, overview, nodes, composition, plan, insideApp, region: centre.region, faces: centre.faces, outer, seating })
+  const edges = routeEdges({ d, overview, nodes, composition, plan, app, insideApp, region: centre.region, faces: centre.faces, outer, seating })
   const { texts, bounds } = layoutBounds(d, outer, nodes, edges)
   assignLayers(nodes, centre.serviceItems)
 
   // Spokes run along the centre-to-vertex lines, from each outer vertex in to the domain's, never over its fill.
   const guides = VERTEX.map((v) => ({ from: { x: v.x * outer.apex, y: v.y * outer.apex }, to: { x: v.x * domain.apex, y: v.y * domain.apex } }))
 
+  // The domain's corridor runs halfway through its band; the application's through the middle of its tracks; the
+  // infrastructure's just outside the sockets, where a port meets several adapters.
+  const outsideSockets = Math.max(app.halfWidth, ...nodes.filter((n) => n.kind === 'port' && n.wall).map((p) => dot(p, wallFrame(p.wall!).n) + reach(p.width, p.height, wallFrame(p.wall!).n))) + GAP / 2
+  const corridors = [
+    ...(centre.hasRegion ? [(insideApp.halfWidth + centre.region.halfWidth) / 2] : []),
+    seating.corridor.outerAt(app.halfWidth) - (Math.max(1, seating.corridor.tracks) - 1) * TRACK_GAP / 2,
+    outsideSockets,
+  ].map((apothem) => hexagon(apothem / COS30))
+
   return {
     shape: 'hexagon',
     rings: titles.rings(outlines),
     ...(centre.hasRegion ? { region: centre.region } : {}),
     guides,
+    corridors,
     nodes,
     edges,
     texts,

@@ -47,9 +47,13 @@ export const TAG_GAP = 6
 export const lineWidth = (line: TextLine) =>
   measure(line.text, LINE_METRICS[line.style]) + (line.tag ? measure(line.tag, LINE_METRICS.tag) + TAG_GAP : 0)
 
+const WORD_BREAKS = /(?<=[/.\s·_-])|(?<=[a-z0-9])(?=[A-Z])/
+/** A code signature also breaks after an opening parenthesis, a comma and the colon of the closing one. */
+export const SIGNATURE_BREAKS = /(?<=[/.\s·_(,-])|(?<=\):)|(?<=[a-z0-9])(?=[A-Z])/
+
 /** Greedy wrap that only breaks after separators or at camelCase humps, never inside a word. */
-export function wrapLabel(text: string, maxChars: number): string[] {
-  const tokens = text.split(/(?<=[/.\s·_-])|(?<=[a-z0-9])(?=[A-Z])/)
+export function wrapLabel(text: string, maxChars: number, breaks = WORD_BREAKS): string[] {
+  const tokens = text.split(breaks)
   const lines: string[] = []
   let current = ''
   for (const token of tokens) {

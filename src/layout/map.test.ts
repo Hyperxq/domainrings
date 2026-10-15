@@ -55,7 +55,8 @@ describe('layoutMap — one-hexagon equivalence (MIG-05)', () => {
         expect(result.hexagons).toHaveLength(1)
         expect(result.hexagons[0].model).toStrictEqual(expected)
         expect(result.hexagons[0].centre).toStrictEqual({ x: 0, y: 0 })
-        expect(result.bounds).toStrictEqual(expected.bounds)
+        // The map adds the same extents in another order, so the last bit of a float may differ.
+        for (const key of ['x', 'y', 'width', 'height'] as const) expect(result.bounds[key]).toBeCloseTo(expected.bounds[key], 6)
         expect(result.title).toBeUndefined()
         expect(result.links).toEqual([])
       })
@@ -1114,20 +1115,20 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
     expect([...new Set(crossings)]).toEqual([])
   })
 
-  it('never doubles back on a run to a slanted-wall port in Detailed', () => {
-    const doubling: string[] = []
+  it('never reverses its way round the corridor on a run to a port in Detailed', () => {
+    const reversing: string[] = []
     for (const h of map.hexagons) {
       const m = layoutDiagram(diagramOf(map, h.id), { mode: 'detailed' })
       for (const edge of m.edges) {
         const [from, to] = edge.key.split('->').map((k) => m.nodes.find((n) => n.key === k))
-        const [useCase, socket] = from?.kind === 'useCase' ? [from, to] : [to, from]
-        if (useCase?.kind !== 'useCase' || socket?.kind !== 'port' || !['nw', 'sw', 'ne', 'se'].includes(socket.wall ?? '')) continue
-        const run = from === useCase ? edge.points : [...edge.points].reverse()
-        const climbs = run.slice(1).map((p, i) => Math.sign(p.y - run[i].y)).filter(Boolean)
-        if (new Set(climbs).size > 1) doubling.push(`${h.id}: ${edge.key}`)
+        if (!(from?.kind === 'useCase' && to?.kind === 'port') && !(from?.kind === 'port' && to?.kind === 'useCase')) continue
+        // Between its two hops the run stays on the corridor; it turns the one way round the centre throughout.
+        const track = edge.points.slice(1, -1)
+        const turns = track.slice(1).map((p, i) => Math.sign(track[i].x * p.y - track[i].y * p.x)).filter(Boolean)
+        if (new Set(turns).size > 1) reversing.push(`${h.id}: ${edge.key}`)
       }
     }
-    expect(doubling).toEqual([])
+    expect(reversing).toEqual([])
   })
 
   it.each(MODES_UNDER_TEST)('fits %s at least twice as large as the full-pitch baseline, with Execution current', (mode) => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { wrapLabel } from './text'
+import { SIGNATURE_BREAKS, wrapLabel } from './text'
 
 describe('wrapLabel', () => {
   it('keeps a short label on one line', () => {
@@ -27,5 +27,15 @@ describe('wrapLabel', () => {
     for (const label of ['', ' ', 'a b c d e f', 'AaBbCcDd']) {
       expect(wrapLabel(label, 3).every((l) => l.length > 0 || label.trim() === '')).toBe(true)
     }
+  })
+})
+
+describe('wrapLabel with signature breaks', () => {
+  it('breaks a signature after the opening parenthesis, the commas and the closing colon', () => {
+    expect(wrapLabel('execute(cmd: Place, ctx: Ctx): Promise<void>', 14, SIGNATURE_BREAKS)).toEqual(['execute(cmd:', 'Place, ctx:', 'Ctx):', 'Promise<void>'])
+  })
+
+  it('leaves the default breaks alone', () => {
+    expect(wrapLabel('execute(cmd): Promise<void>', 14)).toEqual(['execute(cmd):', 'Promise<void>'])
   })
 })

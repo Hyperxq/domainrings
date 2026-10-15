@@ -1,46 +1,12 @@
-import { defaultWall, type Diagram, type Port, type Side, type Wall } from '../../model/schema'
-import { dot, enterBox, reach, type Box, type Point } from '../geometry'
+import { defaultWall, type Diagram, type Port, type Wall } from '../../model/schema'
+import { reach } from '../geometry'
 import type { Outline } from '../outline'
 import type { BoxFrames, Frame } from './boxFrames'
-import type { BoxPlan, WallBox } from './columns'
-import { DOMAIN_RUN, GAP, LANE, RUN } from './spacing'
+import type { BoxPlan } from './columns'
+import { COS30 } from '../outline'
+import { trackNeed } from './corridors'
+import { DOMAIN_RUN, GAP, RUN, TRACK_GAP } from './spacing'
 import { WALLS, wallFrame } from './walls'
-
-/** Where a bus lane turns onto the wall normal that ends on a slanted socket's face. */
-export const laneFoot = (face: Point, wall: Wall, lane: number): Point => {
-  const { n } = wallFrame(wall)
-  return { x: lane, y: face.y - (n.y * (face.x - lane)) / n.x }
-}
-/** Where the wall-normal line at lane u meets an upright box: on its outer (+1) or inner (−1) face. */
-export const faceAt = (box: Box, wall: Wall, face: 1 | -1, u: number): Point => {
-  const { n, dir } = wallFrame(wall)
-  const depth = dot(box, n) + face * (reach(box.width, box.height, n) + 1)
-  return enterBox(box, { x: n.x * depth + dir.x * u, y: n.y * depth + dir.y * u }, { x: -face * n.x, y: -face * n.y })
-}
-/** The inner face of the socket on a slanted wall whose apothem is `apothem`, on its own lane. */
-export const faceOf = (b: WallBox, apothem: number): Point => {
-  const { n, dir } = wallFrame(b.wall)
-  return faceAt({ x: n.x * apothem + dir.x * b.u, y: n.y * apothem + dir.y * b.u, width: b.width, height: b.height }, b.wall, -1, b.u)
-}
-
-/**
- * From a use case to its bus lane. A use case may sit beside the domain, so it first steps (vertically) to just past
- * the domain's top or bottom, then across. A port lying past that band picks the band on its own side, so the run
- * never turns back; any other keeps to the use case's side. One already beyond the band crosses at its own row
- * (or level with where the lane ends, when that lies within the box): stepping back to the band would only double back.
- * `portY` is where the lane ends.
- */
-export const toLane = (box: { x: number; y: number; width: number; height: number }, lane: number, insideApex: number, portY: number): Point[] => {
-  const toward = Math.sign(lane - box.x)
-  const band = insideApex + LANE
-  const clearY = (Math.sign(Math.abs(portY) > band ? portY : box.y) || -1) * band
-  const past = Math.sign(box.y) === Math.sign(clearY) && Math.abs(box.y) - box.height / 2 >= band
-  // Level with where the lane ends, the run leaves straight across rather than nudging up or down by a few units first.
-  const level = past && Math.abs(portY - box.y) <= box.height / 2 - 4
-  const rowY = level ? portY : past ? box.y : clearY
-  if (past || Math.abs(clearY - box.y) <= box.height / 2) return [{ x: box.x + (toward * box.width) / 2, y: rowY }, { x: lane, y: rowY }]
-  return [{ x: box.x, y: box.y + (Math.sign(clearY - box.y) * box.height) / 2 }, { x: box.x, y: clearY }, { x: lane, y: clearY }]
-}
 
 /**
  * The wall each use case sits on, parallel to `d.useCases`. An explicit wall wins. Otherwise the wall holding most of
@@ -69,64 +35,78 @@ export interface SeatingInput {
   useCaseFrames: Frame[]
   plan: BoxPlan
   frames: BoxFrames
+  /** What a ring title and the room above it take under the application ring's top corner. */
+  titleRoom: number
 }
 
-/** How the use cases sit in the application ring: each seated on a wall, with the bus lane its runs take to the sockets. */
-export function seatUseCases({ d, overview, useCaseFrames, plan, frames }: SeatingInput) {
+/**
+ * How the use cases sit in the application ring: each seated on a wall, set in past its wall's sockets by the room an
+ * arrow needs. With links to run round the application corridor, the seats keep clear of it: the same room on every
+ * wall, since the corridor is one hexagon.
+ */
+export function seatUseCases({ d, overview, useCaseFrames, plan, frames, titleRoom }: SeatingInput) {
   const { wallBoxes, of, widths, ports, wallOf, inwardOf } = plan
   const { labelReach } = frames
   const walls = seatWalls(d, wallOf)
 
-  // Use-case buses: one vertical lane per use case and side, between the inner ring and the sockets. The first
-  // use case takes the outermost lane so no exit crosses another bus. The lane next to the domain stays free for a
-  // question that steps along the domain wall.
-  const busX = (k: number, innerHalfWidth: number) => innerHalfWidth + LANE * (2 + useCaseFrames.length - 1 - k)
-  /** The bus lane's x: the driving lanes run left of the centre, the driven ones right. */
-  const laneX = (side: Side, k: number, innerHalfWidth: number) => (side === 'driving' ? -1 : 1) * busX(k, innerHalfWidth)
-  const socketClearance = (innerHalfWidth: number) => (useCaseFrames.length && !overview ? busX(0, innerHalfWidth) + RUN : 0)
+  /** A wall's sockets: where each sits along the wall, how far it reaches along it, and how far in it (and its overview name) reaches. */
+  const socketsOn = (wall: Wall) => {
+    const { dir } = wallFrame(wall)
+    return [
+      ...wallBoxes
+        .filter((b) => b.kind === 'port' && b.wall === wall)
+        .map((b) => ({ port: ports.get(b.ref)!, u: b.u, along: reach(b.width, b.height, dir), inward: inwardOf(b) })),
+      ...of('port')
+        .filter((p) => defaultWall(p.side) === wall)
+        .map((p) => ({ port: ports.get(p.ref)!, u: p.y * dir.y, along: p.height / 2, inward: widths[p.side].socketHalf + labelReach(ports.get(p.ref)!) })),
+    ]
+  }
+
   /**
-   * Use cases seated on a wall, in wall coordinates: stacked along it like ports, the run centred on the ports they
-   * serve on that wall, and set in past the wall's sockets (and their overview names) by the room an arrow needs.
+   * Use cases seated on a wall, in wall coordinates: stacked along it like ports, ordered by where their own sockets
+   * sit and the run centred on the wall. Links to sockets out of line run round the corridor, so a seat never needs to
+   * stand beside its sockets.
    */
-  const seats = () =>
-    WALLS.flatMap((wall) => {
-      const here = d.useCases.flatMap((_, i) => (walls[i] === wall ? [i] : []))
-      if (!here.length) return []
-      const { n, dir } = wallFrame(wall)
-      // The wall's sockets: where each sits along the wall, and how far in it (and its name) reaches.
-      const sockets = [
-        ...wallBoxes
-          .filter((b) => b.kind === 'port' && b.wall === wall)
-          .map((b) => ({ port: ports.get(b.ref)!, u: b.u, inward: inwardOf(b) })),
-        ...of('port')
-          .filter((p) => defaultWall(p.side) === wall)
-          .map((p) => ({ port: ports.get(p.ref)!, u: p.y * dir.y, inward: widths[p.side].socketHalf + labelReach(ports.get(p.ref)!) })),
-      ]
-      const inset = Math.max(0, ...sockets.map((s) => s.inward)) + (overview ? GAP : DOMAIN_RUN)
-      const socketsAlong = sockets.map((s) => s.u).sort((a, b) => a - b)
-      const items = here
-        .map((i) => {
-          const f = useCaseFrames[i]
-          const own = sockets.find((s) => s.port.useCaseId === d.useCases[i].id)?.u
-          const along = reach(f.width, f.height, dir)
-          // Another use case's run to a socket on this wall passes through any seat level with that socket, at every
-          // ring size, so a seat with no socket of its own here steps past them along the wall.
-          let want = own ?? 0
-          if (own === undefined) {
-            for (const u of socketsAlong) if (Math.abs(u - want) < along + GAP) want = u + along + GAP
-          }
-          return { i, wall, frame: f, want, along, across: reach(f.width, f.height, n) }
-        })
-        .sort((a, b) => a.want - b.want)
-      let end = -Infinity
-      const packed = items.map((it) => {
-        const u = Math.max(it.want, end + it.along)
-        end = u + it.along + GAP
-        return { ...it, u, inset }
+  const placed = WALLS.flatMap((wall) => {
+    const here = d.useCases.flatMap((_, i) => (walls[i] === wall ? [i] : []))
+    if (!here.length) return []
+    const { n, dir } = wallFrame(wall)
+    const sockets = socketsOn(wall)
+    const items = here
+      .map((i) => {
+        const f = useCaseFrames[i]
+        const own = sockets.find((s) => s.port.useCaseId === d.useCases[i].id)?.u ?? 0
+        return { i, wall, frame: f, own, along: reach(f.width, f.height, dir), across: reach(f.width, f.height, n) }
       })
-      const shift = packed.reduce((t, it) => t + it.want - it.u, 0) / packed.length
-      return packed.map((it) => ({ ...it, u: it.u + shift }))
+      .sort((a, b) => a.own - b.own)
+    let end = 0
+    const packed = items.map((it) => {
+      const u = end + it.along
+      end = u + it.along + GAP
+      return { ...it, u }
     })
+    return packed.map((it) => ({ ...it, u: it.u - (end - GAP) / 2 }))
+  })
+
+  // Every port reaching a use case seated elsewhere, or beside it but out of line, runs round the corridor.
+  const corridor = trackNeed(
+    overview
+      ? []
+      : WALLS.flatMap((wall) =>
+          socketsOn(wall).flatMap((s) => {
+            const seat = placed.find((p) => d.useCases[p.i].id === s.port.useCaseId)
+            return seat ? [{ from: { wall, u: s.u, reach: s.along }, to: { wall: seat.wall, u: seat.u, reach: seat.along } }] : []
+          }),
+        ),
+  )
+  const inward = Math.max(0, ...WALLS.flatMap((wall) => socketsOn(wall).map((s) => s.inward)))
+  // With no link to run round the corridor (all of the overview's, since it draws none) the seats stand the room an arrow
+  // needs off the deepest socket on any wall, and the corridor guide runs halfway through that room, clear of them.
+  const room = overview ? GAP : DOMAIN_RUN
+  // From the ring wall in to the outermost track: past the sockets, a straight run for the arrow head that lands on a port
+  // as well as on a use case and, for tracks over the top corner, far enough in that the corner lies below the ring's title.
+  const clearance = corridor.tracks ? inward + RUN + (corridor.overTop ? Math.max(0, titleRoom * COS30 - inward - RUN) : 0) : inward + room / 2
+  const seats = () => placed.map((s) => ({ ...s, inset: corridor.tracks ? clearance + RUN + (corridor.tracks - 1) * TRACK_GAP : inward + room }))
   /** Seated use cases for a candidate application ring, centred in the plane. */
   const seatsAt = (appO: Outline) =>
     seats().map((s) => {
@@ -135,7 +115,7 @@ export function seatUseCases({ d, overview, useCaseFrames, plan, frames }: Seati
       return { ...s, x: n.x * depth + dir.x * s.u, y: n.y * depth + dir.y * s.u }
     })
 
-  return { walls, busX, laneX, socketClearance, seats, seatsAt }
+  return { walls, corridor: { ...corridor, outerAt: (apothem: number) => apothem - clearance }, seats, seatsAt }
 }
 
 export type UseCaseSeating = ReturnType<typeof seatUseCases>
