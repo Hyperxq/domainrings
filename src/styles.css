@@ -702,7 +702,7 @@ a.icon-button { color: inherit; text-decoration: none; }
   cursor: pointer;
 }
 .flow-row:hover { background: var(--hover); }
-.flow-row[aria-pressed='true'] { background: var(--teal-soft); border-color: var(--teal); }
+.flow-row[aria-pressed='true'] { background: color-mix(in srgb, var(--thread, var(--teal)) 14%, transparent); border-color: var(--thread, var(--teal)); }
 .flow-row > :not(.flow-bar, .flow-stack) { grid-column: 2; }
 .flow-bar { grid-column: 1; grid-row: 1 / span 2; align-self: stretch; border-radius: 2px; background: var(--thread, var(--muted)); }
 .flow-name { font-family: var(--font-mono); font-weight: 700; font-size: 13px; }

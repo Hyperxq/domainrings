@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { EXAMPLES } from '../model/example'
@@ -76,16 +78,24 @@ describe('flow bars', () => {
     useMapStore.getState().replace({ ...map, hexagons: map.hexagons.map((h) => (h.id === 'h1' ? { ...h, useCases: [...h.useCases, { id: 'uc-two', name: 'RefundOrder' }] } : h)) })
     return threadSlots(diagramOf(useMapStore.getState().map, 'h1'))
   }
-  const bars = () => [...document.querySelectorAll<HTMLElement>('.flow-bar')].map((b) => b.style.getPropertyValue('--thread'))
+  // The row carries the thread, so its bar and its selected highlight both read the same colour.
+  const rows = () => [...document.querySelectorAll<HTMLElement>('.flow-row:not(.flow-row-all)')].map((r) => r.style.getPropertyValue('--thread'))
 
   it.each([
     ['the Flows panel', FlowsPanel],
     ['the editor Flows section', FlowsSection],
-  ])('colours each bar in %s with its flow thread slot', (_, Component) => {
+  ])('colours each row in %s with its flow thread slot', (_, Component) => {
     const slots = withSecondFlow()
     render(<Component />)
     expect(slots.get('uc-place')).not.toBe(slots.get('uc-two'))
-    expect(bars()).toEqual([`var(--thread-${slots.get('uc-place')})`, `var(--thread-${slots.get('uc-two')})`])
+    expect(rows()).toEqual([`var(--thread-${slots.get('uc-place')})`, `var(--thread-${slots.get('uc-two')})`])
+  })
+
+  it('highlights the selected row in its own thread colour', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf-8')
+    const pressed = css.match(/\.flow-row\[aria-pressed='true'\] \{([^}]*)\}/)?.[1] ?? ''
+    expect(pressed).toMatch(/border-color: var\(--thread, var\(--teal\)\)/)
+    expect(pressed).toMatch(/background: color-mix\(in srgb, var\(--thread, var\(--teal\)\)/)
   })
 })
 

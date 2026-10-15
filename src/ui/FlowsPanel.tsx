@@ -15,8 +15,8 @@ export function FlowRows() {
   const names = new Map(diagram.useCases.map((u) => [u.id, u.name]))
   const slots = threadSlots(diagram)
   return flowsOf(map, hexId).map((flow) => (
-    <button key={flow.useCaseId} type="button" className="flow-row" aria-pressed={focused === flow.useCaseId} onClick={() => focusFlow(focused === flow.useCaseId ? null : flow.useCaseId)}>
-      <span className="flow-bar" aria-hidden="true" style={threadStyle(slots.get(flow.useCaseId)!)} />
+    <button key={flow.useCaseId} type="button" className="flow-row" aria-pressed={focused === flow.useCaseId} style={threadStyle(slots.get(flow.useCaseId)!)} onClick={() => focusFlow(focused === flow.useCaseId ? null : flow.useCaseId)}>
+      <span className="flow-bar" aria-hidden="true" />
       <span className="flow-name">{names.get(flow.useCaseId) || 'Unnamed'}</span>
       <span className="flow-summary">{flow.starters.join(', ')} → {flow.destinations.join(', ')}</span>
       {flow.gaps.length > 0 && <span className="flow-gap">incomplete</span>}
