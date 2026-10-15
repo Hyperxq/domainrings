@@ -18486,7 +18486,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -18521,7 +18521,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -18539,7 +18539,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-exec-wire",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -18562,7 +18562,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-exec-wire",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -18580,7 +18580,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -18603,7 +18603,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -18696,7 +18696,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-exec-wire",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -18732,7 +18732,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -19223,7 +19223,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-exec-wire",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -19307,7 +19307,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -19401,7 +19401,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -19439,7 +19439,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -19469,7 +19469,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-exec-wire",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driving",
@@ -19507,7 +19507,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-exec-wire",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -19549,7 +19549,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -19587,7 +19587,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -19844,7 +19844,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -19862,7 +19862,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -19897,7 +19897,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -20096,7 +20096,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -20131,7 +20131,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -20167,7 +20167,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -20475,7 +20475,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -20551,7 +20551,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "driving",
@@ -20581,7 +20581,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "driving",
@@ -20611,7 +20611,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -20871,7 +20871,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -20913,7 +20913,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -21057,7 +21057,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -21080,7 +21080,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -21173,7 +21173,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -21196,7 +21196,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -21273,7 +21273,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -21308,7 +21308,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -21326,7 +21326,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -21344,7 +21344,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -21383,7 +21383,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -21401,7 +21401,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -21419,7 +21419,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -21766,7 +21766,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -21812,7 +21812,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -21904,7 +21904,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driving",
@@ -21934,7 +21934,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -22074,7 +22074,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driving",
@@ -22104,7 +22104,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -22236,7 +22236,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -22270,7 +22270,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -22304,7 +22304,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driven",
@@ -22334,7 +22334,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "slate",
@@ -22364,7 +22364,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -22567,7 +22567,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-sel-eval",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -22590,7 +22590,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-sel-eval",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -22683,7 +22683,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-sel-eval",
-              "slot": 0,
+              "slot": 1,
             },
           },
         ],
@@ -22945,7 +22945,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-sel-eval",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -23085,7 +23085,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-sel-eval",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driven",
@@ -23115,7 +23115,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-sel-eval",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -25271,7 +25271,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -25289,7 +25289,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             ],
             "thread": {
               "id": "uc-exec-wire",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -25307,7 +25307,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -25446,7 +25446,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-exec-wire",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -25498,7 +25498,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -25571,7 +25571,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -25592,7 +25592,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -25618,7 +25618,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-exec-wire",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driving",
@@ -25639,7 +25639,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-exec-wire",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -25665,7 +25665,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -25686,7 +25686,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -25998,7 +25998,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -26016,7 +26016,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -26106,7 +26106,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
         ],
@@ -26235,7 +26235,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -26287,7 +26287,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "driving",
@@ -26313,7 +26313,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "driving",
@@ -26334,7 +26334,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -26527,7 +26527,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -26548,7 +26548,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -26787,7 +26787,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -26841,7 +26841,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -26895,7 +26895,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -26913,7 +26913,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -26931,7 +26931,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
         ],
@@ -27034,7 +27034,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -27060,7 +27060,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -27112,7 +27112,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driving",
@@ -27133,7 +27133,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -27232,7 +27232,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driving",
@@ -27253,7 +27253,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -27352,7 +27352,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -27373,7 +27373,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -27399,7 +27399,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driven",
@@ -27425,7 +27425,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "slate",
@@ -27446,7 +27446,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -27740,7 +27740,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             ],
             "thread": {
               "id": "uc-sel-eval",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -27887,7 +27887,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-sel-eval",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -27986,7 +27986,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-sel-eval",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driven",
@@ -28007,7 +28007,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "threads": [
               {
                 "id": "uc-sel-eval",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -29816,7 +29816,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -29851,7 +29851,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -29869,7 +29869,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-exec-wire",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -29892,7 +29892,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-exec-wire",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -29910,7 +29910,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -29933,7 +29933,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -30026,7 +30026,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-exec-wire",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -30062,7 +30062,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -30553,7 +30553,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-exec-wire",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -30637,7 +30637,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -30731,7 +30731,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -30769,7 +30769,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -30799,7 +30799,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-exec-wire",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driving",
@@ -30837,7 +30837,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-exec-wire",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -30879,7 +30879,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -30917,7 +30917,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -31227,7 +31227,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -31245,7 +31245,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -31280,7 +31280,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -31479,7 +31479,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -31514,7 +31514,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -31550,7 +31550,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -31858,7 +31858,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -31934,7 +31934,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "driving",
@@ -31964,7 +31964,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "driving",
@@ -31994,7 +31994,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -32254,7 +32254,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -32296,7 +32296,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -32502,7 +32502,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -32525,7 +32525,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -32618,7 +32618,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -32641,7 +32641,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -32718,7 +32718,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -32753,7 +32753,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -32771,7 +32771,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -32789,7 +32789,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -32828,7 +32828,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -32846,7 +32846,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -32864,7 +32864,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -33211,7 +33211,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -33257,7 +33257,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -33349,7 +33349,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driving",
@@ -33379,7 +33379,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -33519,7 +33519,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driving",
@@ -33549,7 +33549,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -33681,7 +33681,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -33715,7 +33715,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -33749,7 +33749,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driven",
@@ -33779,7 +33779,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "slate",
@@ -33809,7 +33809,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -34047,7 +34047,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-sel-eval",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -34070,7 +34070,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-sel-eval",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -34163,7 +34163,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             ],
             "thread": {
               "id": "uc-sel-eval",
-              "slot": 0,
+              "slot": 1,
             },
           },
         ],
@@ -34425,7 +34425,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-sel-eval",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -34565,7 +34565,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-sel-eval",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driven",
@@ -34595,7 +34595,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "threads": [
               {
                 "id": "uc-sel-eval",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -36845,7 +36845,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -36863,7 +36863,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             ],
             "thread": {
               "id": "uc-exec-wire",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -36881,7 +36881,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -37020,7 +37020,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-exec-wire",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -37072,7 +37072,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -37145,7 +37145,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -37166,7 +37166,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -37192,7 +37192,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-exec-wire",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driving",
@@ -37213,7 +37213,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-exec-wire",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -37239,7 +37239,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -37260,7 +37260,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -37625,7 +37625,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -37643,7 +37643,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -37733,7 +37733,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
         ],
@@ -37862,7 +37862,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -37914,7 +37914,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "driving",
@@ -37940,7 +37940,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "driving",
@@ -37961,7 +37961,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -38154,7 +38154,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -38175,7 +38175,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -38476,7 +38476,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -38530,7 +38530,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -38584,7 +38584,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -38602,7 +38602,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -38620,7 +38620,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
         ],
@@ -38723,7 +38723,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -38749,7 +38749,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -38801,7 +38801,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driving",
@@ -38822,7 +38822,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -38921,7 +38921,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driving",
@@ -38942,7 +38942,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -39041,7 +39041,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -39062,7 +39062,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -39088,7 +39088,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driven",
@@ -39114,7 +39114,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "slate",
@@ -39135,7 +39135,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -39464,7 +39464,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             ],
             "thread": {
               "id": "uc-sel-eval",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -39611,7 +39611,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-sel-eval",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -39710,7 +39710,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-sel-eval",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driven",
@@ -39731,7 +39731,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "threads": [
               {
                 "id": "uc-sel-eval",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -41574,7 +41574,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -41609,7 +41609,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -41627,7 +41627,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-exec-wire",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -41650,7 +41650,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-exec-wire",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -41668,7 +41668,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -41691,7 +41691,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -41784,7 +41784,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-exec-wire",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -41820,7 +41820,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -42311,7 +42311,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-exec-wire",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -42395,7 +42395,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -42489,7 +42489,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -42527,7 +42527,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -42557,7 +42557,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-exec-wire",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driving",
@@ -42595,7 +42595,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-exec-wire",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -42637,7 +42637,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -42675,7 +42675,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -42932,7 +42932,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -42950,7 +42950,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -42985,7 +42985,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -43184,7 +43184,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -43219,7 +43219,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -43255,7 +43255,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -43563,7 +43563,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -43639,7 +43639,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "driving",
@@ -43669,7 +43669,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "driving",
@@ -43699,7 +43699,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -43959,7 +43959,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -44001,7 +44001,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -44145,7 +44145,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -44168,7 +44168,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -44261,7 +44261,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -44284,7 +44284,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -44361,7 +44361,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -44396,7 +44396,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -44414,7 +44414,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -44432,7 +44432,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -44471,7 +44471,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -44489,7 +44489,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -44507,7 +44507,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -44854,7 +44854,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -44900,7 +44900,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -44992,7 +44992,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driving",
@@ -45022,7 +45022,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -45162,7 +45162,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driving",
@@ -45192,7 +45192,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -45324,7 +45324,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -45358,7 +45358,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -45392,7 +45392,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driven",
@@ -45422,7 +45422,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "slate",
@@ -45452,7 +45452,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -45655,7 +45655,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-sel-eval",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -45678,7 +45678,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-sel-eval",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -45771,7 +45771,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             ],
             "thread": {
               "id": "uc-sel-eval",
-              "slot": 0,
+              "slot": 1,
             },
           },
         ],
@@ -46033,7 +46033,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-sel-eval",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -46173,7 +46173,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-sel-eval",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driven",
@@ -46203,7 +46203,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "threads": [
               {
                 "id": "uc-sel-eval",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -48359,7 +48359,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -48377,7 +48377,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             ],
             "thread": {
               "id": "uc-exec-wire",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -48395,7 +48395,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             ],
             "thread": {
               "id": "uc-exec-invoke",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -48534,7 +48534,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-exec-wire",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -48586,7 +48586,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -48659,7 +48659,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -48680,7 +48680,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -48706,7 +48706,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-exec-wire",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driving",
@@ -48727,7 +48727,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-exec-wire",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -48753,7 +48753,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -48774,7 +48774,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-exec-invoke",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -49086,7 +49086,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -49104,7 +49104,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
           {
@@ -49194,7 +49194,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             ],
             "thread": {
               "id": "uc-auth-codegen",
-              "slot": 1,
+              "slot": 2,
             },
           },
         ],
@@ -49323,7 +49323,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -49375,7 +49375,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "driving",
@@ -49401,7 +49401,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "driving",
@@ -49422,7 +49422,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -49615,7 +49615,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -49636,7 +49636,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-auth-codegen",
-                "slot": 1,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -49875,7 +49875,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -49929,7 +49929,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -49983,7 +49983,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             ],
             "thread": {
               "id": "uc-cat-query",
-              "slot": 0,
+              "slot": 2,
             },
           },
           {
@@ -50001,7 +50001,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -50019,7 +50019,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             ],
             "thread": {
               "id": "uc-cat-resolve",
-              "slot": 0,
+              "slot": 1,
             },
           },
         ],
@@ -50122,7 +50122,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -50148,7 +50148,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -50200,7 +50200,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driving",
@@ -50221,7 +50221,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -50320,7 +50320,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driving",
@@ -50341,7 +50341,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -50440,7 +50440,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "driven",
@@ -50461,7 +50461,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-query",
-                "slot": 0,
+                "slot": 2,
               },
             ],
             "tone": "teal",
@@ -50487,7 +50487,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driven",
@@ -50513,7 +50513,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "slate",
@@ -50534,7 +50534,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-cat-resolve",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -50828,7 +50828,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             ],
             "thread": {
               "id": "uc-sel-eval",
-              "slot": 0,
+              "slot": 1,
             },
           },
           {
@@ -50975,7 +50975,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-sel-eval",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
@@ -51074,7 +51074,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-sel-eval",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "driven",
@@ -51095,7 +51095,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "threads": [
               {
                 "id": "uc-sel-eval",
-                "slot": 0,
+                "slot": 1,
               },
             ],
             "tone": "teal",
