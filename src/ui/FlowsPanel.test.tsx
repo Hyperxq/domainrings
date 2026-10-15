@@ -9,6 +9,7 @@ import { diagramOf } from '../model/map'
 import { threadSlots } from '../model/threads'
 import { FlowsPanel } from './FlowsPanel'
 import { FlowsSection } from './FlowsSection'
+import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
 
 const load = (id: string) => useMapStore.getState().replace(EXAMPLES.find((e) => e.id === id)!.map as HexaMap)
@@ -19,6 +20,14 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('FlowsPanel', () => {
+  it('keeps Present in a footer below the scrolling list, so a long list never hides it', () => {
+    usePreferencesStore.setState({ viewOnly: true })
+    render(<FlowsPanel />)
+    const present = screen.getByRole('button', { name: 'Present' })
+    expect(present.closest('footer.present-foot')).toBeTruthy()
+    expect(present.closest('.editor-body')).toBeNull()
+  })
+
   it('lists the use case with who starts it and where it ends, under an All flows row with the count', () => {
     render(<FlowsPanel />)
     expect(screen.getByRole('heading', { name: 'Flows' })).toBeTruthy()

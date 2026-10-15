@@ -3,6 +3,7 @@ import { diagramOf } from '../model/map'
 import { useMapStore } from '../model/store'
 import { threadSlots } from '../model/threads'
 import { threadStyle } from '../render/ThreadDots'
+import { PresentButton } from './PresentPanel'
 import { useViewStore } from './state/viewStore'
 
 /** One row per use case of the current hexagon; picking one focuses its flow, picking the focused one again clears it. */
@@ -51,6 +52,11 @@ export function FlowsPanel() {
           </>
         )}
       </div>
+      {count > 0 && (
+        <footer className="present-foot">
+          <PresentButton />
+        </footer>
+      )}
     </aside>
   )
 }

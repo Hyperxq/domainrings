@@ -122,7 +122,6 @@ export function StepCard() {
 /** Starts the walkthrough of the focused flow, or of the first when none is focused. */
 export function PresentButton() {
   const viewOnly = usePreferencesStore((s) => s.viewOnly)
-  const legendOpen = usePreferencesStore((s) => s.legendOpen)
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   const focused = useViewStore((s) => s.focusedFlow)
@@ -132,8 +131,7 @@ export function PresentButton() {
   return (
     <button
       type="button"
-      className="island present-button"
-      data-legend-open={legendOpen ? '' : undefined}
+      className="text-button primary"
       onClick={() => {
         focusFlow(focused ?? first.id)
         present(0)
