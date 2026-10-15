@@ -42,7 +42,7 @@ export function resolveFlow(map, flow, hexagonId) {
   throw new Error(`No flow "${flow}"${scope}. Available flows:\n${inScope.map(describe).join('\n') || '  (none)'}`)
 }
 
-export function shareLink(map, { baseUrl = DEFAULT_BASE_URL, flow } = {}) {
+export function shareLink(map, { baseUrl = DEFAULT_BASE_URL, flow, frame = false } = {}) {
   let base
   try {
     base = new URL(baseUrl)
@@ -50,7 +50,7 @@ export function shareLink(map, { baseUrl = DEFAULT_BASE_URL, flow } = {}) {
     throw new Error(`--base-url is not a valid URL: ${baseUrl}`)
   }
   base.hash = ''
-  const options = flow ? `&flow=${encodeURIComponent(flow.useCaseId)}&hex=${encodeURIComponent(flow.hexagonId)}` : ''
+  const options = flow ? `&flow=${encodeURIComponent(flow.useCaseId)}&hex=${encodeURIComponent(flow.hexagonId)}${frame ? '&frame=flow' : ''}` : ''
   return `${base.href}#m=${deflateRawSync(JSON.stringify(map)).toString('base64url')}${options}`
 }
 

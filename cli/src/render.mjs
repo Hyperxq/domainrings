@@ -100,7 +100,7 @@ export async function render(file, { flow, hex, out = '.', format = 'png', baseU
     for (const target of targets) {
       const path = resolve(join(out, uniqueName(outputName(map, target, format), taken)))
       try {
-        await renderOne(browser, shareLink(map, { baseUrl, flow: target }), format, path, appearance)
+        await renderOne(browser, shareLink(map, { baseUrl, flow: target, frame: true }), format, path, appearance)
         log(path)
       } catch (error) {
         failed++

@@ -21,7 +21,9 @@ npx @pbuilder/domainrings render map.hexa --flow PlaceOrder --format svg
 ```
 
 Writes one image per flow by driving the app's own export in headless Chrome (`playwright-core`). `--flow all`
-renders every use case of every hexagon; without `--flow` it renders the whole map. Files are named
+renders every use case of every hexagon; without `--flow` it renders the whole map. A flow image is cropped to the
+hexagons the flow touches, with the map links between them and the context hulls and chips as they appear on the map;
+the other hexagons are left out. Files are named
 `<hexagon>-<use-case>.<ext>` (or `<map-title>.<ext>`) in `--out` (default: the current directory). If Chrome is
 not installed and no bundled chromium is found, run `npx playwright install chromium`.
 
