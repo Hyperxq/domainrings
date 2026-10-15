@@ -1,0 +1,32 @@
+{
+  "name": "@pbuilder/domainrings",
+  "version": "0.1.0",
+  "description": "Open a domainrings map in the browser with one flow focused, and render one image per flow.",
+  "type": "module",
+  "bin": {
+    "domainrings": "bin/domainrings.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hyperxq/domainrings.git",
+    "directory": "cli"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "vitest run --root .. cli"
+  },
+  "dependencies": {
+    "playwright-core": "^1.64.1"
+  }
+}
