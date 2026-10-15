@@ -54,8 +54,9 @@ export function shareLink(map, { baseUrl = DEFAULT_BASE_URL, flow } = {}) {
   return `${base.href}#m=${deflateRawSync(JSON.stringify(map)).toString('base64url')}${options}`
 }
 
+// Windows: `cmd /c start` would split the url at `&`; rundll32 takes it as one argument.
 export function openerCommand(platform, url) {
   if (platform === 'darwin') return { command: 'open', args: [url] }
-  if (platform === 'win32') return { command: 'cmd', args: ['/c', 'start', '""', url] }
+  if (platform === 'win32') return { command: 'rundll32', args: ['url.dll,FileProtocolHandler', url] }
   return { command: 'xdg-open', args: [url] }
 }

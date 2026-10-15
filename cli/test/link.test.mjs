@@ -67,8 +67,13 @@ describe('openerCommand', () => {
   it.each([
     ['darwin', 'open', ['https://x/']],
     ['linux', 'xdg-open', ['https://x/']],
-    ['win32', 'cmd', ['/c', 'start', '""', 'https://x/']],
+    ['win32', 'rundll32', ['url.dll,FileProtocolHandler', 'https://x/']],
   ])('picks the %s opener', (platform, command, args) => {
     expect(openerCommand(platform, 'https://x/')).toEqual({ command, args })
+  })
+
+  it('passes a url with & to the Windows opener untouched, since it does not go through cmd', () => {
+    const url = 'https://x/#m=abc&flow=a&hex=b'
+    expect(openerCommand('win32', url).args.at(-1)).toBe(url)
   })
 })
