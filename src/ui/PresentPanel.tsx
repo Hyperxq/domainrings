@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { flowOf, type FlowRole } from '../model/flow'
 import { diagramOf } from '../model/map'
+import { withoutPlannedUseCases } from '../model/planned'
 import { useMapStore } from '../model/store'
 import { threadSlots } from '../model/threads'
 import { threadStyle } from '../render/ThreadDots'
@@ -125,7 +126,8 @@ export function PresentButton() {
   const map = useMapStore((s) => s.map)
   const focused = useViewStore((s) => s.focusedFlow)
   const presenting = useViewStore((s) => s.presentStep !== null)
-  const first = map.hexagons.find((h) => h.useCases.length > 0)
+  const hidePlanned = !usePreferencesStore((s) => s.showPlanned)
+  const first = map.hexagons.find((h) => withoutPlannedUseCases(h.useCases, hidePlanned).length > 0)
   if (!viewOnly || presenting || !first) return null
   return (
     <button
@@ -133,7 +135,7 @@ export function PresentButton() {
       className="text-button primary"
       onClick={() => {
         if (!focused) useMapStore.getState().setFocus(first.id)
-        focusFlow(focused ?? first.useCases[0].id)
+        focusFlow(focused ?? withoutPlannedUseCases(first.useCases, hidePlanned)[0].id)
         present(0)
       }}
     >

@@ -12,6 +12,8 @@ export function plannedOf(doc: Partial<Pick<Hexagon, CollectionKey>>): ReadonlyS
   return refs
 }
 
+export const withoutPlannedUseCases = <T extends { status?: string }>(useCases: T[], hide: boolean): T[] => (hide ? useCases.filter((u) => !isPlanned(u)) : useCases)
+
 /** Whether anything in the map is planned — a hexagon, an element or a link. */
 export const hasPlanned = (map: HexaMap): boolean => map.links.some(isPlanned) || map.hexagons.some((h) => isPlanned(h) || plannedOf(h).size > 0)
 
