@@ -62,6 +62,7 @@ function Harness({
   const expanded = useViewStore((s) => s.expanded)
   const showPlanned = usePreferencesStore((s) => s.showPlanned)
   const whole = useMapStore((s) => s.map)
+  const revision = useMapStore((s) => s.revision)
   const hexId = useMapStore((s) => s.focus)
   const map = showPlanned ? whole : withoutPlanned(whole, hexId)
   const diagram = diagramOf(map, hexId)
@@ -74,7 +75,7 @@ function Harness({
       hexId={hexId}
       diagram={diagram}
       legend={legendFor(diagram)}
-      revision={0}
+      revision={revision}
       title="Test"
       svgRef={svgRef}
       onDelete={onDelete}
@@ -1643,6 +1644,17 @@ describe('Stage — smooth fit changes (animated refit, panel open/close)', () =
     const model = layoutMap(useMapStore.getState().map)
     const expected = fitTo(canvasBounds(model), SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false), 0)
     expectViewport(container, expected)
+  })
+
+  it('snaps to the fit of a swapped-in document instead of easing from the previous one', () => {
+    allowMotion()
+    useMapStore.getState().replace(twoHexMap())
+    const { container } = render(<Harness />)
+
+    act(() => void useMapStore.getState().replace(manyHexagonMap(6)))
+    const fitted = viewBoxOf(container)
+    frames(400)
+    expect(viewBoxOf(container)).toBe(fitted)
   })
 
   it('changes instantly under prefers-reduced-motion', () => {
