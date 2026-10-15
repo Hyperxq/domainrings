@@ -305,6 +305,8 @@ svg[data-emphasis='dependents'] .compact-port[data-chain] circle { stroke-dashar
    the same fade-in every other mounted affordance uses (`enter`) — it does not need to distinguish "loaded from
    file" vs "created via UI", both are a mount. */
 .map-link { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 6 4; animation: enter var(--motion-base) var(--motion-ease); }
+/* A dash breaks a thread colour into short ticks that read as a different hue; the dash stays the mark of a neutral or planned link. */
+.map-link[data-thread]:not(.planned) { stroke-dasharray: none; }
 /* Planned (not built yet): dashed and faded, still readable. A planned hexagon fades its rings only, so its built
    contents keep full strength. */
 .node.planned { opacity: 0.55; }
