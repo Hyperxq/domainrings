@@ -69,8 +69,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -100.789197,
-        "y": 456.179925,
+        "x": -101.289197,
+        "y": 457.045951,
       },
       "points": [
         {
@@ -118,8 +118,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 279.350825,
-        "y": 380.407536,
+        "x": 279.850825,
+        "y": 381.273561,
       },
       "points": [
         {
@@ -161,6 +161,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "from": "uc-place",
       "key": "useCase:uc-place->port:p-shipment-out",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": 190.267177,
+        "y": 432.994704,
+      },
       "points": [
         {
           "x": 218.156369,
@@ -201,6 +206,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "from": "uc-place",
       "key": "useCase:uc-place->port:p-catalog-out",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": 356.998806,
+        "y": 336.732154,
+      },
       "points": [
         {
           "x": 218.156369,
@@ -261,6 +271,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "from": "uc-place",
       "key": "useCase:uc-place->port:p-order-repo",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": 470.199218,
+        "y": 0,
+      },
       "points": [
         {
           "x": 218.156369,
@@ -294,6 +309,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "intoDomain": 0,
       "key": "useCase:uc-place->aggregate:d-order",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": 163.246987,
+        "y": 110.635452,
+      },
       "points": [
         {
           "x": 147.142286,
@@ -1127,8 +1147,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -88.448335,
-        "y": 406.304925,
+        "x": -88.948335,
+        "y": 407.170951,
       },
       "points": [
         {
@@ -1176,8 +1196,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 254.669101,
-        "y": 337.657536,
+        "x": 255.169101,
+        "y": 338.523561,
       },
       "points": [
         {
@@ -1219,6 +1239,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "from": "uc-place",
       "key": "useCase:uc-place->port:p-shipment-out",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": 165.585453,
+        "y": 390.244704,
+      },
       "points": [
         {
           "x": 193.474645,
@@ -1259,6 +1284,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "from": "uc-place",
       "key": "useCase:uc-place->port:p-catalog-out",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": 319.97622,
+        "y": 301.107154,
+      },
       "points": [
         {
           "x": 193.474645,
@@ -1319,6 +1349,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "from": "uc-place",
       "key": "useCase:uc-place->port:p-order-repo",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": 420.83577,
+        "y": 0,
+      },
       "points": [
         {
           "x": 193.474645,
@@ -1352,6 +1387,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "intoDomain": 0,
       "key": "useCase:uc-place->aggregate:d-order",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": 142.398493,
+        "y": 74.524802,
+      },
       "points": [
         {
           "x": 122.460562,
@@ -2111,8 +2151,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -275.677595,
-        "y": 353.808296,
+        "x": -274.811569,
+        "y": 354.308296,
       },
       "points": [
         {
@@ -2164,8 +2204,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -99.142758,
-        "y": 422.20571,
+        "x": -99.642758,
+        "y": 423.071735,
       },
       "points": [
         {
@@ -2196,6 +2236,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "intoDomain": 0,
       "key": "useCase:uc-charge->aggregate:d-payment",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -151.095553,
+        "y": 89.588552,
+      },
       "points": [
         {
           "x": -128.307677,
@@ -2760,8 +2805,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -269.182404,
-        "y": 342.558296,
+        "x": -268.316379,
+        "y": 343.058296,
       },
       "points": [
         {
@@ -2813,8 +2858,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -95.895163,
-        "y": 409.08071,
+        "x": -96.395163,
+        "y": 409.946735,
       },
       "points": [
         {
@@ -2845,6 +2890,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "intoDomain": 0,
       "key": "useCase:uc-charge->aggregate:d-payment",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -142.074455,
+        "y": 73.963552,
+      },
       "points": [
         {
           "x": -121.812486,
@@ -3370,8 +3420,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -307.075344,
-        "y": 408.190794,
+        "x": -306.209319,
+        "y": 408.690794,
       },
       "points": [
         {
@@ -3423,8 +3473,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -113.542595,
-        "y": 480.401956,
+        "x": -114.042595,
+        "y": 481.267982,
       },
       "points": [
         {
@@ -3455,6 +3505,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "intoDomain": 0,
       "key": "useCase:uc-create-shipment->aggregate:d-shipment",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -157.744746,
+        "y": 101.10529,
+      },
       "points": [
         {
           "x": -146.064083,
@@ -4008,8 +4063,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -289.321823,
-        "y": 377.440794,
+        "x": -288.455798,
+        "y": 377.940794,
       },
       "points": [
         {
@@ -4061,8 +4116,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -104.665835,
-        "y": 444.526956,
+        "x": -105.165835,
+        "y": 445.392982,
       },
       "points": [
         {
@@ -4093,6 +4148,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "intoDomain": 0,
       "key": "useCase:uc-create-shipment->aggregate:d-shipment",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -145.323493,
+        "y": 79.591051,
+      },
       "points": [
         {
           "x": -128.310562,
@@ -4626,8 +4686,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -270.163175,
-        "y": 344.257042,
+        "x": -269.29715,
+        "y": 344.757042,
       },
       "points": [
         {
@@ -4679,8 +4739,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -97.684587,
-        "y": 416.31258,
+        "x": -98.184587,
+        "y": 417.178605,
       },
       "points": [
         {
@@ -4711,6 +4771,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "intoDomain": 0,
       "key": "useCase:uc-lookup->aggregate:d-product",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -150.123439,
+        "y": 87.9048,
+      },
       "points": [
         {
           "x": -131.5596,
@@ -5248,8 +5313,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -263.667985,
-        "y": 333.007042,
+        "x": -262.80196,
+        "y": 333.507042,
       },
       "points": [
         {
@@ -5301,8 +5366,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -94.436992,
-        "y": 403.18758,
+        "x": -94.936992,
+        "y": 404.053605,
       },
       "points": [
         {
@@ -5333,6 +5398,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "intoDomain": 0,
       "key": "useCase:uc-lookup->aggregate:d-product",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -143.700417,
+        "y": 76.7798,
+      },
       "points": [
         {
           "x": -125.06441,
@@ -5866,8 +5936,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -104.873171,
-        "y": 472.685112,
+        "x": -105.373171,
+        "y": 473.551137,
       },
       "points": [
         {
@@ -5931,8 +6001,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 287.518774,
-        "y": 394.554839,
+        "x": 288.018774,
+        "y": 395.420864,
       },
       "points": [
         {
@@ -5990,6 +6060,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "from": "uc-submit",
       "key": "useCase:uc-submit->port:p-notify",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": 198.435126,
+        "y": 447.142007,
+      },
       "points": [
         {
           "x": 223.024319,
@@ -6046,6 +6121,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "from": "uc-submit",
       "key": "useCase:uc-submit->port:p-users",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": 369.250729,
+        "y": 348.521573,
+      },
       "points": [
         {
           "x": 223.024319,
@@ -6075,6 +6155,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "intoDomain": 0,
       "key": "useCase:uc-submit->aggregate:d-feedback",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": 163.115417,
+        "y": 110.407566,
+      },
       "points": [
         {
           "x": 152.010236,
@@ -6891,8 +6976,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -93.398335,
-        "y": 426.310112,
+        "x": -93.898335,
+        "y": 427.176137,
       },
       "points": [
         {
@@ -6956,8 +7041,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 264.569101,
-        "y": 354.804839,
+        "x": 265.069101,
+        "y": 355.670864,
       },
       "points": [
         {
@@ -7015,6 +7100,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "from": "uc-submit",
       "key": "useCase:uc-submit->port:p-notify",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": 175.485453,
+        "y": 407.392007,
+      },
       "points": [
         {
           "x": 200.074645,
@@ -7071,6 +7161,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "from": "uc-submit",
       "key": "useCase:uc-submit->port:p-users",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": 334.82622,
+        "y": 315.396573,
+      },
       "points": [
         {
           "x": 200.074645,
@@ -7100,6 +7195,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "intoDomain": 0,
       "key": "useCase:uc-submit->aggregate:d-feedback",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": 145.698493,
+        "y": 80.24057,
+      },
       "points": [
         {
           "x": 129.060562,
@@ -7877,8 +7977,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -272.199055,
-        "y": 471.462594,
+        "x": -418.654489,
+        "y": 388.06121,
       },
       "points": [
         {
@@ -7946,8 +8046,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -250.589182,
-        "y": -557.7125,
+        "x": -356.832576,
+        "y": -496.372848,
       },
       "points": [
         {
@@ -7999,8 +8099,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -355.100525,
-        "y": 491.372848,
+        "x": -368.319462,
+        "y": 516.268717,
       },
       "points": [
         {
@@ -8052,8 +8152,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 429.006945,
-        "y": 494.458594,
+        "x": 329.320879,
+        "y": 466.958209,
       },
       "points": [
         {
@@ -8111,6 +8211,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "from": "uc-place",
       "key": "useCase:uc-place->port:p-payments",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": 239.737231,
+        "y": 518.679352,
+      },
       "points": [
         {
           "x": 264.116424,
@@ -8167,6 +8272,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "from": "uc-place",
       "key": "useCase:uc-place->port:p-stock",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": 569.139327,
+        "y": 147.365507,
+      },
       "points": [
         {
           "x": 264.116424,
@@ -8229,8 +8339,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 287.029055,
-        "y": 497.148907,
+        "x": 305.170271,
+        "y": 528.570415,
       },
       "points": [
         {
@@ -8298,8 +8408,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -158.99544,
-        "y": -621.047397,
+        "x": -158.49544,
+        "y": -620.181372,
       },
       "points": [
         {
@@ -8345,6 +8455,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "from": "uc-earn",
       "key": "useCase:uc-earn->port:p-clock",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": 203.287264,
+        "y": -594.3208,
+      },
       "points": [
         {
           "x": -264.116424,
@@ -8374,6 +8489,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "intoDomain": 0,
       "key": "useCase:uc-place->aggregate:g-order",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": 52.503943,
+        "y": 276.695134,
+      },
       "points": [
         {
           "x": 193.102341,
@@ -8403,6 +8523,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "intoDomain": 0,
       "key": "useCase:uc-cancel->aggregate:g-order",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -195.828017,
+        "y": 161.067451,
+      },
       "points": [
         {
           "x": -198.298493,
@@ -8428,6 +8553,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "intoDomain": 0,
       "key": "useCase:uc-earn->aggregate:g-customer",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -58.789192,
+        "y": -273.942491,
+      },
       "points": [
         {
           "x": -193.102341,
@@ -9936,8 +10066,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -221.536569,
-        "y": 383.712594,
+        "x": -337.594511,
+        "y": 317.86121,
       },
       "points": [
         {
@@ -10005,8 +10135,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -199.926696,
-        "y": -469.9625,
+        "x": -306.17009,
+        "y": -408.622848,
       },
       "points": [
         {
@@ -10058,8 +10188,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -304.438039,
-        "y": 403.622848,
+        "x": -317.656976,
+        "y": 428.518717,
       },
       "points": [
         {
@@ -10111,8 +10241,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 378.344459,
-        "y": 406.708594,
+        "x": 278.658393,
+        "y": 379.208209,
       },
       "points": [
         {
@@ -10170,6 +10300,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "from": "uc-place",
       "key": "useCase:uc-place->port:p-payments",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": 189.074745,
+        "y": 430.929352,
+      },
       "points": [
         {
           "x": 213.453938,
@@ -10226,6 +10361,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "from": "uc-place",
       "key": "useCase:uc-place->port:p-stock",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": 467.814354,
+        "y": 118.115507,
+      },
       "points": [
         {
           "x": 213.453938,
@@ -10288,8 +10428,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 236.366569,
-        "y": 409.398907,
+        "x": 254.507785,
+        "y": 440.820415,
       },
       "points": [
         {
@@ -10357,8 +10497,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -133.664197,
-        "y": -518.672397,
+        "x": -133.164197,
+        "y": -517.806372,
       },
       "points": [
         {
@@ -10404,6 +10544,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "from": "uc-earn",
       "key": "useCase:uc-earn->port:p-clock",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": 160.314805,
+        "y": -461.390318,
+      },
       "points": [
         {
           "x": -213.453938,
@@ -10433,6 +10578,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "intoDomain": 0,
       "key": "useCase:uc-place->aggregate:g-order",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": 7.230404,
+        "y": 165.593196,
+      },
       "points": [
         {
           "x": 142.439854,
@@ -10462,6 +10612,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "intoDomain": 0,
       "key": "useCase:uc-cancel->aggregate:g-order",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -148.523117,
+        "y": 79.132961,
+      },
       "points": [
         {
           "x": -147.636007,
@@ -10487,6 +10642,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "intoDomain": 0,
       "key": "useCase:uc-earn->aggregate:g-customer",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -11.484292,
+        "y": -192.008001,
+      },
       "points": [
         {
           "x": -142.439854,
@@ -11825,8 +11985,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -446.924459,
-        "y": 413.771515,
+        "x": -447.424459,
+        "y": 414.637541,
       },
       "points": [
         {
@@ -11890,7 +12050,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -570.220089,
+        "x": -700.980089,
         "y": 183.626279,
       },
       "points": [
@@ -11939,8 +12099,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 481.895675,
-        "y": -470.879336,
+        "x": 481.395675,
+        "y": -470.013311,
       },
       "points": [
         {
@@ -12004,8 +12164,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -321.370652,
-        "y": -556.630298,
+        "x": -320.870652,
+        "y": -555.764273,
       },
       "points": [
         {
@@ -12057,8 +12217,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -149.704414,
-        "y": 626.548209,
+        "x": -150.204414,
+        "y": 627.414234,
       },
       "points": [
         {
@@ -12089,6 +12249,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-auth-run->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
       "points": [
         {
           "x": -396.553755,
@@ -12105,6 +12266,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-auth-invoke->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": 83.914391,
+        "y": -317.460613,
+      },
       "points": [
         {
           "x": 203.869836,
@@ -12121,6 +12287,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-auth-codegen->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -235.569836,
+        "y": 235.902301,
+      },
       "points": [
         {
           "x": -209.065988,
@@ -12929,8 +13100,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -427.438887,
-        "y": 395.021515,
+        "x": -427.938887,
+        "y": 395.887541,
       },
       "points": [
         {
@@ -12994,7 +13165,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -544.239327,
+        "x": -674.999327,
         "y": 176.126279,
       },
       "points": [
@@ -13043,8 +13214,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 462.410103,
-        "y": -452.129336,
+        "x": 461.910103,
+        "y": -451.263311,
       },
       "points": [
         {
@@ -13108,8 +13279,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -308.380271,
-        "y": -534.130298,
+        "x": -307.880271,
+        "y": -533.264273,
       },
       "points": [
         {
@@ -13161,8 +13332,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -143.209224,
-        "y": 600.298209,
+        "x": -143.709224,
+        "y": 601.164234,
       },
       "points": [
         {
@@ -13193,6 +13364,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-auth-run->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
       "points": [
         {
           "x": -370.572993,
@@ -13209,6 +13381,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-auth-invoke->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": 70.92401,
+        "y": -294.960613,
+      },
       "points": [
         {
           "x": 190.879455,
@@ -13225,6 +13402,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-auth-codegen->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -222.579455,
+        "y": 213.402301,
+      },
       "points": [
         {
           "x": -196.075607,
@@ -14010,8 +14192,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -437.87734,
-        "y": 634.746496,
+        "x": -457.278416,
+        "y": 670.350146,
       },
       "points": [
         {
@@ -14048,7 +14230,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "label": "runs the use case",
       "labelAt": {
         "x": -749.468346,
-        "y": -12.5,
+        "y": -11.5,
       },
       "points": [
         {
@@ -14084,8 +14266,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -325.571768,
-        "y": -687.586148,
+        "x": -431.815162,
+        "y": -626.246496,
       },
       "points": [
         {
@@ -14137,8 +14319,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 356.413565,
-        "y": 617.326403,
+        "x": 356.913565,
+        "y": 618.192429,
       },
       "points": [
         {
@@ -14190,8 +14372,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -195.187695,
-        "y": -767.316654,
+        "x": -194.687695,
+        "y": -766.450628,
       },
       "points": [
         {
@@ -14255,8 +14437,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -359.413565,
-        "y": 622.522556,
+        "x": -572.393704,
+        "y": 500.713116,
       },
       "points": [
         {
@@ -14291,6 +14473,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-cat-add->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -265.123674,
+        "y": 287.091051,
+      },
       "points": [
         {
           "x": -239.594827,
@@ -14307,6 +14494,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-cat-resolve->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -385.989327,
+        "y": -11.5,
+      },
       "points": [
         {
           "x": -488.788346,
@@ -14323,6 +14515,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-cat-query->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -121.262458,
+        "y": -382.149362,
+      },
       "points": [
         {
           "x": -249.987132,
@@ -15370,8 +15567,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -437.87734,
-        "y": 634.746496,
+        "x": -457.278416,
+        "y": 670.350146,
       },
       "points": [
         {
@@ -15408,7 +15605,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "label": "runs the use case",
       "labelAt": {
         "x": -749.468346,
-        "y": -12.5,
+        "y": -11.5,
       },
       "points": [
         {
@@ -15444,8 +15641,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -325.571768,
-        "y": -687.586148,
+        "x": -431.815162,
+        "y": -626.246496,
       },
       "points": [
         {
@@ -15497,8 +15694,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 356.413565,
-        "y": 617.326403,
+        "x": 356.913565,
+        "y": 618.192429,
       },
       "points": [
         {
@@ -15550,8 +15747,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -195.187695,
-        "y": -767.316654,
+        "x": -194.687695,
+        "y": -766.450628,
       },
       "points": [
         {
@@ -15615,8 +15812,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -359.413565,
-        "y": 622.522556,
+        "x": -572.393704,
+        "y": 500.713116,
       },
       "points": [
         {
@@ -15651,6 +15848,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-cat-add->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -265.123674,
+        "y": 287.091051,
+      },
       "points": [
         {
           "x": -239.594827,
@@ -15667,6 +15869,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-cat-resolve->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -385.989327,
+        "y": -11.5,
+      },
       "points": [
         {
           "x": -488.788346,
@@ -15683,6 +15890,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-cat-query->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -121.262458,
+        "y": -382.149362,
+      },
       "points": [
         {
           "x": -249.987132,
@@ -16676,7 +16888,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "label": "runs the use case",
       "labelAt": {
         "x": -730.272448,
-        "y": -12.5,
+        "y": -11.5,
       },
       "points": [
         {
@@ -16712,8 +16924,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -315.925743,
-        "y": -670.878742,
+        "x": -316.791768,
+        "y": -670.378742,
       },
       "points": [
         {
@@ -16765,8 +16977,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -350.865616,
-        "y": 607.717073,
+        "x": -351.365616,
+        "y": 608.583099,
       },
       "points": [
         {
@@ -16818,8 +17030,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 554.099944,
-        "y": -540.357927,
+        "x": 553.599944,
+        "y": -539.491902,
       },
       "points": [
         {
@@ -16867,8 +17079,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 390.143238,
-        "y": -634.029251,
+        "x": 354.879845,
+        "y": -654.388581,
       },
       "points": [
         {
@@ -16887,6 +17099,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-exec-run->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -394.553428,
+        "y": -11.5,
+      },
       "points": [
         {
           "x": -502.452448,
@@ -16903,6 +17120,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-exec-wire->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -120.396433,
+        "y": -380.649362,
+      },
       "points": [
         {
           "x": -246.52303,
@@ -16919,6 +17141,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-exec-invoke->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": 117.798357,
+        "y": -376.149362,
+      },
       "points": [
         {
           "x": 241.326878,
@@ -18022,7 +18249,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "label": "runs the use case",
       "labelAt": {
         "x": -737.200651,
-        "y": -12.5,
+        "y": -11.5,
       },
       "points": [
         {
@@ -18058,8 +18285,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -319.389845,
-        "y": -676.878742,
+        "x": -320.25587,
+        "y": -676.378742,
       },
       "points": [
         {
@@ -18111,8 +18338,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -354.329718,
-        "y": 613.717073,
+        "x": -354.829718,
+        "y": 614.583099,
       },
       "points": [
         {
@@ -18164,8 +18391,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 559.296096,
-        "y": -545.357927,
+        "x": 558.796096,
+        "y": -544.491902,
       },
       "points": [
         {
@@ -18213,8 +18440,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 393.60734,
-        "y": -640.029251,
+        "x": 358.343946,
+        "y": -660.388581,
       },
       "points": [
         {
@@ -18233,6 +18460,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-exec-run->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -401.481631,
+        "y": -11.5,
+      },
       "points": [
         {
           "x": -509.380651,
@@ -18249,6 +18481,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-exec-wire->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -123.860535,
+        "y": -386.649362,
+      },
       "points": [
         {
           "x": -249.987132,
@@ -18265,6 +18502,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-exec-invoke->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": 121.262458,
+        "y": -382.149362,
+      },
       "points": [
         {
           "x": 244.790979,
@@ -19326,7 +19568,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "label": "runs the use case",
       "labelAt": {
         "x": -564.839563,
-        "y": -12.5,
+        "y": -11.5,
       },
       "points": [
         {
@@ -19362,8 +19604,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -267.849174,
-        "y": 463.928378,
+        "x": -268.349174,
+        "y": 464.794403,
       },
       "points": [
         {
@@ -19413,6 +19655,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "from": "uc-launch-exec",
       "key": "useCase:uc-launch-exec->port:p-launch-catalog",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": -285.99039,
+        "y": 495.349885,
+      },
       "points": [
         {
           "x": -491.259563,
@@ -19450,6 +19697,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-launch-exec->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
       "points": [
         {
           "x": -332.859563,
@@ -20023,7 +20271,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "label": "runs the use case",
       "labelAt": {
         "x": -564.839563,
-        "y": -12.5,
+        "y": -11.5,
       },
       "points": [
         {
@@ -20059,8 +20307,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -267.849174,
-        "y": 463.928378,
+        "x": -268.349174,
+        "y": 464.794403,
       },
       "points": [
         {
@@ -20110,6 +20358,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "from": "uc-launch-exec",
       "key": "useCase:uc-launch-exec->port:p-launch-catalog",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": -285.99039,
+        "y": 495.349885,
+      },
       "points": [
         {
           "x": -491.259563,
@@ -20147,6 +20400,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-launch-exec->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
       "points": [
         {
           "x": -332.859563,
@@ -20703,8 +20957,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -196.494772,
-        "y": -464.018233,
+        "x": -334.001179,
+        "y": -456.827708,
       },
       "points": [
         {
@@ -20740,8 +20994,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -134.345349,
-        "y": -521.425242,
+        "x": -133.845349,
+        "y": -520.559216,
       },
       "points": [
         {
@@ -20803,6 +21057,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "from": "uc-run-spawn",
       "key": "useCase:uc-run-spawn->port:p-run-bun",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": -482.538964,
+        "y": 0,
+      },
       "points": [
         {
           "x": -199.635861,
@@ -20840,6 +21099,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-run-spawn->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -57.981706,
+        "y": -272.543883,
+      },
       "points": [
         {
           "x": -170.190998,
@@ -21388,8 +21652,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -196.494772,
-        "y": -464.018233,
+        "x": -334.001179,
+        "y": -456.827708,
       },
       "points": [
         {
@@ -21425,8 +21689,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -134.345349,
-        "y": -521.425242,
+        "x": -133.845349,
+        "y": -520.559216,
       },
       "points": [
         {
@@ -21488,6 +21752,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "from": "uc-run-spawn",
       "key": "useCase:uc-run-spawn->port:p-run-bun",
       "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": -482.538964,
+        "y": 0,
+      },
       "points": [
         {
           "x": -199.635861,
@@ -21525,6 +21794,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-run-spawn->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": -57.981706,
+        "y": -272.543883,
+      },
       "points": [
         {
           "x": -170.190998,
@@ -22088,10 +22362,6 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "key": "port:p-sel-search->useCase:uc-sel-shortlist",
       "kind": "import",
       "label": "runs the use case",
-      "labelAt": {
-        "x": -613.128783,
-        "y": -12.5,
-      },
       "points": [
         {
           "x": -661.028783,
@@ -22126,8 +22396,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -289.293783,
-        "y": 501.071531,
+        "x": -289.793783,
+        "y": 501.937557,
       },
       "points": [
         {
@@ -22179,8 +22449,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 324.47333,
-        "y": -520.285633,
+        "x": 289.209936,
+        "y": -540.644963,
       },
       "points": [
         {
@@ -22199,6 +22469,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-sel-shortlist->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
       "points": [
         {
           "x": -385.228783,
@@ -22215,6 +22486,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-sel-eval->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": 86.930263,
+        "y": -322.684255,
+      },
       "points": [
         {
           "x": 207.303502,
@@ -22882,10 +23158,6 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "key": "port:p-sel-search->useCase:uc-sel-shortlist",
       "kind": "import",
       "label": "runs the use case",
-      "labelAt": {
-        "x": -613.128783,
-        "y": -12.5,
-      },
       "points": [
         {
           "x": -661.028783,
@@ -22920,8 +23192,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -289.293783,
-        "y": 501.071531,
+        "x": -289.793783,
+        "y": 501.937557,
       },
       "points": [
         {
@@ -22973,8 +23245,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 324.47333,
-        "y": -520.285633,
+        "x": 289.209936,
+        "y": -540.644963,
       },
       "points": [
         {
@@ -22993,6 +23265,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-sel-shortlist->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
       "points": [
         {
           "x": -385.228783,
@@ -23009,6 +23282,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
       "intoDomain": 0,
       "key": "useCase:uc-sel-eval->domain",
       "kind": "import",
+      "label": "asks the domain to decide",
+      "labelAt": {
+        "x": 86.930263,
+        "y": -322.684255,
+      },
       "points": [
         {
           "x": 207.303502,
@@ -23861,7 +24139,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "label": "runs the use case",
             "labelAt": {
               "x": -730.272448,
-              "y": -12.5,
+              "y": -11.5,
             },
             "points": [
               {
@@ -23905,8 +24183,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -315.925743,
-              "y": -670.878742,
+              "x": -316.791768,
+              "y": -670.378742,
             },
             "points": [
               {
@@ -23970,8 +24248,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -350.865616,
-              "y": 607.717073,
+              "x": -351.365616,
+              "y": 608.583099,
             },
             "points": [
               {
@@ -24031,8 +24309,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 554.099944,
-              "y": -540.357927,
+              "x": 553.599944,
+              "y": -539.491902,
             },
             "points": [
               {
@@ -24088,8 +24366,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 390.143238,
-              "y": -634.029251,
+              "x": 354.879845,
+              "y": -654.388581,
             },
             "points": [
               {
@@ -24112,6 +24390,11 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-exec-run->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -394.553428,
+              "y": -11.5,
+            },
             "points": [
               {
                 "x": -502.452448,
@@ -24132,6 +24415,11 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-exec-wire->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -120.396433,
+              "y": -380.649362,
+            },
             "points": [
               {
                 "x": -246.52303,
@@ -24152,6 +24440,11 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-exec-invoke->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": 117.798357,
+              "y": -376.149362,
+            },
             "points": [
               {
                 "x": 241.326878,
@@ -25355,8 +25648,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -446.924459,
-              "y": 413.771515,
+              "x": -447.424459,
+              "y": 414.637541,
             },
             "points": [
               {
@@ -25432,7 +25725,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -570.220089,
+              "x": -700.980089,
               "y": 183.626279,
             },
             "points": [
@@ -25489,8 +25782,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 481.895675,
-              "y": -470.879336,
+              "x": 481.395675,
+              "y": -470.013311,
             },
             "points": [
               {
@@ -25566,8 +25859,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -321.370652,
-              "y": -556.630298,
+              "x": -320.870652,
+              "y": -555.764273,
             },
             "points": [
               {
@@ -25627,8 +25920,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -149.704414,
-              "y": 626.548209,
+              "x": -150.204414,
+              "y": 627.414234,
             },
             "points": [
               {
@@ -25663,6 +25956,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-auth-run->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
             "points": [
               {
                 "x": -396.553755,
@@ -25683,6 +25977,11 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-auth-invoke->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": 83.914391,
+              "y": -317.460613,
+            },
             "points": [
               {
                 "x": 203.869836,
@@ -25703,6 +26002,11 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-auth-codegen->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -235.569836,
+              "y": 235.902301,
+            },
             "points": [
               {
                 "x": -209.065988,
@@ -26638,8 +26942,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -437.87734,
-              "y": 634.746496,
+              "x": -457.278416,
+              "y": 670.350146,
             },
             "points": [
               {
@@ -26684,7 +26988,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "label": "runs the use case",
             "labelAt": {
               "x": -749.468346,
-              "y": -12.5,
+              "y": -11.5,
             },
             "points": [
               {
@@ -26728,8 +27032,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -325.571768,
-              "y": -687.586148,
+              "x": -431.815162,
+              "y": -626.246496,
             },
             "points": [
               {
@@ -26793,8 +27097,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 356.413565,
-              "y": 617.326403,
+              "x": 356.913565,
+              "y": 618.192429,
             },
             "points": [
               {
@@ -26854,8 +27158,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -195.187695,
-              "y": -767.316654,
+              "x": -194.687695,
+              "y": -766.450628,
             },
             "points": [
               {
@@ -26931,8 +27235,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -359.413565,
-              "y": 622.522556,
+              "x": -572.393704,
+              "y": 500.713116,
             },
             "points": [
               {
@@ -26971,6 +27275,11 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-cat-add->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -265.123674,
+              "y": 287.091051,
+            },
             "points": [
               {
                 "x": -239.594827,
@@ -26991,6 +27300,11 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-cat-resolve->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -385.989327,
+              "y": -11.5,
+            },
             "points": [
               {
                 "x": -488.788346,
@@ -27011,6 +27325,11 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-cat-query->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -121.262458,
+              "y": -382.149362,
+            },
             "points": [
               {
                 "x": -249.987132,
@@ -28186,10 +28505,6 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "key": "port:p-sel-search->useCase:uc-sel-shortlist",
             "kind": "import",
             "label": "runs the use case",
-            "labelAt": {
-              "x": -613.128783,
-              "y": -12.5,
-            },
             "points": [
               {
                 "x": -661.028783,
@@ -28232,8 +28547,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -289.293783,
-              "y": 501.071531,
+              "x": -289.793783,
+              "y": 501.937557,
             },
             "points": [
               {
@@ -28293,8 +28608,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 324.47333,
-              "y": -520.285633,
+              "x": 289.209936,
+              "y": -540.644963,
             },
             "points": [
               {
@@ -28317,6 +28632,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-sel-shortlist->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
             "points": [
               {
                 "x": -385.228783,
@@ -28337,6 +28653,11 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-sel-eval->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": 86.930263,
+              "y": -322.684255,
+            },
             "points": [
               {
                 "x": 207.303502,
@@ -29081,7 +29402,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "label": "runs the use case",
             "labelAt": {
               "x": -564.839563,
-              "y": -12.5,
+              "y": -11.5,
             },
             "points": [
               {
@@ -29125,8 +29446,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -267.849174,
-              "y": 463.928378,
+              "x": -268.349174,
+              "y": 464.794403,
             },
             "points": [
               {
@@ -29184,6 +29505,11 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "from": "uc-launch-exec",
             "key": "useCase:uc-launch-exec->port:p-launch-catalog",
             "kind": "import",
+            "label": "uses",
+            "labelAt": {
+              "x": -285.99039,
+              "y": 495.349885,
+            },
             "points": [
               {
                 "x": -491.259563,
@@ -29225,6 +29551,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-launch-exec->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
             "points": [
               {
                 "x": -332.859563,
@@ -29846,8 +30173,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -196.494772,
-              "y": -464.018233,
+              "x": -334.001179,
+              "y": -456.827708,
             },
             "points": [
               {
@@ -29891,8 +30218,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -134.345349,
-              "y": -521.425242,
+              "x": -133.845349,
+              "y": -520.559216,
             },
             "points": [
               {
@@ -29966,6 +30293,11 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "from": "uc-run-spawn",
             "key": "useCase:uc-run-spawn->port:p-run-bun",
             "kind": "import",
+            "label": "uses",
+            "labelAt": {
+              "x": -482.538964,
+              "y": 0,
+            },
             "points": [
               {
                 "x": -199.635861,
@@ -30007,6 +30339,11 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-run-spawn->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -57.981706,
+              "y": -272.543883,
+            },
             "points": [
               {
                 "x": -170.190998,
@@ -31173,7 +31510,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "label": "runs the use case",
             "labelAt": {
               "x": -737.200651,
-              "y": -12.5,
+              "y": -11.5,
             },
             "points": [
               {
@@ -31217,8 +31554,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -319.389845,
-              "y": -676.878742,
+              "x": -320.25587,
+              "y": -676.378742,
             },
             "points": [
               {
@@ -31282,8 +31619,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -354.329718,
-              "y": 613.717073,
+              "x": -354.829718,
+              "y": 614.583099,
             },
             "points": [
               {
@@ -31343,8 +31680,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 559.296096,
-              "y": -545.357927,
+              "x": 558.796096,
+              "y": -544.491902,
             },
             "points": [
               {
@@ -31400,8 +31737,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 393.60734,
-              "y": -640.029251,
+              "x": 358.343946,
+              "y": -660.388581,
             },
             "points": [
               {
@@ -31424,6 +31761,11 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-exec-run->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -401.481631,
+              "y": -11.5,
+            },
             "points": [
               {
                 "x": -509.380651,
@@ -31444,6 +31786,11 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-exec-wire->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -123.860535,
+              "y": -386.649362,
+            },
             "points": [
               {
                 "x": -249.987132,
@@ -31464,6 +31811,11 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-exec-invoke->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": 121.262458,
+              "y": -382.149362,
+            },
             "points": [
               {
                 "x": 244.790979,
@@ -32609,8 +32961,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -427.438887,
-              "y": 395.021515,
+              "x": -427.938887,
+              "y": 395.887541,
             },
             "points": [
               {
@@ -32686,7 +33038,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -544.239327,
+              "x": -674.999327,
               "y": 176.126279,
             },
             "points": [
@@ -32743,8 +33095,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 462.410103,
-              "y": -452.129336,
+              "x": 461.910103,
+              "y": -451.263311,
             },
             "points": [
               {
@@ -32820,8 +33172,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -308.380271,
-              "y": -534.130298,
+              "x": -307.880271,
+              "y": -533.264273,
             },
             "points": [
               {
@@ -32881,8 +33233,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -143.209224,
-              "y": 600.298209,
+              "x": -143.709224,
+              "y": 601.164234,
             },
             "points": [
               {
@@ -32917,6 +33269,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-auth-run->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
             "points": [
               {
                 "x": -370.572993,
@@ -32937,6 +33290,11 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-auth-invoke->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": 70.92401,
+              "y": -294.960613,
+            },
             "points": [
               {
                 "x": 190.879455,
@@ -32957,6 +33315,11 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-auth-codegen->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -222.579455,
+              "y": 213.402301,
+            },
             "points": [
               {
                 "x": -196.075607,
@@ -33853,8 +34216,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -437.87734,
-              "y": 634.746496,
+              "x": -457.278416,
+              "y": 670.350146,
             },
             "points": [
               {
@@ -33899,7 +34262,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "label": "runs the use case",
             "labelAt": {
               "x": -749.468346,
-              "y": -12.5,
+              "y": -11.5,
             },
             "points": [
               {
@@ -33943,8 +34306,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -325.571768,
-              "y": -687.586148,
+              "x": -431.815162,
+              "y": -626.246496,
             },
             "points": [
               {
@@ -34008,8 +34371,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 356.413565,
-              "y": 617.326403,
+              "x": 356.913565,
+              "y": 618.192429,
             },
             "points": [
               {
@@ -34069,8 +34432,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -195.187695,
-              "y": -767.316654,
+              "x": -194.687695,
+              "y": -766.450628,
             },
             "points": [
               {
@@ -34146,8 +34509,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -359.413565,
-              "y": 622.522556,
+              "x": -572.393704,
+              "y": 500.713116,
             },
             "points": [
               {
@@ -34186,6 +34549,11 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-cat-add->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -265.123674,
+              "y": 287.091051,
+            },
             "points": [
               {
                 "x": -239.594827,
@@ -34206,6 +34574,11 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-cat-resolve->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -385.989327,
+              "y": -11.5,
+            },
             "points": [
               {
                 "x": -488.788346,
@@ -34226,6 +34599,11 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-cat-query->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -121.262458,
+              "y": -382.149362,
+            },
             "points": [
               {
                 "x": -249.987132,
@@ -35362,10 +35740,6 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "key": "port:p-sel-search->useCase:uc-sel-shortlist",
             "kind": "import",
             "label": "runs the use case",
-            "labelAt": {
-              "x": -613.128783,
-              "y": -12.5,
-            },
             "points": [
               {
                 "x": -661.028783,
@@ -35408,8 +35782,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -289.293783,
-              "y": 501.071531,
+              "x": -289.793783,
+              "y": 501.937557,
             },
             "points": [
               {
@@ -35469,8 +35843,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 324.47333,
-              "y": -520.285633,
+              "x": 289.209936,
+              "y": -540.644963,
             },
             "points": [
               {
@@ -35493,6 +35867,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-sel-shortlist->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
             "points": [
               {
                 "x": -385.228783,
@@ -35513,6 +35888,11 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-sel-eval->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": 86.930263,
+              "y": -322.684255,
+            },
             "points": [
               {
                 "x": 207.303502,
@@ -36257,7 +36637,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "label": "runs the use case",
             "labelAt": {
               "x": -564.839563,
-              "y": -12.5,
+              "y": -11.5,
             },
             "points": [
               {
@@ -36301,8 +36681,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -267.849174,
-              "y": 463.928378,
+              "x": -268.349174,
+              "y": 464.794403,
             },
             "points": [
               {
@@ -36360,6 +36740,11 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "from": "uc-launch-exec",
             "key": "useCase:uc-launch-exec->port:p-launch-catalog",
             "kind": "import",
+            "label": "uses",
+            "labelAt": {
+              "x": -285.99039,
+              "y": 495.349885,
+            },
             "points": [
               {
                 "x": -491.259563,
@@ -36401,6 +36786,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-launch-exec->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
             "points": [
               {
                 "x": -332.859563,
@@ -37022,8 +37408,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -196.494772,
-              "y": -464.018233,
+              "x": -334.001179,
+              "y": -456.827708,
             },
             "points": [
               {
@@ -37067,8 +37453,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -134.345349,
-              "y": -521.425242,
+              "x": -133.845349,
+              "y": -520.559216,
             },
             "points": [
               {
@@ -37142,6 +37528,11 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "from": "uc-run-spawn",
             "key": "useCase:uc-run-spawn->port:p-run-bun",
             "kind": "import",
+            "label": "uses",
+            "labelAt": {
+              "x": -482.538964,
+              "y": 0,
+            },
             "points": [
               {
                 "x": -199.635861,
@@ -37183,6 +37574,11 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-run-spawn->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -57.981706,
+              "y": -272.543883,
+            },
             "points": [
               {
                 "x": -170.190998,
@@ -38389,7 +38785,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "label": "runs the use case",
             "labelAt": {
               "x": -730.272448,
-              "y": -12.5,
+              "y": -11.5,
             },
             "points": [
               {
@@ -38433,8 +38829,8 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -315.925743,
-              "y": -670.878742,
+              "x": -316.791768,
+              "y": -670.378742,
             },
             "points": [
               {
@@ -38498,8 +38894,8 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -350.865616,
-              "y": 607.717073,
+              "x": -351.365616,
+              "y": 608.583099,
             },
             "points": [
               {
@@ -38559,8 +38955,8 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 554.099944,
-              "y": -540.357927,
+              "x": 553.599944,
+              "y": -539.491902,
             },
             "points": [
               {
@@ -38616,8 +39012,8 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 390.143238,
-              "y": -634.029251,
+              "x": 354.879845,
+              "y": -654.388581,
             },
             "points": [
               {
@@ -38640,6 +39036,11 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "intoDomain": 0,
             "key": "useCase:uc-exec-run->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -394.553428,
+              "y": -11.5,
+            },
             "points": [
               {
                 "x": -502.452448,
@@ -38660,6 +39061,11 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "intoDomain": 0,
             "key": "useCase:uc-exec-wire->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -120.396433,
+              "y": -380.649362,
+            },
             "points": [
               {
                 "x": -246.52303,
@@ -38680,6 +39086,11 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "intoDomain": 0,
             "key": "useCase:uc-exec-invoke->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": 117.798357,
+              "y": -376.149362,
+            },
             "points": [
               {
                 "x": 241.326878,
@@ -39936,8 +40347,8 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -446.924459,
-              "y": 413.771515,
+              "x": -447.424459,
+              "y": 414.637541,
             },
             "points": [
               {
@@ -40013,7 +40424,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -570.220089,
+              "x": -700.980089,
               "y": 183.626279,
             },
             "points": [
@@ -40070,8 +40481,8 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 481.895675,
-              "y": -470.879336,
+              "x": 481.395675,
+              "y": -470.013311,
             },
             "points": [
               {
@@ -40147,8 +40558,8 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -321.370652,
-              "y": -556.630298,
+              "x": -320.870652,
+              "y": -555.764273,
             },
             "points": [
               {
@@ -40208,8 +40619,8 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -149.704414,
-              "y": 626.548209,
+              "x": -150.204414,
+              "y": 627.414234,
             },
             "points": [
               {
@@ -40244,6 +40655,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "intoDomain": 0,
             "key": "useCase:uc-auth-run->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
             "points": [
               {
                 "x": -396.553755,
@@ -40264,6 +40676,11 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "intoDomain": 0,
             "key": "useCase:uc-auth-invoke->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": 83.914391,
+              "y": -317.460613,
+            },
             "points": [
               {
                 "x": 203.869836,
@@ -40284,6 +40701,11 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "intoDomain": 0,
             "key": "useCase:uc-auth-codegen->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -235.569836,
+              "y": 235.902301,
+            },
             "points": [
               {
                 "x": -209.065988,
@@ -41281,8 +41703,8 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -437.87734,
-              "y": 634.746496,
+              "x": -457.278416,
+              "y": 670.350146,
             },
             "points": [
               {
@@ -41327,7 +41749,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "label": "runs the use case",
             "labelAt": {
               "x": -749.468346,
-              "y": -12.5,
+              "y": -11.5,
             },
             "points": [
               {
@@ -41371,8 +41793,8 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -325.571768,
-              "y": -687.586148,
+              "x": -431.815162,
+              "y": -626.246496,
             },
             "points": [
               {
@@ -41436,8 +41858,8 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 356.413565,
-              "y": 617.326403,
+              "x": 356.913565,
+              "y": 618.192429,
             },
             "points": [
               {
@@ -41497,8 +41919,8 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -195.187695,
-              "y": -767.316654,
+              "x": -194.687695,
+              "y": -766.450628,
             },
             "points": [
               {
@@ -41574,8 +41996,8 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -359.413565,
-              "y": 622.522556,
+              "x": -572.393704,
+              "y": 500.713116,
             },
             "points": [
               {
@@ -41614,6 +42036,11 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "intoDomain": 0,
             "key": "useCase:uc-cat-add->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -265.123674,
+              "y": 287.091051,
+            },
             "points": [
               {
                 "x": -239.594827,
@@ -41634,6 +42061,11 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "intoDomain": 0,
             "key": "useCase:uc-cat-resolve->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -385.989327,
+              "y": -11.5,
+            },
             "points": [
               {
                 "x": -488.788346,
@@ -41654,6 +42086,11 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "intoDomain": 0,
             "key": "useCase:uc-cat-query->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -121.262458,
+              "y": -382.149362,
+            },
             "points": [
               {
                 "x": -249.987132,
@@ -42864,10 +43301,6 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "key": "port:p-sel-search->useCase:uc-sel-shortlist",
             "kind": "import",
             "label": "runs the use case",
-            "labelAt": {
-              "x": -613.128783,
-              "y": -12.5,
-            },
             "points": [
               {
                 "x": -661.028783,
@@ -42910,8 +43343,8 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -289.293783,
-              "y": 501.071531,
+              "x": -289.793783,
+              "y": 501.937557,
             },
             "points": [
               {
@@ -42971,8 +43404,8 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 324.47333,
-              "y": -520.285633,
+              "x": 289.209936,
+              "y": -540.644963,
             },
             "points": [
               {
@@ -42995,6 +43428,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "intoDomain": 0,
             "key": "useCase:uc-sel-shortlist->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
             "points": [
               {
                 "x": -385.228783,
@@ -43015,6 +43449,11 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "intoDomain": 0,
             "key": "useCase:uc-sel-eval->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": 86.930263,
+              "y": -322.684255,
+            },
             "points": [
               {
                 "x": 207.303502,
@@ -43794,7 +44233,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "label": "runs the use case",
             "labelAt": {
               "x": -564.839563,
-              "y": -12.5,
+              "y": -11.5,
             },
             "points": [
               {
@@ -43838,8 +44277,8 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -267.849174,
-              "y": 463.928378,
+              "x": -268.349174,
+              "y": 464.794403,
             },
             "points": [
               {
@@ -43897,6 +44336,11 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "from": "uc-launch-exec",
             "key": "useCase:uc-launch-exec->port:p-launch-catalog",
             "kind": "import",
+            "label": "uses",
+            "labelAt": {
+              "x": -285.99039,
+              "y": 495.349885,
+            },
             "points": [
               {
                 "x": -491.259563,
@@ -43938,6 +44382,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "intoDomain": 0,
             "key": "useCase:uc-launch-exec->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
             "points": [
               {
                 "x": -332.859563,
@@ -44594,8 +45039,8 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -196.494772,
-              "y": -464.018233,
+              "x": -334.001179,
+              "y": -456.827708,
             },
             "points": [
               {
@@ -44639,8 +45084,8 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -134.345349,
-              "y": -521.425242,
+              "x": -133.845349,
+              "y": -520.559216,
             },
             "points": [
               {
@@ -44714,6 +45159,11 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "from": "uc-run-spawn",
             "key": "useCase:uc-run-spawn->port:p-run-bun",
             "kind": "import",
+            "label": "uses",
+            "labelAt": {
+              "x": -482.538964,
+              "y": 0,
+            },
             "points": [
               {
                 "x": -199.635861,
@@ -44755,6 +45205,11 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "intoDomain": 0,
             "key": "useCase:uc-run-spawn->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -57.981706,
+              "y": -272.543883,
+            },
             "points": [
               {
                 "x": -170.190998,
@@ -45909,7 +46364,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "label": "runs the use case",
             "labelAt": {
               "x": -737.200651,
-              "y": -12.5,
+              "y": -11.5,
             },
             "points": [
               {
@@ -45953,8 +46408,8 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -319.389845,
-              "y": -676.878742,
+              "x": -320.25587,
+              "y": -676.378742,
             },
             "points": [
               {
@@ -46018,8 +46473,8 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -354.329718,
-              "y": 613.717073,
+              "x": -354.829718,
+              "y": 614.583099,
             },
             "points": [
               {
@@ -46079,8 +46534,8 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 559.296096,
-              "y": -545.357927,
+              "x": 558.796096,
+              "y": -544.491902,
             },
             "points": [
               {
@@ -46136,8 +46591,8 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 393.60734,
-              "y": -640.029251,
+              "x": 358.343946,
+              "y": -660.388581,
             },
             "points": [
               {
@@ -46160,6 +46615,11 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "intoDomain": 0,
             "key": "useCase:uc-exec-run->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -401.481631,
+              "y": -11.5,
+            },
             "points": [
               {
                 "x": -509.380651,
@@ -46180,6 +46640,11 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "intoDomain": 0,
             "key": "useCase:uc-exec-wire->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -123.860535,
+              "y": -386.649362,
+            },
             "points": [
               {
                 "x": -249.987132,
@@ -46200,6 +46665,11 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "intoDomain": 0,
             "key": "useCase:uc-exec-invoke->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": 121.262458,
+              "y": -382.149362,
+            },
             "points": [
               {
                 "x": 244.790979,
@@ -47398,8 +47868,8 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -427.438887,
-              "y": 395.021515,
+              "x": -427.938887,
+              "y": 395.887541,
             },
             "points": [
               {
@@ -47475,7 +47945,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -544.239327,
+              "x": -674.999327,
               "y": 176.126279,
             },
             "points": [
@@ -47532,8 +48002,8 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 462.410103,
-              "y": -452.129336,
+              "x": 461.910103,
+              "y": -451.263311,
             },
             "points": [
               {
@@ -47609,8 +48079,8 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -308.380271,
-              "y": -534.130298,
+              "x": -307.880271,
+              "y": -533.264273,
             },
             "points": [
               {
@@ -47670,8 +48140,8 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -143.209224,
-              "y": 600.298209,
+              "x": -143.709224,
+              "y": 601.164234,
             },
             "points": [
               {
@@ -47706,6 +48176,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "intoDomain": 0,
             "key": "useCase:uc-auth-run->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
             "points": [
               {
                 "x": -370.572993,
@@ -47726,6 +48197,11 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "intoDomain": 0,
             "key": "useCase:uc-auth-invoke->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": 70.92401,
+              "y": -294.960613,
+            },
             "points": [
               {
                 "x": 190.879455,
@@ -47746,6 +48222,11 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "intoDomain": 0,
             "key": "useCase:uc-auth-codegen->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -222.579455,
+              "y": 213.402301,
+            },
             "points": [
               {
                 "x": -196.075607,
@@ -48704,8 +49185,8 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -437.87734,
-              "y": 634.746496,
+              "x": -457.278416,
+              "y": 670.350146,
             },
             "points": [
               {
@@ -48750,7 +49231,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "label": "runs the use case",
             "labelAt": {
               "x": -749.468346,
-              "y": -12.5,
+              "y": -11.5,
             },
             "points": [
               {
@@ -48794,8 +49275,8 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -325.571768,
-              "y": -687.586148,
+              "x": -431.815162,
+              "y": -626.246496,
             },
             "points": [
               {
@@ -48859,8 +49340,8 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 356.413565,
-              "y": 617.326403,
+              "x": 356.913565,
+              "y": 618.192429,
             },
             "points": [
               {
@@ -48920,8 +49401,8 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -195.187695,
-              "y": -767.316654,
+              "x": -194.687695,
+              "y": -766.450628,
             },
             "points": [
               {
@@ -48997,8 +49478,8 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -359.413565,
-              "y": 622.522556,
+              "x": -572.393704,
+              "y": 500.713116,
             },
             "points": [
               {
@@ -49037,6 +49518,11 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "intoDomain": 0,
             "key": "useCase:uc-cat-add->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -265.123674,
+              "y": 287.091051,
+            },
             "points": [
               {
                 "x": -239.594827,
@@ -49057,6 +49543,11 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "intoDomain": 0,
             "key": "useCase:uc-cat-resolve->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -385.989327,
+              "y": -11.5,
+            },
             "points": [
               {
                 "x": -488.788346,
@@ -49077,6 +49568,11 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "intoDomain": 0,
             "key": "useCase:uc-cat-query->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -121.262458,
+              "y": -382.149362,
+            },
             "points": [
               {
                 "x": -249.987132,
@@ -50248,10 +50744,6 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "key": "port:p-sel-search->useCase:uc-sel-shortlist",
             "kind": "import",
             "label": "runs the use case",
-            "labelAt": {
-              "x": -613.128783,
-              "y": -12.5,
-            },
             "points": [
               {
                 "x": -661.028783,
@@ -50294,8 +50786,8 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -289.293783,
-              "y": 501.071531,
+              "x": -289.793783,
+              "y": 501.937557,
             },
             "points": [
               {
@@ -50355,8 +50847,8 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 324.47333,
-              "y": -520.285633,
+              "x": 289.209936,
+              "y": -540.644963,
             },
             "points": [
               {
@@ -50379,6 +50871,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "intoDomain": 0,
             "key": "useCase:uc-sel-shortlist->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
             "points": [
               {
                 "x": -385.228783,
@@ -50399,6 +50892,11 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "intoDomain": 0,
             "key": "useCase:uc-sel-eval->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": 86.930263,
+              "y": -322.684255,
+            },
             "points": [
               {
                 "x": 207.303502,
@@ -51178,7 +51676,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "label": "runs the use case",
             "labelAt": {
               "x": -564.839563,
-              "y": -12.5,
+              "y": -11.5,
             },
             "points": [
               {
@@ -51222,8 +51720,8 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -267.849174,
-              "y": 463.928378,
+              "x": -268.349174,
+              "y": 464.794403,
             },
             "points": [
               {
@@ -51281,6 +51779,11 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "from": "uc-launch-exec",
             "key": "useCase:uc-launch-exec->port:p-launch-catalog",
             "kind": "import",
+            "label": "uses",
+            "labelAt": {
+              "x": -285.99039,
+              "y": 495.349885,
+            },
             "points": [
               {
                 "x": -491.259563,
@@ -51322,6 +51825,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "intoDomain": 0,
             "key": "useCase:uc-launch-exec->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
             "points": [
               {
                 "x": -332.859563,
@@ -51978,8 +52482,8 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -196.494772,
-              "y": -464.018233,
+              "x": -334.001179,
+              "y": -456.827708,
             },
             "points": [
               {
@@ -52023,8 +52527,8 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -134.345349,
-              "y": -521.425242,
+              "x": -133.845349,
+              "y": -520.559216,
             },
             "points": [
               {
@@ -52098,6 +52602,11 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "from": "uc-run-spawn",
             "key": "useCase:uc-run-spawn->port:p-run-bun",
             "kind": "import",
+            "label": "uses",
+            "labelAt": {
+              "x": -482.538964,
+              "y": 0,
+            },
             "points": [
               {
                 "x": -199.635861,
@@ -52139,6 +52648,11 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "intoDomain": 0,
             "key": "useCase:uc-run-spawn->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -57.981706,
+              "y": -272.543883,
+            },
             "points": [
               {
                 "x": -170.190998,
@@ -53253,7 +53767,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "label": "runs the use case",
             "labelAt": {
               "x": -730.272448,
-              "y": -12.5,
+              "y": -11.5,
             },
             "points": [
               {
@@ -53297,8 +53811,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -315.925743,
-              "y": -670.878742,
+              "x": -316.791768,
+              "y": -670.378742,
             },
             "points": [
               {
@@ -53362,8 +53876,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -350.865616,
-              "y": 607.717073,
+              "x": -351.365616,
+              "y": 608.583099,
             },
             "points": [
               {
@@ -53423,8 +53937,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 554.099944,
-              "y": -540.357927,
+              "x": 553.599944,
+              "y": -539.491902,
             },
             "points": [
               {
@@ -53480,8 +53994,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 390.143238,
-              "y": -634.029251,
+              "x": 354.879845,
+              "y": -654.388581,
             },
             "points": [
               {
@@ -53504,6 +54018,11 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-exec-run->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -394.553428,
+              "y": -11.5,
+            },
             "points": [
               {
                 "x": -502.452448,
@@ -53524,6 +54043,11 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-exec-wire->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -120.396433,
+              "y": -380.649362,
+            },
             "points": [
               {
                 "x": -246.52303,
@@ -53544,6 +54068,11 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-exec-invoke->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": 117.798357,
+              "y": -376.149362,
+            },
             "points": [
               {
                 "x": 241.326878,
@@ -54747,8 +55276,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -446.924459,
-              "y": 413.771515,
+              "x": -447.424459,
+              "y": 414.637541,
             },
             "points": [
               {
@@ -54824,7 +55353,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -570.220089,
+              "x": -700.980089,
               "y": 183.626279,
             },
             "points": [
@@ -54881,8 +55410,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 481.895675,
-              "y": -470.879336,
+              "x": 481.395675,
+              "y": -470.013311,
             },
             "points": [
               {
@@ -54958,8 +55487,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -321.370652,
-              "y": -556.630298,
+              "x": -320.870652,
+              "y": -555.764273,
             },
             "points": [
               {
@@ -55019,8 +55548,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -149.704414,
-              "y": 626.548209,
+              "x": -150.204414,
+              "y": 627.414234,
             },
             "points": [
               {
@@ -55055,6 +55584,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-auth-run->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
             "points": [
               {
                 "x": -396.553755,
@@ -55075,6 +55605,11 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-auth-invoke->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": 83.914391,
+              "y": -317.460613,
+            },
             "points": [
               {
                 "x": 203.869836,
@@ -55095,6 +55630,11 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-auth-codegen->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -235.569836,
+              "y": 235.902301,
+            },
             "points": [
               {
                 "x": -209.065988,
@@ -56030,8 +56570,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -437.87734,
-              "y": 634.746496,
+              "x": -457.278416,
+              "y": 670.350146,
             },
             "points": [
               {
@@ -56076,7 +56616,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "label": "runs the use case",
             "labelAt": {
               "x": -749.468346,
-              "y": -12.5,
+              "y": -11.5,
             },
             "points": [
               {
@@ -56120,8 +56660,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -325.571768,
-              "y": -687.586148,
+              "x": -431.815162,
+              "y": -626.246496,
             },
             "points": [
               {
@@ -56185,8 +56725,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 356.413565,
-              "y": 617.326403,
+              "x": 356.913565,
+              "y": 618.192429,
             },
             "points": [
               {
@@ -56246,8 +56786,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -195.187695,
-              "y": -767.316654,
+              "x": -194.687695,
+              "y": -766.450628,
             },
             "points": [
               {
@@ -56323,8 +56863,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -359.413565,
-              "y": 622.522556,
+              "x": -572.393704,
+              "y": 500.713116,
             },
             "points": [
               {
@@ -56363,6 +56903,11 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-cat-add->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -265.123674,
+              "y": 287.091051,
+            },
             "points": [
               {
                 "x": -239.594827,
@@ -56383,6 +56928,11 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-cat-resolve->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -385.989327,
+              "y": -11.5,
+            },
             "points": [
               {
                 "x": -488.788346,
@@ -56403,6 +56953,11 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-cat-query->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -121.262458,
+              "y": -382.149362,
+            },
             "points": [
               {
                 "x": -249.987132,
@@ -57578,10 +58133,6 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "key": "port:p-sel-search->useCase:uc-sel-shortlist",
             "kind": "import",
             "label": "runs the use case",
-            "labelAt": {
-              "x": -613.128783,
-              "y": -12.5,
-            },
             "points": [
               {
                 "x": -661.028783,
@@ -57624,8 +58175,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -289.293783,
-              "y": 501.071531,
+              "x": -289.793783,
+              "y": 501.937557,
             },
             "points": [
               {
@@ -57685,8 +58236,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 324.47333,
-              "y": -520.285633,
+              "x": 289.209936,
+              "y": -540.644963,
             },
             "points": [
               {
@@ -57709,6 +58260,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-sel-shortlist->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
             "points": [
               {
                 "x": -385.228783,
@@ -57729,6 +58281,11 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-sel-eval->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": 86.930263,
+              "y": -322.684255,
+            },
             "points": [
               {
                 "x": 207.303502,
@@ -58473,7 +59030,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "label": "runs the use case",
             "labelAt": {
               "x": -564.839563,
-              "y": -12.5,
+              "y": -11.5,
             },
             "points": [
               {
@@ -58517,8 +59074,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -267.849174,
-              "y": 463.928378,
+              "x": -268.349174,
+              "y": 464.794403,
             },
             "points": [
               {
@@ -58576,6 +59133,11 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "from": "uc-launch-exec",
             "key": "useCase:uc-launch-exec->port:p-launch-catalog",
             "kind": "import",
+            "label": "uses",
+            "labelAt": {
+              "x": -285.99039,
+              "y": 495.349885,
+            },
             "points": [
               {
                 "x": -491.259563,
@@ -58617,6 +59179,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-launch-exec->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
             "points": [
               {
                 "x": -332.859563,
@@ -59238,8 +59801,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -196.494772,
-              "y": -464.018233,
+              "x": -334.001179,
+              "y": -456.827708,
             },
             "points": [
               {
@@ -59283,8 +59846,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -134.345349,
-              "y": -521.425242,
+              "x": -133.845349,
+              "y": -520.559216,
             },
             "points": [
               {
@@ -59358,6 +59921,11 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "from": "uc-run-spawn",
             "key": "useCase:uc-run-spawn->port:p-run-bun",
             "kind": "import",
+            "label": "uses",
+            "labelAt": {
+              "x": -482.538964,
+              "y": 0,
+            },
             "points": [
               {
                 "x": -199.635861,
@@ -59399,6 +59967,11 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-run-spawn->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -57.981706,
+              "y": -272.543883,
+            },
             "points": [
               {
                 "x": -170.190998,
@@ -60565,7 +61138,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "label": "runs the use case",
             "labelAt": {
               "x": -737.200651,
-              "y": -12.5,
+              "y": -11.5,
             },
             "points": [
               {
@@ -60609,8 +61182,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -319.389845,
-              "y": -676.878742,
+              "x": -320.25587,
+              "y": -676.378742,
             },
             "points": [
               {
@@ -60674,8 +61247,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -354.329718,
-              "y": 613.717073,
+              "x": -354.829718,
+              "y": 614.583099,
             },
             "points": [
               {
@@ -60735,8 +61308,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 559.296096,
-              "y": -545.357927,
+              "x": 558.796096,
+              "y": -544.491902,
             },
             "points": [
               {
@@ -60792,8 +61365,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 393.60734,
-              "y": -640.029251,
+              "x": 358.343946,
+              "y": -660.388581,
             },
             "points": [
               {
@@ -60816,6 +61389,11 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-exec-run->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -401.481631,
+              "y": -11.5,
+            },
             "points": [
               {
                 "x": -509.380651,
@@ -60836,6 +61414,11 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-exec-wire->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -123.860535,
+              "y": -386.649362,
+            },
             "points": [
               {
                 "x": -249.987132,
@@ -60856,6 +61439,11 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-exec-invoke->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": 121.262458,
+              "y": -382.149362,
+            },
             "points": [
               {
                 "x": 244.790979,
@@ -62001,8 +62589,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -427.438887,
-              "y": 395.021515,
+              "x": -427.938887,
+              "y": 395.887541,
             },
             "points": [
               {
@@ -62078,7 +62666,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -544.239327,
+              "x": -674.999327,
               "y": 176.126279,
             },
             "points": [
@@ -62135,8 +62723,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 462.410103,
-              "y": -452.129336,
+              "x": 461.910103,
+              "y": -451.263311,
             },
             "points": [
               {
@@ -62212,8 +62800,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -308.380271,
-              "y": -534.130298,
+              "x": -307.880271,
+              "y": -533.264273,
             },
             "points": [
               {
@@ -62273,8 +62861,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -143.209224,
-              "y": 600.298209,
+              "x": -143.709224,
+              "y": 601.164234,
             },
             "points": [
               {
@@ -62309,6 +62897,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-auth-run->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
             "points": [
               {
                 "x": -370.572993,
@@ -62329,6 +62918,11 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-auth-invoke->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": 70.92401,
+              "y": -294.960613,
+            },
             "points": [
               {
                 "x": 190.879455,
@@ -62349,6 +62943,11 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-auth-codegen->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -222.579455,
+              "y": 213.402301,
+            },
             "points": [
               {
                 "x": -196.075607,
@@ -63245,8 +63844,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -437.87734,
-              "y": 634.746496,
+              "x": -457.278416,
+              "y": 670.350146,
             },
             "points": [
               {
@@ -63291,7 +63890,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "label": "runs the use case",
             "labelAt": {
               "x": -749.468346,
-              "y": -12.5,
+              "y": -11.5,
             },
             "points": [
               {
@@ -63335,8 +63934,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -325.571768,
-              "y": -687.586148,
+              "x": -431.815162,
+              "y": -626.246496,
             },
             "points": [
               {
@@ -63400,8 +63999,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 356.413565,
-              "y": 617.326403,
+              "x": 356.913565,
+              "y": 618.192429,
             },
             "points": [
               {
@@ -63461,8 +64060,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -195.187695,
-              "y": -767.316654,
+              "x": -194.687695,
+              "y": -766.450628,
             },
             "points": [
               {
@@ -63538,8 +64137,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -359.413565,
-              "y": 622.522556,
+              "x": -572.393704,
+              "y": 500.713116,
             },
             "points": [
               {
@@ -63578,6 +64177,11 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-cat-add->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -265.123674,
+              "y": 287.091051,
+            },
             "points": [
               {
                 "x": -239.594827,
@@ -63598,6 +64202,11 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-cat-resolve->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -385.989327,
+              "y": -11.5,
+            },
             "points": [
               {
                 "x": -488.788346,
@@ -63618,6 +64227,11 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-cat-query->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -121.262458,
+              "y": -382.149362,
+            },
             "points": [
               {
                 "x": -249.987132,
@@ -64754,10 +65368,6 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "key": "port:p-sel-search->useCase:uc-sel-shortlist",
             "kind": "import",
             "label": "runs the use case",
-            "labelAt": {
-              "x": -613.128783,
-              "y": -12.5,
-            },
             "points": [
               {
                 "x": -661.028783,
@@ -64800,8 +65410,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -289.293783,
-              "y": 501.071531,
+              "x": -289.793783,
+              "y": 501.937557,
             },
             "points": [
               {
@@ -64861,8 +65471,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": 324.47333,
-              "y": -520.285633,
+              "x": 289.209936,
+              "y": -540.644963,
             },
             "points": [
               {
@@ -64885,6 +65495,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-sel-shortlist->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
             "points": [
               {
                 "x": -385.228783,
@@ -64905,6 +65516,11 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-sel-eval->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": 86.930263,
+              "y": -322.684255,
+            },
             "points": [
               {
                 "x": 207.303502,
@@ -65649,7 +66265,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "label": "runs the use case",
             "labelAt": {
               "x": -564.839563,
-              "y": -12.5,
+              "y": -11.5,
             },
             "points": [
               {
@@ -65693,8 +66309,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -267.849174,
-              "y": 463.928378,
+              "x": -268.349174,
+              "y": 464.794403,
             },
             "points": [
               {
@@ -65752,6 +66368,11 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "from": "uc-launch-exec",
             "key": "useCase:uc-launch-exec->port:p-launch-catalog",
             "kind": "import",
+            "label": "uses",
+            "labelAt": {
+              "x": -285.99039,
+              "y": 495.349885,
+            },
             "points": [
               {
                 "x": -491.259563,
@@ -65793,6 +66414,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-launch-exec->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
             "points": [
               {
                 "x": -332.859563,
@@ -66414,8 +67036,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "runs the use case",
             "labelAt": {
-              "x": -196.494772,
-              "y": -464.018233,
+              "x": -334.001179,
+              "y": -456.827708,
             },
             "points": [
               {
@@ -66459,8 +67081,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "kind": "import",
             "label": "uses",
             "labelAt": {
-              "x": -134.345349,
-              "y": -521.425242,
+              "x": -133.845349,
+              "y": -520.559216,
             },
             "points": [
               {
@@ -66534,6 +67156,11 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "from": "uc-run-spawn",
             "key": "useCase:uc-run-spawn->port:p-run-bun",
             "kind": "import",
+            "label": "uses",
+            "labelAt": {
+              "x": -482.538964,
+              "y": 0,
+            },
             "points": [
               {
                 "x": -199.635861,
@@ -66575,6 +67202,11 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
             "intoDomain": 0,
             "key": "useCase:uc-run-spawn->domain",
             "kind": "import",
+            "label": "asks the domain to decide",
+            "labelAt": {
+              "x": -57.981706,
+              "y": -272.543883,
+            },
             "points": [
               {
                 "x": -170.190998,
