@@ -90,6 +90,48 @@ describe('hexHit', () => {
   })
 })
 
+describe('hexHit from outside, pointing away', () => {
+  it('returns the near side of the hexagon, never the far one', () => {
+    expect(hexHit({ x: 300, y: 0 }, { x: 1, y: 0 }, 100)).toEqual({ x: 100, y: 0 })
+    for (const w of ALL) {
+      const { n } = wallFrame(w)
+      const start = at(w, 300, 5)
+      const hit = hexHit(start, n, 100)
+      expect(apothemOf(hit)).toBeCloseTo(100, 6)
+      expect(wallAt(hit)).toBe(w)
+      expect(Math.hypot(hit.x - start.x, hit.y - start.y)).toBeLessThan(250)
+    }
+  })
+
+  it('stays where it is when the line misses the hexagon', () => {
+    expect(hexHit({ x: 300, y: 300 }, { x: 1, y: 0 }, 100)).toEqual({ x: 300, y: 300 })
+    expect(hexHit({ x: 300, y: 300 }, { x: -1, y: 0 }, 100)).toEqual({ x: 300, y: 300 })
+  })
+
+  it('meets the near wall when it starts outside and points in', () => {
+    for (const w of ALL) {
+      const { n } = wallFrame(w)
+      const start = at(w, 300, 5)
+      const hit = hexHit(start, { x: -n.x, y: -n.y }, 100)
+      expect(wallAt(hit)).toBe(w)
+      expect(Math.hypot(hit.x - start.x, hit.y - start.y)).toBeCloseTo(200, 6)
+    }
+  })
+})
+
+describe('a run up a vertical wall', () => {
+  const apothem = 504.7313231888889
+
+  it('is exactly vertical from the hop to the corner', () => {
+    for (const x of [-1, 1]) {
+      const hop = hexHit({ x: x * 548.4586187818952, y: 0 }, { x: -x, y: 0 }, apothem)
+      const [corner] = around(x < 0 ? 'w' : 'e', x < 0 ? 'nw' : 'ne', apothem, Infinity)
+      expect(hop.x).toBe(x * apothem)
+      expect(corner.x).toBe(x * apothem)
+    }
+  })
+})
+
 describe('around', () => {
   const r = 100 / COS30
 
@@ -197,6 +239,17 @@ describe('routeTracks', () => {
     const [path] = routeTracks([{ port: port('e', -150), useCase: seat('e', 100) }], geometry)
     expect(path.length).toBeGreaterThan(2)
     expect(path.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))).toBe(true)
+  })
+
+  it('keeps every entry on the face when straight runs sit within a track gap of either end', () => {
+    const useCase = seat('e', 0)
+    const straight = [port('e', -17), port('e', 17)]
+    const paths = routeTracks([...straight, port('nw', 0), port('sw', 0), port('w', 0)].map((p) => ({ port: p, useCase })), geometry)
+    const [lo, hi] = [useCase.y - useCase.height / 2 + 4, useCase.y + useCase.height / 2 - 4]
+    for (const p of paths) expect(p.at(-1)!.y, `${p.length} points`).toBeGreaterThanOrEqual(lo - 1e-9)
+    for (const p of paths) expect(p.at(-1)!.y).toBeLessThanOrEqual(hi + 1e-9)
+    const [low, high] = [paths[0].at(-1)!.y, paths[1].at(-1)!.y]
+    for (const p of paths.slice(2)) expect(p.at(-1)!.y <= low || p.at(-1)!.y >= high).toBe(true)
   })
 
   it('routes nothing for no links', () => {

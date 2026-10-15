@@ -112,14 +112,25 @@ const crossings = (m: LayoutModel) => {
   return total
 }
 
-describe.each(CASES)('use case to port routes run in the application corridor: %s', (_, diagram) => {
-  const m = layoutDiagram(diagram, { mode: 'detailed' })
+describe.each(CASES.flatMap(([name, d]) => MODES.map((mode) => [name, d, mode] as const)))('use case to port routes run in the application corridor: %s (%s)', (_, diagram, mode) => {
+  const m = layoutDiagram(diagram, { mode })
   const ports = m.nodes.filter((n) => n.kind === 'port')
   const seats = m.nodes.filter((n) => n.kind === 'useCase')
   // The corridor lies between the use cases' outer faces and the ports' inner faces.
   const portFace = Math.min(...ports.map((p) => dot(p, wallFrame(p.wall!).n) - reach(p.width, p.height, wallFrame(p.wall!).n)))
   const seatFace = Math.max(...seats.map((u) => dot(u, wallFrame(u.wall!).n) + reach(u.width, u.height, wallFrame(u.wall!).n)))
   const runs = (e: LayoutModel['edges'][number]) => e.points.slice(1, -1)
+
+  it('draws the application corridor outside every use case, never through one', () => {
+    const corridor = m.corridors.at(-2)!
+    for (const u of seats) expect(corridor.halfWidth, u.key).toBeGreaterThanOrEqual(dot(u, wallFrame(u.wall!).n) + reach(u.width, u.height, wallFrame(u.wall!).n) - 1e-6)
+  })
+
+  it('joins ports and use cases only where it can route them, in either mode', () => {
+    // The overview draws no use case to port link, so its corridor is a guide only; with links the checks below apply.
+    if (mode === 'overview') expect(useCasePort(m)).toEqual([])
+    else if (m.nodes.some((n) => n.kind === 'useCase') && ports.length) expect(useCasePort(m).length).toBeGreaterThan(0)
+  })
 
   it('leaves the port inward and stays between the use cases and the ports except for its hops', () => {
     for (const e of useCasePort(m)) {
@@ -153,7 +164,7 @@ describe.each(CASES)('use case to port routes run in the application corridor: %
 describe('corridor sizing and crossings', () => {
   const apex = (d: Diagram, mode: LayoutMode) => layoutDiagram(d, { mode }).rings.find((r) => r.role === 'application')!.apex
 
-  it('crosses fewer edges on the stress example than the bus lanes did (9)', () => {
+  it('crosses at most 3 edges on the stress example, where the bus lanes crossed 9', () => {
     expect(crossings(layoutDiagram(STRESS_DIAGRAM))).toBeLessThanOrEqual(3)
   })
 
@@ -161,16 +172,17 @@ describe('corridor sizing and crossings', () => {
     expect(crossings(layoutDiagram(EXAMPLE_DIAGRAM))).toBe(0)
   })
 
-  // Seats centred on their wall and a narrow use-case box: the chat feedback ring went 757 -> 589 (overview 551 -> 507), the stress ring 816 -> 701.
-  it('sizes the application ring of the stress example far below the bus lanes (1152)', () => {
+  // Measured apexes: stress 700.5 / 569.7, chat 588.8 / 507.0 (detailed / overview). The pins sit a hair above them: the
+  // ring is searched to within 0.05% of the smallest apex that clears, and the pin is a whole number.
+  it('keeps the stress application ring within 702 (the bus lanes made it 1152)', () => {
     expect(apex(STRESS_DIAGRAM, 'detailed')).toBeLessThanOrEqual(702)
   })
 
-  it('sizes the application ring of the chat feedback example below the bus lanes (746)', () => {
+  it('keeps the chat feedback application ring within 590 (the bus lanes made it 746)', () => {
     expect(apex(EXAMPLE_DIAGRAM, 'detailed')).toBeLessThanOrEqual(590)
   })
 
-  it('does not grow either ring in the overview (570, 507)', () => {
+  it('keeps the overview application rings within 570 (stress) and 508 (chat feedback)', () => {
     expect(apex(STRESS_DIAGRAM, 'overview')).toBeLessThanOrEqual(570)
     expect(apex(EXAMPLE_DIAGRAM, 'overview')).toBeLessThanOrEqual(508)
   })

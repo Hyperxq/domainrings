@@ -327,20 +327,24 @@ describe('layoutDiagram', () => {
     }
   })
 
-  it('runs each use-case track in the gap between the inner ring and the socket column', () => {
+  it('runs each use-case track in the gap between the inner ring and the sockets', () => {
     const inner = model.rings[model.rings.indexOf(app) + 1]
-    const lanes = (e: LayoutModel['edges'][number]) => segments(e.points).filter(([a, b]) => a.x === b.x)
-    const busEdges = model.edges.filter((e) => e.kind === 'import' && e.key.includes('useCase:') && e.key.includes('port:') && lanes(e).length > 0)
-    expect(busEdges.length).toBeGreaterThan(0)
-    for (const e of busEdges) {
-      const bus = lanes(e).at(-1)!
-      const side = Math.sign(bus[0].x)
-      const socketColumn = Math.min(
-        ...model.nodes.filter((n) => n.kind === 'port' && Math.sign(n.x) === side).map((n) => Math.abs(n.x) - n.width / 2),
-      )
-      expect(Math.abs(bus[0].x)).toBeLessThan(socketColumn)
-      for (const p of sample(bus)) expect(Math.abs(p.x)).toBeGreaterThan(halfWidth(model.shape, inner, p.y))
-      expect(Math.abs(bus[0].x)).toBeGreaterThan(inner.halfWidth)
+    const apothemOf = (p: Point) => Math.max(...(Object.keys(WALL_NORMAL_DEG) as Array<keyof typeof WALL_NORMAL_DEG>).map((w) => dot(p, wallFrame(w).n)))
+    const socketFace = Math.min(...model.nodes.filter((n) => n.kind === 'port' && n.wall).map((n) => dot(n, wallFrame(n.wall!).n) - reach(n.width, n.height, wallFrame(n.wall!).n)))
+    // A corridor edge hops out of its port, runs along the track and hops in: its middle points are the track's corners.
+    const trackEdges = model.edges.filter((e) => e.kind === 'import' && e.key.includes('useCase:') && e.key.includes('port:') && e.points.length > 3)
+    expect(trackEdges.length).toBeGreaterThan(0)
+    for (const e of trackEdges) {
+      const track = e.points.slice(1, -1)
+      for (const [a, b] of segments(track)) {
+        const deg = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI
+        const alongWall = a.x === b.x || [30, 150, -30, -150].some((t) => Math.abs(deg - t) < 1e-6)
+        expect(alongWall ? 'ok' : `${e.key} track runs at ${deg.toFixed(1)}°`).toBe('ok')
+        for (const p of sample([a, b])) {
+          expect(apothemOf(p), `${e.key} at ${p.x},${p.y}`).toBeGreaterThan(inner.halfWidth)
+          expect(apothemOf(p), `${e.key} at ${p.x},${p.y}`).toBeLessThan(socketFace)
+        }
+      }
     }
   })
 

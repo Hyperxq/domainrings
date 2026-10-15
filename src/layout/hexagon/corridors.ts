@@ -70,18 +70,26 @@ export function around(from: Wall, to: Wall, apothem: number, clip: number): Poi
   })
 }
 
-/** Where the ray from `from` along the unit vector `dir` meets the hexagon of apothem `apothem`, from either side. */
+/**
+ * Where the ray from `from` along the unit vector `dir` meets the hexagon of apothem `apothem`: the way out from inside,
+ * the near wall from outside. A ray that starts outside and points away takes the near side it left behind; one whose
+ * line misses the hexagon stays where it is.
+ */
 export function hexHit(from: Point, dir: Point, apothem: number): Point {
-  const inside = NORMALS.every((n) => dot(from, n) <= apothem + EPS)
-  const bounds = NORMALS.flatMap((n) => {
+  const crossings = NORMALS.flatMap((n) => {
     const slope = dot(dir, n)
-    return (inside ? slope > EPS : slope < -EPS) ? [(apothem - dot(from, n)) / slope] : []
+    return Math.abs(slope) > EPS ? [{ n, t: (apothem - dot(from, n)) / slope, leaving: slope > 0 }] : []
   })
-  if (!bounds.length) return from
-  const t = inside ? Math.min(...bounds) : Math.max(...bounds)
+  const leaving = crossings.filter((c) => c.leaving)
+  const entering = crossings.filter((c) => !c.leaving)
+  if (!leaving.length) return from
+  const exit = leaving.reduce((a, b) => (b.t < a.t ? b : a))
+  const entry = entering.length ? entering.reduce((a, b) => (b.t > a.t ? b : a)) : undefined
+  const inside = NORMALS.every((n) => dot(from, n) <= apothem + EPS)
+  const hit = inside ? exit : entry && entry.t <= exit.t + EPS ? (entry.t >= -EPS ? entry : exit) : undefined
+  if (!hit) return from
   // A hit on a vertical wall lies exactly on it.
-  const wall = NORMALS.find((n) => n.y === 0 && (inside ? dot(dir, n) > EPS : dot(dir, n) < -EPS) && Math.abs((apothem - dot(from, n)) / dot(dir, n) - t) < EPS)
-  return { x: wall ? wall.x * apothem : from.x + dir.x * t, y: from.y + dir.y * t }
+  return { x: hit.n.y === 0 ? hit.n.x * apothem : from.x + dir.x * hit.t, y: from.y + dir.y * hit.t }
 }
 
 /**
@@ -158,11 +166,6 @@ export function routeTracks(requests: TrackRequest[], { outer }: TrackGeometry):
     return { index, port, useCase, pf, uf, portSpan, useSpan, window }
   })
   const paths = new Array<Point[]>(requests.length)
-  for (const l of links) {
-    if (!l.window) continue
-    const face = faceAt(l.port, l.port.wall, -1, Math.min(Math.max(l.portSpan.u, l.window[0]), l.window[1]))
-    paths[l.index] = [face, enterBox(l.useCase, face, { x: -l.pf.n.x, y: -l.pf.n.y })]
-  }
 
   const apart = links.filter((l) => !l.window)
   const reference = outer - ((apart.length - 1) * TRACK_GAP) / 2
@@ -196,27 +199,41 @@ export function routeTracks(requests: TrackRequest[], { outer }: TrackGeometry):
   const rank = apart.map((_, i) => order.indexOf(i))
 
   // Where each link enters its use case. Links from the low end of the wall come in below those from the high end,
-  // and a straight run in between keeps its own place; each side nests, so no hop meets another's run.
+  // and a straight run in between keeps its own place, drawn in far enough from either end for the entries that need
+  // the room; each side nests, so no hop meets another's run.
+  const faceOf = (span: Span): [number, number] => (span.u - span.reach + INSET <= span.u + span.reach - INSET ? [span.u - span.reach + INSET, span.u + span.reach - INSET] : [span.u, span.u])
   const entry = new Map<number, number>()
   const byUseCase = new Map<Placed, { low: number[]; high: number[]; straight: number[] }>()
-  for (const l of links) {
-    const group = byUseCase.get(l.useCase) ?? { low: [], high: [], straight: [] }
-    byUseCase.set(l.useCase, group)
-    if (l.window) group.straight.push(Math.min(Math.max(l.portSpan.u, l.window[0]), l.window[1]))
+  const groupOf = (useCase: Placed) => {
+    const group = byUseCase.get(useCase) ?? { low: [], high: [], straight: [] }
+    byUseCase.set(useCase, group)
+    return group
   }
-  apart.forEach((l, i) => byUseCase.get(l.useCase)![nominal[i].clockwise ? 'low' : 'high'].push(i))
+  apart.forEach((l, i) => groupOf(l.useCase)[nominal[i].clockwise ? 'low' : 'high'].push(i))
+  for (const l of links) {
+    if (!l.window) continue
+    const group = groupOf(l.useCase)
+    const [lo, hi] = faceOf(l.useSpan)
+    const [from, to] = [Math.max(l.window[0], lo + group.low.length * TRACK_GAP), Math.min(l.window[1], hi - group.high.length * TRACK_GAP)]
+    const u = Math.min(Math.max(l.portSpan.u, l.window[0]), l.window[1])
+    const at = from <= to ? Math.min(Math.max(u, from), to) : u
+    group.straight.push(at)
+    const face = faceAt(l.port, l.port.wall, -1, at)
+    paths[l.index] = [face, enterBox(l.useCase, face, { x: -l.pf.n.x, y: -l.pf.n.y })]
+  }
   for (const group of byUseCase.values()) {
     const span = apart[group.low[0] ?? group.high[0]]?.useSpan
     if (!span) continue
-    const [lo, hi] = span.u - span.reach + INSET <= span.u + span.reach - INSET ? [span.u - span.reach + INSET, span.u + span.reach - INSET] : [span.u, span.u]
+    const [lo, hi] = faceOf(span)
     const low = group.low.sort((a, b) => rank[b] - rank[a])
     const high = group.high.sort((a, b) => rank[a] - rank[b])
     const lay = (items: number[], from: number, to: number) =>
       items.forEach((item, k) => entry.set(item, items.length > 1 ? from + ((to - from) * k) / (items.length - 1) : (from + to) / 2))
     if (group.straight.length) {
-      const end = Math.min(Math.min(...group.straight) - TRACK_GAP, hi)
+      // Entries stay on the face: a straight run too near an end leaves the links on that side less than a gap, not past the box.
+      const end = Math.max(lo, Math.min(Math.min(...group.straight) - TRACK_GAP, hi))
       lay(low, Math.max(lo, end - (low.length - 1) * TRACK_GAP), end)
-      const start = Math.max(Math.max(...group.straight) + TRACK_GAP, lo)
+      const start = Math.min(hi, Math.max(Math.max(...group.straight) + TRACK_GAP, lo))
       lay(high, start, Math.min(hi, start + (high.length - 1) * TRACK_GAP))
     } else {
       const items = [...low, ...high]

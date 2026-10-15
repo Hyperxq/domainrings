@@ -76,7 +76,7 @@ export function seatUseCases({ d, overview, useCaseFrames, plan, frames, titleRo
       .map((i) => {
         const f = useCaseFrames[i]
         const own = sockets.find((s) => s.port.useCaseId === d.useCases[i].id)?.u ?? 0
-        return { i, wall, frame: f, own, along: reach(f.width, f.height, dir), across: reach(f.width, f.height, n), inward: Math.max(0, ...sockets.map((s) => s.inward)) }
+        return { i, wall, frame: f, own, along: reach(f.width, f.height, dir), across: reach(f.width, f.height, n) }
       })
       .sort((a, b) => a.own - b.own)
     let end = 0
@@ -100,11 +100,13 @@ export function seatUseCases({ d, overview, useCaseFrames, plan, frames, titleRo
         ),
   )
   const inward = Math.max(0, ...WALLS.flatMap((wall) => socketsOn(wall).map((s) => s.inward)))
+  // With no link to run round the corridor (all of the overview's, since it draws none) the seats stand the room an arrow
+  // needs off the deepest socket on any wall, and the corridor guide runs halfway through that room, clear of them.
+  const room = overview ? GAP : DOMAIN_RUN
   // From the ring wall in to the outermost track: past the sockets, a straight run for the arrow head that lands on a port
   // as well as on a use case and, for tracks over the top corner, far enough in that the corner lies below the ring's title.
-  const clearance = inward + RUN + (corridor.overTop ? Math.max(0, titleRoom * COS30 - inward - RUN) : 0)
-  const seats = () =>
-    placed.map((s) => ({ ...s, inset: corridor.tracks ? clearance + RUN + (corridor.tracks - 1) * TRACK_GAP : s.inward + (overview ? GAP : DOMAIN_RUN) }))
+  const clearance = corridor.tracks ? inward + RUN + (corridor.overTop ? Math.max(0, titleRoom * COS30 - inward - RUN) : 0) : inward + room / 2
+  const seats = () => placed.map((s) => ({ ...s, inset: corridor.tracks ? clearance + RUN + (corridor.tracks - 1) * TRACK_GAP : inward + room }))
   /** Seated use cases for a candidate application ring, centred in the plane. */
   const seatsAt = (appO: Outline) =>
     seats().map((s) => {
