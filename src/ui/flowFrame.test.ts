@@ -86,5 +86,13 @@ describe('flowFrame', () => {
       const none = framed(inContexts(['c1', 'c1', 'c2'])).result
       expect(none.contexts.has('c2')).toBe(false)
     })
+
+    it('ignores a context with no hexagons instead of counting it as whole', () => {
+      const { laid } = framed(inContexts(['c1', 'c1', 'c2']))
+      const empty = { ...laid.contexts[0], id: 'c-empty', loops: [] }
+      const result = flowFrame(inContexts(['c1', 'c1', 'c2']), 'h1', 'uc-place', { ...laid, contexts: [...laid.contexts, empty] }, false)!
+      expect(result.contexts.has('c-empty')).toBe(false)
+      expect(Number.isFinite(result.bounds.width) && Number.isFinite(result.bounds.height)).toBe(true)
+    })
   })
 })

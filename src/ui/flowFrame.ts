@@ -14,7 +14,10 @@ export function flowFrame(map: HexaMap, ownerId: string, useCaseId: string, { he
   const { elements, links } = flowChain(map, flowOf(map, ownerId, useCaseId))
   const framed = hexagons.filter((h) => elements.has(h.id))
   // A hull cut by the frame, or drawn around hexagons that are not in it, would mislead; only whole ones stay.
-  const whole = contexts.filter((c) => hexagons.filter((h) => h.contextId === c.id).every((h) => elements.has(h.id)))
+  const whole = contexts.filter((c) => {
+    const members = hexagons.filter((h) => h.contextId === c.id)
+    return members.length > 0 && members.every((h) => elements.has(h.id))
+  })
   const hullBoxes = whole.map((c): Box => {
     const points = c.loops.flat()
     const [x0, x1] = [Math.min(...points.map((p) => p.x)), Math.max(...points.map((p) => p.x))]
