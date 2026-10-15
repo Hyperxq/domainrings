@@ -668,6 +668,7 @@ a.icon-button { color: inherit; text-decoration: none; }
 .flow-chip { padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; }
 .flow-chip[data-kind='port'] { border-style: dashed; border-color: var(--teal); }
 .flow-chip[data-kind='driving'] { border-color: var(--driving-line); background: var(--driving-fill); color: var(--driving-ink); }
+.flow-chip[data-kind='aggregate'] { border-color: var(--teal-deep); background: var(--teal-deep); color: var(--domain-ink); }
 .flow-chip[data-kind='driven'] { border-color: var(--driven-line); background: var(--driven-fill); color: var(--driven-ink); }
 .flow-arrow { color: var(--muted); font-size: 12px; }
 .flow-add { flex: 1; width: 100%; border-style: dashed; background: transparent; font-size: 12px; text-align: center; }
