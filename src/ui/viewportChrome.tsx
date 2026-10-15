@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type Point
 import type { Point } from '../layout/geometry'
 import { useMapStore } from '../model/store'
 import { Icon } from './Icon'
-import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
 import { useEasedViewport } from './useEasedViewport'
 import type { Box } from '../layout/geometry'
@@ -141,6 +140,13 @@ export function useViewportInteractions({
   const [seenFitKey, setSeenFitKey] = useState(fitKey)
   if (fitKey !== seenFitKey) {
     setSeenFitKey(fitKey)
+    setView('auto')
+  }
+
+  const fitRequest = useViewStore((s) => s.fitRequest)
+  const [seenFitRequest, setSeenFitRequest] = useState(fitRequest)
+  if (fitRequest !== seenFitRequest) {
+    setSeenFitRequest(fitRequest)
     setView('auto')
   }
 
@@ -305,7 +311,6 @@ export function ZoomControls({
   fullscreen: boolean
   setFullscreen: (next: boolean) => void
 }) {
-  const viewOnly = usePreferencesStore((s) => s.viewOnly)
   const expandAll = (expand: boolean) => useViewStore.getState().expandAll(expand ? useMapStore.getState().map.hexagons.map((h) => h.id) : [])
   return (
     <div className="island zoom" role="group" aria-label="Zoom">
@@ -333,16 +338,6 @@ export function ZoomControls({
           <span className="divider" aria-hidden="true" />
         </>
       )}
-      <button
-        type="button"
-        className="icon-button"
-        aria-label="View only"
-        aria-pressed={viewOnly}
-        title={viewOnly ? 'Editing is off' : 'View only: hide the editing controls'}
-        onClick={() => usePreferencesStore.setState({ viewOnly: !viewOnly })}
-      >
-        <Icon name="eye" />
-      </button>
       <button
         type="button"
         className="icon-button"

@@ -1,21 +1,25 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type Ref } from 'react'
 import { canCompact } from '../layout/compactHexagon'
+import { translatedNodeBox } from '../layout/linkEnds'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
 import type { LayoutNode } from '../layout/layout'
 import type { Point } from '../layout/geometry'
 import type { LegendModel } from '../layout/legend'
 import { currentHexagon, type MapLayout } from '../layout/map'
 import { dependencyChain } from '../model/chain'
+import { flowChain, flowOf } from '../model/flow'
 import { collectionOf, linkTargets, type LinkChoice } from '../model/links'
 import { noteToShow, notesOf } from '../model/notes'
 import { plannedOf } from '../model/planned'
 import { canLink, crossPortTargets, isCrossTarget, targetsByHexagon } from '../model/linkTargeting'
-import type { Destination } from '../model/map'
+import { diagramOf, type Destination } from '../model/map'
 import type { CollectionKey, Diagram as DiagramModel, DomainType, HexaMap, Wall } from '../model/schema'
 import { useMapStore } from '../model/store'
 import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
 import { hexIdOf, hullIdOf, layerOf, nodeRefOf, refOf } from './canvasTarget'
+import { useInspectedFlow } from './FlowInspector'
+import { PresentButton, StepCard, usePresentation } from './PresentPanel'
 import { NotePopover } from './stage/NotePopover'
 import { BoxLabels, ContextReveals, ExpandToggles, GrowButtons, HexagonTitles, LinkChip, MapTitle, mapTitleOverlaid, titlesOverlaid } from './stage/overlays'
 import { useCanvasShortcuts } from './stage/useCanvasShortcuts'
@@ -66,7 +70,11 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   // The open legend island takes the right column, so the fit leaves it free.
   const legendOpen = usePreferencesStore((s) => s.legendOpen)
   const viewOnly = usePreferencesStore((s) => s.viewOnly)
-  const panelOpen = useViewStore((s) => s.editorOpen) && !viewOnly
+  // View mode shows the Flows panel in the editor's place, so the fit leaves the same room for it.
+  const panelOpen = useViewStore((s) => s.editorOpen) || viewOnly
+  const focusedFlow = useViewStore((s) => s.focusedFlow)
+  // Edit mode's flow inspector takes the right column, so the fit leaves it free too.
+  const inspectorOpen = !!useInspectedFlow()
   const linking = useViewStore((s) => s.linking)
   // True right after growing: the current hexagon's title field is open inline (GROW-02.1).
   const naming = useViewStore((s) => s.growing !== null)
@@ -97,13 +105,14 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
 
   const reveal = useContextReveal(model.hexagons)
 
-  const { size, centre, view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useStageViewport({
+  const { size, centre, panTo, view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useStageViewport({
     model,
     hex,
     mainRef,
     revision,
     legendOpen,
     panelOpen,
+    inspectorOpen,
     onPanStart: () => {
       setHovered(null)
       setHoveredRef(null)
@@ -117,6 +126,20 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   useEffect(() => {
     if (viewOnly) onLinking(null)
   }, [viewOnly, onLinking])
+
+  // The step being presented is the selection (which lights it and shows its note), and is panned into view.
+  const stepNow = usePresentation()?.step
+  useEffect(() => {
+    if (!stepNow) return
+    setSelected(stepNow.hexId === hexId ? stepNow.id : null)
+    const at = model.hexagons.find((h) => h.id === stepNow.hexId)
+    const kind = NODE_KIND[collectionOf(diagramOf(map, stepNow.hexId), stepNow.id)!]
+    const node = at?.model.nodes.find((n) => n.ref === stepNow.id && n.kind === kind)
+    if (at && node) panTo(translatedNodeBox(node, at.centre))
+    return () => setSelected(null)
+    // Re-fires on the step alone: the view and layout move on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepNow?.hexId, stepNow?.id])
 
   const { announcement, focusHexagon } = useHexagonFocus({ hexId, model, mainRef, view, viewport, setView, setSelected, onLinking })
 
@@ -150,10 +173,11 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   const crossTargets = useMemo(() => (linking ? crossPortTargets(map, diagram, hexId, linking) : []), [map, diagram, hexId, linking])
   const crossLinkTargets = useMemo(() => targetsByHexagon(crossTargets), [crossTargets])
   // Only what is drawn can be followed, so the chain ends at the ports of a compact hexagon.
+  const isolated = viewOnly && !!focusedFlow && diagram.useCases.some((u) => u.id === focusedFlow)
   const chain = useMemo(
     () =>
-      highlight && !linking && selected ? dependencyChain(map, hexId, selected, new Set(model.hexagons.filter((h) => !h.compact).map((h) => h.id)), dependents ? 'dependents' : 'dependencies') : undefined,
-    [highlight, linking, selected, map, hexId, model, dependents],
+      isolated ? flowChain(map, flowOf(map, hexId, focusedFlow!)) : highlight && !linking && selected ? dependencyChain(map, hexId, selected, new Set(model.hexagons.filter((h) => !h.compact).map((h) => h.id)), dependents ? 'dependents' : 'dependencies') : undefined,
+    [isolated, focusedFlow, highlight, linking, selected, map, hexId, model, dependents],
   )
   const nameOf = (ref: string) => {
     const collection = collectionOf(diagram, ref)
@@ -241,7 +265,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
           }
         }}
         data-link-mode={linking ? '' : undefined}
-        data-emphasis={chain ? (dependents ? 'dependents' : '') : undefined}
+        data-emphasis={chain ? (dependents && !isolated ? 'dependents' : '') : undefined}
         onClick={(e) => {
           if (panned.current) return
           const target = e.target as Element
@@ -346,6 +370,8 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
         <InlineName key={`naming:${hexId}`} at={mapToScreen(hex.centre)} initial={diagram.title} label="Hexagon title" emptyCommits onCommit={onNamed} onCancel={onNamingCancel} />
       )}
 
+      <PresentButton />
+      <StepCard />
       <ZoomControls canExpandAll={canCompact(model.hexagons.length)} viewport={viewport} zoomFloor={zoomFloor} centre={centre} setView={setView} fullscreen={fullscreen} setFullscreen={setFullscreen} />
     </main>
   )

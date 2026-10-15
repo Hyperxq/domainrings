@@ -37,7 +37,7 @@ function adapterNode(model: LayoutModel, adapterId: string) {
 
 /** `node`'s own box, in the map space its hexagon's other geometry already sits in — nodes are centre-anchored,
  * `hexagonBounds` translates the same way. */
-function translatedNodeBox(node: LayoutNode, centre: Point): Box {
+export function translatedNodeBox(node: LayoutNode, centre: Point): Box {
   return { x: node.x - node.width / 2 + centre.x, y: node.y - node.height / 2 + centre.y, width: node.width, height: node.height }
 }
 

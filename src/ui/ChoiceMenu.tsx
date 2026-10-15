@@ -13,22 +13,35 @@ export interface Choice<Id extends string> {
   icon?: IconName
   /** Choices sharing a group sit under one labelled heading, placed where the group's first choice is, set apart from the choices around them. */
   group?: string
+  /** A key hint shown at the item's right edge; it only labels the shortcut, the caller binds it. */
+  shortcut?: string
+  /** Turns the item into a parent: pressing it (or ArrowRight) opens these choices beside it instead of choosing it. */
+  submenu?: readonly Choice<Id>[]
+  /** Stays in the menu and focusable, but choosing it does nothing; `description` should say why. */
+  disabled?: boolean
 }
 
 type MenuAt = { top: number; left?: number; right?: number }
 
 const GAP = 4
 
-/** Below/above the trigger, aligned to its left or right edge — the first spot that is fully on screen and clear of
- * every `[data-menu-avoid]` element (e.g. the legend), else the first that is merely on screen, else the preferred one. */
-function place(trigger: DOMRect, menu: { width: number; height: number }, align: 'start' | 'end'): MenuAt {
-  const spots = [false, true].flatMap((above) => (['start', 'end'] as const).map((edge) => ({ above, edge })))
-  if (align === 'end') spots.sort((a, b) => Number(b.edge === 'end') - Number(a.edge === 'end'))
+/** Below/above the trigger, aligned to its left or right edge — or, for a submenu (`beside`), right/left of its parent
+ * item — the first spot that is fully on screen and clear of every `[data-menu-avoid]` element (e.g. the legend),
+ * else the first that is merely on screen, else the preferred one. */
+function place(trigger: DOMRect, menu: { width: number; height: number }, align: 'start' | 'end', beside = false): MenuAt {
+  const spots = beside
+    ? [{ top: trigger.top, left: trigger.right + GAP, end: false }, { top: trigger.top, left: trigger.left - menu.width - GAP, end: false }]
+    : [false, true].flatMap((above) =>
+        (['start', 'end'] as const).map((edge) => ({
+          top: above ? trigger.top - menu.height - GAP : trigger.bottom + GAP,
+          left: edge === 'start' ? trigger.left : trigger.right - menu.width,
+          end: edge === 'end',
+        })),
+      )
+  if (align === 'end' && !beside) spots.sort((a, b) => Number(b.end) - Number(a.end))
   const avoid = [...document.querySelectorAll('[data-menu-avoid]')].map((el) => el.getBoundingClientRect())
-  const candidates = spots.map(({ above, edge }) => {
-    const top = above ? trigger.top - menu.height - GAP : trigger.bottom + GAP
-    const left = edge === 'start' ? trigger.left : trigger.right - menu.width
-    const at: MenuAt = edge === 'start' ? { top, left } : { top, right: innerWidth - trigger.right }
+  const candidates = spots.map(({ top, left, end }) => {
+    const at: MenuAt = end ? { top, right: innerWidth - trigger.right } : { top, left }
     const onScreen = top >= 0 && left >= 0 && top + menu.height <= innerHeight && left + menu.width <= innerWidth
     const clear = avoid.every((a) => left >= a.right || left + menu.width <= a.left || top >= a.bottom || top + menu.height <= a.top)
     return { at, onScreen, clear }
@@ -51,21 +64,25 @@ interface ChoiceMenuProps<Id extends string> {
   autoOpen?: boolean
   /** Called when the menu closes without a choice (Escape, Tab, an outside press, or the trigger again). */
   onDismiss?: () => void
+  /** Keeps the menu open after a toggle (a choice with `checked`) so several can be set in one visit; actions still close it. */
+  stayOpen?: boolean
 }
 
 /**
  * A button that opens a menu of labelled choices. The menu is `position: fixed` under the trigger, so a scrolling
  * or clipping ancestor (the toolbar, the editor) never cuts it off — which holds only while no ancestor is transformed.
  */
-export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onChoose, className, align = 'start', onTrigger, autoOpen, onDismiss }: ChoiceMenuProps<Id>) {
+export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onChoose, className, align = 'start', onTrigger, autoOpen, onDismiss, stayOpen }: ChoiceMenuProps<Id>) {
   const [at, setAt] = useState<MenuAt | null>(null)
   const [anchor, setAnchor] = useState<DOMRect | null>(null)
+  const [sub, setSub] = useState<{ choice: Choice<Id>; parent: HTMLButtonElement; at: MenuAt; anchor: DOMRect } | null>(null)
   const menu = useRef<HTMLDivElement>(null)
+  const submenu = useRef<HTMLDivElement>(null)
   const root = useRef<HTMLSpanElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const triggerId = useId()
   const menuId = useId()
-  const items = () => [...(root.current?.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]') ?? [])]
+  const itemsIn = (el: Element | null) => [...(el?.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]') ?? [])]
 
   const chunk = <T,>(list: readonly T[], same: (a: T, b: T) => boolean) =>
     list.reduce<T[][]>((acc, entry) => {
@@ -74,14 +91,6 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
       else acc.push([entry])
       return acc
     }, [])
-  const gathered = choices.reduce<Choice<Id>[][]>((acc, entry) => {
-    const last = acc.at(-1)
-    const home = entry.group === undefined ? (last?.[0].group === undefined ? last : undefined) : acc.find((s) => s[0].group === entry.group)
-    if (home) home.push(entry)
-    else acc.push([entry])
-    return acc
-  }, [])
-  const sections = gathered.map((section) => chunk(section, (a, b) => a.control === b.control))
   const runsOf = (runs: Choice<Id>[][]) =>
     runs.map((run, i) => (
       <Fragment key={run[0].id}>
@@ -89,6 +98,33 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
         {run[0].control === 'radio' ? <div role="group" className="segmented">{run.map(item)}</div> : run.map(item)}
       </Fragment>
     ))
+  const sectionsOf = (list: readonly Choice<Id>[], idBase: string) =>
+    list
+      .reduce<Choice<Id>[][]>((acc, entry) => {
+        const last = acc.at(-1)
+        const home = entry.group === undefined ? (last?.[0].group === undefined ? last : undefined) : acc.find((s) => s[0].group === entry.group)
+        if (home) home.push(entry)
+        else acc.push([entry])
+        return acc
+      }, [])
+      .map((section) => chunk(section, (a, b) => a.control === b.control))
+      .map((runs, i) => {
+        const group = runs[0][0].group
+        const headingId = `${idBase}-${i}`
+        return (
+          <Fragment key={runs[0][0].id}>
+            {i > 0 && <div role="separator" className="choice-separator" />}
+            {group ? (
+              <div role="group" aria-labelledby={headingId}>
+                <div id={headingId} className="choice-heading">{group}</div>
+                {runsOf(runs)}
+              </div>
+            ) : (
+              runsOf(runs)
+            )}
+          </Fragment>
+        )
+      })
   const item = (choice: Choice<Id>) => (
     <button
       key={choice.id}
@@ -98,14 +134,26 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
       tabIndex={-1}
       className={choice.control === 'radio' ? 'segmented-option' : 'text-button'}
       data-control={choice.control}
-      onClick={() => {
-        close()
+      aria-haspopup={choice.submenu ? 'menu' : undefined}
+      aria-expanded={choice.submenu ? sub?.choice.id === choice.id : undefined}
+      aria-disabled={choice.disabled || undefined}
+      onClick={(e) => {
+        if (choice.disabled) return
+        if (choice.submenu) return openSub(choice, e.currentTarget)
+        if (!(stayOpen && choice.checked !== undefined)) close()
         onChoose(choice.id)
+      }}
+      onKeyDown={(e) => {
+        if (choice.submenu && e.key === 'ArrowRight') {
+          e.preventDefault()
+          openSub(choice, e.currentTarget)
+        }
       }}
     >
       {choice.icon && <Icon name={choice.icon} />}
       {choice.label}
       {choice.description && <span className="choice-description">{choice.description}</span>}
+      {choice.shortcut && <kbd className="choice-shortcut" aria-hidden="true">{choice.shortcut}</kbd>}
       {choice.control === 'switch' && (
         <span className="switch-track" aria-hidden="true">
           <span className="switch-knob" />
@@ -116,7 +164,7 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
 
   useEffect(() => {
     if (!at) return
-    items()[0]?.focus()
+    itemsIn(menu.current)[0]?.focus()
     const away = (e: PointerEvent) => !root.current?.contains(e.target as Node) && dismiss()
     document.addEventListener('pointerdown', away)
     return () => document.removeEventListener('pointerdown', away)
@@ -127,6 +175,28 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
     if (anchor && menu.current) setAt(place(anchor, menu.current.getBoundingClientRect(), align))
   }, [anchor, align])
 
+  useEffect(() => {
+    if (sub) itemsIn(submenu.current)[0]?.focus()
+    // Focus moves once, as the submenu appears; the placement step below only repositions it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sub?.choice.id])
+
+  useLayoutEffect(() => {
+    if (sub && submenu.current) {
+      const placed = place(sub.anchor, submenu.current.getBoundingClientRect(), 'start', true)
+      if (placed.left !== sub.at.left || placed.top !== sub.at.top) setSub({ ...sub, at: placed })
+    }
+  }, [sub?.choice.id, sub?.anchor])
+
+  const openSub = (choice: Choice<Id>, parent: HTMLButtonElement) => {
+    const anchor = parent.getBoundingClientRect()
+    setSub({ choice, parent, anchor, at: { top: anchor.top, left: anchor.right + GAP } })
+  }
+  const closeSub = () => {
+    sub?.parent.focus()
+    setSub(null)
+  }
+
   const open = () => {
     const rect = trigger.current!.getBoundingClientRect()
     setAnchor(rect)
@@ -134,10 +204,12 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
   }
   const close = () => {
     setAt(null)
+    setSub(null)
     trigger.current?.focus()
   }
   const dismiss = () => {
     setAt(null)
+    setSub(null)
     onDismiss?.()
   }
   useEffect(() => {
@@ -176,10 +248,11 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
           className="island choice-menu"
           style={at}
           onKeyDown={(e) => {
-            const list = items()
+            const list = itemsIn(e.currentTarget)
             const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0
             if (step) {
               e.preventDefault()
+              setSub(null)
               const from = list.indexOf(document.activeElement as HTMLButtonElement)
               list[(from + step + list.length) % list.length].focus()
             }
@@ -196,23 +269,34 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
             }
           }}
         >
-          {sections.map((runs, i) => {
-            const group = runs[0][0].group
-            const headingId = `${menuId}-${i}`
-            return (
-              <Fragment key={runs[0][0].id}>
-                {i > 0 && <div role="separator" className="choice-separator" />}
-                {group ? (
-                  <div role="group" aria-labelledby={headingId}>
-                    <div id={headingId} className="choice-heading">{group}</div>
-                    {runsOf(runs)}
-                  </div>
-                ) : (
-                  runsOf(runs)
-                )}
-              </Fragment>
-            )
-          })}
+          {sectionsOf(choices, menuId)}
+        </div>
+      )}
+      {at && sub && (
+        <div
+          ref={submenu}
+          role="menu"
+          aria-label={sub.choice.label}
+          className="island choice-menu"
+          style={sub.at}
+          onKeyDown={(e) => {
+            const list = itemsIn(e.currentTarget)
+            const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0
+            if (step) {
+              e.preventDefault()
+              list[(list.indexOf(document.activeElement as HTMLButtonElement) + step + list.length) % list.length].focus()
+            }
+            if (e.key === 'Escape' || e.key === 'ArrowLeft') {
+              e.stopPropagation()
+              closeSub()
+            }
+            if (e.key === 'Tab') {
+              close()
+              onDismiss?.()
+            }
+          }}
+        >
+          {sectionsOf(sub.choice.submenu!, `${menuId}-sub`)}
         </div>
       )}
     </span>

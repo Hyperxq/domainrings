@@ -1,7 +1,9 @@
 import { useState, type RefObject } from 'react'
 import { hexagonBounds } from '../../layout/lattice'
 import { type MapHexagonLayout, type MapLayout } from '../../layout/map'
-import { canvasBounds, contains, fitMap, fitTo, islandInset, visibleRect } from '../viewport'
+import { useViewStore } from '../state/viewStore'
+import type { Box } from '../../layout/geometry'
+import { canvasBounds, contains, fitMap, fitTo, islandInset, panInto, visibleRect } from '../viewport'
 import { useElementSize, useFreezeWhilePanelOpen, useViewportInteractions } from '../viewportChrome'
 
 /** The stage's size, fit and pan/zoom state for a map, including the reset that keeps a manual viewport only while
@@ -14,6 +16,7 @@ export function useStageViewport({
   revision,
   legendOpen,
   panelOpen,
+  inspectorOpen,
   onPanStart,
 }: {
   model: MapLayout
@@ -22,10 +25,11 @@ export function useStageViewport({
   revision: number
   legendOpen: boolean
   panelOpen: boolean
+  inspectorOpen: boolean
   onPanStart: () => void
 }) {
   const size = useElementSize(mainRef)
-  const inset = islandInset(size, panelOpen, legendOpen)
+  const inset = islandInset(size, panelOpen, legendOpen, useViewStore((s) => s.toolbarBottom), inspectorOpen)
   const effectiveSize = { width: size.width || model.bounds.width, height: size.height || model.bounds.height }
   const wholeFit = fitTo(canvasBounds(model), effectiveSize.width, effectiveSize.height, inset, 0)
   const singleFit = fitMap(model.bounds, hexagonBounds(hex), effectiveSize.width, effectiveSize.height, inset)
@@ -70,5 +74,10 @@ export function useStageViewport({
     setSeenHexagons({ key: hexKey, hexagons: model.hexagons })
     if (typeof view !== 'string' && !changed.every((h) => contains(visibleRect(view, effectiveSize, inset), hexagonBounds(h)))) setView('auto')
   }
-  return { ...interactions, size, centre }
+  /** Pans the least that brings `box` into the free area; a view that already shows it, or a box too big for it, stays. */
+  const panTo = (box: Box) => {
+    const next = panInto(heading.current, visibleRect(heading.current, effectiveSize, inset), box)
+    if (next && (next.x !== heading.current.x || next.y !== heading.current.y)) setView(next)
+  }
+  return { ...interactions, size, centre, panTo }
 }

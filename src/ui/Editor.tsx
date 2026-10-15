@@ -2,12 +2,14 @@ import type { HexaMap, LinkEnd } from '../model/schema'
 import { diagramOf, UNTITLED_HEXAGON, type Destination, type LinkPatch } from '../model/map'
 import { useMapStore } from '../model/store'
 import { useViewStore } from './state/viewStore'
+import { FlowsSection } from './FlowsSection'
 import { Icon } from './Icon'
 import { session } from './editor/fieldSession'
-import { ContextTree } from './editor/ContextTree'
+import { CollectionSections } from './editor/CollectionSections'
+import { Fold } from './Fold'
 import { LinksSection } from './editor/LinksSection'
 import { MapSection } from './editor/MapSection'
-import type { SubdomainActions } from './editor/SubdomainSection'
+import { SubdomainSection, type SubdomainActions } from './editor/SubdomainSection'
 
 export function Editor({
   onAddHexagon,
@@ -51,11 +53,20 @@ export function Editor({
       </header>
 
       <div id="editor-body" className="editor-body" hidden={!open}>
-        <MapSection title={map.title} contextLabel={contextLabel} onAddFromFile={onAddFromFile} session={session} />
+        <FlowsSection />
 
-        <ContextTree map={map} onRenameContext={onRenameContext} onAddHexagon={onAddHexagon} onDeleteHexagon={onDeleteHexagon} onMoveToContext={onMoveToContext} />
+        <div data-subdomain={hexId}>
+          <h2 className="elements-head">Elements</h2>
+          <CollectionSections hexId={hexId} map={map} diagram={d} />
+          {map.hexagons.length > 1 && <LinksSection map={map} onCreateLink={onCreateLink} onUpdateLink={onUpdateLink} onDeleteLink={onDeleteLink} />}
 
-        <LinksSection map={map} onCreateLink={onCreateLink} onUpdateLink={onUpdateLink} onDeleteLink={onDeleteLink} />
+          <div className="settings-fold">
+            <Fold id="diagram-settings" title="Diagram settings · layers, titles" defaultOpen={false}>
+              <MapSection title={map.title} contextLabel={contextLabel} onAddFromFile={onAddFromFile} session={session} />
+              <SubdomainSection map={map} hexId={hexId} onRenameContext={onRenameContext} onAddHexagon={onAddHexagon} onDeleteHexagon={onDeleteHexagon} onMoveToContext={onMoveToContext} />
+            </Fold>
+          </div>
+        </div>
       </div>
     </aside>
   )

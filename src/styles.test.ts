@@ -131,3 +131,18 @@ describe('a revealed context name', () => {
     expect(name).toMatch(/line-clamp:\s*2/)
   })
 })
+
+// The Present step card and the toast both dock at the bottom-centre; the toast is transient, so the card sits above it.
+describe('the step card stays clear of the toast', () => {
+  const bottomOf = (selector: string) => {
+    const start = css.indexOf(`${selector} {`)
+    expect(start).toBeGreaterThan(-1)
+    return Number(css.slice(start, css.indexOf('}', start)).match(/bottom:\s*(\d+)px/)?.[1])
+  }
+  // A toast is a 32px button in 4px padding and a 1px border.
+  const TOAST_HEIGHT = 32 + 2 * 4 + 2
+
+  it('starts above the top edge of the toast', () => {
+    expect(bottomOf('.step-card')).toBeGreaterThanOrEqual(bottomOf('.toast') + TOAST_HEIGHT)
+  })
+})

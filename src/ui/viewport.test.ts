@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canvasBounds, contains, EDITOR_CHIP_BOTTOM, fitMap, fitTo, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, MIN_FIT_SCALE, MIN_SCALE, panBy, panInto, pinch, toDiagram, visibleRect, zoomAt } from './viewport'
+import { canvasBounds, contains, EDITOR_CHIP_BOTTOM, fitMap, fitTo, INSPECTOR_ISLAND_WIDTH, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, MIN_FIT_SCALE, MIN_SCALE, panBy, panInto, pinch, toDiagram, visibleRect, zoomAt } from './viewport'
 import { hexagonBounds } from '../layout/lattice'
 import { currentHexagon, layoutMap } from '../layout/map'
 import { TWO_SLICES_MAP } from '../model/example'
@@ -64,6 +64,19 @@ describe('viewport', () => {
     expect(phone.top).toBeGreaterThan(tablet.top)
     expect(phone.right).toBe(tablet.right)
     expect(phone.left).toBe(tablet.left)
+  })
+
+  it('reserves room below the measured toolbar on a phone, wherever the bar wraps to', () => {
+    const phone = { width: 390, height: 844 }
+    const measured = islandInset(phone, false, false, 122)
+    expect(measured.top).toBe(islandInset(phone, false, false, 86).top + 36)
+    expect(islandInset(phone, false, false, 86)).toEqual(islandInset(phone, false, false))
+    expect(islandInset({ width: 700, height: 800 }, false, false, 50)).toEqual(islandInset({ width: 700, height: 800 }, false, false))
+  })
+
+  it('ignores the measured toolbar on a desktop, where the bar does not push the islands down', () => {
+    const desktop = { width: 1440, height: 900 }
+    expect(islandInset(desktop, false, false, 122)).toEqual(islandInset(desktop, false, false))
   })
 
   it('fits the whole map when it fits at a usable scale (CANVAS-04.1)', () => {
@@ -228,5 +241,20 @@ describe('panInto', () => {
   it('leaves a box already inside where it is, and refuses one larger than the area', () => {
     expect(panInto(v, visible, { x: 120, y: 120, width: 50, height: 50 })).toEqual(v)
     expect(panInto(v, visible, { x: 0, y: 0, width: 250, height: 10 })).toBeNull()
+  })
+})
+
+describe('islandInset with the flow inspector open', () => {
+  const size = { width: 1440, height: 900 }
+
+  it('reserves its column on the right, beside the legend’s when that is open too', () => {
+    expect(islandInset(size, true, false, null, true).right).toBe(INSPECTOR_ISLAND_WIDTH + 12 + 16)
+    expect(islandInset(size, true, true, null, true).right).toBe(INSPECTOR_ISLAND_WIDTH + 12 + LEGEND_ISLAND_WIDTH + 24)
+    expect(islandInset(size, true, false, null, false).right).toBe(16)
+  })
+
+  it('leaves the phone layout alone, where the inspector is a bottom sheet', () => {
+    const phone = { width: 390, height: 844 }
+    expect(islandInset(phone, true, false, null, true)).toEqual(islandInset(phone, true, false))
   })
 })

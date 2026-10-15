@@ -6,7 +6,7 @@ import { layoutClean } from './layout/clean'
 import { layoutOnion } from './layout/onion'
 import { EXAMPLES } from './model/example'
 import { collectionOf } from './model/links'
-import { diagramOf, UNTITLED_HEXAGON } from './model/map'
+import { diagramOf, freeSides, UNTITLED_HEXAGON } from './model/map'
 import { hasPlanned, withoutPlanned } from './model/planned'
 import { useCleanStore } from './model/cleanStore'
 import { useOnionStore } from './model/onionStore'
@@ -30,6 +30,7 @@ import { NoticeColumn } from './ui/NoticeColumn'
 import { OnionWorkspace } from './ui/OnionWorkspace'
 import { Toast } from './ui/Toast'
 import { Toolbar } from './ui/Toolbar'
+import { useHexagonalCommands } from './ui/useHexagonalCommands'
 
 
 const { show } = useNoticeStore.getState()
@@ -129,11 +130,14 @@ export function App({ boot = {} }: AppProps = {}) {
   }
 
   const { svgRef, exportAs } = useExport(active, legend, hexId)
+  const { completeGrow } = useHexagonalCommands({ map, hexId, diagram, nameOf, parseFile })
 
   return (
     <>
       <Toolbar
         showScope={canScopeExport}
+        onNewDiagram={() => completeGrow(undefined, 'same')}
+        canAddDiagram={freeSides(map, map.hexagons.find((h) => h.id === hexId)!.cell).length > 0}
         hasPlanned={activeKind === 'hexagonal' && hasPlanned(map)}
         onNew={() => useViewStore.setState({ choosingArchitecture: true })}
         onExample={(id) => {

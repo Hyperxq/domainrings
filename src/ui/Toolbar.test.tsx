@@ -1,34 +1,24 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { ROOMY_PLANNED_TOOLBAR, ROOMY_TOOLBAR, Toolbar } from './Toolbar'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { Toolbar } from './Toolbar'
 import { EXAMPLES } from '../model/example'
 import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
+import { useMapStore } from '../model/store'
+import { manyHexagonMap } from '../test/fixtures'
 
-type Listener = () => void
-const minWidth = (query: string) => Number(/min-width: (\d+)px/.exec(query)![1])
-const WIDE = 1600
-const ROOMY = minWidth(ROOMY_TOOLBAR)
-let viewport = WIDE
-let systemDark = false
-const listeners = new Set<Listener>()
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+} as unknown as typeof ResizeObserver
 
-beforeEach(() => {
-  viewport = WIDE
-  systemDark = false
-  listeners.clear()
-  window.matchMedia = ((media: string) => ({
-    get matches() {
-      return media === '(prefers-color-scheme: dark)' ? systemDark : viewport >= minWidth(media)
-    },
-    media,
-    addEventListener: (_: string, l: Listener) => listeners.add(l),
-    removeEventListener: (_: string, l: Listener) => listeners.delete(l),
-  })) as unknown as typeof matchMedia
-})
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+  document.documentElement.style.removeProperty('--toolbar-bottom')
+  useViewStore.setState({ toolbarBottom: null })
 })
 
 /** Seeds the stores the toolbar reads, then renders it; its choices land in those stores. */
@@ -40,62 +30,144 @@ function renderToolbar(
     dependents?: boolean
     showScope?: boolean
     hasPlanned?: boolean
+    showPlanned?: boolean
+    viewOnly?: boolean
     exportScope?: 'map' | 'hexagon'
     themeChoice?: 'light' | 'dark' | 'system'
     palette?: 'default' | 'purple' | 'terracotta' | 'cool'
+    canAddDiagram?: boolean
   } = {},
 ) {
-  const { mode = 'detailed', guides = true, highlight = true, dependents = false, themeChoice = 'system', palette = 'default', exportScope = 'map', showScope = false, hasPlanned = true } = overrides
-  usePreferencesStore.setState({ mode, guides, highlight, dependents, theme: themeChoice, palette })
+  const { mode = 'detailed', guides = true, highlight = true, dependents = false, themeChoice = 'system', palette = 'default', exportScope = 'map', showScope = false, hasPlanned = true, showPlanned = true, viewOnly = false, canAddDiagram = true } = overrides
+  usePreferencesStore.setState({ mode, guides, highlight, dependents, showPlanned, theme: themeChoice, palette, viewOnly })
   useViewStore.setState({ exportScope })
-  const props = { onNew: vi.fn(), onExample: vi.fn(), onOpen: vi.fn(), onCopyLink: vi.fn(), onExport: vi.fn() }
-  render(<Toolbar {...props} showScope={showScope} hasPlanned={hasPlanned} />)
+  const props = { onNew: vi.fn(), onExample: vi.fn(), onOpen: vi.fn(), onCopyLink: vi.fn(), onExport: vi.fn(), onNewDiagram: vi.fn() }
+  render(<Toolbar {...props} showScope={showScope} hasPlanned={hasPlanned} canAddDiagram={canAddDiagram} />)
   return props
 }
 
-describe('Toolbar copy PNG hint', () => {
+describe('Toolbar Copy image hint', () => {
   const open = (name: 'Share') => fireEvent.click(screen.getByRole('button', { name }))
 
-  it('names the Mac shortcut on a Mac', () => {
+  it('names the Mac shortcut on a Mac, outside the accessible name', () => {
     vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)')
     renderToolbar()
     open('Share')
-    expect(screen.getByRole('menuitem', { name: /Copy PNG/ }).textContent).toBe('Copy PNGOr press ⌘C')
+    expect(screen.getByRole('menuitem', { name: 'Copy image' }).textContent).toBe('Copy image⌘C')
   })
 
   it('hands the copy choice to onExport', () => {
     const { onExport } = renderToolbar()
     open('Share')
-    fireEvent.click(screen.getByRole('menuitem', { name: /Copy PNG/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy image' }))
     expect(onExport).toHaveBeenCalledWith('png-copy')
   })
 })
 
-describe('Toolbar at wide width', () => {
-  it('has a Dependents switch that shows its state, explains itself and flips on click', () => {
-    renderToolbar({ dependents: false })
-    const toggle = screen.getByRole('switch', { name: 'Dependents' })
-    expect(toggle.getAttribute('aria-checked')).toBe('false')
-    expect(toggle.getAttribute('title')).toMatch(/what depends on the selection/i)
+describe('Toolbar View options', () => {
+  const openOptions = () => fireEvent.click(screen.getByRole('button', { name: 'View options' }))
+  // Some switches carry a hover hint as their description, so the accessible name is the label plus the hint.
+  const option = (name: string) => screen.getByRole('menuitemcheckbox', { name: new RegExp(`^${name}`) })
 
-    fireEvent.click(toggle)
-
-    expect(usePreferencesStore.getState().dependents).toBe(true)
-    cleanup()
-    renderToolbar({ dependents: true })
-    expect(screen.getByRole('switch', { name: 'Dependents' }).getAttribute('aria-checked')).toBe('true')
-  })
-
-  it('draws every switch as a track with a knob, activated by Space and Enter because it is a native button', () => {
+  it('is one icon-only menu trigger, aligned to the end', () => {
     renderToolbar()
-    for (const name of ['Guides', 'Highlight', 'Dependents']) {
-      const toggle = screen.getByRole('switch', { name })
-      expect(toggle.tagName).toBe('BUTTON')
-      expect(toggle.querySelector('.switch-track > .switch-knob')).not.toBeNull()
-    }
-    expect(screen.queryByRole('button', { name: 'Guides' })).toBeNull()
+    const trigger = screen.getByRole('button', { name: 'View options' })
+    expect(trigger.getAttribute('aria-haspopup')).toBe('menu')
+    expect(trigger.classList.contains('icon-trigger')).toBe(true)
+    expect(trigger.textContent).toBe('')
   })
 
+  it('replaces the loose switches and the Appearance menu', () => {
+    renderToolbar()
+    expect(screen.queryAllByRole('switch')).toHaveLength(0)
+    expect(screen.queryByRole('button', { name: 'Appearance' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
+  })
+
+  it('lists the switches, then the Theme group, then the Palette group, each showing its state', () => {
+    renderToolbar({ guides: false, highlight: true, dependents: true, showPlanned: true, themeChoice: 'dark', palette: 'terracotta' })
+    openOptions()
+    const menu = screen.getByRole('menu', { name: 'View options' })
+    const state = (root: Element) => [...root.querySelectorAll('[role^="menuitem"]')].map((i) => [i.firstChild!.textContent, i.getAttribute('aria-checked')])
+    expect(state(menu)).toEqual([
+      ['Corridor guides', 'false'],
+      ['Dim other flows on hover', 'true'],
+      ['Dependents', 'true'],
+      ['Planned', 'true'],
+      ['Light', 'false'],
+      ['Dark', 'true'],
+      ['System', 'false'],
+      ['Default', 'false'],
+      ['Purple', 'false'],
+      ['Terracotta', 'true'],
+      ['Cool', 'false'],
+    ])
+    expect(state(within(menu).getByRole('group', { name: 'Theme' })).map(([n]) => n)).toEqual(['Light', 'Dark', 'System'])
+    expect(state(within(menu).getByRole('group', { name: 'Palette' })).map(([n]) => n)).toEqual(['Default', 'Purple', 'Terracotta', 'Cool'])
+  })
+
+  it('keeps the hover hints of Dependents and Planned as descriptions', () => {
+    renderToolbar()
+    openOptions()
+    expect(option('Dependents').querySelector('.choice-description')?.textContent).toBe('Emphasize what depends on the selection, not what it depends on')
+    expect(option('Planned').querySelector('.choice-description')?.textContent).toBe('Show what is not built yet; off hides it from the canvas and image exports')
+  })
+
+  it('draws the switches as a track with a knob and the themes as one segmented pill', () => {
+    renderToolbar()
+    openOptions()
+    for (const name of ['Corridor guides', 'Dim other flows on hover', 'Dependents', 'Planned']) expect(option(name).querySelector('.switch-track > .switch-knob')).not.toBeNull()
+    const theme = screen.getAllByRole('menuitemradio', { name: 'Light' })[0].parentElement!
+    expect(theme.classList.contains('segmented')).toBe(true)
+  })
+
+  it('leaves Planned out when the map has nothing planned', () => {
+    renderToolbar({ hasPlanned: false })
+    openOptions()
+    expect(screen.queryByRole('menuitemcheckbox', { name: /^Planned/ })).toBeNull()
+  })
+
+  it.each([
+    ['Corridor guides', 'guides', false],
+    ['Dim other flows on hover', 'highlight', false],
+    ['Dependents', 'dependents', true],
+    ['Planned', 'showPlanned', false],
+  ] as const)('toggling %s sets %s to %s and nothing else', (name, field, value) => {
+    renderToolbar({ guides: true, highlight: true, dependents: false })
+    const before = usePreferencesStore.getState()
+    openOptions()
+    fireEvent.click(option(name))
+    expect(usePreferencesStore.getState()).toEqual({ ...before, [field]: value })
+  })
+
+  it.each([
+    ['Light', 'theme', 'light'],
+    ['Dark', 'theme', 'dark'],
+    ['System', 'theme', 'system'],
+    ['Default', 'palette', 'default'],
+    ['Cool', 'palette', 'cool'],
+  ] as const)('choosing %s sets %s to %s and nothing else', (name, field, value) => {
+    renderToolbar({ themeChoice: 'light', palette: 'terracotta' })
+    const before = usePreferencesStore.getState()
+    openOptions()
+    fireEvent.click(screen.getByRole(field === 'theme' ? 'menuitemradio' : 'menuitemcheckbox', { name: new RegExp(`^${name}`) }))
+    expect(usePreferencesStore.getState()).toEqual({ ...before, [field]: value })
+  })
+
+  it('stays open after a switch or a radio is toggled, and shows the new state', () => {
+    renderToolbar({ dependents: false, themeChoice: 'light' })
+    openOptions()
+    fireEvent.click(option('Dependents'))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Dark' }))
+    expect(screen.getByRole('menu', { name: 'View options' })).toBeTruthy()
+    expect(option('Dependents').getAttribute('aria-checked')).toBe('true')
+    expect(screen.getByRole('menuitemradio', { name: 'Dark' }).getAttribute('aria-checked')).toBe('true')
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
+describe('Toolbar at wide width', () => {
   it('offers the detail level as one radio group whose selected half is checked', () => {
     renderToolbar({ mode: 'overview' })
     const group = screen.getByRole('radiogroup', { name: 'Detail level' })
@@ -119,21 +191,16 @@ describe('Toolbar at wide width', () => {
     radio.focus()
     fireEvent.keyDown(radio, { key })
     expect(usePreferencesStore.getState().mode).toBe(mode)
-    expect(document.activeElement).toBe(screen.getByRole('radio', { checked: true }))
+    expect(document.activeElement).toBe(within(screen.getByRole('radiogroup', { name: 'Detail level' })).getByRole('radio', { checked: true }))
   })
 
-  it('separates the detail level, the switches and the actions with dividers', () => {
+  it('separates the detail level from the editing mode and the actions with dividers', () => {
     renderToolbar()
     const dividers = [...document.querySelectorAll('.toolbar .divider')]
     const before = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
     const between = (a: Element, b: Element) => dividers.some((d) => before(a, d) && before(d, b))
-    const mode = screen.getByRole('radiogroup', { name: 'Detail level' })
-    const guides = screen.getByRole('switch', { name: 'Guides' })
-    const dependents = screen.getByRole('switch', { name: 'Dependents' })
-    const file = screen.getByRole('button', { name: 'File' })
-    expect(between(mode, guides)).toBe(true)
-    expect(between(dependents, file)).toBe(true)
-    expect(between(guides, dependents)).toBe(false)
+    expect(between(screen.getByRole('radiogroup', { name: 'Detail level' }), screen.getByRole('radiogroup', { name: 'Editing mode' }))).toBe(true)
+    expect(between(screen.getByRole('button', { name: 'Share' }), screen.getByRole('link', { name: 'View the source on GitHub' }))).toBe(true)
   })
 
   it('offers File and Share as menus with no kind switcher or export buttons (REQ-01)', () => {
@@ -146,134 +213,94 @@ describe('Toolbar at wide width', () => {
 })
 
 
-describe('Toolbar planned switch', () => {
-  beforeEach(() => {
-    viewport = WIDE
-  })
+describe('Toolbar View and Edit switch', () => {
+  const modeGroup = () => screen.getByRole('radiogroup', { name: 'Editing mode' })
 
-  it('is on by default, explained by its title, and toggles whether planned items show', () => {
-    renderToolbar()
-    const planned = screen.getByRole('switch', { name: 'Planned' })
-    expect(planned.getAttribute('aria-checked')).toBe('true')
-    expect(planned.getAttribute('title')).toMatch(/not built yet/i)
-    fireEvent.click(planned)
-    expect(usePreferencesStore.getState().showPlanned).toBe(false)
-    expect(screen.getByRole('switch', { name: 'Planned' }).getAttribute('aria-checked')).toBe('false')
-  })
-
-  it('is left out, in the bar and in the View menu, when the map has nothing planned', () => {
-    renderToolbar({ hasPlanned: false })
-    expect(screen.queryByRole('switch', { name: 'Planned' })).toBeNull()
-    cleanup()
-    viewport = ROOMY - 1
-    renderToolbar({ hasPlanned: false })
-    fireEvent.click(screen.getByRole('button', { name: 'View' }))
-    expect(screen.queryByRole('menuitemcheckbox', { name: 'Planned' })).toBeNull()
-  })
-})
-
-describe('Toolbar between the two breakpoints', () => {
-  beforeEach(() => {
-    viewport = ROOMY
-  })
-
-  it('keeps the detail level and toggles in the bar, with File and Share as menus', () => {
-    renderToolbar({ hasPlanned: false })
-    for (const name of ['File', 'Share']) expect(screen.getByRole('button', { name })).toBeTruthy()
-    expect(screen.getByRole('radio', { name: 'Overview' })).toBeTruthy()
-    expect(screen.getByRole('switch', { name: 'Guides' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
-  })
-
-  it('folds the view controls into the View menu until the bar also has room for the Planned switch', () => {
-    renderToolbar({ hasPlanned: true })
-    expect(screen.getByRole('button', { name: 'View' })).toBeTruthy()
-    cleanup()
-    viewport = minWidth(ROOMY_PLANNED_TOOLBAR)
-    renderToolbar({ hasPlanned: true })
-    expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
-    expect(screen.getByRole('switch', { name: 'Planned' })).toBeTruthy()
-  })
-})
-
-
-describe('Toolbar below the compact breakpoint', () => {
-  beforeEach(() => {
-    viewport = ROOMY - 1
-  })
-
-  const openView = () => fireEvent.click(screen.getByRole('button', { name: 'View' }))
-
-  it('moves the detail level and the toggles into a View menu that shows their state', () => {
-    renderToolbar({ mode: 'overview', guides: false, highlight: true })
-    expect(screen.queryByRole('radio', { name: 'Overview' })).toBeNull()
-    expect(screen.queryByRole('switch', { name: 'Guides' })).toBeNull()
-    expect(screen.queryByRole('switch', { name: 'Highlight' })).toBeNull()
-    expect(screen.queryByRole('switch', { name: 'Dependents' })).toBeNull()
-
-    openView()
-
-    const state = [...screen.getAllByRole('menuitemradio'), ...screen.getAllByRole('menuitemcheckbox')].map((item) => [item.textContent, item.getAttribute('aria-checked')])
-    expect(state).toEqual([
-      ['Overview', 'true'],
-      ['Detailed', 'false'],
-      ['Guides', 'false'],
-      ['Highlight', 'true'],
-      ['Dependents', 'false'],
-      ['Planned', 'true'],
+  it('offers View and Edit as one radio group that reflects the preference', () => {
+    renderToolbar({ viewOnly: false })
+    expect(within(modeGroup()).getAllByRole('radio').map((r) => [r.textContent, r.getAttribute('aria-checked'), r.getAttribute('tabindex')])).toEqual([
+      ['View', 'false', '-1'],
+      ['Edit', 'true', '0'],
     ])
+    cleanup()
+    renderToolbar({ viewOnly: true })
+    expect(within(modeGroup()).getByRole('radio', { checked: true }).textContent).toBe('View')
   })
 
-  it.each([
-    ['Overview', 'mode', 'overview'],
-    ['Detailed', 'mode', 'detailed'],
-    ['Guides', 'guides', true],
-    ['Highlight', 'highlight', false],
-    ['Dependents', 'dependents', true],
-    ['Planned', 'showPlanned', false],
-  ] as const)('choosing %s in the View menu sets %s to %s and nothing else', (name, field, value) => {
-    renderToolbar({ mode: 'detailed', guides: false, highlight: true })
-    const before = usePreferencesStore.getState()
-    openView()
-    fireEvent.click(screen.getByRole(field === 'mode' ? 'menuitemradio' : 'menuitemcheckbox', { name }))
-    expect(usePreferencesStore.getState()).toEqual({ ...before, [field]: value })
+  it('writes viewOnly when a half is chosen', () => {
+    renderToolbar({ viewOnly: false })
+    fireEvent.click(within(modeGroup()).getByRole('radio', { name: 'View' }))
+    expect(usePreferencesStore.getState().viewOnly).toBe(true)
+    fireEvent.click(within(modeGroup()).getByRole('radio', { name: 'Edit' }))
+    expect(usePreferencesStore.getState().viewOnly).toBe(false)
   })
 
-  it('shows two kinds of control in the View menu: a segmented mode and switches, set apart', () => {
+  it('moves the choice and the focus with the arrow keys', () => {
+    renderToolbar({ viewOnly: false })
+    const edit = within(modeGroup()).getByRole('radio', { name: 'Edit' })
+    edit.focus()
+    fireEvent.keyDown(edit, { key: 'ArrowLeft' })
+    expect(usePreferencesStore.getState().viewOnly).toBe(true)
+    expect(document.activeElement).toBe(within(modeGroup()).getByRole('radio', { name: 'View' }))
+  })
+
+  it('sits between the detail level and View options, then File, Share and the GitHub link', () => {
     renderToolbar()
-    openView()
-    const menu = screen.getByRole('menu')
-    const pill = within(menu).getAllByRole('menuitemradio')[0].parentElement!
-    expect(pill.classList.contains('segmented')).toBe(true)
-    expect(within(pill).getAllByRole('menuitemradio')).toHaveLength(2)
-    for (const item of within(menu).getAllByRole('menuitemcheckbox')) expect(item.querySelector('.switch-track > .switch-knob')).not.toBeNull()
-    expect(within(menu).queryByRole('menuitem')).toBeNull()
-    expect(within(menu).getAllByRole('separator')).toHaveLength(1)
+    const after = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    const order = [
+      screen.getByRole('radiogroup', { name: 'Detail level' }),
+      modeGroup(),
+      screen.getByRole('button', { name: 'View options' }),
+      screen.getByRole('button', { name: 'File' }),
+      screen.getByRole('button', { name: 'Share' }),
+      screen.getByRole('link', { name: 'View the source on GitHub' }),
+    ]
+    order.slice(1).forEach((el, i) => expect(after(order[i], el)).toBe(true))
   })
 
+  it('shows File only while editing', () => {
+    renderToolbar({ viewOnly: true })
+    expect(screen.queryByRole('button', { name: 'File' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Share' })).toBeTruthy()
+    cleanup()
+    renderToolbar({ viewOnly: false })
+    expect(screen.getByRole('button', { name: 'File' })).toBeTruthy()
+  })
 })
 
-describe.each([
-  ['wide', WIDE],
-  ['compact', ROOMY - 1],
-  ['phone', 390],
-])('Toolbar File and Share menus at %s width', (_, width) => {
-  beforeEach(() => {
-    viewport = width
-  })
-
+describe('Toolbar File and Share menus', () => {
   const open = (name: 'File' | 'Share') => fireEvent.click(screen.getByRole('button', { name }))
 
-  it('File lists New, Open… and Save (.hexa) together, then the examples to load under their architecture', () => {
+  const FILE_ITEMS = ['New', 'Open .hexa…Ctrl+O', 'Save .hexaCtrl+S', 'Start from an example']
+
+  it('File lists New, Open .hexa… and Save .hexa with their shortcuts, a separator, then the examples submenu', () => {
     renderToolbar()
     open('File')
     const menu = screen.getByRole('menu', { name: 'File' })
+    expect([...menu.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(FILE_ITEMS)
+    expect(menu.children[3]?.getAttribute('role')).toBe('separator')
+    expect(menu.children[4]?.textContent).toBe('Start from an example')
+    for (const name of ['New', 'Open .hexa…', 'Save .hexa']) expect(within(menu).getByRole('menuitem', { name }).querySelector('svg')).not.toBeNull()
+    expect(within(menu).getByRole('menuitem', { name: 'New' }).querySelector('.choice-shortcut')).toBeNull()
+  })
+
+  it('names the Mac shortcuts on a Mac', () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)')
+    renderToolbar()
+    open('File')
+    expect([...screen.getByRole('menu', { name: 'File' }).querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(['New', 'Open .hexa…⌘O', 'Save .hexa⌘S', 'Start from an example'])
+  })
+
+  it('Start from an example opens a submenu of the examples grouped by architecture', () => {
+    renderToolbar()
+    open('File')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Start from an example' }))
+    const sub = screen.getByRole('menu', { name: 'Start from an example' })
     const names = (root: Element) => [...root.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)
-    expect(names(menu)).toEqual(['New', 'Open…', 'Save (.hexa)', ...EXAMPLES.map((x) => x.label)])
+    expect(names(sub)).toEqual(EXAMPLES.map((x) => x.label))
     for (const architecture of ['Hexagonal', 'Onion', 'Clean']) {
-      expect(names(within(menu).getByRole('group', { name: `Load example · ${architecture}` }))).toEqual(EXAMPLES.filter((x) => x.architecture === architecture).map((x) => x.label))
+      expect(names(within(sub).getByRole('group', { name: architecture }))).toEqual(EXAMPLES.filter((x) => x.architecture === architecture).map((x) => x.label))
     }
-    for (const name of ['New', 'Open…', 'Save (.hexa)']) expect(within(menu).getByRole('menuitem', { name }).querySelector('svg')).not.toBeNull()
   })
 
   it('File > New and File > an example call their handlers', () => {
@@ -282,45 +309,47 @@ describe.each([
     fireEvent.click(screen.getByRole('menuitem', { name: 'New' }))
     expect(onNew).toHaveBeenCalledTimes(1)
     open('File')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Start from an example' }))
     fireEvent.click(screen.getByRole('menuitem', { name: EXAMPLES[4].label }))
     expect(onExample).toHaveBeenCalledTimes(1)
     expect(onExample).toHaveBeenCalledWith(EXAMPLES[4].id)
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 
-  it('File > Save (.hexa) exports a .hexa file and nothing else', () => {
+  it('File > Save .hexa exports a .hexa file and nothing else', () => {
     const { onExport } = renderToolbar()
     open('File')
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Save (.hexa)' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Save .hexa' }))
     expect(onExport).toHaveBeenCalledTimes(1)
     expect(onExport).toHaveBeenCalledWith('hexa')
   })
 
-  it('File > Open… opens the file picker, and the picked file goes to onOpen', () => {
+  it('File > Open .hexa… opens the file picker, and the picked file goes to onOpen', () => {
     const { onOpen } = renderToolbar()
     const input = screen.getByLabelText('Open a .hexa file, replacing the map') as HTMLInputElement
     const pick = vi.spyOn(input, 'click')
     open('File')
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Open…' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Open .hexa…' }))
     expect(pick).toHaveBeenCalledTimes(1)
     const file = new File(['{}'], 'map.hexa')
     fireEvent.change(input, { target: { files: [file] } })
     expect(onOpen).toHaveBeenCalledWith(file)
   })
 
-  it('Share lists Copy link first, then an Export image group with SVG, PNG and Copy PNG', () => {
+  it('Share lists Copy link first, then an Export image group with Download PNG, Download SVG and Copy image', () => {
     renderToolbar()
     open('Share')
     const menu = screen.getByRole('menu', { name: 'Share' })
-    expect([...menu.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(['Copy link', 'SVG', 'PNG', 'Copy PNGOr press Ctrl+C'])
+    expect([...menu.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(['Copy link', 'Download PNG', 'Download SVG', 'Copy imageCtrl+C'])
     const group = screen.getByRole('group', { name: 'Export image' })
-    expect([...group.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(['SVG', 'PNG', 'Copy PNGOr press Ctrl+C'])
+    expect([...group.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(['Download PNG', 'Download SVG', 'Copy imageCtrl+C'])
     expect(within(menu).getByRole('menuitem', { name: 'Copy link' }).querySelector('svg')).not.toBeNull()
   })
 
   it.each([
     ['Copy link', undefined],
-    ['SVG', 'svg'],
-    ['PNG', 'png'],
+    ['Download PNG', 'png'],
+    ['Download SVG', 'svg'],
   ] as const)('Share > %s calls its handler', (name, format) => {
     const { onCopyLink, onExport } = renderToolbar()
     open('Share')
@@ -342,7 +371,7 @@ describe.each([
     const scope = within(group).getByRole('menuitemcheckbox', { name: 'Only the current hexagon' })
     expect(scope.getAttribute('aria-checked')).toBe('false')
     expect(scope.querySelector('.switch-track > .switch-knob')).not.toBeNull()
-    expect([...group.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(['Only the current hexagon', 'SVG', 'PNG', 'Copy PNGOr press Ctrl+C'])
+    expect([...group.querySelectorAll('[role^="menuitem"]')].map((i) => i.textContent)).toEqual(['Only the current hexagon', 'Download PNG', 'Download SVG', 'Copy imageCtrl+C'])
     cleanup()
 
     renderToolbar({ showScope: false })
@@ -372,81 +401,235 @@ describe.each([
 })
 
 
-// At a literal phone width (below styles.css's toolbar wrap point, TOOLBAR-PHONE-01) the markup is the same
-// icon-only tier as above — styles.css wraps it into two rows instead of scrolling sideways — so this pins the
-// requirement that drove the wrap: nothing is dropped for it to hide, every control stays reachable as one of
-// the three menus or a labelled icon/link.
+// styles.css wraps the bar into two rows below the phone breakpoint instead of scrolling it sideways, so nothing
+// is dropped for it to hide: every control must stay reachable as one of the menus or a labelled link.
 describe('Toolbar at phone width', () => {
-  beforeEach(() => {
-    viewport = 390
-  })
-
-  it('keeps every control reachable: the four menus and the GitHub link', () => {
+  it('keeps every control reachable: the three menus and the GitHub link', () => {
     renderToolbar({ showScope: true })
-    for (const name of ['View', 'File', 'Share', 'Appearance']) expect(screen.getByRole('button', { name })).toBeTruthy()
+    for (const name of ['View options', 'File', 'Share']) expect(screen.getByRole('button', { name }).getAttribute('aria-haspopup')).toBe('menu')
+    expect(screen.getByRole('radiogroup', { name: 'Detail level' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'View the source on GitHub' })).toBeTruthy()
   })
 })
 
-describe('Toolbar appearance menu', () => {
-  const openAppearance = () => fireEvent.click(screen.getByRole('button', { name: 'Appearance' }))
-  const iconPath = () => screen.getByRole('button', { name: 'Appearance' }).querySelector('path')!.getAttribute('d')!
-  const MOON = /^M21 12\.8/
-  const SUN = /^M12 8a4/
+describe('Toolbar height measurement', () => {
+  /** Stands in for ResizeObserver so a test decides when the bar's height changed. */
+  function observeToolbar() {
+    const disconnect = vi.fn()
+    let notify = () => {}
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(cb: () => void) {
+          notify = cb
+        }
+        observe() {}
+        disconnect = disconnect
+      },
+    )
+    return {
+      disconnect,
+      resizeTo(bottom: number) {
+        screen.getByRole('banner').getBoundingClientRect = () => ({ bottom }) as DOMRect
+        act(() => notify())
+      },
+    }
+  }
 
-  it.each([WIDE, ROOMY, ROOMY - 1])('is one icon-sized trigger at a %ipx viewport', (width) => {
-    viewport = width
+  it('publishes the bar’s bottom edge and follows it as the bar wraps', () => {
+    const bar = observeToolbar()
     renderToolbar()
-    const trigger = screen.getByRole('button', { name: 'Appearance' })
-    expect(trigger.classList.contains('icon-trigger')).toBe(true)
-    expect(trigger.textContent).toBe('')
+    bar.resizeTo(86)
+    expect(document.documentElement.style.getPropertyValue('--toolbar-bottom')).toBe('86px')
+    expect(useViewStore.getState().toolbarBottom).toBe(86)
+    bar.resizeTo(122)
+    expect(document.documentElement.style.getPropertyValue('--toolbar-bottom')).toBe('122px')
+    expect(useViewStore.getState().toolbarBottom).toBe(122)
   })
 
-  it('lists the theme choices and then the palettes, checking the stored theme and the active palette', () => {
-    renderToolbar({ themeChoice: 'dark', palette: 'terracotta' })
-    openAppearance()
-    const state = screen.getAllByRole('menuitemcheckbox').map((item) => [item.firstChild!.textContent, item.getAttribute('aria-checked')])
-    expect(state).toEqual([
-      ['Light', 'false'],
-      ['Dark', 'true'],
-      ['System', 'false'],
-      ['Default', 'false'],
-      ['Purple', 'false'],
-      ['Terracotta', 'true'],
-      ['Cool', 'false'],
-    ])
-  })
-
-  it('checks System and Default when nothing is chosen', () => {
+  it('stops observing and forgets the measurement when the bar unmounts', () => {
+    const bar = observeToolbar()
     renderToolbar()
-    openAppearance()
-    expect(screen.getByRole('menuitemcheckbox', { name: 'System' }).getAttribute('aria-checked')).toBe('true')
-    expect(screen.getByRole('menuitemcheckbox', { name: /^Default/ }).getAttribute('aria-checked')).toBe('true')
+    bar.resizeTo(86)
+    cleanup()
+    expect(bar.disconnect).toHaveBeenCalled()
+    expect(document.documentElement.style.getPropertyValue('--toolbar-bottom')).toBe('')
+    expect(useViewStore.getState().toolbarBottom).toBeNull()
+  })
+})
+
+describe('Toolbar file shortcuts', () => {
+  const press = (key: string, init: KeyboardEventInit = {}, target: EventTarget = document.body) =>
+    target.dispatchEvent(new KeyboardEvent('keydown', { key, ctrlKey: true, bubbles: true, cancelable: true, ...init }))
+  const picker = () => vi.spyOn(screen.getByLabelText('Open a .hexa file, replacing the map') as HTMLInputElement, 'click')
+
+  it.each([
+    ['Ctrl+S', 's', { ctrlKey: true }],
+    ['Cmd+S', 's', { ctrlKey: false, metaKey: true }],
+  ])('%s saves the .hexa and keeps the browser’s own save dialog away', (_name, key, init) => {
+    const { onExport } = renderToolbar()
+    expect(press(key, init)).toBe(false)
+    expect(onExport).toHaveBeenCalledTimes(1)
+    expect(onExport).toHaveBeenCalledWith('hexa')
   })
 
   it.each([
-    ['Light', 'theme', 'light'],
-    ['Dark', 'theme', 'dark'],
-    ['System', 'theme', 'system'],
-    ['Default', 'palette', 'default'],
-    ['Cool', 'palette', 'cool'],
-  ] as const)('choosing %s sets %s to %s and nothing else', (name, field, value) => {
-    renderToolbar({ themeChoice: 'light', palette: 'terracotta' })
-    const before = usePreferencesStore.getState()
-    openAppearance()
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: new RegExp(`^${name}`) }))
-    expect(usePreferencesStore.getState()).toEqual({ ...before, [field]: value })
+    ['Ctrl+O', { ctrlKey: true }],
+    ['Cmd+O', { ctrlKey: false, metaKey: true }],
+  ])('%s opens the file picker', (_name, init) => {
+    renderToolbar()
+    const pick = picker()
+    expect(press('o', init)).toBe(false)
+    expect(pick).toHaveBeenCalledTimes(1)
   })
 
-  it('shows the moon on a light page and the sun on a dark one, resolving System from the OS', () => {
-    renderToolbar({ themeChoice: 'light' })
-    expect(iconPath()).toMatch(MOON)
+  it('does nothing in View mode, leaving the keys to the browser', () => {
+    const { onExport } = renderToolbar({ viewOnly: true })
+    expect(press('s')).toBe(true)
+    expect(press('o')).toBe(true)
+    expect(onExport).not.toHaveBeenCalled()
+  })
+
+  it('stops listening once the toolbar goes away', () => {
+    const { onExport } = renderToolbar()
     cleanup()
-    renderToolbar({ themeChoice: 'dark' })
-    expect(iconPath()).toMatch(SUN)
+    press('s')
+    expect(onExport).not.toHaveBeenCalled()
+  })
+
+  it('leaves the keys alone while typing in a field', () => {
+    const { onExport } = renderToolbar()
+    const pick = picker()
+    const field = document.body.appendChild(document.createElement('input'))
+    try {
+      expect(press('s', {}, field)).toBe(true)
+      expect(press('o', {}, field)).toBe(true)
+      expect(onExport).not.toHaveBeenCalled()
+      expect(pick).not.toHaveBeenCalled()
+    } finally {
+      field.remove()
+    }
+  })
+
+  it('leaves the keys alone while a menu or a dialog is open', () => {
+    const { onExport } = renderToolbar()
+    fireEvent.click(screen.getByRole('button', { name: 'File' }))
+    expect(press('s')).toBe(true)
+    expect(onExport).not.toHaveBeenCalled()
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    const dialog = document.body.appendChild(document.createElement('dialog'))
+    dialog.setAttribute('open', '')
+    try {
+      expect(press('s')).toBe(true)
+      expect(onExport).not.toHaveBeenCalled()
+    } finally {
+      dialog.remove()
+    }
+  })
+
+  it.each([
+    ['without a modifier', 's', { ctrlKey: false }],
+    ['with Shift', 's', { shiftKey: true }],
+    ['with Alt', 'o', { altKey: true }],
+  ])('ignores the key %s', (_name, key, init) => {
+    const { onExport } = renderToolbar()
+    const pick = picker()
+    expect(press(key, init)).toBe(true)
+    expect(onExport).not.toHaveBeenCalled()
+    expect(pick).not.toHaveBeenCalled()
+  })
+})
+
+describe('Toolbar diagram switcher', () => {
+  const seed = () => {
+    useMapStore.getState().replace({ ...manyHexagonMap(4), contexts: [{ id: 'c1', name: 'Orders' }, { id: 'c2', name: 'Billing' }, { id: 'c3', name: 'Shipping' }] })
+    useViewStore.setState({ expanded: new Set(['h1', 'h2']) })
+  }
+  const trigger = () => screen.getByRole('button', { name: 'Diagram' })
+  const open = () => fireEvent.click(trigger())
+
+  it('is labelled with the current subdomain and sits right after the wordmark', () => {
+    seed()
+    renderToolbar({ showScope: true })
+    expect(trigger().textContent).toBe('Slice 1')
+    expect(screen.getByRole('heading', { name: 'domainrings' }).nextElementSibling?.contains(trigger())).toBe(true)
+    act(() => useMapStore.getState().setFocus('h2'))
+    expect(trigger().textContent).toBe('Slice 2')
+  })
+
+  it('lists the subdomains under their bounded context, marking the current one', () => {
+    seed()
+    renderToolbar({ showScope: true })
+    open()
+    const menu = screen.getByRole('menu', { name: 'Diagram' })
+    for (const [context, titles] of [['Orders', ['Slice 1', 'Slice 4']], ['Billing', ['Slice 2']], ['Shipping', ['Slice 3']]] as const) {
+      const group = within(menu).getByRole('group', { name: context })
+      expect(within(group).getAllByRole('menuitemcheckbox').map((i) => i.textContent)).toEqual(titles)
+    }
+    expect(within(menu).getByRole('menuitemcheckbox', { name: 'Slice 1' }).getAttribute('aria-checked')).toBe('true')
+    expect(within(menu).getByRole('menuitemcheckbox', { name: 'Slice 2' }).getAttribute('aria-checked')).toBe('false')
+  })
+
+  it('choosing a subdomain makes it the current hexagon', () => {
+    seed()
+    renderToolbar({ showScope: true })
+    open()
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Slice 3' }))
+    expect(useMapStore.getState().focus).toBe('h3')
+    expect(trigger().textContent).toBe('Slice 3')
+  })
+
+  it('Map of all contexts compacts every hexagon but the current one', () => {
+    seed()
+    renderToolbar({ showScope: true })
+    open()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Map of all contexts' }))
+    expect(useViewStore.getState().expanded.size).toBe(0)
+  })
+
+  it('Map of all contexts also asks the view to fit', () => {
+    seed()
+    renderToolbar({ showScope: true })
+    open()
+    const before = useViewStore.getState().fitRequest
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Map of all contexts' }))
+    expect(useViewStore.getState().fitRequest).toBe(before + 1)
+  })
+
+  it('disables + New diagram with a reason when the current hexagon has no free side', () => {
+    seed()
+    const { onNewDiagram } = renderToolbar({ showScope: true, canAddDiagram: false })
+    open()
+    const item = screen.getByRole('menuitem', { name: /\+ New diagram/ })
+    expect(item.getAttribute('aria-disabled')).toBe('true')
+    expect(item.textContent).toContain('No free side around this subdomain')
+    fireEvent.click(item)
+    expect(onNewDiagram).not.toHaveBeenCalled()
+  })
+
+  it('keeps + New diagram enabled while a side is free', () => {
+    seed()
+    renderToolbar({ showScope: true })
+    open()
+    expect(screen.getByRole('menuitem', { name: '+ New diagram' }).getAttribute('aria-disabled')).toBeNull()
+  })
+
+  it('offers + New diagram in Edit mode only, handing it to onNewDiagram', () => {
+    seed()
+    const { onNewDiagram } = renderToolbar({ showScope: true })
+    open()
+    fireEvent.click(screen.getByRole('menuitem', { name: '+ New diagram' }))
+    expect(onNewDiagram).toHaveBeenCalledOnce()
     cleanup()
-    systemDark = true
-    renderToolbar({ themeChoice: 'system' })
-    expect(iconPath()).toMatch(SUN)
+    renderToolbar({ showScope: true, viewOnly: true })
+    open()
+    expect(screen.getByRole('menuitem', { name: 'Map of all contexts' })).toBeTruthy()
+    expect(screen.queryByRole('menuitem', { name: '+ New diagram' })).toBeNull()
+  })
+
+  it('is absent unless the map is a multi-hexagon hexagonal one', () => {
+    seed()
+    renderToolbar({ showScope: false })
+    expect(screen.queryByRole('button', { name: 'Diagram' })).toBeNull()
   })
 })

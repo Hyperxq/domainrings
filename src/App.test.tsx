@@ -44,6 +44,7 @@ import v4CleanExample from './model/fixtures/v4-clean-example.hexa?raw'
 /** Opens the toolbar menu (unless a step already left it open) and presses one of its items. */
 const choose = (menu: 'File' | 'Share', item: string) => {
   if (!screen.queryByRole('menu', { name: menu })) fireEvent.click(screen.getByRole('button', { name: menu }))
+  if (menu === 'File' && !screen.queryByRole('menuitem', { name: item })) fireEvent.click(screen.getByRole('menuitem', { name: 'Start from an example' }))
   fireEvent.click(screen.getByRole('menuitem', { name: item }))
 }
 const scopeSwitch = () => {
@@ -499,10 +500,10 @@ describe('toolbar', () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'File' }))
     const file = screen.getByRole('menu', { name: 'File' })
-    for (const name of ['New', 'Open…', 'Save (.hexa)']) expect(within(file).getByRole('menuitem', { name })).toBeTruthy()
+    for (const name of ['New', 'Open .hexa…', 'Save .hexa']) expect(within(file).getByRole('menuitem', { name })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     const share = screen.getByRole('menu', { name: 'Share' })
-    expect([...share.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).toEqual(['Copy link', 'SVG', 'PNG', 'Copy PNGOr press Ctrl+C'])
+    expect([...share.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).toEqual(['Copy link', 'Download PNG', 'Download SVG', 'Copy imageCtrl+C'])
   })
 
   it('links to the source repository in a new tab', () => {
@@ -522,7 +523,8 @@ describe('the Example menu — learning path (CANVAS-01/02/04, FOCUS-02)', () =>
   it('groups the menu into 3 architectures of 3 levels each, in basic/stress/advanced order', () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'File' }))
-    const groups = ['Hexagonal', 'Onion', 'Clean'].map((architecture) => screen.getByRole('group', { name: `Load example · ${architecture}` }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Start from an example' }))
+    const groups = ['Hexagonal', 'Onion', 'Clean'].map((architecture) => screen.getByRole('group', { name: architecture }))
     for (const group of groups) expect(group.querySelectorAll('[role="menuitem"]')).toHaveLength(3)
   })
 
@@ -676,25 +678,23 @@ describe('dependents preference', () => {
     fireEvent.click(onCanvas(container, EXAMPLE_DIAGRAM.useCases[0].id))
     expect(container.querySelector('svg.canvas')!.getAttribute('data-emphasis')).toBe('')
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Dependents' }))
+    fireEvent.click(screen.getByRole('button', { name: 'View options' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /^Dependents/ }))
 
     expect(container.querySelector('svg.canvas')!.getAttribute('data-emphasis')).toBe('dependents')
     expect(localStorage.getItem('domainrings:dependents')).toBe('true')
   })
 })
 
-describe('appearance menu', () => {
+describe('appearance in the view options menu', () => {
   const root = document.documentElement
-  const choose = (name: RegExp) => {
-    fireEvent.click(screen.getByRole('button', { name: 'Appearance' }))
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name }))
+  // The menu stays open while toggling, so it is opened only when it is not already.
+  const item = (name: RegExp) => {
+    if (!screen.queryByRole('menu')) fireEvent.click(screen.getByRole('button', { name: 'View options' }))
+    return screen.queryByRole('menuitemradio', { name }) ?? screen.getByRole('menuitemcheckbox', { name })
   }
-  const checked = (name: RegExp) => {
-    fireEvent.click(screen.getByRole('button', { name: 'Appearance' }))
-    const state = screen.getByRole('menuitemcheckbox', { name }).getAttribute('aria-checked')
-    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
-    return state
-  }
+  const choose = (name: RegExp) => fireEvent.click(item(name))
+  const checked = (name: RegExp) => item(name).getAttribute('aria-checked')
 
   afterEach(() => {
     delete root.dataset.theme
@@ -942,6 +942,41 @@ describe('current hexagon (FOCUS-03, FOCUS-06)', () => {
     expect(document.activeElement).toBe(input)
     expect(input.value).toBe('Second slice')
     expect(container.querySelectorAll('[data-selected]')).toHaveLength(0)
+  })
+
+  describe('revealing an element whose id repeats across subdomains', () => {
+    const port = EXAMPLE_DIAGRAM.ports[0]
+    const sharedIdMap = () => {
+      const map = twoHexMap()
+      const [h1, h2] = map.hexagons
+      return { ...map, hexagons: [h1, { ...h2, ports: h2.ports.map((p) => (p.id === port.id ? { ...p, name: 'Second slice port' } : p)) }] }
+    }
+    const gesture = (target: Element) => {
+      fireEvent.click(target, { detail: 1 })
+      fireEvent.click(target, { detail: 2 })
+      fireEvent.doubleClick(target)
+    }
+
+    it('double-clicking an element in a non-current hexagon moves focus there and lands in that subdomain', () => {
+      useMapStore.getState().replace(sharedIdMap())
+      const { container } = render(<App />)
+
+      gesture(hexGroup(container, 'h2').querySelector(`[data-ref="${port.id}"]`)!)
+
+      expect(useMapStore.getState().focus).toBe('h2')
+      expect(container.querySelector('[data-subdomain="h2"]')!.contains(document.activeElement)).toBe(true)
+    })
+
+    it('focuses the field of the element in the current subdomain, not its namesake in another', () => {
+      useMapStore.getState().replace(sharedIdMap())
+      const { container } = render(<App />)
+      fireEvent.click(hexGroup(container, 'h2'))
+      expect(useMapStore.getState().focus).toBe('h2')
+
+      gesture(hexGroup(container, 'h2').querySelector(`[data-ref="${port.id}"]`)!)
+
+      expect((document.activeElement as HTMLInputElement).value).toBe('Second slice port')
+    })
   })
 
   it('undo restores both the map and whichever hexagon was current at edit time (FOCUS-06.1)', () => {
@@ -1268,7 +1303,7 @@ describe('expanding hexagons on a large map', () => {
         captured = blob as Blob
         return 'blob:mock'
       })
-      choose('File', 'Save (.hexa)')
+      choose('File', 'Save .hexa')
       const text = await captured!.text()
       createSpy.mockRestore()
       clickSpy.mockRestore()
@@ -1300,7 +1335,7 @@ describe('expanding hexagons on a large map', () => {
     const exported = async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Share' }))
       await act(async () => {
-        choose('Share', 'SVG')
+        choose('Share', 'Download SVG')
         await Promise.resolve()
         await Promise.resolve()
       })
@@ -1345,7 +1380,7 @@ describe('export scope (EXPORT-03)', () => {
       return 'blob:mock'
     })
 
-    choose('File', 'Save (.hexa)')
+    choose('File', 'Save .hexa')
 
     expect(clickSpy).toHaveBeenCalledTimes(1)
     const anchor = clickSpy.mock.instances[0] as HTMLAnchorElement
@@ -1368,7 +1403,7 @@ describe('export scope (EXPORT-03)', () => {
 
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     const createSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:mock')
-    choose('File', 'Save (.hexa)')
+    choose('File', 'Save .hexa')
 
     expect((clickSpy.mock.instances[0] as HTMLAnchorElement).download).toBe(`${fileSlug('Renamed whole map')}.hexa`)
     createSpy.mockRestore()
@@ -1405,7 +1440,7 @@ describe('export scope (EXPORT-03)', () => {
     pickScope('hexagon')
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -1441,7 +1476,7 @@ describe('export scope (EXPORT-03)', () => {
     // Scope defaults to Map, current hexagon (h1) unchanged: both hexagons' own headings should appear.
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -1453,7 +1488,7 @@ describe('export scope (EXPORT-03)', () => {
     pickScope('hexagon')
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -1497,7 +1532,7 @@ describe('export scope (EXPORT-03)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -1510,7 +1545,7 @@ describe('export scope (EXPORT-03)', () => {
     pickScope('hexagon')
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -1537,7 +1572,7 @@ describe('export scope (EXPORT-03)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -2070,7 +2105,7 @@ describe('journey', () => {
       captured = blob as Blob
       return 'blob:mock'
     })
-    choose('File', 'Save (.hexa)')
+    choose('File', 'Save .hexa')
     const text = await captured!.text()
     createSpy.mockRestore()
     clickSpy.mockRestore()
@@ -2276,7 +2311,7 @@ describe('journey', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -2427,7 +2462,7 @@ describe('a share link opens the map for reading', () => {
     usePreferencesStore.persist.rehydrate()
     await hashLink()
     await opened()
-    fireEvent.click(screen.getByRole('button', { name: 'View only' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Edit' }))
     expect(usePreferencesStore.getState().viewOnly).toBe(false)
     expect(localStorage.getItem('domainrings:view-only')).toBe('false')
   })
@@ -2538,7 +2573,7 @@ describe('save the current map as a .hexa file, per kind (mirrors "copy link"\'s
       captured = blob as Blob
       return 'blob:mock'
     })
-    choose('File', 'Save (.hexa)')
+    choose('File', 'Save .hexa')
     const text = await captured!.text()
     createSpy.mockRestore()
     clickSpy.mockRestore()
@@ -2577,7 +2612,7 @@ describe('save the current map as a .hexa file, per kind (mirrors "copy link"\'s
       return 'blob:mock'
     })
     onTestFinished(() => createSpy.mockRestore())
-    choose('File', 'Save (.hexa)')
+    choose('File', 'Save .hexa')
     const text = await captured!.text()
     const saved = parseHexa(text)
     expect(saved.ok && saved.map.title).toBe('Payments Core')
@@ -2850,7 +2885,7 @@ describe('Onion export (REQ-08)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -2899,7 +2934,7 @@ describe('Onion export (REQ-08)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'PNG')
+      choose('Share', 'Download PNG')
       await Promise.resolve()
       await Promise.resolve()
       await Promise.resolve()
@@ -2932,7 +2967,7 @@ describe('Onion export (REQ-08)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'PNG')
+      choose('Share', 'Download PNG')
       await new Promise((resolve) => setTimeout(resolve, 0))
     })
 
@@ -2956,7 +2991,7 @@ describe('Onion export (REQ-08)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -2994,7 +3029,7 @@ describe('Clean export (REQ-05)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'SVG')
+      choose('Share', 'Download SVG')
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -3044,7 +3079,7 @@ describe('Clean export (REQ-05)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Share' }))
     await act(async () => {
-      choose('Share', 'PNG')
+      choose('Share', 'Download PNG')
       await Promise.resolve()
       await Promise.resolve()
       await Promise.resolve()
@@ -3477,8 +3512,8 @@ describe('Onion/Clean layout is memoised across renders that do not change the d
     fireEvent.click(screen.getByRole('button', { name: 'Onion' }))
     vi.mocked(layoutOnion).mockClear()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Appearance' }))
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Dark' }))
+    fireEvent.click(screen.getByRole('button', { name: 'View options' }))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Dark' }))
 
     expect(layoutOnion).not.toHaveBeenCalled()
   })
@@ -3536,9 +3571,9 @@ describe('view-only mode', () => {
     render(<App />)
     if (kind !== 'Hexagonal') startNew(kind)
     expect(screen.getByLabelText('Diagram editor')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'View only' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'View' }))
     expect(screen.queryByLabelText('Diagram editor')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'View only' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Edit' }))
     expect(screen.getByLabelText('Diagram editor')).toBeTruthy()
   })
 
@@ -3547,7 +3582,7 @@ describe('view-only mode', () => {
     const { container } = render(<App />)
     fireEvent.click(onCanvas(container, useCaseId))
     fireEvent.keyDown(document.body, { key: 'Delete' })
-    fireEvent.click(screen.getByRole('button', { name: 'View only' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'View' }))
     fireEvent.keyDown(document.body, { key: 'z', ctrlKey: true })
     expect(currentDiagram().useCases.some((u) => u.id === useCaseId)).toBe(true)
   })
@@ -3581,10 +3616,10 @@ describe('copy PNG to the clipboard', () => {
     vi.unstubAllGlobals()
   })
 
-  it('Share > Copy PNG puts the PNG on the clipboard instead of downloading it', async () => {
+  it('Share > Copy image puts the PNG on the clipboard instead of downloading it', async () => {
     render(<App />)
     const { write, click } = stubPng()
-    choose('Share', 'Copy PNGOr press Ctrl+C')
+    choose('Share', 'Copy image')
     await settle()
     expect(write).toHaveBeenCalledTimes(1)
     expect(await copied(write)).toBe('image/png')
@@ -3626,7 +3661,7 @@ describe('copy PNG to the clipboard', () => {
     render(<App />)
     const { write } = stubPng()
     write.mockRejectedValue(new Error('Write permission denied.'))
-    choose('Share', 'Copy PNGOr press Ctrl+C')
+    choose('Share', 'Copy image')
     await settle()
     expect(screen.getByText('Copy failed: Write permission denied.')).toBeTruthy()
   })

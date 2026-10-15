@@ -58,7 +58,7 @@ export function LinksSection({
   }
 
   return (
-    <Fold id="links" title="Links" count={map.links.length}>
+    <Fold id="links" title="Links" count={map.links.length} defaultOpen={false}>
       {!map.links.length ? (
         <p className="empty">No links yet. Connect a driven port to a driving port on another hexagon.</p>
       ) : (

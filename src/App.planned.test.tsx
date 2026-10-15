@@ -45,7 +45,11 @@ beforeEach(() => {
 afterEach(cleanup)
 
 const canvas = (container: HTMLElement) => container.querySelector('svg.canvas')!
-const hidePlanned = () => fireEvent.click(screen.getByRole('switch', { name: 'Planned' }))
+const hidePlanned = () => {
+  // The View options menu stays open while toggling, so it is opened only when it is not already.
+  if (!screen.queryByRole('menu')) fireEvent.click(screen.getByRole('button', { name: 'View options' }))
+  fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /^Planned/ }))
+}
 const LEGEND_ENTRY = 'Planned: not built yet'
 
 describe('planned items on the canvas', () => {
@@ -108,16 +112,16 @@ describe('exports while planned items are hidden', () => {
 
   it('leaves them out of an SVG export', async () => {
     render(<App />)
-    expect(await exportAs('Share', 'SVG')).toContain('SubmitChatFeedback')
+    expect(await exportAs('Share', 'Download SVG')).toContain('SubmitChatFeedback')
     vi.restoreAllMocks()
     hidePlanned()
-    expect(await exportAs('Share', 'SVG')).not.toContain('SubmitChatFeedback')
+    expect(await exportAs('Share', 'Download SVG')).not.toContain('SubmitChatFeedback')
   })
 
   it('still saves them in the .hexa file', async () => {
     render(<App />)
     hidePlanned()
-    const file = JSON.parse(await exportAs('File', 'Save (.hexa)'))
+    const file = JSON.parse(await exportAs('File', 'Save .hexa'))
     expect(file.hexagons[0].useCases[0].status).toBe('planned')
     expect(file.hexagons).toHaveLength(2)
   })

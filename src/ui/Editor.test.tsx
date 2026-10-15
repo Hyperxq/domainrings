@@ -46,27 +46,27 @@ const renderEditor = (
   )
 const section = (container: HTMLElement, title: string) =>
   [...container.querySelectorAll('details')].find((d) => d.querySelector(':scope > summary h2')?.textContent === title) as HTMLDetailsElement
+const settings = (container: HTMLElement) => section(container, 'Diagram settings · layers, titles')
 const subdomain = (container: HTMLElement) => container.querySelector<HTMLElement>('[data-subdomain]')!
 const port = EXAMPLE_DIAGRAM.ports[0]
 
 describe('collapsible editor sections', () => {
-  it('starts with the focused branch and its sections open, each summary showing its title and item count', () => {
+  it('starts with Layers open inside the collapsed Diagram settings', () => {
     const { container } = renderEditor()
-    const titles = ['Map', 'Context 1', EXAMPLE_DIAGRAM.title, 'Layers', 'Domain', 'Use cases', 'Ports', 'Adapters', 'Actors', 'External systems']
-    for (const title of titles) expect(section(container, title).open).toBe(true)
-    expect(section(container, 'Ports').querySelector('summary')!.textContent).toBe(`Ports· ${EXAMPLE_DIAGRAM.ports.length}`)
+    expect(settings(container).open).toBe(false)
+    expect(section(container, 'Layers').open).toBe(true)
   })
 
   it('hides a section’s cards when its summary is clicked, and remembers it across mounts', () => {
     const { container, unmount } = renderEditor()
     fireEvent.click(section(container, 'Ports').querySelector('summary')!)
-    expect(section(container, 'Ports').open).toBe(false)
-    expect(JSON.parse(localStorage.getItem(SECTIONS_KEY)!)).toEqual({ 'h1:ports': false })
+    expect(section(container, 'Ports').open).toBe(true)
+    expect(JSON.parse(localStorage.getItem(SECTIONS_KEY)!)).toEqual({ 'h1:ports': true })
 
     unmount()
     const again = renderEditor().container
-    expect(section(again, 'Ports').open).toBe(false)
-    expect(section(again, 'Adapters').open).toBe(true)
+    expect(section(again, 'Ports').open).toBe(true)
+    expect(section(again, 'Adapters').open).toBe(false)
   })
 
   it('adds an item from the "+" without toggling the section', () => {
@@ -91,7 +91,7 @@ describe('collapsible editor sections', () => {
 describe('map and hexagon titles (TITLE-01, TITLE-02)', () => {
   it('shows distinct, clearly labelled Map and Subdomain title fields, and no field labelled plain "Title" (TITLE-02.1)', () => {
     const { container } = renderEditor()
-    const mapSection = within(section(container, 'Map'))
+    const mapSection = within(settings(container))
     const hexagonSection = within(subdomain(container))
     expect(mapSection.getByLabelText('Map title')).toBeInstanceOf(HTMLInputElement)
     expect(hexagonSection.getAllByLabelText('Subdomain title')).toHaveLength(1)
@@ -109,7 +109,6 @@ describe('map and hexagon titles (TITLE-01, TITLE-02)', () => {
     useMapStore.getState().replace(toMap({ ...EXAMPLE_DIAGRAM, title: '' }))
     renderEditor()
     expect(screen.getByRole('heading', { level: 2, name: 'Untitled hexagon' })).toBeInstanceOf(HTMLHeadingElement)
-    expect(screen.getByRole('heading', { level: 2, name: 'Untitled subdomain' })).toBeInstanceOf(HTMLHeadingElement)
   })
 
   it('editing the map title updates only the map, leaving every hexagon untouched (TITLE-01.1)', () => {
@@ -117,7 +116,7 @@ describe('map and hexagon titles (TITLE-01, TITLE-02)', () => {
     const otherHexagon = { ...base.hexagons[0], id: 'h2', cell: { q: 1, r: 0 }, title: 'Second slice' }
     useMapStore.getState().replace({ ...base, hexagons: [base.hexagons[0], otherHexagon] })
     const { container } = renderEditor()
-    const mapTitleInput = within(section(container, 'Map')).getByLabelText('Map title')
+    const mapTitleInput = within(settings(container)).getByLabelText('Map title')
 
     fireEvent.change(mapTitleInput, { target: { value: 'Renamed map' } })
 
@@ -217,38 +216,32 @@ describe('panel hierarchy', () => {
   }
   const inDomOrder = (els: Element[]) => els.every((el, i) => i === 0 || !!(els[i - 1].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING))
 
-  it('reads top-down: map title, context, subdomain headers and details, layers, elements, then links', () => {
+  it('reads top-down: elements, then links, then the diagram settings from map title to layers', () => {
     twoContextsWithSiblings()
     const { container } = renderEditor()
     const headings = (title: string) => section(container, title).querySelector('summary')!
     expect(
       inDomOrder([
+        headings('Ports'),
+        headings('Links'),
+        headings('Diagram settings · layers, titles'),
         screen.getByLabelText('Map title'),
         screen.getByLabelText('Name for Context 1'),
-        headings('Invoices'),
         screen.getByLabelText('Subdomain title'),
         screen.getByLabelText('Composition root'),
         screen.getByRole('button', { name: 'Delete subdomain' }),
         headings('Layers'),
-        headings('Ports'),
-        headings('Payments'),
-        headings('Context 2'),
-        headings('Links'),
       ]),
     ).toBe(true)
   })
 
-  it('lists every occupied context, none of the empty ones, and opens a context’s subdomains on demand', () => {
+  it('names every occupied context and none of the empty ones, without listing their subdomains', () => {
     twoContextsWithSiblings()
     const { container } = renderEditor()
-    expect(section(container, 'Context 2')).toBeTruthy()
-    expect(section(container, 'Context 9')).toBeUndefined()
+    expect(screen.getByLabelText('Name for Context 1')).toBeTruthy()
+    expect(screen.getByLabelText('Name for Context 2')).toBeTruthy()
+    expect(screen.queryByLabelText('Name for Context 9')).toBeNull()
     expect(section(container, 'Shipping')).toBeUndefined()
-
-    fireEvent.click(section(container, 'Context 2').querySelector('summary')!)
-
-    expect(within(section(container, 'Context 2')).getByLabelText('Name for Context 2')).toBeTruthy()
-    expect(section(container, 'Shipping')).toBeTruthy()
   })
 
   it('has no separate other-contexts fold: the tree covers every context', () => {
@@ -262,14 +255,14 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
 
   it('shows one input per context, labelled by its stable ordinal, with the name (or none) as its value', () => {
     const { container } = renderEditor()
-    const input = within(section(container, 'Context 1')).getByLabelText('Name for Context 1') as HTMLInputElement
+    const input = within(settings(container)).getByLabelText('Name for Context 1') as HTMLInputElement
     expect(input.value).toBe('')
   })
 
   it('typing a name updates the store immediately, so the chip can follow live (NAME-02.1)', () => {
     const contextId = useMapStore.getState().map.contexts[0].id
     const { container } = renderEditor()
-    const input = within(section(container, 'Context 1')).getByLabelText('Name for Context 1')
+    const input = within(settings(container)).getByLabelText('Name for Context 1')
 
     fireEvent.change(input, { target: { value: 'Billing' } })
 
@@ -281,7 +274,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
     const contextId = useMapStore.getState().map.contexts[0].id
     const beforeMap = useMapStore.getState().map
     const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', onRenameContext)
-    const input = within(section(container, 'Context 1')).getByLabelText('Name for Context 1')
+    const input = within(settings(container)).getByLabelText('Name for Context 1')
 
     fireEvent.focus(input)
     fireEvent.change(input, { target: { value: 'Billing' } })
@@ -296,7 +289,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
   it('keeps a trailing space live while typing, trimming only when the rename commits on blur (NAME-02.3)', () => {
     const contextId = useMapStore.getState().map.contexts[0].id
     const { container } = renderEditor()
-    const input = within(section(container, 'Context 1')).getByLabelText('Name for Context 1') as HTMLInputElement
+    const input = within(settings(container)).getByLabelText('Name for Context 1') as HTMLInputElement
 
     fireEvent.change(input, { target: { value: 'Order ' } })
     expect(input.value).toBe('Order ')
@@ -310,7 +303,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
   it('a whitespace-only name clears to the placeholder once the rename commits on blur (NAME-02.3)', () => {
     const contextId = useMapStore.getState().map.contexts[0].id
     const { container } = renderEditor()
-    const input = within(section(container, 'Context 1')).getByLabelText('Name for Context 1') as HTMLInputElement
+    const input = within(settings(container)).getByLabelText('Name for Context 1') as HTMLInputElement
 
     fireEvent.change(input, { target: { value: '   ' } })
     fireEvent.blur(input)
@@ -324,7 +317,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
     const onRenameContext = vi.fn()
     const contextId = useMapStore.getState().map.contexts[0].id
     const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', onRenameContext)
-    const input = within(section(container, 'Context 1')).getByLabelText('Name for Context 1')
+    const input = within(settings(container)).getByLabelText('Name for Context 1')
 
     fireEvent.focus(input)
     fireEvent.change(input, { target: { value: '  Billing ' } })
@@ -344,7 +337,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
       contexts: useMapStore.getState().map.contexts.map((c) => (c.id === contextId ? { id: c.id } : c)),
     })
     const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', onRenameContext)
-    const input = within(section(container, 'Context 1')).getByLabelText('Name for Context 1')
+    const input = within(settings(container)).getByLabelText('Name for Context 1')
 
     fireEvent.focus(input)
     fireEvent.change(input, { target: { value: 'Context 1' } })
@@ -360,7 +353,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
   it('does not report a blur that never changed the name', () => {
     const onRenameContext = vi.fn()
     const { container } = renderEditor(() => {}, () => {}, undefined, 'Context 1', onRenameContext)
-    const input = within(section(container, 'Context 1')).getByLabelText('Name for Context 1')
+    const input = within(settings(container)).getByLabelText('Name for Context 1')
 
     fireEvent.focus(input)
     fireEvent.blur(input)
@@ -375,7 +368,7 @@ describe('Bounded contexts (NAME-01..03, CB-05.2)', () => {
 })
 
 describe('"Add subdomain from file…" in the Map section (IMP-01, IMP-01.4)', () => {
-  const trigger = (container: HTMLElement) => within(section(container, 'Map')).getByRole('button', { name: 'Add subdomain from file…' })
+  const trigger = (container: HTMLElement) => within(settings(container)).getByRole('button', { name: 'Add subdomain from file…' })
   const pick = async (name = 'billing.hexa') => {
     const file = new File(['{}'], name, { type: 'application/json' })
     const input = screen.getByLabelText('Add subdomain from a .hexa file') as HTMLInputElement
@@ -412,7 +405,7 @@ describe('"Add subdomain from file…" in the Map section (IMP-01, IMP-01.4)', (
   it('offers "Import into {context}" and "Import into a new bounded context" once the file asks for a destination', async () => {
     const { container } = renderEditor(() => {}, () => {}, async () => () => {}, 'Billing')
     await pick()
-    const map = within(section(container, 'Map'))
+    const map = within(settings(container))
     expect(map.getByRole('menuitem', { name: 'Import into Billing' })).toBeTruthy()
     expect(map.getByRole('menuitem', { name: 'Import into a new bounded context' })).toBeTruthy()
   })
