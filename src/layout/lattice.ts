@@ -108,6 +108,17 @@ export const hexagonBounds = (hex: Pick<MapHexagonLayout, 'model' | 'centre' | '
   return { x: own.x + hex.centre.x, y: own.y + hex.centre.y, width: own.width, height: own.height }
 }
 
+/** The export frame around `bounds`: with `guides` shown, grown to hold every corridor guide of every full hexagon, since the external band's lies outside the layout bounds. */
+export const withGuides = (bounds: Box, hexagons: Pick<MapHexagonLayout, 'model' | 'centre' | 'compact'>[], guides: boolean): Box =>
+  guides
+    ? unionBox([
+        bounds,
+        ...hexagons
+          .filter((h) => !h.compact)
+          .flatMap(({ model, centre }) => model.corridors.map(({ halfWidth, apex }) => ({ x: centre.x - halfWidth, y: centre.y - apex, width: 2 * halfWidth, height: 2 * apex }))),
+      ])
+    : bounds
+
 /** A hexagon's position on the affine pointy-top lattice: {0,0} sits at the origin, `e` steps by `pitch.x`,
  * `se`/`sw` by half that plus `pitch.y` down (ADR-01). */
 export function cellCentre(cell: { q: number; r: number }, pitch: Point): Point {
