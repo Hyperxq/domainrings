@@ -62,7 +62,7 @@ npx @pbuilder/domainrings render map.hexa --flow all --out docs/flows
 npx @pbuilder/domainrings render map.hexa --flow PlaceOrder --format svg --palette cool --theme light
 ```
 
-`--palette` takes `default`, `purple`, `terracotta` or `cool`; `--theme` takes `dark` or `light`.
+`--palette` takes `default`, `purple`, `terracotta` or `cool` (default `purple`); `--theme` takes `dark` or `light` (default `dark`).
 
 ## AI assistant skill
 
