@@ -1,4 +1,5 @@
 import { createContext, Fragment, useContext, useId, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { rootAggregates } from '../model/aggregateIds'
 import { linkTargets } from '../model/links'
 import { diagramOf } from '../model/map'
 import { defaultWall, WallSchema, type Side } from '../model/schema'
@@ -25,7 +26,7 @@ export function useInspectedFlow() {
   return viewOnly ? undefined : useCase
 }
 
-type Kind = 'actor' | 'port' | 'driving' | 'driven'
+type Kind = 'actor' | 'port' | 'driving' | 'driven' | 'aggregate'
 /** Which step's note field is open, and which steps already carry a note. */
 const Notes = createContext<{ open?: string; toggle: (id: string) => void; written: Set<string> }>({ toggle: () => {}, written: new Set() })
 
@@ -113,6 +114,22 @@ export function FlowInspector() {
   const free = (key: 'ports' | 'adapters' | 'actors', targetId: string, side?: Side): Named[] =>
     d[key].filter((i) => (!side || ('side' in i && i.side === side)) && linkTargets(d, i.id).some((t) => t.targetRef === targetId))
 
+  const decides = (useCase.aggregateIds ?? []).flatMap((id) => d.domain.filter((i) => i.id === id))
+  const linkAggregate = (name: string) => {
+    const wanted = name.trim()
+    if (!wanted) return 'Type a name first'
+    const hit = rootAggregates(d).find((a) => a.name.toLowerCase() === wanted.toLowerCase())
+    if (hit && useCase.aggregateIds?.includes(hit.id)) return 'Already in this flow'
+    record(before)
+    const id = hit?.id ?? addItem(hexId, 'domain', { name: wanted, type: 'aggregate' })
+    typed({ aggregateIds: [...(useCase.aggregateIds ?? []), id] })
+  }
+  const unlinkAggregate = (id: string) => {
+    record(before)
+    const left = (useCase.aggregateIds ?? []).filter((a) => a !== id)
+    typed({ aggregateIds: left.length ? left : undefined })
+  }
+
   const entries = d.ports.filter((p) => p.side === 'driving' && p.useCaseId === useCase.id)
   const calls = d.ports.filter((p) => p.side === 'driven' && p.useCaseId === useCase.id)
   const externals = (portId: string): Named[] => d.adapters.filter((a) => a.portId === portId).flatMap((a) => d.externals.filter((e) => e.adapterId === a.id))
@@ -167,7 +184,18 @@ export function FlowInspector() {
         <AddName wide label="Add a way in" placeholder="type a port name" options={free('ports', useCase.id, 'driving')} onAdd={(name) => connect('ports', 'useCaseId', name, useCase.id, { side: 'driving', wall: defaultWall('driving') })} />
 
         <h3 className="flow-step">2 · WHAT IT DECIDES WITH</h3>
-        <p className="flows-help">Available once use cases can list their aggregates.</p>
+        <ul className="flow-list" aria-label="What it decides with">
+          {decides.map((a) => (
+            <li key={a.id} className="flow-chain">
+              <Chip kind="aggregate" id={a.id}>◆ {a.name}</Chip>
+              <button type="button" className="icon-button small" aria-label={`Remove aggregate ${a.name}`} title="Remove aggregate" onClick={() => unlinkAggregate(a.id)}>
+                <Icon name="close" />
+              </button>
+            </li>
+          ))}
+        </ul>
+        {noteField(decides)}
+        <AddName wide label="Add aggregate" placeholder="+ domain item" options={rootAggregates(d).filter((a) => !useCase.aggregateIds?.includes(a.id))} onAdd={linkAggregate} />
 
         <h3 className="flow-step">3 · WHAT IT CALLS</h3>
         <ul className="flow-list" aria-label="What it calls">

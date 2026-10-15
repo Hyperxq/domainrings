@@ -31,7 +31,7 @@ function adaptersBySide(d: Diagram) {
   return (side: Side) => d.adapters.filter((a) => (a.portId ? portSide.get(a.portId) === side : true))
 }
 
-/** The six collection sections of one hexagon (domain, use cases, ports, adapters, actors, external systems), each
+/** The collection sections of one hexagon (domain, ports, adapters, actors, external systems), each
  * configured with the extra fields its items carry. */
 export function CollectionSections({
   hexId,
@@ -44,7 +44,6 @@ export function CollectionSections({
 }) {
   const labels = HEXAGONAL_KIND.labels
   const adaptersOn = adaptersBySide(diagram)
-  const aggregates = diagram.domain.filter((i) => i.type === 'aggregate' && !i.parentId)
   const sideLabel: Record<Side, string> = { driving: labels.drivingPort, driven: labels.drivenPort }
   return (
     <>
@@ -65,45 +64,6 @@ export function CollectionSections({
               </select>
             </label>
             <LinkSelect label="Belongs to" value={item.parentId} options={parentCandidates(diagram.domain, item.id)} onChange={(parentId) => update({ parentId })} />
-          </>
-        )}
-      />
-
-      <ItemSection
-        hexId={hexId}
-        map={map}
-        collection="useCases"
-        items={diagram.useCases}
-        title="Use cases"
-        noun="use case"
-        empty="No use cases yet. Add what the application does."
-        fields={(item, update) => (
-          <>
-            <label className="field">
-              <span>Placement</span>
-              <select aria-label="Placement" value={item.placement ?? 'top'} onChange={(e) => update({ placement: e.target.value === 'top' ? undefined : WallSchema.parse(e.target.value) })}>
-                <option value="top">Under the title</option>
-                {WallSchema.options.map((w) => <option key={w} value={w}>{WALL_LABEL[w]}</option>)}
-              </select>
-            </label>
-            {aggregates.length > 0 && (
-              <fieldset className="aggregates">
-                <legend>Aggregates</legend>
-                {aggregates.map((a) => (
-                  <label key={a.id}>
-                    <input
-                      type="checkbox"
-                      checked={item.aggregateIds?.includes(a.id) ?? false}
-                      onChange={(e) => {
-                        const next = (item.aggregateIds ?? []).filter((id) => id !== a.id).concat(e.target.checked ? [a.id] : [])
-                        update({ aggregateIds: next.length ? next : undefined })
-                      }}
-                    />
-                    <span>{a.name}</span>
-                  </label>
-                ))}
-              </fieldset>
-            )}
           </>
         )}
       />

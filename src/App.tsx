@@ -22,7 +22,8 @@ import { useUndoHistory } from './ui/useUndoHistory'
 import { usePreferencesStore } from './ui/state/preferencesStore'
 import { useViewStore } from './ui/state/viewStore'
 import { encodeSharePayload, isOversizedShareLink, shareLinkURL } from './ui/shareLink'
-import { useShareLinkOnMount } from './ui/useShareLinkOnMount'
+import { useShareLink } from './ui/useShareLink'
+import { LinkLoader } from './ui/LinkLoader'
 import type { UndoSnapshot } from './ui/notice'
 import { CleanWorkspace } from './ui/CleanWorkspace'
 import { HexagonalWorkspace } from './ui/HexagonalWorkspace'
@@ -115,7 +116,7 @@ export function App({ boot = {} }: AppProps = {}) {
     return items.find((i) => i.id === ref)?.name ?? ''
   }
 
-  useShareLinkOnMount({ parseSource, swap })
+  const { opening } = useShareLink({ parseSource, swap })
 
   // REQ-05/06: the ACTIVE document's whole file (`active.file`, the same single resolution `exportAs` uses) —
   // not always the Hexagonal map, and never scoped to one hexagon, which "Copy link" never promises.
@@ -198,6 +199,7 @@ export function App({ boot = {} }: AppProps = {}) {
           onClose={() => useNoticeStore.setState({ notice: null })}
         />
       )}
+      {opening && <LinkLoader />}
       <NoticeColumn />
     </>
   )

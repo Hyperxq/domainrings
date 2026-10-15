@@ -153,6 +153,29 @@ describe('flowChain', () => {
   })
 })
 
+describe('flowOf with aggregates', () => {
+  const domain = [{ id: 'o', name: 'Order', type: 'aggregate' as const }, { id: 'c', name: 'Cart', type: 'aggregate' as const }]
+  const withUseCase = (uc: object) => mapOf([hexagon('h1', { domain, useCases: [{ id: 'u', name: 'Charge', ...uc }], ports: [{ id: 'in1', name: 'in1', side: 'driving', useCaseId: 'u' }, { id: 'out1', name: 'out1', side: 'driven', useCaseId: 'u' }] })])
+
+  it('walks the aggregates right after the use case, in array order, with their step notes', () => {
+    const flow = flowOf(withUseCase({ aggregateIds: ['c', 'o'], stepNotes: { o: 'Locks the order' } }), 'h1', 'u')
+    expect(chain(flow)).toBe('in1 > Charge > Cart > Order > out1')
+    expect(flow.steps.filter((s) => s.role === 'aggregate')).toEqual([
+      { role: 'aggregate', hexId: 'h1', id: 'c', name: 'Cart' },
+      { role: 'aggregate', hexId: 'h1', id: 'o', name: 'Order', note: 'Locks the order' },
+    ])
+  })
+
+  it('skips ids that name no domain item', () => {
+    expect(chain(flowOf(withUseCase({ aggregateIds: ['gone', 'o'] }), 'h1', 'u'))).toBe('in1 > Charge > Order > out1')
+  })
+
+  it('lights the aggregate cards in the emphasis chain', () => {
+    const map = withUseCase({ aggregateIds: ['o'] })
+    expect(flowChain(map, flowOf(map, 'h1', 'u')).elements.get('h1')).toContain('o')
+  })
+})
+
 describe('flowOf with a dangling link', () => {
   const base = (links: HexaMap['links']) =>
     mapOf(

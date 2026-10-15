@@ -46,6 +46,7 @@ export function useStageViewport({
     wholeFitScale: wholeFit.scale,
     fitKey,
     size,
+    snapKey: fitKey,
     onPanStart,
   })
   const { view, heading, setView } = interactions

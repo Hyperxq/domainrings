@@ -90,20 +90,17 @@ const recoveryEl = () => screen.queryAllByRole('status').find((el) => el.classLi
 describe('double-click to edit', () => {
   const useCase = EXAMPLE_DIAGRAM.useCases[0]
 
-  it('opens the collapsed editor at the use case card, flashes it and selects its name', () => {
+  it('focuses the use case flow in the inspector and selects its name', () => {
     const { container } = render(<App />)
-    expect(screen.getByRole('button', { name: 'Expand editor' })).toBeInstanceOf(HTMLButtonElement)
+    expect(screen.queryByRole('complementary', { name: 'Flow inspector' })).toBeNull()
 
     const notPrevented = fireEvent.doubleClick(onCanvas(container, useCase.id))
 
     expect(notPrevented).toBe(false)
-    expect(screen.getByRole('button', { name: 'Collapse editor' })).toBeInstanceOf(HTMLButtonElement)
-    expect(scrollIntoView).toHaveBeenCalledTimes(1)
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' })
-    expect(scrollIntoView.mock.contexts[0]).toBe(card(container, useCase.id))
-    expect(card(container, useCase.id).classList.contains('is-flash')).toBe(true)
+    expect(screen.getByRole('complementary', { name: 'Flow inspector' })).toBeTruthy()
+    expect(card(container, useCase.id)).toBeNull()
     const input = document.activeElement as HTMLInputElement
-    expect(card(container, useCase.id).contains(input)).toBe(true)
+    expect(input).toBe(screen.getByLabelText('Flow name'))
     expect(input.value).toBe(useCase.name)
     expect([input.selectionStart, input.selectionEnd]).toEqual([0, useCase.name.length])
   })
@@ -133,7 +130,7 @@ describe('double-click to edit', () => {
 
     fireEvent.keyDown(node, { key: 'Enter' })
 
-    expect((document.activeElement as HTMLInputElement).value).toBe(useCase.name)
+    expect(document.activeElement).toBe(screen.getByLabelText('Flow name'))
   })
 })
 
@@ -178,9 +175,9 @@ describe('selection and delete on the canvas', () => {
 
   it('never deletes while typing in an editor field', () => {
     const { container } = render(<App />)
-    fireEvent.click(onCanvas(container, useCase.id))
-    const input = card(container, useCase.id).querySelector('input')!
-    input.focus()
+    fireEvent.doubleClick(onCanvas(container, useCase.id))
+    const input = screen.getByLabelText('Flow name')
+    expect(document.activeElement).toBe(input)
     fireEvent.keyDown(input, { key: 'Backspace' })
     fireEvent.keyDown(input, { key: 'Delete' })
     expect(currentDiagram()).toEqual(EXAMPLE_DIAGRAM)

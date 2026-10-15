@@ -25,7 +25,6 @@ const group = (container: HTMLElement, title: string) =>
 const SETTINGS = 'Diagram settings · layers, titles'
 const counts: [string, number][] = [
   ['Domain', EXAMPLE_DIAGRAM.domain.length],
-  ['Use cases', EXAMPLE_DIAGRAM.useCases.length],
   ['Ports', EXAMPLE_DIAGRAM.ports.length],
   ['Adapters', EXAMPLE_DIAGRAM.adapters.length],
   ['Actors', EXAMPLE_DIAGRAM.actors.length],
@@ -61,12 +60,10 @@ describe('Elements', () => {
     expect((document.activeElement as HTMLInputElement).value).toBe(port.name)
   })
 
-  it('keeps the use case fields (placement, planned, note, remove) reachable', () => {
+  it('leaves use cases to the Flows section and the inspector', () => {
     const { container } = renderEditor()
-    const useCases = within(group(container, 'Use cases'))
-    expect(useCases.getAllByLabelText('Placement').length).toBeGreaterThan(0)
-    expect(useCases.getAllByRole('button', { name: /^Remove use case/ }).length).toBeGreaterThan(0)
-    expect(useCases.getAllByText('Note').length).toBeGreaterThan(0)
+    expect(group(container, 'Use cases')).toBeUndefined()
+    expect(container.querySelector('[data-item-id="' + EXAMPLE_DIAGRAM.useCases[0].id + '"]')).toBeNull()
   })
 })
 

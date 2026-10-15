@@ -144,9 +144,12 @@ describe('Hexagonal editor field sessions', () => {
   const discrete: [string, () => void][] = [
     ['adding an item', () => fireEvent.click(screen.getByRole('button', { name: 'Add domain item' }))],
     ['adding a port', () => fireEvent.click(screen.getByRole('button', { name: 'Add a driving port' }))],
-    ['removing an item', () => fireEvent.click(screen.getAllByRole('button', { name: /^Remove use case / })[0])],
+    ['removing an item', () => fireEvent.click(screen.getAllByRole('button', { name: /^Remove port / })[0])],
     ['changing an item type', () => fireEvent.change(screen.getAllByLabelText('Type')[0], { target: { value: 'valueObject' } })],
-    ['changing a use case placement', () => fireEvent.change(screen.getAllByLabelText('Placement')[0], { target: { value: 'nw' } })],
+    ['changing a flow placement', () => {
+      act(() => useViewStore.getState().focusFlow(EXAMPLE_DIAGRAM.useCases[0].id))
+      fireEvent.change(screen.getByLabelText('Flow placement'), { target: { value: 'nw' } })
+    }],
   ]
 
   it.each(discrete)('records one silent step for %s', (_name, act) => {
@@ -194,10 +197,11 @@ describe('a field session cut short by unmounting', () => {
   it('is recorded when its item is removed without a blur', () => {
     render(<App />)
     expandEditor()
-    const name = screen.getAllByLabelText('use case name')[0] as HTMLInputElement
-        fireEvent.focus(name)
+    act(() => useViewStore.getState().focusFlow(EXAMPLE_DIAGRAM.useCases[0].id))
+    const name = screen.getByLabelText('Flow name') as HTMLInputElement
+    fireEvent.focus(name)
     fireEvent.change(name, { target: { value: 'Typed' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Remove use case Typed' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete flow' }))
 
     undoKey()
     expect(screen.queryByText(/Undo isn't available/)).toBeNull()
@@ -211,7 +215,8 @@ describe('a field session cut short by unmounting', () => {
     render(<App />)
     const pristine = doc()
     expandEditor()
-    const name = screen.getAllByLabelText('use case name')[0]
+    act(() => useViewStore.getState().focusFlow(twoHexMap().hexagons[0].useCases[0].id))
+    const name = screen.getByLabelText('Flow name')
     fireEvent.focus(name)
     fireEvent.change(name, { target: { value: 'Typed' } })
     act(() => useMapStore.getState().setFocus('h2'))
@@ -353,12 +358,12 @@ describe('the undo refusal gate stays a safety net', () => {
     expandEditor()
     session(screen.getByLabelText('Map title'), 'Retitled')
     session(screen.getAllByLabelText('domain item name')[0], 'Renamed')
-    fireEvent.click(screen.getByRole('button', { name: 'Add use case' }))
-    fireEvent.change(screen.getAllByLabelText('Placement')[0], { target: { value: 'nw' } })
+    fireEvent.click(screen.getByRole('button', { name: '+ New flow' }))
+    fireEvent.change(screen.getByLabelText('Flow placement'), { target: { value: 'nw' } })
     hover('application')
     act(() => fireEvent.click(screen.getByRole('button', { name: 'Add a use case on the south-west wall' })))
     fireEvent.keyDown(screen.getByRole('textbox', { name: 'Name' }), { key: 'Enter' })
-    fireEvent.click(screen.getAllByRole('button', { name: /^Remove use case / })[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Delete flow' }))
 
     newOf('Onion')
     hover('domain')

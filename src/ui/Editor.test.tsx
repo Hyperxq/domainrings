@@ -635,44 +635,6 @@ describe('Links section (REQ-LNK-01, REQ-LNK-07)', () => {
   })
 })
 
-describe('use case placement', () => {
-  const uc = EXAMPLE_DIAGRAM.useCases[0]
-  const placementOf = () => currentDiagram().useCases.find((u) => u.id === uc.id)!.placement
-
-  // The circle-shape (Clean/Onion) "no wall select" half of this used a Clean-kind HexaMap, no longer reachable
-  // through the store (REQ-01) — the shape-gating itself still lives in layout.ts, untouched by this change.
-  it('offers the stack under the title or any wall, in hexagons only', () => {
-    const { container } = renderEditor()
-    const select = container.querySelector<HTMLSelectElement>(`[data-item-id="${uc.id}"] select[aria-label="Placement"]`)!
-    expect([...select.options].map((o) => o.textContent)).toEqual(['Under the title', 'North-west', 'West', 'South-west', 'North-east', 'East', 'South-east'])
-    fireEvent.change(select, { target: { value: 'nw' } })
-    expect(placementOf()).toBe('nw')
-    fireEvent.change(select, { target: { value: 'top' } })
-    expect(placementOf()).toBeUndefined()
-  })
-})
-
-describe('use case aggregates', () => {
-  const uc = EXAMPLE_DIAGRAM.useCases[0]
-  const aggregate = EXAMPLE_DIAGRAM.domain.find((i) => i.type === 'aggregate')!
-  const idsOf = () => currentDiagram().useCases.find((u) => u.id === uc.id)!.aggregateIds
-  const group = (container: HTMLElement) => within(container.querySelector<HTMLElement>(`[data-item-id="${uc.id}"]`)!).getByRole('group', { name: 'Aggregates' })
-
-  it('lists the diagram’s aggregates as checkboxes and no other domain item', () => {
-    const { container } = renderEditor()
-    const names = within(group(container)).getAllByRole('checkbox').map((c) => c.closest('label')!.textContent)
-    expect(names).toEqual(EXAMPLE_DIAGRAM.domain.filter((i) => i.type === 'aggregate').map((i) => i.name))
-  })
-
-  it('binds the checked ones to the use case, and drops the field once none is left', () => {
-    const { container } = renderEditor()
-    fireEvent.click(within(group(container)).getByRole('checkbox', { name: aggregate.name }))
-    expect(idsOf()).toEqual([aggregate.id])
-    fireEvent.click(within(group(container)).getByRole('checkbox', { name: aggregate.name }))
-    expect(idsOf()).toBeUndefined()
-  })
-})
-
 describe('"Move to context…" in the Hexagon section', () => {
   const twoContexts = () => {
     const base = twoHexMap()
