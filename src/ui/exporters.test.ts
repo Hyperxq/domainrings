@@ -397,7 +397,9 @@ describe('svgMarkup flow frame', () => {
     }
     const hulls = document.createElementNS(NS, 'g')
     hulls.setAttribute('data-hulls', '')
-    hulls.appendChild(document.createElementNS(NS, 'path')).setAttribute('data-hull', 'c1')
+    const hullPath = hulls.appendChild(document.createElementNS(NS, 'path'))
+    hullPath.setAttribute('data-hull', 'c1')
+    hullPath.setAttribute('d', 'M hull c1')
     const chip = document.createElementNS(NS, 'text')
     chip.setAttribute('data-chip', 'c1')
     chip.textContent = 'Context 1'
@@ -411,7 +413,7 @@ describe('svgMarkup flow frame', () => {
     document.body.appendChild(svg)
     return svg
   }
-  const options = { legend: true, legendHeight: 40, only: new Set(['h1', 'h2']), links: new Set(['l12']) }
+  const options = { legend: true, legendHeight: 40, only: new Set(['h1', 'h2']), links: new Set(['l12']), contexts: new Set(['c1']) }
 
   it('keeps exactly the framed hexagons and only the links between them', async () => {
     const markup = await svgMarkup(threeHexagons(), bounds, 'T', options)
@@ -427,14 +429,20 @@ describe('svgMarkup flow frame', () => {
   it('keeps the context hulls and chips, drops the map title, and never draws the multi-hexagon legend', async () => {
     const markup = await svgMarkup(threeHexagons(), bounds, 'T', options)
     expect(markup).toContain('Context 1')
-    expect(markup).toMatch(/<g[^>]*>\s*<path/)
+    expect(markup).toContain('M hull c1')
     expect(markup).not.toContain('Map title')
     expect(markup).not.toContain('Legend')
     expect(markup).toContain(`viewBox="${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}"`)
   })
 
+  it('drops the hull and chip of a context the frame does not hold whole', async () => {
+    const markup = await svgMarkup(threeHexagons(), bounds, 'T', { ...options, contexts: new Set() })
+    expect(markup).not.toContain('Context 1')
+    expect(markup).not.toContain('M hull c1')
+  })
+
   it('draws the legend for a frame holding one hexagon, as a single-hexagon scope does', async () => {
-    const markup = await svgMarkup(threeHexagons(), bounds, 'T', { ...options, only: new Set(['h1']), links: new Set() })
+    const markup = await svgMarkup(threeHexagons(), bounds, 'T', { ...options, only: new Set(['h1']), links: new Set(), contexts: new Set() })
     expect(markup).toContain('Legend')
   })
 })

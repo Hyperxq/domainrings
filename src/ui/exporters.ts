@@ -45,9 +45,10 @@ export interface ExportOptions {
   /** Restricts the export to these hexagons' `[data-hex]` groups — every other hexagon, the map links and the map
    * title are dropped (EXPORT-02). Omitted (or unset) exports the whole map (EXPORT-01). */
   only?: ReadonlySet<string>
-  /** A frame around several hexagons: keeps these map links (by id) and the context hulls and chips, which a
+  /** A frame around several hexagons: keeps these map links (by id) and the hulls and chips of `contexts`, which a
    * single-hexagon scope drops. Only read together with `only`. */
   links?: ReadonlySet<string>
+  contexts?: ReadonlySet<string>
 }
 
 /** The exported frame: the diagram bounds, grown downward to make room for the legend when it is included. */
@@ -99,12 +100,15 @@ export async function svgMarkup(svg: SVGSVGElement, bounds: Box, title: string, 
   // context's hull/chip — none of which make sense scoped to one hexagon — are dropped entirely, not just
   // stripped of their scoping attribute. A flow frame keeps its own links and the hulls and chips.
   if (options.only) {
-    const { only, links } = options
+    const { only, links, contexts } = options
     hexGroups.forEach((g) => {
       if (!only.has(g.getAttribute('data-hex')!)) g.remove()
     })
     clone.querySelectorAll(links ? '[data-map-title]' : '[data-map-link], [data-map-title], [data-hulls], [data-chip], [data-link-pattern]').forEach((el) => el.remove())
     if (links) {
+      clone.querySelectorAll('[data-hull], [data-chip]').forEach((el) => {
+        if (!contexts?.has(el.getAttribute('data-hull') ?? el.getAttribute('data-chip')!)) el.remove()
+      })
       clone.querySelectorAll('[data-map-link], [data-link-pattern]').forEach((el) => {
         if (!links.has(el.getAttribute('data-map-link') ?? el.getAttribute('data-link-pattern')!)) el.remove()
       })

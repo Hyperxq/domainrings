@@ -80,7 +80,7 @@ export function App({ boot = {} }: AppProps = {}) {
   const scoped = canScopeExport && exportScope === 'hexagon'
   const focusedFlow = useViewStore((s) => s.focusedFlow)
   const framedFlow = useViewStore((s) => s.framedFlow)
-  const frame = activeKind === 'hexagonal' && !scoped && framedFlow !== null && framedFlow === focusedFlow ? flowFrame(map, hexId, framedFlow, model.hexagons, showGuides) : undefined
+  const frame = activeKind === 'hexagonal' && !scoped && framedFlow !== null && framedFlow === focusedFlow ? flowFrame(map, hexId, framedFlow, model, showGuides) : undefined
   const active =
     activeKind === 'onion'
       ? { file: onionMap, bounds: onionModel!.bounds, title: onionMap.title, scoped: false, legend: legendInExport }
