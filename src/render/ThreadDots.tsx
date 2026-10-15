@@ -3,11 +3,11 @@ import type { LayoutNode, ThreadMark } from '../layout/layout'
 
 /** More threads than this on one box collapse into a "+N" count. */
 export const MAX_DOTS = 4
-const DOT_RADIUS = 3
-const DOT_STEP = 10
+const DOT_RADIUS = 4
+const DOT_STEP = 11
 /** How far the first dot sits in from the box's left edge. */
-const DOT_INSET = 9
-const MORE_FONT = 9
+const DOT_INSET = 10
+const MORE_FONT = 10
 
 /** The thread colour as a custom property: the palette defines `--thread-<slot>` per theme. */
 export const threadStyle = (slot: number) => ({ '--thread': `var(--thread-${slot})` }) as CSSProperties
