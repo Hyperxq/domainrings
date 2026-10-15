@@ -124,12 +124,18 @@ describe('FlowsPanel on a map of several hexagons', () => {
     expect(headings()).toEqual([])
   })
 
-  it('lists every hexagon under its own name, the current one first, and counts them all', () => {
+  it('lists every hexagon under its own name in map order, whichever is current, and counts them all', () => {
     useMapStore.getState().setFocus('h2')
     render(<FlowsPanel />)
-    expect(headings()).toEqual(['Shipping', 'Orders'])
+    expect(headings()).toEqual(['Orders', 'Shipping'])
     expect(screen.getByRole('button', { name: /^All flows\s*2$/ })).toBeTruthy()
-    expect(screen.getAllByRole('button', { name: /ReceiveOrder|PlaceOrder/ }).map((r) => r.querySelector('.flow-name')!.textContent)).toEqual(['ReceiveOrder', 'PlaceOrder'])
+    expect(screen.getAllByRole('button', { name: /ReceiveOrder|PlaceOrder/ }).map((r) => r.querySelector('.flow-name')!.textContent)).toEqual(['PlaceOrder', 'ReceiveOrder'])
+  })
+
+  it('keeps the groups in place when a flow of another hexagon is picked', () => {
+    render(<FlowsPanel />)
+    fireEvent.click(screen.getByRole('button', { name: /ReceiveOrder/ }))
+    expect(headings()).toEqual(['Orders', 'Shipping'])
   })
 
   it('colours each row from the slots of its own hexagon', () => {

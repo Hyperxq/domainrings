@@ -33,10 +33,10 @@ export function FlowRows({ hexId: given }: { hexId?: string } = {}) {
 /** View mode's sidebar: one row per use case, grouped by hexagon on a map of several; picking one isolates its flow on the canvas. */
 export function FlowsPanel() {
   const map = useMapStore((s) => s.map)
-  const hexId = useMapStore((s) => s.focus)
   const focused = useViewStore((s) => s.focusedFlow)
   const focusFlow = useViewStore((s) => s.focusFlow)
-  const hexagons = [...map.hexagons].sort((a, b) => Number(b.id === hexId) - Number(a.id === hexId)).filter((h) => h.useCases.length > 0)
+  // Map order, never current-first: picking another hexagon's flow must not reshuffle the list under the pointer.
+  const hexagons = map.hexagons.filter((h) => h.useCases.length > 0)
   const count = hexagons.reduce((n, h) => n + h.useCases.length, 0)
 
   return (
