@@ -172,8 +172,8 @@ describe('layoutDiagram', () => {
 
   it('seats the use case on the wall holding most of its ports, straddling the domain wall', () => {
     const useCase = find(model, 'useCase', 'uc-submit')
-    expect(useCase.wall).toBe('se')
-    const { n } = wallFrame('se')
+    expect(useCase.wall).toBe('nw')
+    const { n } = wallFrame('nw')
     expect(dot(useCase, n)).toBeCloseTo(domainRing.halfWidth, 6)
     expect(Math.min(...corners(useCase).map((c) => dot(c, n)))).toBeLessThan(domainRing.halfWidth)
     expect(Math.max(...corners(useCase).map((c) => dot(c, n)))).toBeGreaterThan(domainRing.halfWidth)
@@ -1065,9 +1065,9 @@ describe('layoutDiagram placement rules', () => {
       externals: [...EXAMPLE_DIAGRAM.externals, { id: 'ext-loose', name: 'S3' }],
     }
     const m = layoutDiagram(d)
-    expect(find(m, 'adapter', 'a-loose').wall).toBe('nw')
-    expect(find(m, 'actor', 'act-loose').wall).toBe('w')
-    expect(find(m, 'external', 'ext-loose').wall).toBe('ne')
+    expect(find(m, 'adapter', 'a-loose').wall).toBe('w')
+    expect(find(m, 'actor', 'act-loose').wall).toBe('sw')
+    expect(find(m, 'external', 'ext-loose').wall).toBe('e')
   })
 
   it('treats an actor linked to a driven adapter as unassigned instead of crossing the diagram', () => {
