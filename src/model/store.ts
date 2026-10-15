@@ -117,10 +117,10 @@ export const useMapStore = create<MapState>()((set, get) => {
     setMeta: (hexId, meta) => editHexagon(hexId, (d) => merge(d, meta)),
     addItem: (hexId, key, patch) => {
       const id = `${key}-${crypto.randomUUID().slice(0, 8)}`
-      // A new use case settles on a colour once and for all; the ones already drawn stay as the file has them.
+      // A new use case settles on a colour slot once and for all; the ones already drawn stay as the file has them.
       editHexagon(hexId, (d) => {
         const next = withCollection(d, key, [...d[key], { ...NEW_ITEM[key], ...patch, id } as Item<typeof key>])
-        return key === 'useCases' ? { ...next, useCases: next.useCases.map((u) => (u.id === id ? { ...u, colour: threadSlots(next).get(id)! } : u)) } : next
+        return key === 'useCases' ? { ...next, useCases: next.useCases.map((u) => (u.id === id ? { ...u, threadSlot: threadSlots(next).get(id)! } : u)) } : next
       })
       return id
     },

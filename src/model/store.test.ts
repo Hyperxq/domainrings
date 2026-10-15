@@ -62,13 +62,13 @@ describe('map store', () => {
     it('persists the new use case slot, distinct from the use cases it conflicts with', () => {
       const id = state().addItem(state().focus, 'useCases')
       const added = currentDiagram().useCases.find((u) => u.id === id)!
-      expect(Number.isInteger(added.colour)).toBe(true)
-      expect(added.colour).toBe(threadSlots(currentDiagram()).get(id))
+      expect(Number.isInteger(added.threadSlot)).toBe(true)
+      expect(added.threadSlot).toBe(threadSlots(currentDiagram()).get(id))
     })
 
     it('leaves the use cases already drawn as the file has them', () => {
       state().addItem(state().focus, 'useCases')
-      expect(currentDiagram().useCases.filter((u) => u.colour === undefined).map((u) => u.id)).toEqual(EXAMPLE_DIAGRAM.useCases.map((u) => u.id))
+      expect(currentDiagram().useCases.filter((u) => u.threadSlot === undefined).map((u) => u.id)).toEqual(EXAMPLE_DIAGRAM.useCases.map((u) => u.id))
     })
 
     it('resolves the new slot around the slots the file leaves unwritten', () => {
@@ -84,23 +84,23 @@ describe('map store', () => {
       const before = state().map
       const slots = threadSlots(currentDiagram())
       state().removeItem(state().focus, 'useCases', first.id)
-      expect(currentDiagram().useCases.map((u) => [u.id, u.colour])).toEqual([['uc-b', slots.get('uc-b')], ['uc-c', slots.get('uc-c')]])
+      expect(currentDiagram().useCases.map((u) => [u.id, u.threadSlot])).toEqual([['uc-b', slots.get('uc-b')], ['uc-c', slots.get('uc-c')]])
       expect(slots.get('uc-b')).not.toBe(0)
       state().restore({ map: before, focus: state().focus })
       expect(state().map).toBe(before)
-      expect(diagramOf(before, state().focus).useCases.every((u) => u.colour === undefined)).toBe(true)
+      expect(diagramOf(before, state().focus).useCases.every((u) => u.threadSlot === undefined)).toBe(true)
     })
 
     it('writes nothing to the others when the last use case is removed', () => {
       state().addItem(state().focus, 'useCases')
       const added = currentDiagram().useCases.at(-1)!.id
       state().removeItem(state().focus, 'useCases', added)
-      expect(currentDiagram().useCases.every((u) => u.colour === undefined)).toBe(true)
+      expect(currentDiagram().useCases.every((u) => u.threadSlot === undefined)).toBe(true)
     })
 
     it('keeps a slot given in the patch', () => {
-      const id = state().addItem(state().focus, 'useCases', { colour: 33 })
-      expect(currentDiagram().useCases.find((u) => u.id === id)!.colour).toBe(33)
+      const id = state().addItem(state().focus, 'useCases', { threadSlot: 33 })
+      expect(currentDiagram().useCases.find((u) => u.id === id)!.threadSlot).toBe(33)
     })
   })
 

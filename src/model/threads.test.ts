@@ -13,7 +13,7 @@ const onWalls = (walls: (string | undefined)[]): Diagram =>
     ports: walls.map((wall, i) => ({ id: `p${i}`, name: `p${i}`, side: 'driving' as const, useCaseId: `u${i}`, ...(wall ? { wall: wall as 'w' } : {}) })),
   })
 /** `d` with every use case's effective slot written down. */
-const withThreadSlots = (d: Diagram): Diagram => ({ ...d, useCases: d.useCases.map((u) => ({ ...u, colour: threadSlots(d).get(u.id)! })) })
+const withThreadSlots = (d: Diagram): Diagram => ({ ...d, useCases: d.useCases.map((u) => ({ ...u, threadSlot: threadSlots(d).get(u.id)! })) })
 const slotsOf = (d: Diagram) => [...threadSlots(d).values()]
 
 describe('threadColour', () => {
@@ -40,8 +40,8 @@ describe('threadColour', () => {
 describe('threadSlots', () => {
   it('keeps every persisted slot, even when it clashes with a neighbour', () => {
     const d = onWalls(['w', 'w'])
-    d.useCases[0].colour = 5
-    d.useCases[1].colour = 5
+    d.useCases[0].threadSlot = 5
+    d.useCases[1].threadSlot = 5
     expect([...threadSlots(d).entries()]).toEqual([['u0', 5], ['u1', 5]])
   })
 
@@ -60,8 +60,8 @@ describe('threadSlots', () => {
 
   it('fills around the slots a file already persists', () => {
     const d = onWalls(['w', 'e', 'nw'])
-    d.useCases[0].colour = 0
-    d.useCases[2].colour = 1
+    d.useCases[0].threadSlot = 0
+    d.useCases[2].threadSlot = 1
     expect(slotsOf(d)).toEqual([0, 2, 1])
   })
 
@@ -82,14 +82,14 @@ describe('threadSlots', () => {
   })
 })
 
-describe('colour in the schema', () => {
-  const parse = (colour: unknown) => DiagramSchema.safeParse(diagram({ useCases: [{ id: 'u', name: 'U', colour } as never] }))
+describe('threadSlot in the schema', () => {
+  const parse = (threadSlot: unknown) => DiagramSchema.safeParse(diagram({ useCases: [{ id: 'u', name: 'U', threadSlot } as never] }))
   it('accepts integers 0 to 49', () => {
     expect(parse(0).success).toBe(true)
     expect(parse(49).success).toBe(true)
   })
-  it.each([50, -1, 1.5, '3'])('rejects %s', (colour) => {
-    expect(parse(colour).success).toBe(false)
+  it.each([50, -1, 1.5, '3'])('rejects %s', (slot) => {
+    expect(parse(slot).success).toBe(false)
   })
   it('is optional', () => {
     expect(DiagramSchema.safeParse(diagram({ useCases: [{ id: 'u', name: 'U' }] })).success).toBe(true)
@@ -127,7 +127,7 @@ describe('keepSlots', () => {
   it('writes the old slot on the use cases a removal would repaint', () => {
     const before = legacy()
     const after = keepSlots(before, without(before, 'u0'))
-    expect(after.useCases.map((u) => [u.id, u.colour])).toEqual([['u1', 1], ['u2', 2]])
+    expect(after.useCases.map((u) => [u.id, u.threadSlot])).toEqual([['u1', 1], ['u2', 2]])
     expect(threadSlots(after).get('u1')).toBe(threadSlots(before).get('u1'))
   })
 
@@ -144,10 +144,10 @@ describe('keepSlots', () => {
     expect(keepSlots(before, after)).toBe(after)
   })
 
-  it('leaves a persisted colour alone', () => {
+  it('leaves a persisted slot alone', () => {
     const before = legacy()
-    before.useCases[1].colour = 9
+    before.useCases[1].threadSlot = 9
     const after = keepSlots(before, without(before, 'u0'))
-    expect(after.useCases[0].colour).toBe(9)
+    expect(after.useCases[0].threadSlot).toBe(9)
   })
 })

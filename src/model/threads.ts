@@ -23,16 +23,16 @@ function lowestDistinct(taken: number[]): number {
 }
 
 /**
- * The slot every use case draws with: its persisted `colour`, else the lowest slot distinct from every other use case
+ * The slot every use case draws with: its persisted `threadSlot`, else the lowest slot distinct from every other use case
  * of the hexagon, filled in use case order. Every thread shares the application corridor, so any two can run side by
  * side; a wall or a box shared by only some of them is not a safe boundary. Persisted slots are never touched, so a
  * colour follows its use case when others come, go or move.
  */
 export function threadSlots(d: Pick<Diagram, 'useCases'>): Map<string, number> {
-  const taken = d.useCases.flatMap((u) => (u.colour === undefined ? [] : [u.colour]))
+  const taken = d.useCases.flatMap((u) => (u.threadSlot === undefined ? [] : [u.threadSlot]))
   const slots = new Map<string, number>()
   for (const u of d.useCases) {
-    let slot = u.colour
+    let slot = u.threadSlot
     if (slot === undefined) {
       slot = lowestDistinct(taken)
       taken.push(slot)
@@ -43,16 +43,16 @@ export function threadSlots(d: Pick<Diagram, 'useCases'>): Map<string, number> {
 }
 
 /**
- * `after`, an edit of `before` that removes or reorders use cases, with the colour written on every remaining use case
+ * `after`, an edit of `before` that removes or reorders use cases, with the slot written on every remaining use case
  * the edit would otherwise repaint: a colour follows its use case, never its rank.
  */
 export function keepSlots<T extends Pick<Diagram, 'useCases'>>(before: Pick<Diagram, 'useCases'>, after: T): T {
   const was = threadSlots(before)
   for (let next = after; ; ) {
     const now = threadSlots(next)
-    const repainted = next.useCases.filter((u) => u.colour === undefined && was.has(u.id) && now.get(u.id) !== was.get(u.id))
+    const repainted = next.useCases.filter((u) => u.threadSlot === undefined && was.has(u.id) && now.get(u.id) !== was.get(u.id))
     if (!repainted.length) return next
-    next = { ...next, useCases: next.useCases.map((u) => (repainted.includes(u) ? { ...u, colour: was.get(u.id)! } : u)) }
+    next = { ...next, useCases: next.useCases.map((u) => (repainted.includes(u) ? { ...u, threadSlot: was.get(u.id)! } : u)) }
   }
 }
 
