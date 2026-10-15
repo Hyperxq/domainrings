@@ -31,4 +31,15 @@ describe('travel', () => {
     expect(travel('w', 0, 'e', 0, 100).every((p) => p.y >= -1e-6)).toBe(true)
     expect(travel('e', 0, 'w', 0, 100).every((p) => p.y >= -1e-6)).toBe(true)
   })
+
+  it('keeps clear of the top vertex when both ways cross as many walls, even if that way is longer', () => {
+    for (const [u1, u2] of [[0, -40], [40, 0], [-30, 50], [50, -50]]) {
+      expect(travel('w', u1, 'e', u2, 100).slice(1, -1).every((p) => p.y >= -1e-6)).toBe(true)
+      expect(travel('e', u2, 'w', u1, 100).slice(1, -1).every((p) => p.y >= -1e-6)).toBe(true)
+    }
+  })
+
+  it('still takes the way that crosses fewer walls over the top vertex', () => {
+    expect(travel('nw', 0, 'ne', 0, 100)).toHaveLength(3)
+  })
 })

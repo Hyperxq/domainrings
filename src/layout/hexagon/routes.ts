@@ -53,7 +53,7 @@ export function planHops(pairs: Pair[], terminals: ReadonlyMap<string, Terminal>
     const a = terminals.get(pair.from)!
     const la = lateral(pair.from, pair.owner)
     // The domain itself has no box: the arrow runs in along its own line to the region's wall, or as near as the wall reaches.
-    const limit = core * T30 - LANE
+    const limit = Math.max(0, core * T30 - LANE)
     const b = pair.to === 'domain' ? { wall: a.wall, layer: 0 as Layer, u: Math.max(-limit, Math.min(limit, a.u + la)), width: 0, height: 0, depth: core } : terminals.get(pair.to)!
     const lb = pair.to === 'domain' ? 0 : lateral(pair.to, pair.owner)
     const run = a.wall !== b.wall || Math.abs(a.u + la - (b.u + lb)) > SAME
