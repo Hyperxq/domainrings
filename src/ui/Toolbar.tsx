@@ -43,6 +43,7 @@ const VIEW_SWITCHES = [
   { id: 'dependents', label: 'Dependents', description: 'Emphasize what depends on the selection, not what it depends on' },
   { id: 'showPlanned', label: 'Planned', description: 'Show what is not built yet; off hides it from the canvas and image exports' },
 ] as const
+const SWATCH_TOKENS = ['bg', 'teal', 'driving-fill', 'driven-fill'] as const
 const MODE_LABEL: Record<LayoutMode, string> = { overview: 'Overview', detailed: 'Detailed' }
 const THEME_LABEL: Record<ThemeChoice, string> = { light: 'Light', dark: 'Dark', system: 'System' }
 
@@ -160,10 +161,11 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
         className="icon-trigger"
         align="end"
         stayOpen
+        menuClassName="narrow-menu"
         choices={[
           ...VIEW_SWITCHES.filter((s) => hasPlanned || s.id !== 'showPlanned').map(({ id, label, ...hint }) => ({ id, label, ...hint, checked: preferences[id], control: 'switch' as const })),
           ...(['light', 'dark', 'system'] as const).map((id) => ({ id, label: THEME_LABEL[id], checked: themeChoice === id, control: 'radio' as const, group: 'Theme' })),
-          ...(Object.keys(PALETTES) as PaletteId[]).map((id) => ({ id, label: PALETTES[id].label, description: PALETTES[id].description, checked: palette === id, group: 'Palette' })),
+          ...(Object.keys(PALETTES) as PaletteId[]).map((id) => ({ id, label: PALETTES[id].label, description: PALETTES[id].description, swatches: SWATCH_TOKENS.map((t) => PALETTES[id].light[t]), checked: palette === id, group: 'Palette' })),
         ]}
         onChoose={(id) =>
           id === 'light' || id === 'dark' || id === 'system'
