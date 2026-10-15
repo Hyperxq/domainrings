@@ -80,6 +80,7 @@ function Node({ node, selected, target, chained, interactive, noted, planned }: 
       data-selected={selected ? '' : undefined}
       data-link-target={target ? '' : undefined}
       data-chain={chained ? '' : undefined}
+      data-threads={node.threads?.map((t) => t.id).join(' ')}
       tabIndex={interactive ? 0 : undefined}
       role={interactive ? 'button' : undefined}
       aria-label={interactive ? `Edit ${node.lines.map((l) => l.text).join(' ')}` : undefined}
