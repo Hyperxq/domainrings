@@ -159,28 +159,28 @@ describe('the rings that pinned the empty bands', () => {
     expect(got).toMatchInlineSnapshot(`
       {
         "advanced detailed": {
-          "app": 709,
-          "infra": 990,
+          "app": 705,
+          "infra": 986,
         },
         "advanced overview": {
-          "app": 651,
-          "infra": 932,
+          "app": 648,
+          "infra": 929,
         },
         "chat-feedback detailed": {
-          "app": 735,
-          "infra": 1017,
+          "app": 731,
+          "infra": 1013,
         },
         "chat-feedback overview": {
-          "app": 681,
-          "infra": 963,
+          "app": 678,
+          "infra": 960,
         },
         "stress detailed": {
-          "app": 813,
-          "infra": 1095,
+          "app": 841,
+          "infra": 1123,
         },
         "stress overview": {
-          "app": 708,
-          "infra": 990,
+          "app": 724,
+          "infra": 1006,
         },
       }
     `)
