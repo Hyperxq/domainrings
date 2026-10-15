@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { Point } from './geometry'
 import { layoutDiagram, type LayoutModel, type LayoutNode, type LayoutRing } from './layout'
+import { TRACK_GAP } from './hexagon/spacing'
 import { halfWidthAt, hexagon } from './outline'
-import { DOMAIN_TITLE, measure, RING_LABEL, RING_SUBTITLE } from './text'
+import { DOMAIN_TITLE, EDGE_LABEL, measure, RING_LABEL, RING_SUBTITLE } from './text'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
 import { HEXAGONAL_KIND } from '../model/kinds'
 import { DiagramSchema, type Diagram } from '../model/schema'
@@ -288,11 +289,11 @@ describe('layoutDiagram', () => {
     for (const n of model.nodes.filter((n) => n.kind === 'useCase')) expect(top(n)).toBeGreaterThan(bottom(title))
   })
 
-  it('draws every arrow with axis-aligned segments; a hexagon trunk may also follow the ring walls', () => {
+  it('draws every arrow with axis-aligned segments; a corridor run or a hexagon trunk may also follow the ring walls', () => {
     for (const e of model.edges) {
       for (const [a, b] of segments(e.points)) {
         const deg = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI
-        const alongWall = e.kind === 'wiring' && [30, 150, -30, -150].some((t) => Math.abs(deg - t) < 1e-6)
+        const alongWall = [30, 150, -30, -150].some((t) => Math.abs(deg - t) < 1e-6)
         expect(a.x === b.x || a.y === b.y || alongWall).toBe(true)
       }
     }
@@ -326,7 +327,7 @@ describe('layoutDiagram', () => {
     }
   })
 
-  it('runs each use-case bus in the gap between the inner ring and the socket column', () => {
+  it('runs each use-case track in the gap between the inner ring and the socket column', () => {
     const inner = model.rings[model.rings.indexOf(app) + 1]
     const lanes = (e: LayoutModel['edges'][number]) => segments(e.points).filter(([a, b]) => a.x === b.x)
     const busEdges = model.edges.filter((e) => e.kind === 'import' && e.key.includes('useCase:') && e.key.includes('port:') && lanes(e).length > 0)
@@ -429,16 +430,19 @@ describe('layoutDiagram edges', () => {
     expect(end(['adapter:a-knex', 'port:p-repo']).x).toBeLessThan(start(['adapter:a-knex', 'port:p-repo']).x)
   })
 
-  it('labels each shared lane once, flat above one of its horizontal segments', () => {
+  it('labels a use case\'s corridor runs once per side, flat beside the run, and its straight runs each', () => {
     const labelled = model.edges.filter((e) => e.label && !e.key.endsWith('->domain'))
-    // The socket level with the use case is met by its own short run, labelled beside it; the other two share one bus.
     expect(labelled.map((e) => e.label).sort()).toEqual(['runs the use case', 'uses', 'uses'])
-    for (const e of labelled.filter((e) => e.points.length > 2)) {
+    const distanceTo = (e: LayoutModel['edges'][number], q: { x: number; y: number }) =>
+      Math.min(...segments(e.points).map(([a, b]) => {
+        const len2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2 || 1
+        const t = Math.min(1, Math.max(0, ((q.x - a.x) * (b.x - a.x) + (q.y - a.y) * (b.y - a.y)) / len2))
+        return Math.hypot(q.x - (a.x + t * (b.x - a.x)), q.y - (a.y + t * (b.y - a.y)))
+      }))
+    for (const e of labelled) {
       expect(e).not.toHaveProperty('labelAngle')
-      const under = segments(e.points).find(
-        ([a, b]) => a.y === b.y && Math.min(a.x, b.x) <= e.labelAt!.x && e.labelAt!.x <= Math.max(a.x, b.x) && a.y - e.labelAt!.y > 0 && a.y - e.labelAt!.y <= 16,
-      )
-      expect(under).toBeDefined()
+      expect(distanceTo(e, e.labelAt!)).toBeGreaterThan(3)
+      expect(distanceTo(e, e.labelAt!)).toBeLessThanOrEqual(measure(e.label!, EDGE_LABEL) / 2 + 24)
     }
     expect(model.edges.filter((e) => e.key.startsWith('useCase:uc-submit->port:'))).toHaveLength(3)
   })
@@ -882,14 +886,14 @@ describe('ports on every wall (hexagonal stress example)', () => {
     }
   })
 
-  it('draws arrows only horizontally, vertically or along a wall normal; wires may also follow a wall', () => {
+  it('draws arrows only horizontally, vertically, along a wall normal or, in a corridor, along a wall', () => {
     const normals = [60, 120, -60, -120]
     const walls = [30, 150, -30, -150]
     for (const e of model.edges) {
       for (const [a, b] of segments(e.points)) {
         const deg = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI
         const axis = a.x === b.x || a.y === b.y
-        const allowed = [...normals, ...(e.kind === 'wiring' ? walls : [])].some((t) => Math.abs(deg - t) < 1e-6)
+        const allowed = [...normals, ...walls].some((t) => Math.abs(deg - t) < 1e-6)
         expect(axis || allowed ? 'ok' : `${e.key} runs at ${deg.toFixed(1)}°`).toBe('ok')
       }
     }
@@ -910,8 +914,10 @@ describe('ports on every wall (hexagonal stress example)', () => {
 
   it('sizes the application and adapter rings to the wall content: 2×padding smaller breaks something', () => {
     const boxesOf = (m: LayoutModel) => m.nodes.filter((b) => b.kind !== 'aggregate' && b.kind !== 'domainItem')
+    // The application ring also holds the corridor: one track gap for every track past the first is room the tracks use.
+    const tracks = model.edges.filter((e) => e.key.includes('useCase:') && e.key.includes('port:') && e.points.length > 2).length
     for (const ring of [app, adapterRing]) {
-      const shrunk = shrink(model.shape, ring, 2 * PADDING)
+      const shrunk = shrink(model.shape, ring, 2 * PADDING + (ring === app ? Math.max(0, tracks - 1) * TRACK_GAP : 0))
       const delta = ring.halfWidth - shrunk.halfWidth
       // Re-seat what hangs off this ring's wall: sockets and adapters off the application wall, leaves off the outer one.
       const moves = (b: LayoutNode) =>
@@ -1306,13 +1312,13 @@ describe('layoutDiagram growth (stress example)', () => {
     expect(content.some((n) => corners(n).some((c) => Math.abs(c.x) > halfWidthAt(shrunk, c.y) || Math.abs(c.y) > shrunk.apex))).toBe(true)
   })
 
-  it('routes every edge (axis-aligned, or along a wall normal) without crossing a box it does not connect', () => {
+  it('routes every edge (axis-aligned, or along a wall normal or wall) without crossing a box it does not connect', () => {
     for (const e of model.edges) {
       const allowed = new Set(endpointsOf(e.key))
       const others = model.nodes.filter((n) => !allowed.has(n.key))
       for (const seg of segments(e.points)) {
         const deg = (Math.atan2(seg[1].y - seg[0].y, seg[1].x - seg[0].x) * 180) / Math.PI
-        const slanted = [60, 120, -60, -120, ...(e.kind === 'wiring' ? [30, 150, -30, -150] : [])].some((t) => Math.abs(deg - t) < 1e-6)
+        const slanted = [60, 120, -60, -120, 30, 150, -30, -150].some((t) => Math.abs(deg - t) < 1e-6)
         expect(seg[0].x === seg[1].x || seg[0].y === seg[1].y || slanted).toBe(true)
         for (const p of sample(seg)) {
           const hit = others.find((n) => strictlyInside(n, p))

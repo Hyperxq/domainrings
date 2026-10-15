@@ -1,8 +1,19 @@
 import { describe, expect, it } from 'vitest'
+import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
+import projectBuilderRaw from '../model/fixtures/project-builder.hexa?raw'
+import { parseHexa } from '../model/hexa'
+import { diagramOf } from '../model/map'
 import type { Diagram } from '../model/schema'
-import type { Point } from './geometry'
+import { dot, reach, type Point } from './geometry'
 import { layoutDiagram, type LayoutMode, type LayoutModel, type LayoutNode } from './layout'
-import { wallFrame } from './hexagon/walls'
+import { TRACK_GAP } from './hexagon/spacing'
+import { WALLS, wallFrame } from './hexagon/walls'
+
+const projectBuilder = () => {
+  const parsed = parseHexa(projectBuilderRaw)
+  if (!parsed.ok || parsed.map.kind !== 'hexagonal') throw new Error('project-builder fixture must parse')
+  return parsed.map
+}
 
 const MODES: LayoutMode[] = ['detailed', 'overview']
 const base: Diagram = { version: 1, kind: 'hexagonal', title: '', domain: [{ id: 'd1', name: 'Order', type: 'aggregate' }], useCases: [], ports: [], adapters: [], actors: [], externals: [] }
@@ -19,7 +30,12 @@ const SEVERAL_ADAPTERS: Diagram = {
     { id: 'e2', name: 'Disk', adapterId: 'a3' },
   ],
 }
-const CASES: Array<[string, Diagram]> = [['several adapters on a slanted wall', SEVERAL_ADAPTERS]]
+const CASES: Array<[string, Diagram]> = [
+  ['example', EXAMPLE_DIAGRAM],
+  ['stress', STRESS_DIAGRAM],
+  ['several adapters on a slanted wall', SEVERAL_ADAPTERS],
+  ...projectBuilder().hexagons.map((h): [string, Diagram] => [`project-builder / ${h.id}`, diagramOf(projectBuilder(), h.id)]),
+]
 
 const imports = (m: LayoutModel) => m.edges.filter((e) => e.kind === 'import')
 const ends = (m: LayoutModel, key: string) => key.split('->').map((k) => m.nodes.find((n) => n.key === k))
@@ -76,5 +92,85 @@ describe('incomplete chains', () => {
       const m = layoutDiagram(diagram, { mode })
       for (const e of m.edges) for (const p of e.points) expect([p.x, p.y].every(Number.isFinite), e.key).toBe(true)
     }
+  })
+})
+
+/** How far a point is from the centre along the hexagon's own normals: the apothem of the hexagon it lies on. */
+const apothemOf = (p: Point) => Math.max(...WALLS.map((w) => dot(p, wallFrame(w).n)))
+const useCasePort = (m: LayoutModel) => imports(m).filter((e) => e.key.includes('useCase:') && e.key.includes('port:'))
+const crossings = (m: LayoutModel) => {
+  const orientation = (a: Point, b: Point, c: Point) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
+  const es = imports(m)
+  let total = 0
+  for (let i = 0; i < es.length; i++)
+    for (let j = i + 1; j < es.length; j++)
+      for (let a = 1; a < es[i].points.length; a++)
+        for (let b = 1; b < es[j].points.length; b++) {
+          const [p, q, r, s] = [es[i].points[a - 1], es[i].points[a], es[j].points[b - 1], es[j].points[b]]
+          if (orientation(p, q, r) * orientation(p, q, s) < -1e-9 && orientation(r, s, p) * orientation(r, s, q) < -1e-9) total++
+        }
+  return total
+}
+
+describe.each(CASES)('use case to port routes run in the application corridor: %s', (_, diagram) => {
+  const m = layoutDiagram(diagram, { mode: 'detailed' })
+  const ports = m.nodes.filter((n) => n.kind === 'port')
+  const seats = m.nodes.filter((n) => n.kind === 'useCase')
+  // The corridor lies between the use cases' outer faces and the ports' inner faces.
+  const portFace = Math.min(...ports.map((p) => dot(p, wallFrame(p.wall!).n) - reach(p.width, p.height, wallFrame(p.wall!).n)))
+  const seatFace = Math.max(...seats.map((u) => dot(u, wallFrame(u.wall!).n) + reach(u.width, u.height, wallFrame(u.wall!).n)))
+  const runs = (e: LayoutModel['edges'][number]) => e.points.slice(1, -1)
+
+  it('leaves the port inward and stays between the use cases and the ports except for its hops', () => {
+    for (const e of useCasePort(m)) {
+      if (e.points.length <= 2) continue
+      for (const p of runs(e)) {
+        expect(apothemOf(p), `${e.key} at ${p.x},${p.y}`).toBeGreaterThan(seatFace)
+        expect(apothemOf(p), `${e.key} at ${p.x},${p.y}`).toBeLessThan(portFace)
+      }
+    }
+  })
+
+  it('keeps parallel runs of different edges a track gap apart', () => {
+    const segments = useCasePort(m).flatMap((e) => (e.points.length > 3 ? runs(e).slice(1).map((b, i) => ({ key: e.key, a: runs(e)[i], b })) : []))
+    for (const [i, s] of segments.entries())
+      for (const t of segments.slice(i + 1)) {
+        if (s.key === t.key) continue
+        const d = { x: s.b.x - s.a.x, y: s.b.y - s.a.y }
+        const len = Math.hypot(d.x, d.y)
+        if (len < 1e-6) continue
+        const u = { x: d.x / len, y: d.y / len }
+        const e = { x: t.b.x - t.a.x, y: t.b.y - t.a.y }
+        if (Math.abs(u.x * e.y - u.y * e.x) > 1e-6 * Math.hypot(e.x, e.y)) continue
+        const along = [dot(t.a, u), dot(t.b, u)].sort((x, y) => x - y)
+        if (Math.min(along[1], dot(s.b, u)) - Math.max(along[0], dot(s.a, u)) < 1) continue
+        const across = Math.abs((t.a.x - s.a.x) * u.y - (t.a.y - s.a.y) * u.x)
+        expect(across, `${s.key} / ${t.key}`).toBeGreaterThanOrEqual(TRACK_GAP - 1e-6)
+      }
+  })
+})
+
+describe('corridor sizing and crossings', () => {
+  const apex = (d: Diagram, mode: LayoutMode) => layoutDiagram(d, { mode }).rings.find((r) => r.role === 'application')!.apex
+
+  it('crosses fewer edges on the stress example than the bus lanes did (9)', () => {
+    expect(crossings(layoutDiagram(STRESS_DIAGRAM))).toBeLessThanOrEqual(3)
+  })
+
+  it('crosses no edge on the chat feedback example, where the bus lanes crossed two pairs', () => {
+    expect(crossings(layoutDiagram(EXAMPLE_DIAGRAM))).toBe(0)
+  })
+
+  it('sizes the application ring of the stress example smaller than the bus lanes did (1152)', () => {
+    expect(apex(STRESS_DIAGRAM, 'detailed')).toBeLessThanOrEqual(817)
+  })
+
+  it('does not grow the application ring of the chat feedback example (746)', () => {
+    expect(apex(EXAMPLE_DIAGRAM, 'detailed')).toBeLessThanOrEqual(758)
+  })
+
+  it('does not grow either ring in the overview (570, 551)', () => {
+    expect(apex(STRESS_DIAGRAM, 'overview')).toBeLessThanOrEqual(570)
+    expect(apex(EXAMPLE_DIAGRAM, 'overview')).toBeLessThanOrEqual(552)
   })
 })

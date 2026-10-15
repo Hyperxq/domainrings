@@ -9,6 +9,7 @@ import { assignLayers, placeNodes } from './hexagon/nodes'
 import { solveRings } from './hexagon/ringSolver'
 import { ringTitles } from './hexagon/ringTitles'
 import { routeEdges } from './hexagon/routes'
+import { GAP } from './hexagon/spacing'
 import { seatUseCases } from './hexagon/useCaseSeating'
 import { VERTEX } from './hexagon/walls'
 import type { Outline } from './outline'
@@ -118,7 +119,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   const titles = ringTitles(d)
   const useCaseFrames = d.useCases.map(frames.useCaseFrame)
   const appIndex = config.rings.findIndex((r) => r.role === 'application')
-  const seating = seatUseCases({ d, overview, useCaseFrames, plan, frames })
+  const seating = seatUseCases({ d, overview, useCaseFrames, plan, frames, titleRoom: GAP + titles.titleHeight(appIndex) + titles.titleDepth })
   const centre = layCentre({ d, overview, domainFrame: frames.domainFrame, seating })
 
   const outlines = solveRings({ d, overview, appIndex, titles, centre, plan, frames, seating })
@@ -128,7 +129,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   const domain = outlines[config.rings.length - 1]
 
   const { nodes, composition } = placeNodes({ d, overview, app, outer, domain, centre, plan, frames, seating })
-  const edges = routeEdges({ d, overview, nodes, composition, plan, insideApp, region: centre.region, faces: centre.faces, outer, seating })
+  const edges = routeEdges({ d, overview, nodes, composition, plan, app, insideApp, region: centre.region, faces: centre.faces, outer, seating })
   const { texts, bounds } = layoutBounds(d, outer, nodes, edges)
   assignLayers(nodes, centre.serviceItems)
 

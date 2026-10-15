@@ -136,7 +136,7 @@ describe('minimiseCrossings', () => {
 
 describe('routeTracks', () => {
   const outer = 260
-  const geometry = { outer, clip: 120 }
+  const geometry = { outer }
   const port = (wall: Wall, u: number) => placed(wall, 300, u, 60, 50)
   const seat = (wall: Wall, u: number, depth = 150) => placed(wall, depth, u, 120, 50)
 

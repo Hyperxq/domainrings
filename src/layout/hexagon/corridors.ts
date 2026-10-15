@@ -1,7 +1,7 @@
 import type { Wall } from '../../model/schema'
 import { dedupe, dot, enterBox, reach, type Point } from '../geometry'
 import { COS30, SQRT3 } from '../outline'
-import { RUN, TRACK_GAP } from './spacing'
+import { TRACK_GAP } from './spacing'
 import { faceAt, VERTEX, wallFrame } from './walls'
 
 /** An upright box seated on a wall: where it is and the wall it belongs to. */
@@ -127,8 +127,6 @@ export interface TrackRequest {
 export interface TrackGeometry {
   /** Apothem of the outermost track. Each next track runs TRACK_GAP further in. */
   outer: number
-  /** How far from the centre a run over the top corner ducks; each further track ducks TRACK_GAP higher. */
-  clip: number
 }
 
 /** A box's place on a wall, without the box. */
@@ -142,20 +140,13 @@ export function trackNeed(links: Array<{ from: Terminal; to: Terminal }>) {
   return { tracks: apart.length, overTop: apart.filter((l) => arcBetween(l.from.wall, l.to.wall).vertices.includes(0)).length }
 }
 
-/** The room a corridor of `tracks` tracks takes across the band: the straight run an arrow keeps before its head, either side of the tracks. */
-export const corridorDepth = (tracks: number) => 2 * RUN + Math.max(0, tracks - 1) * TRACK_GAP
-
-/** How far above the domain's top corner the first run over it ducks, and the room for the rest above that. */
-export const TOP_CLEAR = 7
-export const topRoom = (overTop: number) => (overTop ? TOP_CLEAR + (overTop - 1) * TRACK_GAP : 0)
-
 /**
  * Port → use case, one path per request. A port that meets its use case square across one wall takes the short straight
  * run. Every other link hops out of the port along the wall normal onto a track of the corridor, runs round the
  * hexagon the shorter way and hops in along the use case's wall normal. Tracks sit TRACK_GAP apart, ordered to cross
  * the fewest hops; links reaching one use case enter its face in the order that keeps them from crossing.
  */
-export function routeTracks(requests: TrackRequest[], { outer, clip }: TrackGeometry): Point[][] {
+export function routeTracks(requests: TrackRequest[], { outer }: TrackGeometry): Point[][] {
   const links = requests.map(({ port, useCase }, index) => {
     const [pf, uf] = [wallFrame(port.wall), wallFrame(useCase.wall)]
     const portSpan = { u: dot(port, pf.dir), reach: reach(port.width, port.height, pf.dir) }
@@ -239,12 +230,6 @@ export function routeTracks(requests: TrackRequest[], { outer, clip }: TrackGeom
     const [hop, land] = [hexHit(leave, { x: -l.pf.n.x, y: -l.pf.n.y }, apothem), hexHit(enter, l.uf.n, apothem)]
     return { l, rank: rank[i], apothem, leave, enter, hop, land, walls: [wallAt(hop), wallAt(land)] as const }
   })
-  // Runs over the top corner duck one above another, the innermost track lowest.
-  const over = tracks.filter((t) => arcBetween(...t.walls).vertices.includes(0)).sort((a, b) => b.rank - a.rank)
-  for (const t of tracks) {
-    const ducked = over.indexOf(t)
-    const corners = around(...t.walls, t.apothem, clip + Math.max(0, ducked) * TRACK_GAP)
-    paths[t.l.index] = dedupe([t.leave, t.hop, ...corners, t.land, t.enter])
-  }
+  for (const t of tracks) paths[t.l.index] = dedupe([t.leave, t.hop, ...around(...t.walls, t.apothem, Infinity), t.land, t.enter])
   return paths
 }

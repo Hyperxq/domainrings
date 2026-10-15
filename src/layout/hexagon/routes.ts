@@ -4,9 +4,9 @@ import type { LayoutEdge, LayoutNode } from '../layout'
 import { COS30, type Outline } from '../outline'
 import { EDGE_LABEL, measure } from '../text'
 import type { BoxPlan } from './columns'
-import { around, overlap } from './corridors'
+import { around, overlap, routeTracks, type Placed } from './corridors'
 import { GAP, LANE, OUTSIDE_GAP } from './spacing'
-import { laneFoot, toLane, type UseCaseSeating } from './useCaseSeating'
+import type { UseCaseSeating } from './useCaseSeating'
 import { faceAt, SLANTED_WALLS, VERTEX, wallFrame } from './walls'
 
 /** The composition trunk hugs the outer hexagon this far out. */
@@ -19,6 +19,7 @@ export interface RouteInput {
   /** The composition root node, when one is drawn. */
   composition: LayoutNode | undefined
   plan: BoxPlan
+  app: Outline
   insideApp: Outline
   /** The domain model region inside `insideApp`, and the face of it each domain root sits on. */
   region: Outline
@@ -28,9 +29,8 @@ export interface RouteInput {
 }
 
 /** Every edge of the diagram: each planned import, the use cases' asks into the domain and the composition trunks. */
-export function routeEdges({ d, overview, nodes, composition, plan, insideApp, region, faces, outer, seating }: RouteInput): LayoutEdge[] {
+export function routeEdges({ d, overview, nodes, composition, plan, app, insideApp, region, faces, outer, seating }: RouteInput): LayoutEdge[] {
   const { edgePlan } = plan
-  const { laneX } = seating
   const byKey = new Map(nodes.map((n) => [n.key, n]))
   const faceX = (n: LayoutNode, towardX: number) => n.x + (Math.sign(towardX - n.x) * n.width) / 2
 
@@ -45,15 +45,6 @@ export function routeEdges({ d, overview, nodes, composition, plan, insideApp, r
     }
     const mx = (ax + bx) / 2
     return [{ x: ax, y: a.y }, { x: mx, y: a.y }, { x: mx, y: b.y }, { x: bx, y: b.y }]
-  }
-
-  /** The x of the bus lane a use case takes to this socket's side. */
-  const laneOf = (useCase: LayoutNode, socket: LayoutNode) =>
-    laneX(socket.side ?? 'driven', d.useCases.findIndex((u) => `useCase:${u.id}` === useCase.key), insideApp.halfWidth)
-  /** Use case → bus → socket: sideways out of the use case, down its lane, then straight into the socket. */
-  const busRoute = (useCase: LayoutNode, socket: LayoutNode): Point[] => {
-    const lane = laneOf(useCase, socket)
-    return dedupe([...toLane(useCase, lane, insideApp.apex, socket.y), { x: lane, y: socket.y }, { x: socket.x - (Math.sign(lane) * socket.width) / 2, y: socket.y }])
   }
 
   const slantedWall = (n: LayoutNode) => (n.wall && SLANTED_WALLS.has(n.wall) ? n.wall : undefined)
@@ -77,56 +68,48 @@ export function routeEdges({ d, overview, nodes, composition, plan, insideApp, r
     return a === outerBox ? points : points.reverse()
   }
 
-  /** Use case → bus → slanted socket: out of the use case, along its lane, then along the wall normal. */
-  const slantedBusRoute = (useCase: LayoutNode, socket: LayoutNode): Point[] => {
-    const lane = laneOf(useCase, socket)
-    const { dir } = wallFrame(socket.wall!)
-    const q = faceAt(socket, socket.wall!, -1, dot(socket, dir))
-    const foot = laneFoot(q, socket.wall!, lane)
-    return dedupe([...toLane(useCase, lane, insideApp.apex, foot.y), foot, q])
-  }
-
-  /** A use case seated on its port's wall meets the socket straight along the wall normal, where the two overlap. */
-  const directRoute = (useCase: LayoutNode, socket: LayoutNode): Point[] | undefined => {
-    if (!useCase.wall || useCase.wall !== socket.wall) return undefined
-    const { n, dir } = wallFrame(socket.wall)
-    const [su, uu] = [dot(socket, dir), dot(useCase, dir)]
-    const window = overlap({ u: su, reach: reach(socket.width, socket.height, dir) }, { u: uu, reach: reach(useCase.width, useCase.height, dir) })
-    if (!window) return undefined
-    const face = faceAt(socket, socket.wall, -1, Math.min(Math.max(su, window[0]), window[1]))
-    return [enterBox(useCase, face, { x: -n.x, y: -n.y }), face]
-  }
+  const seated = (n: LayoutNode): n is LayoutNode & Placed => !!n.wall
+  const linked = edgePlan.flatMap(([fromKey, toKey]) => {
+    const [a, b] = [byKey.get(fromKey)!, byKey.get(toKey)!]
+    const [useCase, port] = a.kind === 'useCase' ? [a, b] : [b, a]
+    return useCase.kind === 'useCase' && port.kind === 'port' && seated(useCase) && seated(port) ? [{ key: `${fromKey}->${toKey}`, useCase, port }] : []
+  })
+  // Use case ↔ port: straight where they meet across one wall, else along the application corridor.
+  const paths = routeTracks(linked, { outer: seating.corridor.outerAt(app.halfWidth) })
+  const runs = new Map(linked.map((l, i) => [l.key, paths[i]]))
 
   const labelled = new Set<string>()
   const edges: LayoutEdge[] = edgePlan.map(([fromKey, toKey, label]) => {
     const a = byKey.get(fromKey)!
     const b = byKey.get(toKey)!
-    const useCase = [a, b].find((n) => n.kind === 'useCase')
-    const socket = [a, b].find((n) => n.kind === 'port')
-    const straight = useCase && socket ? directRoute(useCase, socket) : undefined
-    const route = useCase && socket ? (straight ?? (slantedWall(socket) ? slantedBusRoute(useCase, socket) : busRoute(useCase, socket))) : undefined
-    const direct = slantedWall(a) || slantedWall(b) ? alongNormal(a, b) : horizontal(a, b)
-    const points = route ? (a === useCase ? route : [...route].reverse()) : direct
-    const edge: LayoutEdge = { key: `${fromKey}->${toKey}`, kind: 'import', points }
-    // Every edge of a lane shares its exit run, so the verb is written once, flat above that run.
-    if (label && straight) {
+    const key = `${fromKey}->${toKey}`
+    const run = runs.get(key)
+    const joined = slantedWall(a) || slantedWall(b) ? alongNormal(a, b) : horizontal(a, b)
+    const edge: LayoutEdge = { key, kind: 'import', points: run ? (a.kind === 'port' ? run : [...run].reverse()) : joined }
+    if (!label || !run) return edge
+    const port = linked.find((l) => l.key === key)!.port
+    edge.label = label
+    if (run.length === 2) {
       // Written flat beside the short run, clear of it along the wall.
-      const { dir } = wallFrame(socket!.wall!)
-      const mid = { x: (straight[0].x + straight[1].x) / 2, y: (straight[0].y + straight[1].y) / 2 }
+      const { dir } = wallFrame(port.wall)
+      const mid = { x: (run[0].x + run[1].x) / 2, y: (run[0].y + run[1].y) / 2 }
       const off = reach(measure(label, EDGE_LABEL), EDGE_LABEL.size + 4, dir) + 4
-      edge.label = label
       edge.labelAt = { x: mid.x + dir.x * off, y: mid.y + dir.y * off }
       return edge
     }
-    const lane = `${useCase?.key}:${socket?.side}`
-    if (label && route && !labelled.has(lane)) {
-      labelled.add(lane)
-      edge.label = label
-      // Over the leg that crosses to the lane: every bus route ends lane head, lane foot, socket.
-      const from = Math.max(0, route.length - 4)
-      const [a, b] = route.slice(from, from + 2)
-      edge.labelAt = { x: (a.x + b.x) / 2, y: a.y - 10 }
+    // The verb is written once per use case and side, flat beside the longest stretch of the first run.
+    const lane = `${linked.find((l) => l.key === key)!.useCase.key}:${port.side}`
+    if (labelled.has(lane)) {
+      delete edge.label
+      return edge
     }
+    labelled.add(lane)
+    const [from, to] = run.slice(1).map((q, i) => [run[i], q]).reduce((longest, seg) => (Math.hypot(seg[1].x - seg[0].x, seg[1].y - seg[0].y) > Math.hypot(longest[1].x - longest[0].x, longest[1].y - longest[0].y) ? seg : longest))
+    const len = Math.hypot(to.x - from.x, to.y - from.y)
+    const toward = { x: -(to.y - from.y) / len, y: (to.x - from.x) / len }
+    const side = toward.y > 1e-9 || (Math.abs(toward.y) <= 1e-9 && toward.x < 0) ? -1 : 1
+    const off = reach(measure(label, EDGE_LABEL), EDGE_LABEL.size + 4, toward) + 4
+    edge.labelAt = { x: (from.x + to.x) / 2 + side * toward.x * off, y: (from.y + to.y) / 2 + side * toward.y * off }
     return edge
   })
 
