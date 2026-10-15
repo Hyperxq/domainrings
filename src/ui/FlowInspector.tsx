@@ -141,7 +141,8 @@ export function FlowInspector() {
   const unlinkAggregate = (id: string) => {
     record(before)
     const left = (useCase.aggregateIds ?? []).filter((a) => a !== id)
-    typed({ aggregateIds: left.length ? left : undefined })
+    const { [id]: _, ...notes } = useCase.stepNotes ?? {}
+    typed({ aggregateIds: left.length ? left : undefined, stepNotes: Object.keys(notes).length ? notes : undefined })
   }
 
   const entries = d.ports.filter((p) => p.side === 'driving' && p.useCaseId === useCase.id)
