@@ -8,7 +8,7 @@ import type { UseCaseSeating } from './useCaseSeating'
 import { WALLS, wallFrame } from './walls'
 
 /** Room between a card's edge and its text, and above its header and below its last row. */
-const CARD_PAD_X = 14
+const CARD_PAD_X = 12
 const CARD_TOP = 4
 const CARD_BOTTOM = 6
 /** Room around the divider between a card's name and its rows. */

@@ -45,7 +45,7 @@ export const measure = (text: string, m: { size: number; em: number; tracking?: 
 
 export const TAG_GAP = 6
 /** The least room between a line's text and its right-hand text. */
-export const RIGHT_GAP = 20
+export const RIGHT_GAP = 16
 export const lineWidth = (line: TextLine) =>
   measure(line.text, LINE_METRICS[line.style]) +
   (line.tag ? measure(line.tag, LINE_METRICS.tag) + TAG_GAP : 0) +
