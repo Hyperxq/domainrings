@@ -1047,6 +1047,7 @@ span.swatch-element { background: var(--card); border-color: var(--teal); }
 .legend-tags { font-family: var(--font-mono); }
 .legend-threads button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 2px 4px; margin: 0 -4px; border: 0; border-radius: 4px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .legend-threads button:hover, .legend-threads button:focus-visible { background: var(--hover); color: var(--ink); }
+.legend-threads button[aria-pressed='true'] { box-shadow: inset 0 0 0 1px var(--thread, var(--teal)); background: color-mix(in srgb, var(--thread, var(--teal)) 14%, transparent); color: var(--ink); }
 .thread-swatch { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--thread); }
 .legend-footer { padding: 8px 0; border-top: 1px solid var(--line); }
 .legend-export { display: flex; align-items: center; gap: 6px; font-size: 12px; }

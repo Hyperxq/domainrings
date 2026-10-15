@@ -12,6 +12,7 @@ export function ThreadLegend() {
   const showPlanned = usePreferencesStore((s) => s.showPlanned)
   const hoverFlows = useViewStore((s) => s.hoverFlows)
   const focusFlow = useViewStore((s) => s.focusFlow)
+  const focused = useViewStore((s) => s.focusedFlow)
   const diagram = diagramOf(map, hexId)
   const slots = threadSlots(diagram)
   const useCases = diagram.useCases.filter((u) => showPlanned || u.status !== 'planned')
@@ -28,7 +29,9 @@ export function ThreadLegend() {
               onPointerLeave={() => hoverFlows([])}
               onFocus={() => hoverFlows([u.id])}
               onBlur={() => hoverFlows([])}
-              onClick={() => focusFlow(u.id)}
+              aria-pressed={focused === u.id}
+              style={threadStyle(slots.get(u.id)!)}
+              onClick={() => focusFlow(focused === u.id ? null : u.id)}
             >
               <span className="thread-swatch" aria-hidden="true" style={threadStyle(slots.get(u.id)!)} />
               {u.name || 'Unnamed'}

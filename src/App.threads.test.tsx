@@ -142,6 +142,22 @@ describe('the Threads legend', () => {
     expect(useViewStore.getState().focusedFlow).toBe(first)
   })
 
+  it('marks the focused flow as pressed and carries its thread colour', () => {
+    render(<App />)
+    expect(rows().map((r) => r.getAttribute('aria-pressed'))).toEqual(rows().map(() => 'false'))
+    expect(rows()[0].getAttribute('style')).toMatch(/--thread: var\(--thread-\d+\)/)
+    fireEvent.click(rows()[0])
+    expect(rows().map((r) => r.getAttribute('aria-pressed'))).toEqual(rows().map((_, i) => String(i === 0)))
+  })
+
+  it('clears the focus on a second click of the pressed row', () => {
+    render(<App />)
+    fireEvent.click(rows()[0])
+    fireEvent.click(rows()[0])
+    expect(useViewStore.getState().focusedFlow).toBeNull()
+    expect(rows()[0].getAttribute('aria-pressed')).toBe('false')
+  })
+
   it('is absent when the hexagon has no use case', () => {
     useMapStore.getState().replace({ ...(EXAMPLES[0].map as HexaMap), hexagons: (EXAMPLES[0].map as HexaMap).hexagons.map((h) => ({ ...h, useCases: [], ports: [], adapters: [], actors: [], externals: [] })) })
     render(<App />)
