@@ -497,7 +497,7 @@ describe('Links section (REQ-LNK-01, REQ-LNK-07)', () => {
   it('shows the section with a count of every link in the map', () => {
     useMapStore.getState().replace(linkedTwoHexMap())
     const { container } = renderEditor()
-    expect(section(container, 'Links').querySelector('summary')!.textContent).toBe('Links· 1')
+    expect(section(container, 'Links').querySelector('summary')!.textContent).toBe('Links1')
   })
 
   it('lists each existing link by its two ends’ hexagon and port names', () => {
