@@ -6,7 +6,7 @@ import { layCentre } from './centreBlock'
 import type { UseCaseSeating } from './useCaseSeating'
 
 const diagramOf = (domain: DomainItem[]) => ({ version: 1, kind: 'hexagonal', title: '', domain, useCases: [], ports: [], adapters: [], actors: [], externals: [] }) as Diagram
-const centre = (domain: DomainItem[]) => layCentre({ d: diagramOf(domain), overview: false, domainFrame: boxFrames(false).domainFrame, seating: { walls: [] } as unknown as UseCaseSeating })
+const centre = (domain: DomainItem[]) => layCentre({ d: diagramOf(domain), overview: false, domainFrame: boxFrames().domainFrame, seating: { walls: [] } as unknown as UseCaseSeating })
 const box = (c: { x: number; y: number }, w: number, h: number) => ({ x0: c.x - w / 2, x1: c.x + w / 2, y0: c.y - h / 2, y1: c.y + h / 2 })
 
 describe('layCentre', () => {

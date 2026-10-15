@@ -85,6 +85,12 @@ describe('planChains', () => {
     expect([s.get('actor:loose')!.wall, s.get('external:stray')!.wall]).toEqual(['nw', 'ne'])
   })
 
+  it('leaves an actor on a driven adapter without a chain, on the driving half', () => {
+    const s = slots({ ports: [port('p', 'driven', 'e')], adapters: [adapter('a', 'p')], actors: [endpoint('odd', 'a')] })
+    expect(s.get('actor:odd')!.wall).toBe('nw')
+    expect(s.get('adapter:a')!.wall).toBe('e')
+  })
+
   it('is deterministic', () => {
     expect(planChains({ ...empty, ...chain }, frames)).toEqual(planChains({ ...empty, ...chain }, frames))
   })
