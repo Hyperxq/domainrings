@@ -21,7 +21,7 @@ describe('CleanEditor', () => {
   it('renders one fold per ring, innermost-first, each starting with 0 sectors', () => {
     const { container } = renderEditor()
     for (const title of ['Entities', 'Use Cases', 'Interface Adapters', 'Frameworks & Drivers']) {
-      expect(section(container, title).querySelector('summary')!.textContent).toBe(`${title}· 0`)
+      expect(section(container, title).querySelector('summary')!.textContent).toBe(`${title}0`)
     }
   })
 

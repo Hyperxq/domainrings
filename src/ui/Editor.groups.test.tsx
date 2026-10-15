@@ -37,7 +37,7 @@ describe('Elements', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Elements' })).toBeTruthy()
     for (const [title, count] of counts) {
       expect(group(container, title).open).toBe(false)
-      expect(group(container, title).querySelector('summary')!.textContent).toBe(`${title}· ${count}`)
+      expect(group(container, title).querySelector('summary')!.textContent).toBe(`${title}${count}`)
     }
   })
 

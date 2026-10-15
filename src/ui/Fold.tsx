@@ -55,7 +55,7 @@ export function Fold({ id, title, count, defaultOpen = true, actions, open: cont
         >
           <Icon name="chevron" />
           <h2 id={headingId}>{title}</h2>
-          {count !== undefined && <span className="count">· {count}</span>}
+          {count !== undefined && <span className="count">{count}</span>}
         </summary>
         {children}
       </details>
