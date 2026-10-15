@@ -1070,7 +1070,8 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
   // v2 placement: Overview keeps every box and edge; bands are 2 × (half box + margin + tracks). Fit scales measured at the
   // reference stage above with Execution current: 0.2543 detailed, 0.3099 overview.
   // v2 cards: the Overview domain region holds real card headers
-  const FIT_FLOOR = { detailed: 0.25, overview: 0.25 }
+  // 0.25 → 0.26: the box clearance in a band went from 16 to 6 (BOX_CLEAR); measured 0.2661 detailed, 0.2646 overview.
+  const FIT_FLOOR = { detailed: 0.26, overview: 0.26 }
   const MODES_UNDER_TEST = ['detailed', 'overview'] as const
   const layoutFor = (mode: LayoutMode, current: string) => layoutMap(map, { mode, current })
   const fit = (mode: LayoutMode, current: string) => fitTo(layoutFor(mode, current).bounds, STAGE.width, STAGE.height, INSET, 0).scale
@@ -1136,6 +1137,12 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
   it.each(MODES_UNDER_TEST)('fits %s at the v2-placement floor, with Execution current', (mode) => {
     const scale = fit(mode, 'h-exec')
     expect(scale).toBeGreaterThanOrEqual(FIT_FLOOR[mode])
+  })
+
+  it.each(MODES_UNDER_TEST)('drops no more edge labels than the corridor hops had room for, in %s', (mode) => {
+    // Measured with the band clearance at 6: Execution current, hexagons in map order.
+    const dropped = layoutFor(mode, 'h-exec').hexagons.map((h) => h.model.edges.filter((e) => e.label && !e.labelAt).length)
+    expect(dropped).toEqual([0, 1, 0, 2, 1, 0])
   })
 
   it.each(MODES_UNDER_TEST)('keeps MAP_GAP between every pair of hexagon boxes in %s, whichever hexagon is current', (mode) => {
