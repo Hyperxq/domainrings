@@ -42,12 +42,19 @@ function FlowRow({ flow, name, slot, pressed, onPick }: { flow: Flow; name: stri
     <button
       type="button"
       className="flow-row"
+      data-flow={id}
       aria-pressed={pressed}
       style={threadStyle(slot)}
       onPointerEnter={() => hoverFlows([id])}
-      onPointerLeave={() => hoverFlows([])}
+      onPointerLeave={() => {
+        const focusedId = document.activeElement instanceof HTMLElement ? document.activeElement.dataset.flow : undefined
+        hoverFlows(focusedId ? [focusedId] : [])
+      }}
       onFocus={() => hoverFlows([id])}
-      onBlur={() => hoverFlows([])}
+      onBlur={() => {
+        const hovered = useViewStore.getState().hoveredFlows
+        if (hovered.length === 1 && hovered[0] === id) hoverFlows([])
+      }}
       onClick={() => onPick(pressed ? null : id)}
     >
       <span className="flow-bar" aria-hidden="true" />

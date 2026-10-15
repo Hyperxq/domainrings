@@ -127,6 +127,38 @@ describe('previewing a flow from its row', () => {
     expect(useViewStore.getState().hoveredFlows).toEqual([])
   })
 
+  describe('with rows from two hexagons', () => {
+    const other = () => screen.getByRole('button', { name: /ReceiveOrder/ })
+    beforeEach(() => {
+      useMapStore.getState().replace(TWO_SLICES_MAP)
+      usePreferencesStore.setState({ viewOnly: true })
+    })
+
+    it('falls back to the keyboard-focused row when the pointer leaves another one', () => {
+      render(<FlowsPanel />)
+      act(() => row().focus())
+      fireEvent.pointerEnter(other())
+      expect(useViewStore.getState().hoveredFlows).toEqual(['uc-receive'])
+      fireEvent.pointerLeave(other())
+      expect(useViewStore.getState().hoveredFlows).toEqual(['uc-place'])
+    })
+
+    it('clears when the pointer leaves and no row has focus', () => {
+      render(<FlowsPanel />)
+      fireEvent.pointerEnter(other())
+      fireEvent.pointerLeave(other())
+      expect(useViewStore.getState().hoveredFlows).toEqual([])
+    })
+
+    it('keeps the pointer’s preview of another row when the focused one blurs', () => {
+      render(<FlowsPanel />)
+      act(() => row().focus())
+      fireEvent.pointerEnter(other())
+      act(() => row().blur())
+      expect(useViewStore.getState().hoveredFlows).toEqual(['uc-receive'])
+    })
+  })
+
   it('ends when the hovered row goes away with its use case', () => {
     render(<FlowsPanel />)
     fireEvent.pointerEnter(row())
