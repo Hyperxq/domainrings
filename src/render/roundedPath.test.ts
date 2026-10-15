@@ -22,4 +22,13 @@ describe('roundedPath', () => {
   it('leaves collinear points alone and drops repeated ones', () => {
     expect(roundedPath([{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 0 }, { x: 60, y: 0 }])).toBe('M0 0 L20 0 L60 0')
   })
+
+  it('draws nothing for no points', () => {
+    expect(roundedPath([])).toBe('')
+  })
+
+  it('measures a run from the last point kept, so tiny steps cannot drift', () => {
+    const steps = Array.from({ length: 11 }, (_, i) => ({ x: i * 0.4, y: 0 }))
+    expect(roundedPath(steps)).toBe('M0 0 L0.8 0 L1.6 0 L2.4 0 L3.2 0 L4 0')
+  })
 })
