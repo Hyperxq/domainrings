@@ -1,21 +1,27 @@
 import { flowsOf } from '../model/flow'
-import { diagramOf } from '../model/map'
+import { diagramOf, UNTITLED_HEXAGON } from '../model/map'
 import { useMapStore } from '../model/store'
 import { threadSlots } from '../model/threads'
 import { threadStyle } from '../render/ThreadDots'
+import { PresentButton } from './PresentPanel'
 import { useViewStore } from './state/viewStore'
 
-/** One row per use case of the current hexagon; picking one focuses its flow, picking the focused one again clears it. */
-export function FlowRows() {
+/** One row per use case of hexagon `hexId` (the current one by default); picking one focuses its hexagon and flow, picking the focused one again clears it. */
+export function FlowRows({ hexId: given }: { hexId?: string } = {}) {
   const map = useMapStore((s) => s.map)
-  const hexId = useMapStore((s) => s.focus)
-  const focused = useViewStore((s) => s.focusedFlow)
+  const current = useMapStore((s) => s.focus)
+  const hexId = given ?? current
+  const focused = useViewStore((s) => (hexId === current ? s.focusedFlow : null))
   const focusFlow = useViewStore((s) => s.focusFlow)
   const diagram = diagramOf(map, hexId)
   const names = new Map(diagram.useCases.map((u) => [u.id, u.name]))
   const slots = threadSlots(diagram)
+  const pick = (id: string | null) => {
+    useMapStore.getState().setFocus(hexId)
+    focusFlow(id)
+  }
   return flowsOf(map, hexId).map((flow) => (
-    <button key={flow.useCaseId} type="button" className="flow-row" aria-pressed={focused === flow.useCaseId} style={threadStyle(slots.get(flow.useCaseId)!)} onClick={() => focusFlow(focused === flow.useCaseId ? null : flow.useCaseId)}>
+    <button key={flow.useCaseId} type="button" className="flow-row" aria-pressed={focused === flow.useCaseId} style={threadStyle(slots.get(flow.useCaseId)!)} onClick={() => pick(focused === flow.useCaseId ? null : flow.useCaseId)}>
       <span className="flow-bar" aria-hidden="true" />
       <span className="flow-name">{names.get(flow.useCaseId) || 'Unnamed'}</span>
       <span className="flow-summary">{flow.starters.join(', ')} → {flow.destinations.join(', ')}</span>
@@ -24,13 +30,14 @@ export function FlowRows() {
   ))
 }
 
-/** View mode's sidebar: one row per use case of the current hexagon; picking one isolates its flow on the canvas. */
+/** View mode's sidebar: one row per use case, grouped by hexagon on a map of several; picking one isolates its flow on the canvas. */
 export function FlowsPanel() {
   const map = useMapStore((s) => s.map)
-  const hexId = useMapStore((s) => s.focus)
   const focused = useViewStore((s) => s.focusedFlow)
   const focusFlow = useViewStore((s) => s.focusFlow)
-  const count = diagramOf(map, hexId).useCases.length
+  // Map order, never current-first: picking another hexagon's flow must not reshuffle the list under the pointer.
+  const hexagons = map.hexagons.filter((h) => h.useCases.length > 0)
+  const count = hexagons.reduce((n, h) => n + h.useCases.length, 0)
 
   return (
     <aside className="island editor flows-panel" aria-label="Flows">
@@ -47,10 +54,20 @@ export function FlowsPanel() {
               <span className="flow-stack" aria-hidden="true"><i style={{ height: 16 }} /><i style={{ height: 11 }} /><i style={{ height: 14 }} /><i style={{ height: 8 }} /></span>
               <span className="flow-name">All flows</span> <span className="flow-count">{count}</span>
             </button>
-            <FlowRows />
+            {hexagons.map((h) => (
+              <section key={h.id} className="flow-group">
+                {map.hexagons.length > 1 && <h3>{h.title || UNTITLED_HEXAGON}</h3>}
+                <FlowRows hexId={h.id} />
+              </section>
+            ))}
           </>
         )}
       </div>
+      {count > 0 && (
+        <footer className="present-foot">
+          <PresentButton />
+        </footer>
+      )}
     </aside>
   )
 }

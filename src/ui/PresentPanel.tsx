@@ -65,6 +65,9 @@ export function PresentPanel() {
         <button type="button" className="text-button" onClick={() => focusFlow(null)}>
           ← All flows
         </button>
+        <button type="button" className="text-button" title="Stop presenting, keep this flow (Esc)" onClick={() => present(null)}>
+          Exit
+        </button>
       </header>
       <div className="editor-body">
         <h2 className="present-title">{name}</h2>
@@ -87,10 +90,16 @@ export function PresentPanel() {
         <button type="button" className="text-button" disabled={index === 0} onClick={() => present(index - 1)}>
           ← Back
         </button>
-        <button type="button" className="text-button primary" disabled={index === count - 1} onClick={() => present(index + 1)}>
-          Next →
-        </button>
-        <p>Step {index + 1} of {count} · arrow keys move between steps</p>
+        {index === count - 1 ? (
+          <button type="button" className="text-button primary" onClick={() => present(null)}>
+            Done
+          </button>
+        ) : (
+          <button type="button" className="text-button primary" onClick={() => present(index + 1)}>
+            Next →
+          </button>
+        )}
+        <p>Step {index + 1} of {count} · ← → move · Esc exits</p>
       </footer>
     </aside>
   )
@@ -113,7 +122,6 @@ export function StepCard() {
 /** Starts the walkthrough of the focused flow, or of the first when none is focused. */
 export function PresentButton() {
   const viewOnly = usePreferencesStore((s) => s.viewOnly)
-  const legendOpen = usePreferencesStore((s) => s.legendOpen)
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   const focused = useViewStore((s) => s.focusedFlow)
@@ -123,8 +131,7 @@ export function PresentButton() {
   return (
     <button
       type="button"
-      className="island present-button"
-      data-legend-open={legendOpen ? '' : undefined}
+      className="text-button primary"
       onClick={() => {
         focusFlow(focused ?? first.id)
         present(0)

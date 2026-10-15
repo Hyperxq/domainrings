@@ -2,30 +2,41 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { EXAMPLES } from '../model/example'
+import { EXAMPLES, TWO_SLICES_MAP } from '../model/example'
 import type { HexaMap } from '../model/schema'
 import { useMapStore } from '../model/store'
 import { diagramOf } from '../model/map'
 import { threadSlots } from '../model/threads'
 import { FlowsPanel } from './FlowsPanel'
 import { FlowsSection } from './FlowsSection'
+import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
 
-const load = (id: string) => useMapStore.getState().replace(EXAMPLES.find((e) => e.id === id)!.map as HexaMap)
+const example = () => EXAMPLES.find((e) => e.id === 'hexagonal-advanced')!.map as HexaMap
+// The panel lists every hexagon's flows on a map of several, so the single-hexagon cases keep just the first.
+const single = (map: HexaMap): HexaMap => ({ ...map, hexagons: map.hexagons.filter((h) => h.id === 'h1'), links: [] })
 beforeEach(() => {
-  load('hexagonal-advanced')
+  useMapStore.getState().replace(single(example()))
   useViewStore.getState().focusFlow(null)
 })
 afterEach(cleanup)
 
 describe('FlowsPanel', () => {
+  it('keeps Present in a footer below the scrolling list, so a long list never hides it', () => {
+    usePreferencesStore.setState({ viewOnly: true })
+    render(<FlowsPanel />)
+    const present = screen.getByRole('button', { name: 'Present' })
+    expect(present.closest('footer.present-foot')).toBeTruthy()
+    expect(present.closest('.editor-body')).toBeNull()
+  })
+
   it('lists the use case with who starts it and where it ends, under an All flows row with the count', () => {
     render(<FlowsPanel />)
     expect(screen.getByRole('heading', { name: 'Flows' })).toBeTruthy()
     expect(screen.getByText('Each flow is one use case, end to end. Pick one to follow it.')).toBeTruthy()
     expect(screen.getByRole('button', { name: /^All flows\s*1$/ })).toBeTruthy()
     const row = screen.getByRole('button', { name: /PlaceOrder/ })
-    expect(row.textContent).toContain('Web shop → Payments, Shipping, Catalog, Postgres')
+    expect(row.textContent).toContain('Web shop → Postgres')
   })
 
   it('selecting a flow focuses it, marks the row pressed, and All flows clears it', () => {
@@ -57,14 +68,14 @@ describe('FlowsPanel', () => {
   })
 
   it('tags a flow with a gap as incomplete', () => {
-    const map = EXAMPLES.find((e) => e.id === 'hexagonal-advanced')!.map as HexaMap
+    const map = single(example())
     useMapStore.getState().replace({ ...map, hexagons: map.hexagons.map((h) => (h.id === 'h1' ? { ...h, actors: [] } : h)) })
     render(<FlowsPanel />)
     expect(screen.getByRole('button', { name: /PlaceOrder/ }).textContent).toContain('incomplete')
   })
 
   it('says so when the hexagon has no use case', () => {
-    const map = EXAMPLES.find((e) => e.id === 'hexagonal-advanced')!.map as HexaMap
+    const map = single(example())
     useMapStore.getState().replace({ ...map, hexagons: map.hexagons.map((h) => (h.id === 'h1' ? { ...h, useCases: [], ports: [], adapters: [], actors: [], externals: [] } : h)) })
     render(<FlowsPanel />)
     expect(screen.getByText('No use cases yet. Switch to Edit to add one.')).toBeTruthy()
@@ -74,7 +85,7 @@ describe('FlowsPanel', () => {
 
 describe('flow bars', () => {
   const withSecondFlow = () => {
-    const map = EXAMPLES.find((e) => e.id === 'hexagonal-advanced')!.map as HexaMap
+    const map = single(example())
     useMapStore.getState().replace({ ...map, hexagons: map.hexagons.map((h) => (h.id === 'h1' ? { ...h, useCases: [...h.useCases, { id: 'uc-two', name: 'RefundOrder' }] } : h)) })
     return threadSlots(diagramOf(useMapStore.getState().map, 'h1'))
   }
@@ -99,3 +110,65 @@ describe('flow bars', () => {
   })
 })
 
+
+describe('FlowsPanel on a map of several hexagons', () => {
+  beforeEach(() => {
+    useMapStore.getState().replace(TWO_SLICES_MAP)
+    usePreferencesStore.setState({ viewOnly: true })
+  })
+  const headings = () => screen.queryAllByRole('heading', { level: 3 }).map((h) => h.textContent)
+
+  it('puts no heading over the flows of a map with one hexagon', () => {
+    useMapStore.getState().replace(single(example()))
+    render(<FlowsPanel />)
+    expect(headings()).toEqual([])
+  })
+
+  it('lists every hexagon under its own name in map order, whichever is current, and counts them all', () => {
+    useMapStore.getState().setFocus('h2')
+    render(<FlowsPanel />)
+    expect(headings()).toEqual(['Orders', 'Shipping'])
+    expect(screen.getByRole('button', { name: /^All flows\s*2$/ })).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: /ReceiveOrder|PlaceOrder/ }).map((r) => r.querySelector('.flow-name')!.textContent)).toEqual(['PlaceOrder', 'ReceiveOrder'])
+  })
+
+  it('keeps the groups in place when a flow of another hexagon is picked', () => {
+    render(<FlowsPanel />)
+    fireEvent.click(screen.getByRole('button', { name: /ReceiveOrder/ }))
+    expect(headings()).toEqual(['Orders', 'Shipping'])
+  })
+
+  it('colours each row from the slots of its own hexagon', () => {
+    render(<FlowsPanel />)
+    const map = useMapStore.getState().map
+    const slot = (hexId: string, uc: string) => `var(--thread-${threadSlots(diagramOf(map, hexId)).get(uc)})`
+    const colour = (name: RegExp) => screen.getByRole('button', { name }).style.getPropertyValue('--thread')
+    expect(colour(/PlaceOrder/)).toBe(slot('h1', 'uc-place'))
+    expect(colour(/ReceiveOrder/)).toBe(slot('h2', 'uc-receive'))
+  })
+
+  it("picking another hexagon's flow focuses that hexagon and that flow together", () => {
+    render(<FlowsPanel />)
+    fireEvent.click(screen.getByRole('button', { name: /ReceiveOrder/ }))
+    expect(useMapStore.getState().focus).toBe('h2')
+    expect(useViewStore.getState().focusedFlow).toBe('uc-receive')
+    expect(screen.getByRole('button', { name: /ReceiveOrder/ }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: /ReceiveOrder/ }))
+    expect(useViewStore.getState().focusedFlow).toBeNull()
+  })
+
+  it("Present from the footer presents the other hexagon's picked flow", () => {
+    render(<FlowsPanel />)
+    fireEvent.click(screen.getByRole('button', { name: /ReceiveOrder/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Present' }))
+    expect(useViewStore.getState()).toMatchObject({ focusedFlow: 'uc-receive', presentStep: 0 })
+    expect(useMapStore.getState().focus).toBe('h2')
+  })
+
+  it('leaves the editor Flows section on the current hexagon', () => {
+    render(<FlowsSection />)
+    expect(screen.getByRole('button', { name: /PlaceOrder/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /ReceiveOrder/ })).toBeNull()
+    expect(headings()).toEqual([])
+  })
+})

@@ -19,7 +19,7 @@ import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
 import { hexIdOf, hullIdOf, layerOf, nodeRefOf, refOf, threadOf } from './canvasTarget'
 import { useInspectedFlow } from './FlowInspector'
-import { PresentButton, StepCard, usePresentation } from './PresentPanel'
+import { StepCard, usePresentation } from './PresentPanel'
 import { NotePopover } from './stage/NotePopover'
 import { BoxLabels, ContextReveals, ExpandToggles, GrowButtons, HexagonTitles, LinkChip, MapTitle, mapTitleOverlaid, titlesOverlaid } from './stage/overlays'
 import { useCanvasShortcuts } from './stage/useCanvasShortcuts'
@@ -380,7 +380,6 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
         <InlineName key={`naming:${hexId}`} at={mapToScreen(hex.centre)} initial={diagram.title} label="Hexagon title" emptyCommits onCommit={onNamed} onCancel={onNamingCancel} />
       )}
 
-      <PresentButton />
       <StepCard />
       <ZoomControls canExpandAll={canCompact(model.hexagons.length)} viewport={viewport} zoomFloor={zoomFloor} centre={centre} setView={setView} fullscreen={fullscreen} setFullscreen={setFullscreen} />
     </main>

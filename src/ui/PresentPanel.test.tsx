@@ -53,7 +53,7 @@ describe('PresentPanel', () => {
     expect(rows[6].textContent).toMatch(/chargePayment.*linked port/)
     expect(rows[15].textContent).toMatch(/Postgres.*external/)
     expect(current()).toBe(rows[0])
-    expect(screen.getByText('Step 1 of 16 · arrow keys move between steps')).toBeTruthy()
+    expect(screen.getByText('Step 1 of 16 · ← → move · Esc exits')).toBeTruthy()
   })
 
   it('moves between steps with Next and Back, which stop at the ends', () => {
@@ -64,13 +64,14 @@ describe('PresentPanel', () => {
     expect(back.disabled).toBe(true)
     fireEvent.click(next)
     expect(stepNo()).toBe(1)
-    expect(screen.getByText('Step 2 of 16 · arrow keys move between steps')).toBeTruthy()
+    expect(screen.getByText('Step 2 of 16 · ← → move · Esc exits')).toBeTruthy()
     fireEvent.click(back)
     expect(stepNo()).toBe(0)
     present(15)
-    expect(next.disabled).toBe(true)
-    fireEvent.click(next)
-    expect(stepNo()).toBe(15)
+    expect(screen.queryByRole('button', { name: 'Next →' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    expect(stepNo()).toBeNull()
+    expect(useViewStore.getState().focusedFlow).toBe('uc-place')
   })
 
   it('moves with the arrow keys, ignores them while typing, and stops at the ends', () => {
@@ -103,10 +104,14 @@ describe('PresentPanel', () => {
     expect(stepNo()).toBe(1)
   })
 
-  it('Escape stops presenting but keeps the flow isolated; "All flows" also clears it', () => {
+  it('Escape and Exit stop presenting but keep the flow isolated; "All flows" also clears it', () => {
     present(3)
     render(<PresentPanel />)
     fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(stepNo()).toBeNull()
+    expect(useViewStore.getState().focusedFlow).toBe('uc-place')
+    present(3)
+    fireEvent.click(screen.getByRole('button', { name: 'Exit' }))
     expect(stepNo()).toBeNull()
     expect(useViewStore.getState().focusedFlow).toBe('uc-place')
     present(3)
