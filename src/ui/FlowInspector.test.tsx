@@ -88,10 +88,76 @@ describe('FlowInspector: reading the flow', () => {
     expect(calls[3].textContent).toMatch(/OrderRepository.*→.*KnexOrderRepository.*→.*Postgres/)
   })
 
-  it('says the aggregates are not editable yet and gives the footer note', () => {
+  it('gives the footer note', () => {
     render(<FlowInspector />)
     expect(screen.getByText('2 · WHAT IT DECIDES WITH')).toBeTruthy()
     expect(screen.getByText("Typing a name that doesn't exist yet creates it. Position on the diagram is automatic.")).toBeTruthy()
+  })
+})
+
+describe('FlowInspector: aggregates', () => {
+  const chips = () => within(screen.getByRole('list', { name: 'What it decides with' })).queryAllByRole('listitem').map((li) => li.textContent)
+  const aggregates = () => useCase().aggregateIds
+  const named = (ids: string[], extra: Hexagon['domain'] = []) => load((h) => ({ ...h, domain: [...h.domain, { id: 'g-customer', name: 'Customer', type: 'aggregate' as const }, ...extra], useCases: h.useCases.map((u) => (u.id === 'uc-place' ? { ...u, aggregateIds: ids } : u)) }))
+
+  it('shows a chip per aggregate the use case names, in order, and nothing for unknown ids', () => {
+    named(['g-customer', 'gone', 'd-order'])
+    render(<FlowInspector />)
+    expect(chips()).toEqual(['◆ Customer', '◆ Order'])
+  })
+
+  it('removes an aggregate, dropping the field when it was the last, as one undo step', () => {
+    named(['d-order'])
+    render(<FlowInspector />)
+    fireEvent.click(screen.getByRole('button', { name: 'Remove aggregate Order' }))
+    expect(aggregates()).toBeUndefined()
+    undo()
+    expect(aggregates()).toEqual(['d-order'])
+  })
+
+  it('links an existing root aggregate by name, ignoring case, without creating one', () => {
+    render(<FlowInspector />)
+    const before = d().domain.length
+    add('Add aggregate', 'order')
+    expect(aggregates()).toEqual(['d-order'])
+    expect(d().domain).toHaveLength(before)
+  })
+
+  it('offers only root aggregates not yet linked', () => {
+    named(['d-order'], [{ id: 'e', name: 'Line', type: 'entity' }, { id: 'n', name: 'Inner', type: 'aggregate', parentId: 'd-order' }])
+    render(<FlowInspector />)
+    const options = [...document.querySelectorAll(`#${CSS.escape(screen.getByLabelText('Add aggregate').getAttribute('list')!)} option`)].map((o) => (o as HTMLOptionElement).value)
+    expect(options).toEqual(['Customer'])
+  })
+
+  it('creates a root aggregate for a name that matches none, links it, and undoes both together', () => {
+    render(<FlowInspector />)
+    add('Add aggregate', 'Basket')
+    const basket = d().domain.find((i) => i.name === 'Basket')!
+    expect(basket).toMatchObject({ type: 'aggregate' })
+    expect(basket.parentId).toBeUndefined()
+    expect(aggregates()).toEqual([basket.id])
+    undo()
+    expect(aggregates()).toBeUndefined()
+    expect(d().domain.some((i) => i.name === 'Basket')).toBe(false)
+  })
+
+  it('refuses a blank name and an aggregate already linked, keeping the text', () => {
+    named(['d-order'])
+    render(<FlowInspector />)
+    add('Add aggregate', ' ')
+    expect(screen.getByText('Type a name first')).toBeTruthy()
+    add('Add aggregate', 'Order')
+    expect(screen.getByText('Already in this flow')).toBeTruthy()
+    expect(aggregates()).toEqual(['d-order'])
+  })
+
+  it('writes a step note under the aggregate id when its chip is clicked', () => {
+    named(['d-order'])
+    render(<FlowInspector />)
+    fireEvent.click(screen.getByRole('button', { name: '◆ Order' }))
+    type('Note for Order', 'Locks the order.')
+    expect(useCase().stepNotes).toEqual({ 'd-order': 'Locks the order.' })
   })
 })
 

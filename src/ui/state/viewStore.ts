@@ -77,6 +77,17 @@ export const useViewStore = create<ViewStore>()((set, get) => ({
   ...initialView(),
   reveal: (ref, focus, hexId) => {
     if (usePreferencesStore.getState().viewOnly) return
+    // A use case has no card in the editor: its flow, in the inspector, is where it is edited.
+    const { map, focus: current } = useMapStore.getState()
+    if ((hexId ?? current) === current && diagramOf(map, current).useCases.some((u) => u.id === ref)) {
+      flushSync(() => set({ focusedFlow: ref, presentStep: null }))
+      const field = document.querySelector<HTMLInputElement>('input[aria-label="Flow name"]')
+      if (focus) {
+        field?.focus({ preventScroll: true })
+        field?.select()
+      }
+      return
+    }
     // The card only exists to scroll to once the collapsed editor has rendered open.
     flushSync(() => set(({ openNodes }) => ({ editorOpen: true, openNodes: hexId ? new Set([...openNodes, ...branchOf(useMapStore.getState().map, hexId)]) : openNodes })))
     revealInEditor(ref, focus, hexId)

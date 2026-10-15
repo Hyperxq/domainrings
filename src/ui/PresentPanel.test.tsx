@@ -125,6 +125,14 @@ describe('PresentPanel', () => {
 })
 
 describe('StepCard', () => {
+  it('tags an aggregate step with its role', () => {
+    const map = advanced()
+    useMapStore.getState().replace({ ...map, hexagons: map.hexagons.map((h) => (h.id === 'h1' ? { ...h, domain: [...h.domain, { id: 'agg', name: 'Order', type: 'aggregate' as const }], useCases: h.useCases.map((u) => (u.id === 'uc-place' ? { ...u, aggregateIds: ['agg'] } : u)) } : h)) })
+    present()
+    render(<PresentPanel />)
+    expect(screen.getAllByRole('listitem')[4].textContent).toMatch(/Order.*aggregate/)
+  })
+
   it('names the step number, its role and the note', () => {
     withTexts({ stepNotes: { 'a-rest': 'Parses the JSON.' } })
     present(1)
