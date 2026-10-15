@@ -42,7 +42,7 @@ describe('thread marks on the hexagonal layout', () => {
 
   it.each(CASES)('%s %s: every box shows a dot for each thread that touches it', (id, mode) => {
     const { threads, model } = laid(id, mode)
-    const DOTTED = new Set(['actor', 'adapter', 'port', 'useCase', 'external', 'aggregate', 'domainItem'])
+    const DOTTED = new Set(['actor', 'adapter', 'port', 'useCase', 'external', 'aggregate'])
     for (const node of model.nodes) {
       const touching = threads.filter((t) => t.refs.has(node.ref)).map((t) => ({ id: t.useCaseId, slot: t.slot }))
       expect(node.threads, `${node.kind}:${node.ref}`).toEqual(DOTTED.has(node.kind) && touching.length ? touching : undefined)

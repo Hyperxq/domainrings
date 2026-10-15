@@ -17,7 +17,7 @@ const withUses = (d: Diagram, uses: Record<string, { placement?: Wall; aggregate
   useCases: d.useCases.map((u) => ({ ...u, ...uses[u.id] })),
 })
 
-const cardOf = (m: LayoutModel, mode: LayoutMode, id: string) => m.nodes.find((n) => n.key === (mode === 'detailed' ? `aggregate:${id}` : `domainItem:${id}`))!
+const cardOf = (m: LayoutModel, _mode: LayoutMode, id: string) => m.nodes.find((n) => n.key === `aggregate:${id}`)!
 const cardsOf = (m: LayoutModel, mode: LayoutMode, d: Diagram) => d.domain.filter((i) => i.type === 'aggregate' && !i.parentId).map((i) => cardOf(m, mode, i.id))
 const corners = (n: LayoutNode): Point[] => [-1, 1].flatMap((sx) => [-1, 1].map((sy) => ({ x: n.x + (sx * n.width) / 2, y: n.y + (sy * n.height) / 2 })))
 const faceOfCard = (n: LayoutNode): Wall => WALLS.reduce((best, w) => (dot(n, wallFrame(w).n) > dot(n, wallFrame(best).n) ? w : best))
@@ -61,11 +61,11 @@ describe('a domain without aggregates', () => {
     expect(layoutDiagram({ ...EXAMPLE_DIAGRAM, domain: [] }).region).toBeUndefined()
   })
 
-  it('keeps its other roots inside the region, as plain text', () => {
+  it('keeps its other roots inside the region, each on a card headed with its type', () => {
     const d = { ...EXAMPLE_DIAGRAM, domain: [{ id: 'e1', name: 'Order', type: 'entity' as const }] }
     const m = layoutDiagram(d)
     const root = m.nodes.find((n) => n.key === 'domainItem:e1')!
-    expect(m.nodes.some((n) => n.kind === 'aggregate')).toBe(false)
+    expect(m.nodes.find((n) => n.key === 'aggregate:e1')!.lines[0].text).toBe('● entity')
     for (const c of corners(root)) expect(Math.abs(c.x)).toBeLessThanOrEqual(halfWidthAt(m.region!, c.y) + 1e-6)
   })
 })

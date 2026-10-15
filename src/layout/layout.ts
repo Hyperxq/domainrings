@@ -51,6 +51,8 @@ export interface LayoutNode {
   wall?: Wall
   /** Hexagons: the threads whose flow passes through this box, in use case order. */
   threads?: ThreadMark[]
+  /** Hexagons, domain cards: where a divider rule runs across the box, measured down from its top edge. */
+  rule?: number
   x: number
   y: number
   width: number

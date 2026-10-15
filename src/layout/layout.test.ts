@@ -390,11 +390,11 @@ describe('layoutDiagram', () => {
     expect(model.edges.find((e) => intoDomain(e.key))!.label).toBeUndefined()
   })
 
-  it('centres every domain line on its card, children as one smaller line under their parent', () => {
+  it('centres the root on its card and sets the children as one smaller row under it, name left and type right', () => {
     const card = find(model, 'aggregate', 'd-feedback')
     for (const n of model.nodes.filter((n) => n.kind === 'domainItem')) {
       expect(n.x).toBe(card.x)
-      expect(n.align).toBe('center')
+      expect(n.align).toBe(n.ref === 'd-feedback' ? 'center' : 'start')
     }
     const parent = find(model, 'domainItem', 'd-feedback')
     const children = ['d-rating', 'd-email'].map((id) => find(model, 'domainItem', id))
@@ -404,7 +404,7 @@ describe('layoutDiagram', () => {
       expect(child.lines).toHaveLength(1)
       expect(child.lines[0].style).toBe('minor')
     }
-    expect(children[0].lines[0]).toEqual({ text: 'FeedbackRating', style: 'minor', tag: '○ value object' })
+    expect(children[0].lines[0]).toEqual({ text: '○ FeedbackRating', style: 'minor', right: 'value obj' })
     expect(children[1].y).toBeGreaterThan(children[0].y)
   })
 
@@ -480,18 +480,18 @@ describe('aggregates as consistency boundaries', () => {
     const descendantsOf = (id: string): string[] =>
       diagram.domain.filter((i) => i.parentId === id).flatMap((i) => [i.id, ...descendantsOf(i.id)])
 
-    it('outlines every aggregate root with its descendants inside, 8 units of padding clear', () => {
+    it('outlines every aggregate root with its descendants inside, clear of its edges', () => {
       const roots = diagram.domain.filter((i) => i.type === 'aggregate' && !i.parentId)
       expect(outlines.map((o) => o.ref).sort()).toEqual(roots.map((r) => r.id).sort())
       for (const outline of outlines) {
-        expect(outline.lines).toEqual([{ text: '◆ aggregate', style: 'tag' }])
+        expect(outline.lines).toEqual([{ text: '◆ aggregate root', style: 'tag' }])
         const root = find(model, 'domainItem', outline.ref)
         expect(root.lines[0].style).toBe('strong')
         for (const n of [root, ...descendantsOf(outline.ref).map((id) => find(model, 'domainItem', id))]) {
-          expect(left(n)).toBeGreaterThanOrEqual(left(outline) + 8 - 1e-6)
-          expect(right(n)).toBeLessThanOrEqual(right(outline) - 8 + 1e-6)
-          expect(top(n)).toBeGreaterThan(top(outline) + 8)
-          expect(bottom(n)).toBeLessThanOrEqual(bottom(outline) - 8 + 1e-6)
+          expect(left(n)).toBeGreaterThanOrEqual(left(outline) + 14 - 1e-6)
+          expect(right(n)).toBeLessThanOrEqual(right(outline) - 14 + 1e-6)
+          expect(top(n)).toBeGreaterThan(top(outline) + 14)
+          expect(bottom(n)).toBeLessThanOrEqual(bottom(outline) - 6 + 1e-6)
           expect(n.x).toBe(outline.x)
         }
       }
@@ -554,7 +554,7 @@ describe('type tags: one glyph + word per element', () => {
 
     it('weights the domain by type: aggregate root strong, entity regular, value object small', () => {
       for (const item of diagram.domain) {
-        const nameLine = find(model, 'domainItem', item.id).lines.find((l) => !GLYPHS.some((g) => l.text.startsWith(`${g} `)))!
+        const [nameLine] = find(model, 'domainItem', item.id).lines
         if (item.type === 'aggregate' && !item.parentId) expect(nameLine.style).toBe('strong')
         if (item.type === 'valueObject') expect(nameLine.style).toBe('minor')
       }
@@ -989,8 +989,10 @@ describe('layoutDiagram growth (stress example)', () => {
     expect(STRESS_DIAGRAM.ports.filter((p) => p.side === 'driven')).toHaveLength(6)
   })
 
-  it('flows a long domain tree into two columns', () => {
-    expect(new Set(items.map((n) => n.x)).size).toBe(2)
+  it('holds the long domain tree in one card per aggregate, each item centred on its own', () => {
+    const cards = model.nodes.filter((n) => n.kind === 'aggregate')
+    expect(cards).toHaveLength(2)
+    for (const item of items) expect(cards.some((c) => c.x === item.x)).toBe(true)
   })
 
   it('never separates a parent from its children', () => {

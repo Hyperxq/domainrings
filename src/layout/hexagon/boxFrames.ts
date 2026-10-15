@@ -1,6 +1,6 @@
 import { HEXAGONAL_KIND } from '../../model/kinds'
 import type { Adapter, Diagram, DomainItem, Endpoint, Port, Side, UseCase } from '../../model/schema'
-import { adapterTag, DOMAIN_TAGS, portTag, USE_CASE_TAG } from '../tags'
+import { adapterTag, portTag, USE_CASE_TAG } from '../tags'
 import { LINE_METRICS, lineWidth, noteLines, SIGNATURE_BREAKS, styled, wrapLabel, type LineStyle, type TextLine } from '../text'
 import { USE_CASE_TEXT_WIDTH } from './spacing'
 
@@ -25,12 +25,8 @@ export function boxFrames() {
   const adapterFrame = (a: Adapter, side: Side) => frame([...styled('eyebrow', adapterTag(side, labels)), ...styled('name', a.name, 18), ...noteLines(a.note)], 110)
   const portFrame = (p: Port) => frame([...styled('tag', portTag(p.side, labels)), ...styled('name', p.name, 18), ...noteLines(p.note)], 70)
   const leafFrame = (e: Endpoint, side: Side) => frame([...styled('title', e.name, 16), ...noteLines(e.note, side === 'driven' ? 'mono' : 'muted')], 80)
-  // The type tag replaces the old type line. An aggregate root's tag sits on its outline, so the root line is just
-  // its name, set strong; other roots carry the tag above their name.
-  const domainFrame = (i: DomainItem) =>
-    i.type === 'aggregate'
-      ? frame([...styled('strong', i.name), ...noteLines(i.note)], 0, 2, 0)
-      : frame([...styled('tag', DOMAIN_TAGS[i.type]), ...styled('mono', i.name), ...noteLines(i.note)], 0, 2, 0)
+  // A card names its root in bold; the type header above it and the rows below belong to the card.
+  const domainFrame = (i: DomainItem) => frame([...styled('strong', i.name), ...noteLines(i.note)], 0, 2, 0)
   // A use case's box runs radially on the side walls, so its text wraps to a narrow column; a word that cannot wrap is cut.
   const narrow = (style: LineStyle, text: string | undefined, breaks?: RegExp): TextLine[] => {
     const max = Math.floor(USE_CASE_TEXT_WIDTH / (LINE_METRICS[style].size * LINE_METRICS[style].em))

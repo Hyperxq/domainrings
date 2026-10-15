@@ -98,6 +98,7 @@ function Node({ node, selected, target, chained, interactive, noted, planned }: 
           <rect className="box" x={left} y={top} width={node.width} height={node.height} rx={node.kind === 'port' ? 10 : 8} />
         )
       )}
+      {node.rule !== undefined && <line className="card-rule" x1={left + 10} x2={left + node.width - 10} y1={top + node.rule} y2={top + node.rule} />}
       <text className={centered ? 'centered' : node.align === 'end' ? 'end' : undefined}>
         {node.lines.map((line, i) => {
           const m = LINE_METRICS[line.style]
@@ -112,6 +113,11 @@ function Node({ node, selected, target, chained, interactive, noted, planned }: 
                 </>
               )}
               {!line.tag && line.text}
+              {line.right && (
+                <tspan className="line-right" x={left + node.width} textAnchor="end">
+                  {line.right}
+                </tspan>
+              )}
             </tspan>
           )
         })}

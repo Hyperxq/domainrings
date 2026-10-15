@@ -1,8 +1,8 @@
 import type { Thread } from '../../model/threads'
 import type { LayoutEdge, LayoutNode, ThreadMark } from '../layout'
 
-// The boxes of a flow; labels and the composition root belong to no thread.
-const DOTTED = new Set<LayoutNode['kind']>(['actor', 'adapter', 'port', 'useCase', 'external', 'aggregate', 'domainItem'])
+// The boxes of a flow (a card carries its root's dots, not the name and rows inside it); labels and the composition root belong to no thread.
+const DOTTED = new Set<LayoutNode['kind']>(['actor', 'adapter', 'port', 'useCase', 'external', 'aggregate'])
 
 /**
  * Tags each box with the threads that touch it and each edge with the one thread it belongs to. An edge belongs to a

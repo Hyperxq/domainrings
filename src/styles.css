@@ -102,6 +102,7 @@
 .canvas .ring-subtitle.on-domain { fill: var(--domain-ink); fill-opacity: 0.75; }
 .domain-region { fill: var(--domain-ink); fill-opacity: 0.07; stroke: var(--domain-ink); stroke-opacity: 0.35; stroke-width: 1; stroke-dasharray: 4 3; }
 .aggregate-outline { fill: none; stroke: var(--domain-ink); stroke-opacity: 0.5; stroke-width: 1.2; }
+.canvas .card-rule { stroke: var(--domain-ink); stroke-opacity: 0.3; stroke-width: 1; }
 .canvas .line-tag,
 .canvas .inline-tag { font-family: var(--font-mono); fill: var(--muted); }
 .canvas .node-domainItem .line-tag,
@@ -408,6 +409,7 @@ svg[data-link-mode] .node[data-link-target] .box { stroke-width: 2; filter: brig
 .canvas .node-aggregate text { fill: var(--domain-ink); }
 .canvas .node-domainItem .line-muted,
 .canvas .node-domainItem .line-minor { fill: var(--domain-ink); fill-opacity: 0.75; }
+.canvas .node-domainItem .line-right { fill-opacity: 0.55; }
 
 .canvas .diagram-title { font-weight: 600; }
 .canvas .diagram-subtitle { fill: var(--muted); }

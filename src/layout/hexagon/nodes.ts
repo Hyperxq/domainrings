@@ -30,8 +30,9 @@ export function placeNodes({ d, elements, radii, outerApex, centre, frames }: No
   // Outlines first so they draw under the lines they enclose.
   for (const r of centre.boxes) {
     const node = place(r.key, r.ref, r.kind, 'domain', r.frame, r.x, r.y)
-    if (r.kind !== 'aggregate') node.align = 'center'
-    else node.wall = centre.faces.get(r.ref)
+    node.align = r.align
+    if (r.rule !== undefined) node.rule = r.rule
+    if (r.kind === 'aggregate') node.wall = centre.faces.get(r.ref)
   }
   for (const e of elements) {
     const { x, y } = onWall(e.wall, radii[e.layer], e.u)
