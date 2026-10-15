@@ -44,3 +44,12 @@ describe('the export frame holds the corridor guides', () => {
     }
   }
 })
+
+describe('withGuides', () => {
+  it('does not depend on how many corridors a hexagon has, or their order', () => {
+    const [h] = layoutMap(toMap(STRESS_DIAGRAM), { mode: 'detailed' }).hexagons
+    const bounds = hexagonBounds(h)
+    expect(withGuides(bounds, [{ ...h, model: { ...h.model, corridors: [] } }], true)).toEqual(bounds)
+    expect(withGuides(bounds, [{ ...h, model: { ...h.model, corridors: [...h.model.corridors].reverse() } }], true)).toEqual(withGuides(bounds, [h], true))
+  })
+})
