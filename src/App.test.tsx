@@ -666,6 +666,21 @@ describe('legend island', () => {
   })
 })
 
+describe('legend in exports', () => {
+  afterEach(() => localStorage.removeItem('domainrings:legend-export'))
+
+  it('is a switch in the View options, and the Hexagonal canvas has no legend island', () => {
+    render(<App />)
+    expect(document.querySelector('.legend')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'View options' }))
+    const toggle = screen.getByRole('menuitemcheckbox', { name: /^Legend in exports/ })
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(toggle)
+    expect(usePreferencesStore.getState().legendInExport).toBe(false)
+    expect(localStorage.getItem('domainrings:legend-export')).toBe('false')
+  })
+})
+
 describe('dependents preference', () => {
   beforeEach(() => localStorage.removeItem('domainrings:dependents'))
   afterEach(() => localStorage.removeItem('domainrings:dependents'))

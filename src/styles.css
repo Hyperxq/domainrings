@@ -1054,10 +1054,6 @@ span.swatch-element { background: var(--card); border-color: var(--teal); }
 .legend-footer { padding: 8px 0; border-top: 1px solid var(--line); }
 .legend-export { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 
-@media (min-width: 721px) {
-  /* The inspector holds the right column, so an open legend moves left of it. */
-  .flow-inspector ~ .legend { right: calc(312px + 12px + 12px); }
-}
 
 @media (max-width: 720px) {
   .editor:has(~ .flow-inspector) { display: none; }

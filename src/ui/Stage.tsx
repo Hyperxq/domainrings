@@ -67,8 +67,6 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   const highlight = usePreferencesStore((s) => s.highlight)
   const dependents = usePreferencesStore((s) => s.dependents)
   const showGuides = usePreferencesStore((s) => s.guides)
-  // The open legend island takes the right column, so the fit leaves it free.
-  const legendOpen = usePreferencesStore((s) => s.legendOpen)
   const viewOnly = usePreferencesStore((s) => s.viewOnly)
   // View mode shows the Flows panel in the editor's place, so the fit leaves the same room for it.
   const panelOpen = useViewStore((s) => s.editorOpen) || viewOnly
@@ -112,7 +110,6 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
     hex,
     mainRef,
     revision,
-    legendOpen,
     panelOpen,
     inspectorOpen,
     onPanStart: () => {

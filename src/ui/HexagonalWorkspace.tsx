@@ -5,7 +5,6 @@ import { Editor } from './Editor'
 import { FlowInspector } from './FlowInspector'
 import { FlowsPanel } from './FlowsPanel'
 import { PresentPanel } from './PresentPanel'
-import { Legend } from './Legend'
 import { Stage } from './Stage'
 import { useViewStore } from './state/viewStore'
 import { useHexagonalCommands } from './useHexagonalCommands'
@@ -19,7 +18,7 @@ type HexagonalWorkspaceProps = Omit<StageProps, 'contextLabel' | 'onDelete' | 'o
     shown: StageProps['map']
   }
 
-/** Editor, legend and stage for a Hexagonal map, wired to the edit commands that toast an undoable step. */
+/** Editor, flows and stage for a Hexagonal map, wired to the edit commands that toast an undoable step. */
 export function HexagonalWorkspace({ nameOf, parseFile, shown, ...stage }: HexagonalWorkspaceProps) {
   const { map, hexId, diagram } = stage
   const viewOnly = usePreferencesStore((s) => s.viewOnly)
@@ -43,9 +42,7 @@ export function HexagonalWorkspace({ nameOf, parseFile, shown, ...stage }: Hexag
           onDeleteLink={commands.deleteLink}
         />
       )}
-      {/* Before the legend: styles.css moves a sibling legend left of it. */}
       <FlowInspector />
-      <Legend legend={stage.legend} />
       <Stage
         {...stage}
         map={shown}
