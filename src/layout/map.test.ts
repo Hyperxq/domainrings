@@ -1069,7 +1069,8 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
   const INSET = islandInset(STAGE, true, false)
   // v2 placement: Overview keeps every box and edge; bands are 2 × (half box + margin + tracks). Fit scales measured at the
   // reference stage above with Execution current: 0.2543 detailed, 0.3099 overview.
-  const FIT_FLOOR = { detailed: 0.25, overview: 0.3 }
+  // v2 cards: the Overview domain region holds real card headers
+  const FIT_FLOOR = { detailed: 0.25, overview: 0.25 }
   const MODES_UNDER_TEST = ['detailed', 'overview'] as const
   const layoutFor = (mode: LayoutMode, current: string) => layoutMap(map, { mode, current })
   const fit = (mode: LayoutMode, current: string) => fitTo(layoutFor(mode, current).bounds, STAGE.width, STAGE.height, INSET, 0).scale
