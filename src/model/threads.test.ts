@@ -179,6 +179,13 @@ describe('map-wide slots', () => {
     expect(slotsIn(toMap(d), 'h1')).toEqual(threadSlots(d))
   })
 
+  it('falls back to the hexagon alone for a copy of its view', () => {
+    const map = advanced()
+    const view = diagramOf(map, map.hexagons[1].id)
+    expect(threadSlots({ ...view })).toEqual(threadSlots({ useCases: view.useCases }))
+    expect(threadSlots(view)).toEqual(slotsIn(map, map.hexagons[1].id))
+  })
+
   it('colours a link by its source use case, whichever hexagon holds it', () => {
     const map = advanced()
     const link = { id: 'l-x', from: { hexagonId: 'h2', portId: 'p-gateway-out' }, to: { hexagonId: 'h4', portId: 'p-lookup-in' } }

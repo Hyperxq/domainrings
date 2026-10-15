@@ -88,30 +88,40 @@ export const boot = loadMap(browserStorage())
 // its Hexagonal shape; App.tsx picks which store's content is the active view (ADR-02), independent of boot.
 const bootHexaMap: HexaMap = boot.map.kind === 'hexagonal' ? boot.map : toMap(EXAMPLE_DIAGRAM)
 
-export const useMapStore = create<MapState>()((set, get) => {
+export const useMapStore = create<MapState>()((rawSet, get) => {
+  // The one write path of an edit: whatever the edit adds, removes or moves, the use cases left keep their colours,
+  // in the same update. Whole-map swaps (`replace`, `restore`) bypass it.
+  const set = (update: (s: MapState) => Partial<MapState>) =>
+    rawSet((s) => {
+      const next = update(s)
+      return next.map ? { ...next, map: keepSlots(s.map, next.map) } : next
+    })
   const editHexagon = (hexId: string, fn: (d: Diagram) => Diagram) =>
     set((s) => ({ map: putDiagram(s.map, hexId, fn(diagramOf(s.map, hexId))) }))
   // Pruning links broken by this edit (SEAM-06): every hexId edit that can invalidate a port re-checks the map's
   // links afterward, dropping the ones that no longer stand and reporting them to the caller.
   const editAndPrune = (hexId: string, fn: (d: Diagram) => Diagram) => {
-    editHexagon(hexId, fn)
-    const { map, pruned } = pruneLinks(get().map, hexId)
-    set({ map })
+    let pruned: Link[] = []
+    set((s) => {
+      const result = pruneLinks(putDiagram(s.map, hexId, fn(diagramOf(s.map, hexId))), hexId)
+      pruned = result.pruned
+      return { map: result.map }
+    })
     return pruned
   }
   // Single placement path for addHexagon/importHexagon (ADR-02): both resolve their own cell/source, then share
   // the placeHexagon call and the focus-setting write.
   const placeAndFocus = (map: HexaMap, view: Diagram, cell: Cell, contextId: string | undefined): string => {
     const { map: next, hexId } = placeHexagon(map, view, { cell, contextId })
-    set({ map: next, focus: hexId })
+    set(() => ({ map: next, focus: hexId }))
     return hexId
   }
   return {
     map: bootHexaMap,
     focus: bootHexaMap.hexagons[0].id,
     revision: 0,
-    replace: (map) => set({ map, focus: map.hexagons[0].id, revision: get().revision + 1 }),
-    restore: ({ map, focus, swap }) => set((s) => ({ map, focus, revision: swap ? s.revision + 1 : s.revision })),
+    replace: (map) => rawSet({ map, focus: map.hexagons[0].id, revision: get().revision + 1 }),
+    restore: ({ map, focus, swap }) => rawSet((s) => ({ map, focus, revision: swap ? s.revision + 1 : s.revision })),
     setFocus: (hexId) => set((s) => (s.map.hexagons.some((h) => h.id === hexId) ? { focus: hexId } : {})),
     setMapMeta: (meta) => set((s) => ({ map: { ...s.map, ...meta } })),
     setMeta: (hexId, meta) => editHexagon(hexId, (d) => merge(d, meta)),
@@ -120,7 +130,8 @@ export const useMapStore = create<MapState>()((set, get) => {
       // A new use case settles on a colour slot once and for all; the ones already drawn stay as the file has them.
       set((s) => {
         const before = diagramOf(s.map, hexId)
-        const map = putDiagram(s.map, hexId, withCollection(before, key, [...before[key], { ...NEW_ITEM[key], ...patch, id } as Item<typeof key>]))
+        // Settled first, so the new use case is distinct from the colours the later ones keep.
+        const map = keepSlots(s.map, putDiagram(s.map, hexId, withCollection(before, key, [...before[key], { ...NEW_ITEM[key], ...patch, id } as Item<typeof key>])))
         if (key !== 'useCases') return { map }
         const d = diagramOf(map, hexId)
         const threadSlot = threadSlots(d).get(id)!
@@ -135,8 +146,7 @@ export const useMapStore = create<MapState>()((set, get) => {
         return key === 'domain' ? { ...next, useCases: withoutAggregates(next.useCases, new Set(next.domain.filter((i) => i.type !== 'aggregate').map((i) => i.id))) } : next
       }),
     removeItem: (hexId, key, id) => {
-      const before = get().map
-      const pruned = editAndPrune(hexId, (d) => {
+      return editAndPrune(hexId, (d) => {
         let next = withCollection(d, key, (d[key] as Item<typeof key>[]).filter((i) => i.id !== id))
         for (const [owner, field, target] of REFERENCES) {
           if (target !== key) continue
@@ -145,9 +155,6 @@ export const useMapStore = create<MapState>()((set, get) => {
         }
         return key === 'domain' ? { ...next, useCases: withoutAggregates(next.useCases, new Set([id])) } : next
       })
-      // The use cases left, in every hexagon, keep the colours they had.
-      if (key === 'useCases') set((s) => ({ map: keepSlots(before, s.map) }))
-      return pruned
     },
     addHexagon: (from, { side, context }) => {
       const map = get().map
@@ -163,7 +170,7 @@ export const useMapStore = create<MapState>()((set, get) => {
       const map = get().map
       if (file.hexagons.length > 1) {
         const { map: merged, firstHexId } = mergeMap(map, file)
-        set({ map: merged, focus: firstHexId })
+        set(() => ({ map: merged, focus: firstHexId }))
         return firstHexId
       }
       const current = map.hexagons.find((h) => h.id === get().focus)!
@@ -174,7 +181,7 @@ export const useMapStore = create<MapState>()((set, get) => {
       const map = get().map
       if (map.hexagons.length <= 1) return []
       const { map: next, pruned } = removeHexagonFromMap(map, hexId)
-      set({ map: next, focus: get().focus === hexId ? next.hexagons[0].id : get().focus })
+      set(() => ({ map: next, focus: get().focus === hexId ? next.hexagons[0].id : get().focus }))
       return pruned
     },
     moveToContext: (hexId, contextId) => set((s) => ({ map: moveToContextOnMap(s.map, hexId, contextId) })),
@@ -189,20 +196,20 @@ export const useMapStore = create<MapState>()((set, get) => {
       const { map: candidate, linkId } = addLinkToMap(get().map, from, to)
       const next = validated(MapSchema, candidate)
       if (!next) return undefined
-      set({ map: next })
+      set(() => ({ map: next }))
       return linkId
     },
     updateLink: (id, patch) => {
       if (!get().map.links.some((l) => l.id === id)) return undefined
       const next = validated(MapSchema, updateLinkOnMap(get().map, id, patch))
       if (!next) return undefined
-      set({ map: next })
+      set(() => ({ map: next }))
       return next.links.find((l) => l.id === id)
     },
     removeLink: (id) => {
       const result = removeLinkFromMap(get().map, id)
       if (!result) return undefined
-      set({ map: result.map })
+      set(() => ({ map: result.map }))
       return result.removed
     },
   }

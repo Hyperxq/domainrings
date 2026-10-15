@@ -134,6 +134,48 @@ describe('map store', () => {
         state().removeItem(first.id, 'useCases', first.useCases[0].id)
         rest.forEach((h, i) => expect(slotsOf(h.id)).toEqual(before[i]))
       })
+
+      const drawn = () => new Map<string, number>(state().map.hexagons.flatMap((h) => [...slotsOf(h.id)].map(([id, slot]) => [`${h.id}/${id}`, slot] as [string, number])))
+      const keepsEveryColour = (before: Map<string, number>) => {
+        const after = drawn()
+        for (const [key, slot] of before) if (after.has(key)) expect(after.get(key)).toBe(slot)
+      }
+
+      it('keeps every colour when a use case is added to an earlier hexagon, and gives the new one its own', () => {
+        const before = drawn()
+        const id = state().addItem(state().map.hexagons[0].id, 'useCases')
+        keepsEveryColour(before)
+        expect(new Set(everyone()).size).toBe(everyone().length)
+        expect(slotsOf(state().map.hexagons[0].id).has(id)).toBe(true)
+      })
+
+      it('keeps every colour when a hexagon is removed', () => {
+        const before = drawn()
+        state().removeHexagon(state().map.hexagons[0].id)
+        keepsEveryColour(before)
+      })
+
+      it('keeps every colour when a hexagon is added or imported', () => {
+        const before = drawn()
+        state().addHexagon(state().map.hexagons[0].id, { context: 'new' })
+        state().importHexagon(toMap(EXAMPLE_DIAGRAM), { context: 'new' })
+        keepsEveryColour(before)
+      })
+
+      it('keeps every colour when a hexagon changes context', () => {
+        const before = drawn()
+        state().moveToContext(state().map.hexagons[0].id)
+        keepsEveryColour(before)
+      })
+
+      it('removes a use case in a single store update', () => {
+        const first = state().map.hexagons[0]
+        let updates = 0
+        const unsubscribe = useMapStore.subscribe(() => updates++)
+        state().removeItem(first.id, 'useCases', first.useCases[0].id)
+        unsubscribe()
+        expect(updates).toBe(1)
+      })
     })
 
     it('keeps a slot given in the patch', () => {
