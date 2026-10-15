@@ -3,6 +3,8 @@ export const GAP = 14
 /** Spacing between parallel use-case buses, and the straight run every arrow keeps before its head. */
 export const LANE = 12
 export const RUN = 16
+/** Distance between parallel tracks sharing a corridor. */
+export const TRACK_GAP = 6
 export const COLUMN_GAP = 32
 export const OUTSIDE_GAP = 20
 export const PAD = 16

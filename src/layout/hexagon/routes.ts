@@ -1,32 +1,16 @@
 import { SideSchema, type Diagram, type Side, type Wall } from '../../model/schema'
 import { dedupe, dot, enterBox, reach, type Point } from '../geometry'
 import type { LayoutEdge, LayoutNode } from '../layout'
-import { COS30, SQRT3, type Outline } from '../outline'
+import { COS30, type Outline } from '../outline'
 import { EDGE_LABEL, measure } from '../text'
 import type { BoxPlan } from './columns'
+import { around, overlap } from './corridors'
 import { GAP, LANE, OUTSIDE_GAP } from './spacing'
-import { faceAt, laneFoot, toLane, type UseCaseSeating } from './useCaseSeating'
-import { SLANTED_WALLS, VERTEX, wallFrame } from './walls'
+import { laneFoot, toLane, type UseCaseSeating } from './useCaseSeating'
+import { faceAt, SLANTED_WALLS, VERTEX, wallFrame } from './walls'
 
 /** The composition trunk hugs the outer hexagon this far out. */
 const TRUNK_GAP = OUTSIDE_GAP / 2
-
-/** The walls in the order they come round the hexagon: neighbours share a vertex, wall i and i + 1 the one at VERTEX[(i + 2) % 6]. */
-const WALL_CYCLE: Wall[] = ['e', 'se', 'sw', 'w', 'nw', 'ne']
-/**
- * The corners of a hexagon of circumradius `r` passed going from wall `from` round to wall `to` the shorter way. The
- * domain title sits in the top corner, so a run over it ducks to `underTitle` below the top, for the width of that corner.
- */
-const around = (from: Wall, to: Wall, r: number, underTitle: number): Point[] => {
-  const [a, b] = [WALL_CYCLE.indexOf(from), WALL_CYCLE.indexOf(to)]
-  const clockwise = (b - a + 6) % 6
-  const [steps, sign] = clockwise <= 3 ? [clockwise, 1] : [6 - clockwise, -1]
-  return Array.from({ length: steps }, (_, k) => ((sign > 0 ? a + k : a - k - 1) + 8) % 6).flatMap((vertex) => {
-    if (vertex !== 0) return [{ x: VERTEX[vertex].x * r, y: VERTEX[vertex].y * r }]
-    const half = (r - underTitle) * SQRT3
-    return sign > 0 ? [{ x: -half, y: -underTitle }, { x: half, y: -underTitle }] : [{ x: half, y: -underTitle }, { x: -half, y: -underTitle }]
-  })
-}
 
 export interface RouteInput {
   d: Diagram
@@ -54,10 +38,9 @@ export function routeEdges({ d, overview, nodes, composition, plan, insideApp, r
   const horizontal = (a: LayoutNode, b: LayoutNode): Point[] => {
     const ax = faceX(a, b.x)
     const bx = faceX(b, a.x)
-    const low = Math.max(a.y - a.height / 2, b.y - b.height / 2) + 4
-    const high = Math.min(a.y + a.height / 2, b.y + b.height / 2) - 4
-    if (low <= high) {
-      const y = Math.min(Math.max(a.y, low), high)
+    const window = overlap({ u: a.y, reach: a.height / 2 }, { u: b.y, reach: b.height / 2 })
+    if (window) {
+      const y = Math.min(Math.max(a.y, window[0]), window[1])
       return [{ x: ax, y }, { x: bx, y }]
     }
     const mx = (ax + bx) / 2
@@ -75,23 +58,23 @@ export function routeEdges({ d, overview, nodes, composition, plan, insideApp, r
 
   const slantedWall = (n: LayoutNode) => (n.wall && SLANTED_WALLS.has(n.wall) ? n.wall : undefined)
   /**
-   * Slanted walls: socket, adapter and endpoint connect along the wall normal, on the outer box's lane or the nearest
-   * lane both boxes share, so each run is perpendicular to the wall and every box stays upright. Boxes that share no
-   * lane (a port with several adapters) fall back to axis-aligned runs.
+   * Slanted walls: socket, adapter and endpoint connect along the wall normal, on the nearest lane both boxes share.
+   * Boxes that share none (a port with several adapters) meet through a Z: out square to the wall, along it halfway
+   * across the gap, and in square again.
    */
   const alongNormal = (a: LayoutNode, b: LayoutNode): Point[] => {
     const wall = slantedWall(a) ?? slantedWall(b)!
     const { n, dir } = wallFrame(wall)
     const [outerBox, innerBox] = dot(a, n) > dot(b, n) ? [a, b] : [b, a]
     const [outerU, innerU] = [dot(outerBox, dir), dot(innerBox, dir)]
-    const [outerR, innerR] = [reach(outerBox.width, outerBox.height, dir), reach(innerBox.width, innerBox.height, dir)]
-    const lo = Math.max(outerU - outerR, innerU - innerR) + 4
-    const hi = Math.min(outerU + outerR, innerU + innerR) - 4
-    if (lo > hi) return horizontal(a, b)
-    const u = Math.min(Math.max(outerU, lo), hi)
-    const exit = faceAt(outerBox, wall, -1, u)
-    const entry = faceAt(innerBox, wall, 1, u)
-    return a === outerBox ? [exit, entry] : [entry, exit]
+    const window = overlap({ u: outerU, reach: reach(outerBox.width, outerBox.height, dir) }, { u: innerU, reach: reach(innerBox.width, innerBox.height, dir) })
+    const u = window ? Math.min(Math.max(outerU, window[0]), window[1]) : undefined
+    const exit = faceAt(outerBox, wall, -1, u ?? outerU)
+    const entry = faceAt(innerBox, wall, 1, u ?? innerU)
+    const midway = (dot(exit, n) + dot(entry, n)) / 2
+    const onGap = (v: number) => ({ x: n.x * midway + dir.x * v, y: n.y * midway + dir.y * v })
+    const points = u === undefined ? [exit, onGap(outerU), onGap(innerU), entry] : [exit, entry]
+    return a === outerBox ? points : points.reverse()
   }
 
   /** Use case → bus → slanted socket: out of the use case, along its lane, then along the wall normal. */
@@ -107,11 +90,10 @@ export function routeEdges({ d, overview, nodes, composition, plan, insideApp, r
   const directRoute = (useCase: LayoutNode, socket: LayoutNode): Point[] | undefined => {
     if (!useCase.wall || useCase.wall !== socket.wall) return undefined
     const { n, dir } = wallFrame(socket.wall)
-    const [su, sa, uu, ua] = [dot(socket, dir), reach(socket.width, socket.height, dir), dot(useCase, dir), reach(useCase.width, useCase.height, dir)]
-    const lo = Math.max(su - sa, uu - ua) + 4
-    const hi = Math.min(su + sa, uu + ua) - 4
-    if (lo > hi) return undefined
-    const face = faceAt(socket, socket.wall, -1, Math.min(Math.max(su, lo), hi))
+    const [su, uu] = [dot(socket, dir), dot(useCase, dir)]
+    const window = overlap({ u: su, reach: reach(socket.width, socket.height, dir) }, { u: uu, reach: reach(useCase.width, useCase.height, dir) })
+    if (!window) return undefined
+    const face = faceAt(socket, socket.wall, -1, Math.min(Math.max(su, window[0]), window[1]))
     return [enterBox(useCase, face, { x: -n.x, y: -n.y }), face]
   }
 
@@ -174,7 +156,7 @@ export function routeEdges({ d, overview, nodes, composition, plan, insideApp, r
     }
     const depth = (insideApp.halfWidth + region.halfWidth) / 2
     const u = lane(cu - ca + 4, cu + ca - 4)
-    return dedupe([...enter(uu), onWall(from, depth, uu), ...around(from, to, depth / COS30, region.apex + GAP / 2), onWall(to, depth, u), faceAt(card, to, 1, u)])
+    return dedupe([...enter(uu), onWall(from, depth, uu), ...around(from, to, depth, region.apex + GAP / 2), onWall(to, depth, u), faceAt(card, to, 1, u)])
   }
 
   // A use case asks the aggregates it names, each at its card, and otherwise along its sector's bisector: in along

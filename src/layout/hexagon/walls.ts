@@ -1,5 +1,5 @@
 import type { Wall } from '../../model/schema'
-import type { Point } from '../geometry'
+import { dot, enterBox, reach, type Box, type Point } from '../geometry'
 import { COS30, SQRT3 } from '../outline'
 
 /** Every wall-hosted box stays this far inside its wall's 60° sector, so the spokes run clear of it. */
@@ -34,3 +34,9 @@ export function wallFrame(wall: Wall) {
 }
 /** Smallest apothem keeping a local point (u along the wall, v off its line) inside the wall's sector. */
 export const sectorApothem = (u: number, v: number) => (Math.abs(u) + SECTOR_CLEAR / COS30) * SQRT3 - v
+/** Where the wall-normal line at lane u meets an upright box: on its outer (+1) or inner (−1) face. */
+export const faceAt = (box: Box, wall: Wall, face: 1 | -1, u: number): Point => {
+  const { n, dir } = wallFrame(wall)
+  const depth = dot(box, n) + face * (reach(box.width, box.height, n) + 1)
+  return enterBox(box, { x: n.x * depth + dir.x * u, y: n.y * depth + dir.y * u }, { x: -face * n.x, y: -face * n.y })
+}

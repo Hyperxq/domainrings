@@ -1,21 +1,15 @@
 import { defaultWall, type Diagram, type Port, type Side, type Wall } from '../../model/schema'
-import { dot, enterBox, reach, type Box, type Point } from '../geometry'
+import { reach, type Point } from '../geometry'
 import type { Outline } from '../outline'
 import type { BoxFrames, Frame } from './boxFrames'
 import type { BoxPlan, WallBox } from './columns'
 import { DOMAIN_RUN, GAP, LANE, RUN } from './spacing'
-import { WALLS, wallFrame } from './walls'
+import { faceAt, WALLS, wallFrame } from './walls'
 
 /** Where a bus lane turns onto the wall normal that ends on a slanted socket's face. */
 export const laneFoot = (face: Point, wall: Wall, lane: number): Point => {
   const { n } = wallFrame(wall)
   return { x: lane, y: face.y - (n.y * (face.x - lane)) / n.x }
-}
-/** Where the wall-normal line at lane u meets an upright box: on its outer (+1) or inner (−1) face. */
-export const faceAt = (box: Box, wall: Wall, face: 1 | -1, u: number): Point => {
-  const { n, dir } = wallFrame(wall)
-  const depth = dot(box, n) + face * (reach(box.width, box.height, n) + 1)
-  return enterBox(box, { x: n.x * depth + dir.x * u, y: n.y * depth + dir.y * u }, { x: -face * n.x, y: -face * n.y })
 }
 /** The inner face of the socket on a slanted wall whose apothem is `apothem`, on its own lane. */
 export const faceOf = (b: WallBox, apothem: number): Point => {
