@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { EXAMPLES } from '../model/example'
+import { diagramOf } from '../model/map'
 import type { HexaMap } from '../model/schema'
 import { useMapStore } from '../model/store'
+import { threadSlots } from '../model/threads'
 import { PresentButton, PresentPanel, StepCard } from './PresentPanel'
 import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
@@ -26,6 +28,15 @@ beforeEach(() => {
   useViewStore.setState({ focusedFlow: null, presentStep: null })
 })
 afterEach(cleanup)
+
+describe('present accent', () => {
+  it('wears the presented flow thread colour on the panel and the step card', () => {
+    present()
+    render(<><PresentPanel /><StepCard /></>)
+    const want = `var(--thread-${threadSlots(diagramOf(useMapStore.getState().map, 'h1')).get('uc-place')})`
+    for (const el of [document.querySelector('.present-panel'), document.querySelector('.step-card')] as HTMLElement[]) expect(el.style.getPropertyValue('--thread')).toBe(want)
+  })
+})
 
 describe('PresentPanel', () => {
   it('heads the flow with its name, lists every step with number, name and a role tag, and marks the current one', () => {

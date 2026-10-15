@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { EXAMPLES } from '../model/example'
 import { diagramOf } from '../model/map'
+import { threadSlots } from '../model/threads'
 import type { HexaMap, Hexagon } from '../model/schema'
 import { useMapStore } from '../model/store'
 import { FlowInspector } from './FlowInspector'
@@ -44,6 +45,14 @@ beforeEach(() => {
   useHistoryStore.setState({ stack: [], trusted: undefined, pending: null })
 })
 afterEach(cleanup)
+
+describe('FlowInspector: thread colour', () => {
+  it('colours the header dot with the flow thread slot', () => {
+    render(<FlowInspector />)
+    const slot = threadSlots(d()).get('uc-place')
+    expect((document.querySelector('.flow-dot') as HTMLElement).style.getPropertyValue('--thread')).toBe(`var(--thread-${slot})`)
+  })
+})
 
 describe('FlowInspector: visibility', () => {
   it('shows the focused flow in Edit mode', () => {
