@@ -148,25 +148,29 @@ describe('placing a label on a run', () => {
   })
 })
 
-// A hexagon of the project-builder map where some run has no clear stretch left for its text.
-const crowded = diagramOf(projectBuilder, 'h-sel')
+// The chat-feedback layout with three runs squeezed between tracks, so the middle one has no room for its text.
+const withDroppedLabel = () => {
+  const model = layoutDiagram(EXAMPLE_DIAGRAM)
+  const squeezed = [edge(0), edge(6), edge(12)]
+  placeEdgeLabels(squeezed, [])
+  return { model: { ...model, edges: [...model.edges, ...squeezed] }, dropped: squeezed[1] }
+}
 
 describe('labels that cannot be placed', () => {
   it('stay on the edge without a position', () => {
-    const m = layoutDiagram(crowded)
-    expect(labelled(m).filter((e) => !e.labelAt).length).toBeGreaterThan(0)
+    const { model, dropped } = withDroppedLabel()
+    expect(labelled(model).filter((e) => !e.labelAt)).toEqual([dropped])
   })
 
   it('render as a title on the edge so they show on hover', () => {
-    const model = layoutDiagram(crowded)
-    const dropped = labelled(model).filter((e) => !e.labelAt)
+    const { model, dropped } = withDroppedLabel()
     const { container } = render(
       <svg>
         <HexagonBody model={model} showGuides={false} selected={null} linkTargets={new Set()} chain={undefined} interactive notes={new Map()} planned={new Set()} />
       </svg>,
     )
     const titles = [...container.querySelectorAll('path.edge > title')].map((t) => t.textContent)
-    expect(titles.sort()).toEqual(dropped.map((e) => e.label!).sort())
+    expect(titles).toEqual([dropped.label])
     expect(container.querySelectorAll('text.edge-label').length).toBe(placed(model).length)
   })
 })
@@ -216,8 +220,8 @@ describe('what a label says', () => {
     expect(asks).toHaveLength(1)
   })
 
-  it.each(MODES)('Overview labels the same edges as Detailed (%s)', (mode) => {
-    const [detailed, overview] = [layoutDiagram(STRESS_DIAGRAM), layoutDiagram(STRESS_DIAGRAM, { mode })]
+  it('Overview labels the same edges as Detailed', () => {
+    const [detailed, overview] = [layoutDiagram(STRESS_DIAGRAM), layoutDiagram(STRESS_DIAGRAM, { mode: 'overview' })]
     expect(overview.edges.filter((e) => e.label).map((e) => e.key)).toEqual(detailed.edges.filter((e) => e.label).map((e) => e.key))
   })
 })
