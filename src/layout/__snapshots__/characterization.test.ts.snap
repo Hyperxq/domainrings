@@ -30800,6 +30800,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
           "y": 0,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link2",
@@ -30845,6 +30846,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
           "y": -1035.668273,
         },
       ],
+      "slot": 1,
     },
     {
       "id": "link3",
@@ -30886,6 +30888,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
           "y": 2010.944736,
         },
       ],
+      "slot": 2,
     },
     {
       "id": "link4",
@@ -30915,6 +30918,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
           "y": 955.999688,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link5",
@@ -30944,6 +30948,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
           "y": 0,
         },
       ],
+      "slot": 2,
     },
     {
       "id": "link6",
@@ -30977,6 +30982,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
           "y": 0,
         },
       ],
+      "slot": 2,
     },
     {
       "id": "link7",
@@ -31022,6 +31028,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
           "y": 0,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link8",
@@ -31051,6 +31058,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
           "y": -1097.301745,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link9",
@@ -31092,6 +31100,7 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
           "y": -2658,
         },
       ],
+      "slot": 1,
     },
   ],
   "pitch": {
@@ -38031,6 +38040,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
           "y": 0,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link2",
@@ -38076,6 +38086,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
           "y": -1041.668273,
         },
       ],
+      "slot": 1,
     },
     {
       "id": "link3",
@@ -38117,6 +38128,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
           "y": 2018.944736,
         },
       ],
+      "slot": 2,
     },
     {
       "id": "link4",
@@ -38146,6 +38158,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
           "y": 933.499688,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link5",
@@ -38175,6 +38188,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
           "y": 0,
         },
       ],
+      "slot": 2,
     },
     {
       "id": "link6",
@@ -38208,6 +38222,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
           "y": 0,
         },
       ],
+      "slot": 2,
     },
     {
       "id": "link7",
@@ -38253,6 +38268,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
           "y": 0,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link8",
@@ -38282,6 +38298,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
           "y": -1097.301745,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link9",
@@ -38323,6 +38340,7 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
           "y": -2658,
         },
       ],
+      "slot": 1,
     },
   ],
   "pitch": {
@@ -45642,6 +45660,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
           "y": 0,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link2",
@@ -45679,6 +45698,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
           "y": -1035.668273,
         },
       ],
+      "slot": 1,
     },
     {
       "id": "link3",
@@ -45712,6 +45732,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
           "y": 437.871951,
         },
       ],
+      "slot": 2,
     },
     {
       "id": "link4",
@@ -45741,6 +45762,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
           "y": 156.237805,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link5",
@@ -45770,6 +45792,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
           "y": 0,
         },
       ],
+      "slot": 2,
     },
     {
       "id": "link6",
@@ -45807,6 +45830,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
           "y": 0,
         },
       ],
+      "slot": 2,
     },
     {
       "id": "link7",
@@ -45840,6 +45864,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
           "y": 0,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link8",
@@ -45865,6 +45890,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
           "y": -156.237805,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link9",
@@ -45898,6 +45924,7 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
           "y": -594.109756,
         },
       ],
+      "slot": 1,
     },
   ],
   "pitch": {
@@ -53081,6 +53108,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
           "y": 0,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link2",
@@ -53118,6 +53146,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
           "y": -1041.668273,
         },
       ],
+      "slot": 1,
     },
     {
       "id": "link3",
@@ -53151,6 +53180,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
           "y": 439.718641,
         },
       ],
+      "slot": 2,
     },
     {
       "id": "link4",
@@ -53180,6 +53210,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
           "y": 157.053136,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link5",
@@ -53209,6 +53240,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
           "y": 0,
         },
       ],
+      "slot": 2,
     },
     {
       "id": "link6",
@@ -53246,6 +53278,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
           "y": 0,
         },
       ],
+      "slot": 2,
     },
     {
       "id": "link7",
@@ -53279,6 +53312,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
           "y": 0,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link8",
@@ -53304,6 +53338,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
           "y": -157.053136,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link9",
@@ -53337,6 +53372,7 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
           "y": -596.771777,
         },
       ],
+      "slot": 1,
     },
   ],
   "pitch": {
@@ -60412,6 +60448,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
           "y": 0,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link2",
@@ -60457,6 +60494,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
           "y": -1035.668273,
         },
       ],
+      "slot": 1,
     },
     {
       "id": "link3",
@@ -60498,6 +60536,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
           "y": 2010.944736,
         },
       ],
+      "slot": 2,
     },
     {
       "id": "link4",
@@ -60527,6 +60566,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
           "y": 955.999688,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link5",
@@ -60556,6 +60596,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
           "y": 0,
         },
       ],
+      "slot": 2,
     },
     {
       "id": "link6",
@@ -60589,6 +60630,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
           "y": 0,
         },
       ],
+      "slot": 2,
     },
     {
       "id": "link7",
@@ -60634,6 +60676,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
           "y": 0,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link8",
@@ -60663,6 +60706,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
           "y": -1097.301745,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link9",
@@ -60704,6 +60748,7 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
           "y": -2658,
         },
       ],
+      "slot": 1,
     },
   ],
   "pitch": {
@@ -67643,6 +67688,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
           "y": 0,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link2",
@@ -67688,6 +67734,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
           "y": -1041.668273,
         },
       ],
+      "slot": 1,
     },
     {
       "id": "link3",
@@ -67729,6 +67776,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
           "y": 2018.944736,
         },
       ],
+      "slot": 2,
     },
     {
       "id": "link4",
@@ -67758,6 +67806,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
           "y": 933.499688,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link5",
@@ -67787,6 +67836,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
           "y": 0,
         },
       ],
+      "slot": 2,
     },
     {
       "id": "link6",
@@ -67820,6 +67870,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
           "y": 0,
         },
       ],
+      "slot": 2,
     },
     {
       "id": "link7",
@@ -67865,6 +67916,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
           "y": 0,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link8",
@@ -67894,6 +67946,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
           "y": -1097.301745,
         },
       ],
+      "slot": 0,
     },
     {
       "id": "link9",
@@ -67935,6 +67988,7 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
           "y": -2658,
         },
       ],
+      "slot": 1,
     },
   ],
   "pitch": {
