@@ -30,3 +30,14 @@ colours of the image, independent of the app's own saved preferences. An unknown
 a warning. With `--flow all`, a failed flow is reported and the rest still render; the exit code is non-zero if any
 failed, and `--hex <id>` limits `all` to that hexagon. Two flows that would get the same file name get a `-2`, `-3`
 suffix.
+
+## Releasing
+
+Releases go out through the **Publish** workflow with npm trusted publishing (OIDC, provenance, no token). The
+first version was published by hand.
+
+1. Bump `version` in `cli/package.json` on a branch and merge it to `main`.
+2. In the repository's Actions tab, run **Publish** on `main`.
+
+The workflow refuses any other repository or ref, runs the root typecheck and tests, and fails when the version is
+not valid semver or is already on the registry (`cli/scripts/validate-release.mjs`).
