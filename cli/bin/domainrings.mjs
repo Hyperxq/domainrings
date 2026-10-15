@@ -4,7 +4,8 @@ import { parseArgs } from 'node:util'
 import { MAX_CHARS, openerCommand, readMap, resolveFlow, shareLink } from '../src/link.mjs'
 
 const USAGE = `Usage:
-  domainrings link <file.hexa> [--flow <id|name>] [--hex <hexagonId>] [--open] [--base-url <url>]`
+  domainrings link <file.hexa> [--flow <id|name>] [--hex <hexagonId>] [--open] [--base-url <url>]
+  domainrings render <file.hexa> [--flow <id|name|all>] [--hex <id>] [--out <dir>] [--format png|svg] [--base-url <url>]`
 
 const fail = (message) => {
   console.error(`domainrings: ${message}`)
@@ -28,6 +29,13 @@ const commands = {
         const { command, args } = openerCommand(process.platform, link)
         spawn(command, args, { stdio: 'ignore', detached: true }).on('error', (e) => fail(`could not open the browser: ${e.message}`)).unref()
       }
+    },
+  },
+  render: {
+    options: { flow: { type: 'string' }, hex: { type: 'string' }, out: { type: 'string' }, format: { type: 'string' }, 'base-url': { type: 'string' } },
+    async run([file], values) {
+      const [{ chromium }, { render }] = await Promise.all([import('playwright-core'), import('../src/render.mjs')])
+      await render(file, { flow: values.flow, hex: values.hex, out: values.out, format: values.format, baseUrl: values['base-url'] }, { chromium })
     },
   },
 }
