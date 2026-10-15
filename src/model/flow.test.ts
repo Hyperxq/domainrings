@@ -207,3 +207,20 @@ describe('flowOf with a dangling link', () => {
     }
   })
 })
+
+describe('flowOf with a port shared by several use cases', () => {
+  const shared = { id: 'clock', name: 'Clock', side: 'driven' as const, useCaseIds: ['a', 'b'] }
+  const map = mapOf([hexagon('h1', { useCases: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }, { id: 'c', name: 'C' }], ports: [shared] })])
+
+  it('puts the port in the flow of each use case it lists, and in no other', () => {
+    expect(chain(flowOf(map, 'h1', 'a'))).toBe('A > Clock')
+    expect(chain(flowOf(map, 'h1', 'b'))).toBe('B > Clock')
+    expect(chain(flowOf(map, 'h1', 'c'))).toBe('C')
+  })
+
+  it('reads a legacy single useCaseId as before', () => {
+    const legacy = mapOf([hexagon('h1', { useCases: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }], ports: [{ ...shared, useCaseIds: undefined, useCaseId: 'a' }] })])
+    expect(chain(flowOf(legacy, 'h1', 'a'))).toBe('A > Clock')
+    expect(chain(flowOf(legacy, 'h1', 'b'))).toBe('B')
+  })
+})

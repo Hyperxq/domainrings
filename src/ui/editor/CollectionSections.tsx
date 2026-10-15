@@ -1,7 +1,7 @@
 import { flushSync } from 'react-dom'
 import { HEXAGONAL_KIND } from '../../model/kinds'
-import { parentCandidates } from '../../model/links'
-import { defaultWall, DomainTypeSchema, DRIVING_WALLS, SideSchema, WallSchema, type Diagram, type HexaMap, type Side, type Wall } from '../../model/schema'
+import { parentCandidates, useCasePatch } from '../../model/links'
+import { defaultWall, DomainTypeSchema, DRIVING_WALLS, SideSchema, useCasesOf, WallSchema, type Diagram, type HexaMap, type Side, type Wall } from '../../model/schema'
 import { useMapStore } from '../../model/store'
 import { revealInEditor } from '../revealInEditor'
 import { useHistoryStore } from '../state/historyStore'
@@ -29,6 +29,19 @@ function addPort(hexId: string, side: Side) {
 function adaptersBySide(d: Diagram) {
   const portSide = new Map(d.ports.map((p) => [p.id, p.side]))
   return (side: Side) => d.adapters.filter((a) => (a.portId ? portSide.get(a.portId) === side : true))
+}
+
+/** One select per use case a port serves (clearing it drops that use case), then one to add another. */
+function UseCaseSelects({ ids, useCases, onChange }: { ids: string[]; useCases: Diagram['useCases']; onChange: (ids: string[]) => void }) {
+  const rest = useCases.filter((u) => !ids.includes(u.id))
+  return (
+    <>
+      {(ids.length ? ids : [undefined]).map((id) => (
+        <LinkSelect key={id ?? ''} label="Use case" value={id} options={useCases.filter((u) => u.id === id || rest.includes(u))} onChange={(next) => onChange(next ? (id ? ids.map((x) => (x === id ? next : x)) : [next]) : ids.filter((x) => x !== id))} />
+      ))}
+      {ids.length > 0 && rest.length > 0 && <LinkSelect label="Also used by" options={rest} onChange={(next) => next && onChange([...ids, next])} />}
+    </>
+  )
 }
 
 /** The collection sections of one hexagon (domain, ports, adapters, actors, external systems), each
@@ -109,7 +122,7 @@ export function CollectionSections({
                   .map((w) => <option key={w} value={w}>{WALL_LABEL[w]}</option>)}
               </select>
             </label>
-            <LinkSelect label="Use case" value={item.useCaseId} options={diagram.useCases} onChange={(useCaseId) => update({ useCaseId })} />
+            <UseCaseSelects ids={useCasesOf(item)} useCases={diagram.useCases} onChange={(ids) => update(useCasePatch(ids))} />
           </>
         )}
       />

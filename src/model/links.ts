@@ -1,8 +1,13 @@
-import { COLLECTIONS, PARENT_TYPES, type Adapter, type Diagram, type Side } from './schema'
+import { COLLECTIONS, PARENT_TYPES, useCasesOf, type Adapter, type Diagram, type Side } from './schema'
+
+type UseCasePatch = { useCaseId?: string; useCaseIds?: string[] }
+
+/** The fields that make a port serve exactly `ids`: a lone id stays a plain `useCaseId`, so single-use-case files keep their shape. */
+export const useCasePatch = (ids: string[]): UseCasePatch => ({ useCaseId: ids.length === 1 ? ids[0] : undefined, useCaseIds: ids.length > 1 ? ids : undefined })
 
 export interface LinkTarget {
   targetRef: string
-  patch: { portId: string } | { useCaseId: string } | { adapterId: string } | { parentId: string }
+  patch: { portId: string } | UseCasePatch | { adapterId: string } | { parentId: string }
 }
 
 /** What the "Link to…" chip and the Links editor section's create form both resolve to (ADR-02): the existing
@@ -49,7 +54,10 @@ export function linkTargets(d: Diagram, ref: string): LinkTarget[] {
     return d.ports.filter((p) => (!side || p.side === side) && p.id !== adapter.portId).map((p) => ({ targetRef: p.id, patch: { portId: p.id } }))
   }
   const port = d.ports.find((p) => p.id === ref)
-  if (port) return d.useCases.filter((u) => u.id !== port.useCaseId).map((u) => ({ targetRef: u.id, patch: { useCaseId: u.id } }))
+  if (port) {
+    const serving = useCasesOf(port)
+    return d.useCases.filter((u) => !serving.includes(u.id)).map((u) => ({ targetRef: u.id, patch: useCasePatch([...serving, u.id]) }))
+  }
   const endpoint = d.actors.find((e) => e.id === ref) ?? d.externals.find((e) => e.id === ref)
   if (endpoint) {
     const wrongSide: Side = d.actors.includes(endpoint) ? 'driven' : 'driving'

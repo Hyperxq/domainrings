@@ -1,5 +1,5 @@
 import { diagramOf } from '../model/map'
-import type { HexaMap, Link } from '../model/schema'
+import { useCasesOf, type HexaMap, type Link } from '../model/schema'
 import { threadSlots } from '../model/threads'
 import { hexagonBounds } from './lattice'
 import { chipBox } from './contextChips'
@@ -93,10 +93,11 @@ function laneOffsets(links: Link[]): Map<string, number> {
   return offsets
 }
 
-/** The thread slot of the use case owning the link's source port, if it has one. */
+/** The thread slot of the first use case of the link's source port, if it has one. */
 function sourceSlot(map: HexaMap, link: Link): number | undefined {
   const d = diagramOf(map, link.from.hexagonId)
-  const useCaseId = d.ports.find((p) => p.id === link.from.portId)?.useCaseId
+  const port = d.ports.find((p) => p.id === link.from.portId)
+  const useCaseId = port && useCasesOf(port)[0]
   return useCaseId === undefined ? undefined : threadSlots(d).get(useCaseId)
 }
 

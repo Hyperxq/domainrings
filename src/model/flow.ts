@@ -1,6 +1,6 @@
 import type { Chain } from './chain'
 import { diagramOf } from './map'
-import type { Diagram, HexaMap, Port } from './schema'
+import { useCasesOf, type Diagram, type HexaMap, type Port } from './schema'
 
 export type FlowRole = 'actor' | 'adapter' | 'drivingPort' | 'useCase' | 'aggregate' | 'drivenPort' | 'drivenAdapter' | 'external' | 'linkedPort'
 
@@ -50,7 +50,7 @@ export function flowOf(map: HexaMap, hexId: string, useCaseId: string): Flow {
   const step = (role: FlowRole, item: { id: string; name: string; verb?: string }, at = hexId) =>
     flow.steps.push({ role, hexId: at, id: item.id, name: item.name, ...(at === hexId && useCase.stepNotes?.[item.id] ? { note: useCase.stepNotes[item.id] } : {}), ...(item.verb ? { verb: item.verb } : {}) })
   const gap = (kind: FlowGap['kind'], id: string) => flow.gaps.push({ kind, hexId, id })
-  const portsOf = (side: Port['side']) => d.ports.filter((p) => p.side === side && p.useCaseId === useCaseId)
+  const portsOf = (side: Port['side']) => d.ports.filter((p) => p.side === side && useCasesOf(p).includes(useCaseId))
 
   for (const port of portsOf('driving')) {
     const callers = map.links.filter((l) => l.to.hexagonId === hexId && l.to.portId === port.id && portAt(map, l.from))
@@ -96,7 +96,7 @@ export function flowOf(map: HexaMap, hexId: string, useCaseId: string): Flow {
       const target = diagramOf(map, to.hexagonId)
       const callee = portAt(map, to)!
       step('linkedPort', callee, to.hexagonId)
-      flow.steps.at(-1)!.useCaseName = target.useCases.find((u) => u.id === callee.useCaseId)?.name
+      flow.steps.at(-1)!.useCaseName = target.useCases.find((u) => u.id === useCasesOf(callee)[0])?.name
       flow.destinations.push(titleOf(map, to.hexagonId))
     }
   }
