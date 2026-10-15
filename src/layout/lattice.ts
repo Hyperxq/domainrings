@@ -16,13 +16,18 @@ export interface LaidOutHexagon {
   chipLabel?: string
 }
 
-/** A compact hexagon's box widened to the chip of its context, which hangs above it and is often the wider of the two.
- * The chip slides sideways along its region to clear a neighbour, so this only applies where full hexagons hem it in on both sides. */
-function withChip({ compact, chipLabel }: LaidOutHexagon, own: Box, chipSize: number): Box {
+/** The chip is sized again once the lattice is laid out, and comes out a little larger than the lattice allowed for. */
+const CHIP_GROWTH = 1.15
+
+/** A compact hexagon's box grown up to the chip of its context, which hangs above it, so a full hexagon level with the chip
+ * counts as level with the hexagon. The chip is often wider than the hexagon but slides sideways along its region to clear
+ * a neighbour, so the box only widens to it where full hexagons hem it in on both sides. */
+function withChip({ compact, chipLabel }: LaidOutHexagon, own: Box, chipSize: number, hemmed: boolean): Box {
   if (!compact || !chipLabel) return own
-  const half = measure(chipLabel, { ...CHIP_LABEL, size: chipSize }) / 2
+  const half = hemmed ? measure(chipLabel, { ...CHIP_LABEL, size: chipSize * CHIP_GROWTH }) / 2 : 0
   const [left, right] = [Math.min(own.x, -half), Math.max(own.x + own.width, half)]
-  return { ...own, x: left, width: right - left }
+  const rise = chipSize * CHIP_LINE + CHIP_GAP
+  return { x: left, y: own.y - rise, width: right - left, height: own.height + rise }
 }
 
 /** Where the other hexagons go once the full hexagon `full` claims its box: those at or right of its centre move right,
@@ -134,7 +139,7 @@ export function layLattice(perHexagon: LaidOutHexagon[], compacting: boolean): {
       return beside.some((dx) => dx < 0) && beside.some((dx) => dx > 0)
     }
     const centres = compacting
-      ? perHexagon.reduce((placed, { compact }, i) => (compact ? placed : clearFull(placed, owns.map((own, k) => (hemmedIn(placed, owns, k, chipSize) ? withChip(perHexagon[k], own, chipSize) : own)), i)), perHexagon.map(({ hexagon }) => cellCentre(hexagon.cell, pitch)))
+      ? perHexagon.reduce((placed, { compact }, i) => (compact ? placed : clearFull(placed, owns.map((own, k) => withChip(perHexagon[k], own, chipSize, hemmedIn(placed, owns, k, chipSize))), i)), perHexagon.map(({ hexagon }) => cellCentre(hexagon.cell, pitch)))
       : packRows(owns, perHexagon.map(({ hexagon }) => hexagon.cell))
     const bounds = unionBox(owns.map((own, i) => ({ ...own, x: own.x + centres[i].x, y: own.y + centres[i].y })))
     return { pitch, centres, bounds }
