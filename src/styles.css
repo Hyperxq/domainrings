@@ -105,8 +105,9 @@
 .canvas .node-domainItem .inline-tag,
 .canvas .node-aggregate .line-tag { fill: var(--domain-ink); fill-opacity: 0.7; }
 
-/* Layer hover: data-hover on the CURRENT hexagon's group names the layer, scoping the effect to it (CANVAS-03) —
-   it brightens, glows and titles in ink, the rest dims. */
+/* Layer hover: data-hover on the CURRENT hexagon's group names the layer, scoping the effect to it (CANVAS-03). It is
+   only a hint: the band's ring stroke firms up and its title turns to ink. Nothing else dims or glows, so the route
+   hover stays the one strong emphasis. */
 .ring, .node, .edge, .guide, .edge-label, .ring-label, .ring-subtitle, .domain-title, .box {
   transition-property: opacity, fill, stroke;
   transition-duration: var(--motion-fast);
@@ -114,35 +115,20 @@
 }
 .exporting, .exporting * { transition: none !important; }
 .ring:focus-visible { outline: none; }
-[data-hex][data-hover] .edge,
-[data-hex][data-hover] .edge-label,
-[data-hex][data-hover] .guide,
-[data-hex][data-hover] .node:not([data-layer]) { opacity: 0.55; }
-[data-hex][data-hover='outer'] [data-layer]:not([data-layer='outer']) { opacity: 0.55; }
-[data-hex][data-hover='outer'] .ring[data-band='outer'] { fill: var(--card-hover); stroke-width: 2.2; filter: url(#glow-outer); }
-[data-hex][data-hover='outer'] .ring-label[data-layer='outer'] { fill: var(--ink); }
-[data-hex][data-hover='outer'] .node[data-layer='outer'] .box { stroke-width: 2; filter: brightness(1.2); }
-.glow-outer { flood-color: var(--line); }
-[data-hex][data-hover='adapters'] [data-layer]:not([data-layer='adapters']) { opacity: 0.55; }
-[data-hex][data-hover='adapters'] .ring[data-band='adapters'] { fill: var(--slate-soft-hover); stroke-width: 2.2; filter: url(#glow-adapters); }
-[data-hex][data-hover='adapters'] .ring-label[data-layer='adapters'] { fill: var(--ink); }
-[data-hex][data-hover='adapters'] .node[data-layer='adapters'] .box { stroke-width: 2; filter: brightness(1.2); }
-.glow-adapters { flood-color: var(--slate); }
-[data-hex][data-hover='application'] [data-layer]:not([data-layer='application']) { opacity: 0.55; }
-[data-hex][data-hover='application'] .ring[data-band='application'] { fill: var(--teal-soft-hover); stroke-width: 2.2; filter: url(#glow-application); }
-[data-hex][data-hover='application'] .ring-label[data-layer='application'] { fill: var(--ink); }
-[data-hex][data-hover='application'] .node[data-layer='application'] .box { stroke-width: 2; filter: brightness(1.2); }
-.glow-application { flood-color: var(--teal); }
-[data-hex][data-hover='domainServices'] [data-layer]:not([data-layer='domainServices']) { opacity: 0.55; }
-[data-hex][data-hover='domainServices'] .ring[data-band='domainServices'] { fill: var(--teal-soft-hover); stroke-width: 2.2; filter: url(#glow-domainServices); }
-[data-hex][data-hover='domainServices'] .ring-label[data-layer='domainServices'] { fill: var(--ink); }
-[data-hex][data-hover='domainServices'] .node[data-layer='domainServices'] .box { stroke-width: 2; filter: brightness(1.2); }
-.glow-domainServices { flood-color: var(--teal); }
-[data-hex][data-hover='domain'] [data-layer]:not([data-layer='domain']) { opacity: 0.55; }
-[data-hex][data-hover='domain'] .ring[data-band='domain'] { fill: var(--teal-deep-hover); stroke-width: 2.2; filter: url(#glow-domain); }
-[data-hex][data-hover='domain'] .ring-label[data-layer='domain'] { fill: var(--ink); }
-[data-hex][data-hover='domain'] .node[data-layer='domain'] .box { stroke-width: 2; filter: brightness(1.2); }
-.glow-domain { flood-color: var(--teal-deep); }
+:is(
+  [data-hover='outer'] .ring[data-band='outer'],
+  [data-hover='adapters'] .ring[data-band='adapters'],
+  [data-hover='application'] .ring[data-band='application'],
+  [data-hover='domainServices'] .ring[data-band='domainServices'],
+  [data-hover='domain'] .ring[data-band='domain']
+) { stroke-width: 2.2; }
+:is(
+  [data-hover='outer'] .ring-label[data-layer='outer'],
+  [data-hover='adapters'] .ring-label[data-layer='adapters'],
+  [data-hover='application'] .ring-label[data-layer='application'],
+  [data-hover='domainServices'] .ring-label[data-layer='domainServices'],
+  [data-hover='domain'] .ring-label[data-layer='domain']
+) { fill: var(--ink); }
 
 /* Dependency chain: with a selection, the chain keeps full strength and thickens while the rest of the map dims — the
    weight, not just the dimming, tells it apart, so it reads in every palette and theme. */
