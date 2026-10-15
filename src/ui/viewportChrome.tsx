@@ -30,9 +30,13 @@ export function gridBackgroundStyle(viewport: Viewport): { backgroundSize: strin
  * `size` state made, byte-for-byte, before the extraction. */
 export function useElementSize(ref: RefObject<HTMLElement | null>): { width: number; height: number } {
   const [size, setSize] = useState({ width: 0, height: 0 })
-  useEffect(() => {
+  // Layout effect: ResizeObserver reports after the first paint, which would show the diagram fitted to a
+  // placeholder size for a frame before snapping to the real one.
+  useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
+    const { width, height } = el.getBoundingClientRect()
+    setSize({ width, height })
     const observer = new ResizeObserver(([entry]) => setSize({ width: entry.contentRect.width, height: entry.contentRect.height }))
     observer.observe(el)
     return () => observer.disconnect()

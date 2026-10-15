@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
 import { useRef, useState } from 'react'
-import { useFreezeWhilePanelOpen, useViewportInteractions, ZoomControls } from './viewportChrome'
+import { useElementSize, useFreezeWhilePanelOpen, useViewportInteractions, ZoomControls } from './viewportChrome'
 import { zoomAt, type Viewport } from './viewport'
 
 import { useViewStore } from './state/viewStore'
@@ -238,5 +238,23 @@ describe('useViewportInteractions fit request', () => {
     act(() => result.current.setView({ x: 10, y: 20, scale: 2 }))
     rerender()
     expect(result.current.view).toEqual({ x: 10, y: 20, scale: 2 })
+  })
+})
+
+describe('useElementSize', () => {
+  it('reports the measured size on the first committed render, before any ResizeObserver callback', () => {
+    const original = globalThis.ResizeObserver
+    globalThis.ResizeObserver = class {
+      observe() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver
+    const el = document.createElement('div')
+    vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({ width: 900, height: 600 } as DOMRect)
+    try {
+      const { result } = renderHook(() => useElementSize({ current: el }))
+      expect(result.current).toEqual({ width: 900, height: 600 })
+    } finally {
+      globalThis.ResizeObserver = original
+    }
   })
 })
