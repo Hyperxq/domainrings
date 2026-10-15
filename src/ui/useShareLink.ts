@@ -10,7 +10,7 @@ export const OPENING_DELAY_MS = 150
 const showError = (message: string) => useNoticeStore.getState().show({ tone: 'error', message })
 
 interface ShareLinkActions {
-  parseSource: (text: string, label: string) => Promise<StoredFile | undefined>
+  parseSource: (text: string, label: string, isCurrent?: () => boolean) => Promise<StoredFile | undefined>
   swap: (file: StoredFile, message: string) => void
 }
 
@@ -34,7 +34,7 @@ export function useShareLink(actions: ShareLinkActions) {
 
   useEffect(() => {
     const openLinkedText = async (text: string, view: string | null, isLatest: () => boolean) => {
-      const parsed = await latest.current.parseSource(text, 'This link')
+      const parsed = await latest.current.parseSource(text, 'This link', isLatest)
       if (!parsed || !isLatest()) return
       latest.current.swap(parsed, 'Opened from a link.')
       openForReading(view === 'detailed' ? 'detailed' : 'overview')

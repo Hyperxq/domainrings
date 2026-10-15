@@ -58,13 +58,14 @@ export function useOpenDocument({ beforeSwap, setActiveKind }: OpenDocumentConte
 
   // Shared by Open…, "Add subdomain from file…" and a share link: text that fails to parse is refused the same
   // way everywhere (IMP-07) — a newer-version source isn't broken (REQ-03.1), so it gets its own headline, no
-  // fix-it framing. `label` names the source in the notice ("broken.hexa" for a file, "This link" for a link).
-  const parseSource = async (text: string, label: string): Promise<StoredFile | undefined> => {
+  // fix-it framing. `label` names the source in the notice ("broken.hexa" for a file, "This link" for a link);
+  // `isCurrent` lets a superseded load fail without raising a notice.
+  const parseSource = async (text: string, label: string, isCurrent = () => true): Promise<StoredFile | undefined> => {
     const result = parseHexa(text)
     if (result.ok) return result.map
     const message =
       result.reason === 'newer' ? `${label} was made by a newer version of domainrings.` : `${label} could not be opened. Fix these problems and try again:`
-    show({ tone: 'error', message, details: result.errors })
+    if (isCurrent()) show({ tone: 'error', message, details: result.errors })
     return undefined
   }
 
