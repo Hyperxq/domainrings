@@ -16,12 +16,12 @@ describe('flowOf on the shipped examples', () => {
     const map = example('hexagonal-basic')
     const flow = flowOf(map, map.hexagons[0].id, 'uc-submit')
     expect(chain(flow)).toBe(
-      'Frontend > feedback.routes/handler/schema > submitChatFeedback > SubmitChatFeedback > ' +
+      'Frontend > feedback.routes/handler/schema > submitChatFeedback > SubmitChatFeedback > Feedback > ' +
         'FeedbackRepository > KnexFeedbackRepository > Postgres > ' +
         'SupportNotifier > EmailSupportNotifier > Mailgun > ' +
         'UserDirectory > LegacyUserDirectory · ACL > model-user (legacy)',
     )
-    expect(flow.steps.map((s) => s.role)).toEqual(['actor', 'adapter', 'drivingPort', 'useCase', 'drivenPort', 'drivenAdapter', 'external', 'drivenPort', 'drivenAdapter', 'external', 'drivenPort', 'drivenAdapter', 'external'])
+    expect(flow.steps.map((s) => s.role)).toEqual(['actor', 'adapter', 'drivingPort', 'useCase', 'aggregate', 'drivenPort', 'drivenAdapter', 'external', 'drivenPort', 'drivenAdapter', 'external', 'drivenPort', 'drivenAdapter', 'external'])
     expect(flow.starters).toEqual(['Frontend'])
     expect(flow.destinations).toEqual(['Postgres', 'Mailgun', 'model-user (legacy)'])
     expect(flow.gaps).toEqual([])

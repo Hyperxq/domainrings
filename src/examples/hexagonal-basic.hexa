@@ -19,7 +19,7 @@
         { "id": "d-email", "name": "AuthorEmail", "type": "valueObject", "parentId": "d-feedback" }
       ],
       "useCases": [
-        { "id": "uc-submit", "name": "SubmitChatFeedback", "note": "execute(cmd): Promise<void>\nvalidate, save, notify support" }
+        { "id": "uc-submit", "name": "SubmitChatFeedback", "aggregateIds": ["d-feedback"], "note": "execute(cmd): Promise<void>\nvalidate, save, notify support" }
       ],
       "ports": [
         { "id": "p-submit", "name": "submitChatFeedback", "side": "driving", "wall": "sw", "useCaseId": "uc-submit", "note": "(command)" },

@@ -23,7 +23,7 @@
         { "id": "d-address", "name": "ShippingAddress", "type": "valueObject", "parentId": "d-order" }
       ],
       "useCases": [
-        { "id": "uc-place", "name": "PlaceOrder", "note": "execute(cmd): Promise<OrderId>\nprice, charge, arrange shipment" }
+        { "id": "uc-place", "name": "PlaceOrder", "aggregateIds": ["d-order"], "note": "execute(cmd): Promise<OrderId>\nprice, charge, arrange shipment" }
       ],
       "ports": [
         { "id": "p-orders-api", "name": "ordersApi", "side": "driving", "wall": "sw", "useCaseId": "uc-place", "note": "(command)" },
@@ -59,7 +59,7 @@
         { "id": "d-payment-money", "name": "Money", "type": "valueObject", "parentId": "d-charge" }
       ],
       "useCases": [
-        { "id": "uc-charge", "name": "ChargePayment", "note": "execute(cmd): Promise<ChargeId>\nauthorize, capture" }
+        { "id": "uc-charge", "name": "ChargePayment", "aggregateIds": ["d-payment"], "note": "execute(cmd): Promise<ChargeId>\nauthorize, capture" }
       ],
       "ports": [
         { "id": "p-charge-in", "name": "chargePayment", "side": "driving", "wall": "sw", "useCaseId": "uc-charge", "note": "(command)" },
@@ -86,7 +86,7 @@
         { "id": "d-carrier-info", "name": "CarrierInfo", "type": "valueObject", "parentId": "d-shipment" }
       ],
       "useCases": [
-        { "id": "uc-create-shipment", "name": "CreateShipment", "note": "execute(cmd): Promise<ShipmentId>\nbook carrier, print label" }
+        { "id": "uc-create-shipment", "name": "CreateShipment", "aggregateIds": ["d-shipment"], "note": "execute(cmd): Promise<ShipmentId>\nbook carrier, print label" }
       ],
       "ports": [
         { "id": "p-shipment-in", "name": "createShipment", "side": "driving", "wall": "sw", "useCaseId": "uc-create-shipment", "note": "(command)" },
@@ -113,7 +113,7 @@
         { "id": "d-price", "name": "Price", "type": "valueObject", "parentId": "d-product" }
       ],
       "useCases": [
-        { "id": "uc-lookup", "name": "LookupProduct", "note": "execute(query): Promise<ProductView>" }
+        { "id": "uc-lookup", "name": "LookupProduct", "aggregateIds": ["d-product"], "note": "execute(query): Promise<ProductView>" }
       ],
       "ports": [
         { "id": "p-lookup-in", "name": "lookupProduct", "side": "driving", "wall": "sw", "useCaseId": "uc-lookup", "note": "(query)" },

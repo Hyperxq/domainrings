@@ -46,7 +46,7 @@ describe('DiagramSchema', () => {
   })
 
   describe('domain item parents', () => {
-    const withDomain = (domain: unknown[]) => ({ ...EXAMPLE_DIAGRAM, domain })
+    const withDomain = (domain: unknown[]) => ({ ...EXAMPLE_DIAGRAM, domain, useCases: EXAMPLE_DIAGRAM.useCases.map(({ aggregateIds: _aggregateIds, ...useCase }) => useCase) })
     const entity = { id: 'e', name: 'Order', type: 'entity' }
     const aggregate = { id: 'g', name: 'Cart', type: 'aggregate' }
 
@@ -302,7 +302,8 @@ describe('use case aggregates', () => {
   const withIds = (aggregateIds: unknown) => ({ ...EXAMPLE_DIAGRAM, useCases: EXAMPLE_DIAGRAM.useCases.map((u, i) => (i === 0 ? { ...u, aggregateIds } : u)) })
 
   it('is optional: a use case without one parses with no such key', () => {
-    expect(DiagramSchema.parse(EXAMPLE_DIAGRAM).useCases.every((u) => !('aggregateIds' in u))).toBe(true)
+    const bare = { ...EXAMPLE_DIAGRAM, useCases: EXAMPLE_DIAGRAM.useCases.map(({ aggregateIds: _aggregateIds, ...useCase }) => useCase) }
+    expect(DiagramSchema.parse(bare).useCases.every((u) => !('aggregateIds' in u))).toBe(true)
   })
 
   it('keeps the aggregate ids a use case names', () => {

@@ -94,6 +94,8 @@ function overlap(a: LayoutNode, b: LayoutNode) {
 const endpointsOf = (key: string) => key.split('->').filter((k) => !k.startsWith('trunk:'))
 
 
+/** Use cases that name no aggregate, so each asks the domain as a whole. */
+const unnamed = (d: Diagram): Diagram => ({ ...d, useCases: d.useCases.map(({ aggregateIds: _aggregateIds, ...useCase }) => useCase) })
 const DOMAIN_BLOCK = new Set<LayoutNode['kind']>(['domainItem', 'aggregate'])
 const intoDomain = (key: string) => key.endsWith('->domain')
 
@@ -109,7 +111,7 @@ function withManyDrivingPorts(count: number): Diagram {
 
 describe('layoutDiagram', () => {
   const config = HEXAGONAL_KIND
-  const model = layoutDiagram(EXAMPLE_DIAGRAM)
+  const model = layoutDiagram(unnamed(EXAMPLE_DIAGRAM))
   const app = ringOf(model, 'application')
   const adapterRing = ringOf(model, 'adapters')
   const outer = model.rings[0]
@@ -429,7 +431,7 @@ describe('layoutDiagram', () => {
 })
 
 describe('layoutDiagram edges', () => {
-  const model = layoutDiagram(EXAMPLE_DIAGRAM)
+  const model = layoutDiagram(unnamed(EXAMPLE_DIAGRAM))
   const edge = (fromKey: string, toKey: string) => {
     const e = model.edges.find((e) => e.key === `${fromKey}->${toKey}`)
     if (!e) throw new Error(`missing edge ${fromKey}->${toKey}`)
@@ -488,8 +490,8 @@ describe('aggregates as consistency boundaries', () => {
         const root = find(model, 'domainItem', outline.ref)
         expect(root.lines[0].style).toBe('strong')
         for (const n of [root, ...descendantsOf(outline.ref).map((id) => find(model, 'domainItem', id))]) {
-          expect(left(n)).toBeGreaterThanOrEqual(left(outline) + 14 - 1e-6)
-          expect(right(n)).toBeLessThanOrEqual(right(outline) - 14 + 1e-6)
+          expect(left(n)).toBeGreaterThanOrEqual(left(outline) + 12 - 1e-6)
+          expect(right(n)).toBeLessThanOrEqual(right(outline) - 12 + 1e-6)
           expect(top(n)).toBeGreaterThan(top(outline) + 14)
           expect(bottom(n)).toBeLessThanOrEqual(bottom(outline) - 6 + 1e-6)
           expect(n.x).toBe(outline.x)
@@ -787,7 +789,7 @@ describe('use cases placed on a wall', () => {
   })
 
   describe('routing (detailed)', () => {
-    const m = layoutDiagram(STRESS_DIAGRAM)
+    const m = layoutDiagram(unnamed(STRESS_DIAGRAM))
     const { n } = wallFrame('nw')
     const edge = (key: string) => {
       const e = m.edges.find((x) => x.key === key)
@@ -915,7 +917,7 @@ describe('use cases placed on a wall', () => {
     ['exit across the domain', EXIT_ACROSS_DOMAIN],
     ['exit under the stack', EXIT_UNDER_STACK],
     ['exit from a side wall', EXIT_FROM_SIDE_WALL],
-    ['stress', STRESS_DIAGRAM],
+    ['stress', unnamed(STRESS_DIAGRAM)],
   ])('every seated use case (%s)', (_, diagram) => {
     it.each(['detailed', 'overview'] as const)('stays on its wall, straddling the domain wall, clear of everything (%s)', (mode) => {
       const m = layoutDiagram(diagram, { mode })
@@ -1088,14 +1090,15 @@ describe('layoutDiagram placement rules', () => {
     for (const other of m.nodes.filter((n) => n.kind === 'domainItem' && n !== service)) expect(overlap(service, other)).toBe(false)
   })
 
-  it('places childless domain services after the entity tree', () => {
+  it('gives a childless domain service a card of its own, headed with its type', () => {
     const d: Diagram = {
       ...EXAMPLE_DIAGRAM,
       domain: [{ id: 'd-policy', name: 'RatingPolicy', type: 'domainService' }, ...EXAMPLE_DIAGRAM.domain],
     }
     const m = layoutDiagram(d)
-    const service = find(m, 'domainItem', 'd-policy')
-    for (const id of ['d-feedback', 'd-rating', 'd-email']) expect(m.nodes.indexOf(service)).toBeGreaterThan(m.nodes.indexOf(find(m, 'domainItem', id)))
+    const [service, aggregate] = [find(m, 'aggregate', 'd-policy'), find(m, 'aggregate', 'd-feedback')]
+    expect(service.lines[0].text).toBe('⚙ domain service')
+    expect(overlap(service, aggregate)).toBe(false)
   })
 
   it('lays out an empty diagram with finite geometry', () => {

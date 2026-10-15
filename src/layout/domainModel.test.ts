@@ -73,6 +73,7 @@ describe('a domain without aggregates', () => {
 describe('where a card sits', () => {
   const diagram = withUses(STRESS_DIAGRAM, {
     'uc-place': { placement: 'e', aggregateIds: ['g-order'] },
+    'uc-cancel': { aggregateIds: undefined },
     'uc-earn': { placement: 'nw', aggregateIds: ['g-customer'] },
   })
 
@@ -117,7 +118,7 @@ describe('the domain no longer lists its driven ports', () => {
 })
 
 describe('a use case that names its aggregates', () => {
-  const diagram = withUses(STRESS_DIAGRAM, { 'uc-place': { aggregateIds: ['g-order', 'g-customer'] }, 'uc-cancel': { aggregateIds: ['nope', 'e-line'] } })
+  const diagram = withUses(STRESS_DIAGRAM, { 'uc-place': { aggregateIds: ['g-order', 'g-customer'] }, 'uc-cancel': { aggregateIds: ['nope', 'e-line'] }, 'uc-earn': { aggregateIds: undefined } })
   const m = layoutDiagram(diagram)
   const edge = (key: string) => m.edges.find((e) => e.key === key)
 

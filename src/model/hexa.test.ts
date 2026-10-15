@@ -23,6 +23,9 @@ const errorsOf = (text: string) => {
   return result.errors
 }
 
+/** The seed as a v1 file wrote it: use cases did not yet name aggregates. */
+const V1_DIAGRAM = { ...EXAMPLE_DIAGRAM, useCases: EXAMPLE_DIAGRAM.useCases.map(({ aggregateIds: _aggregateIds, ...useCase }) => useCase) }
+
 describe('toMap', () => {
   it('migrates a v1 diagram to a single-hexagon map, deterministically', () => {
     const map = toMap(EXAMPLE_DIAGRAM)
@@ -425,15 +428,15 @@ describe('current clean fixture (REQ-02, REQ-03, REQ-04, REQ-06, REQ-07, REQ-08 
 
 describe('.hexa v1 migration on open', () => {
   it('opens a v1 file as a single-hexagon map', () => {
-    const text = JSON.stringify({ app: 'domainrings', ...EXAMPLE_DIAGRAM })
+    const text = JSON.stringify({ app: 'domainrings', ...V1_DIAGRAM })
     const result = parseHexa(text)
-    expect(result).toEqual({ ok: true, map: toMap(EXAMPLE_DIAGRAM), v1: EXAMPLE_DIAGRAM })
+    expect(result).toEqual({ ok: true, map: toMap(V1_DIAGRAM), v1: V1_DIAGRAM })
   })
 
   it('opens a file saved under the legacy app name the same way', () => {
-    const text = JSON.stringify({ app: 'archviz', ...EXAMPLE_DIAGRAM })
+    const text = JSON.stringify({ app: 'archviz', ...V1_DIAGRAM })
     const result = parseHexa(text)
-    expect(result).toEqual({ ok: true, map: toMap(EXAMPLE_DIAGRAM), v1: EXAMPLE_DIAGRAM })
+    expect(result).toEqual({ ok: true, map: toMap(V1_DIAGRAM), v1: V1_DIAGRAM })
   })
 
   it('opening the same v1 file twice is deterministic', () => {

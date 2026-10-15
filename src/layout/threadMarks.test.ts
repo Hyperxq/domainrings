@@ -25,7 +25,7 @@ describe('thread marks on the hexagonal layout', () => {
       expect(refs.has(edge.from!), edge.key).toBe(true)
       if (edge.to !== undefined) expect(refs.has(edge.to), edge.key).toBe(true)
     }
-    if (mode === 'detailed') expect(model.edges.some((e) => e.kind === 'import' && e.to === undefined)).toBe(true)
+    if (mode === 'detailed') expect(model.edges.some((e) => e.kind === 'import' && e.key.includes('->aggregate:'))).toBe(true)
     expect(model.edges.filter((e) => e.kind === 'wiring').every((e) => e.from === undefined && e.to === undefined)).toBe(true)
   })
 
