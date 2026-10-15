@@ -126,6 +126,27 @@ describe('Toolbar View options', () => {
     }
   })
 
+  describe('palette strips follow the active theme', () => {
+    const strips = () => {
+      const [first] = Object.entries(PALETTES)
+      const palettes = within(screen.getByRole('group', { name: 'Palette' }))
+      return [...palettes.getByRole('menuitemcheckbox', { name: new RegExp(`^${first[1].label}`) }).querySelectorAll<HTMLElement>('.choice-swatches > span')].map((s) => s.style.backgroundColor).join() === [first[1].dark.bg, first[1].dark.teal, first[1].dark['driving-fill'], first[1].dark['driven-fill']].map(rgb).join()
+    }
+
+    it('reads the dark tables when the theme is dark', () => {
+      renderToolbar({ themeChoice: 'dark' })
+      openOptions()
+      expect(strips()).toBe(true)
+    })
+
+    it('reads the dark tables when the theme is system and the OS prefers dark', () => {
+      vi.stubGlobal('matchMedia', (media: string) => ({ matches: media.includes('prefers-color-scheme: dark'), media, addEventListener() {}, removeEventListener() {} }))
+      renderToolbar({ themeChoice: 'system' })
+      openOptions()
+      expect(strips()).toBe(true)
+    })
+  })
+
   it('draws the switches as a track with a knob and the themes as one segmented pill', () => {
     renderToolbar()
     openOptions()

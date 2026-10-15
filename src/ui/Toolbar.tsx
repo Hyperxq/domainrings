@@ -50,6 +50,8 @@ const THEME_LABEL: Record<ThemeChoice, string> = { light: 'Light', dark: 'Dark',
 export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showScope, hasPlanned, onNewDiagram, canAddDiagram }: ToolbarProps) {
   const preferences = usePreferencesStore()
   const { mode, theme: themeChoice, palette, viewOnly } = preferences
+  // jsdom-free callers may lack matchMedia; the root attribute, not this, paints the page.
+  const tone = themeChoice === 'system' ? (typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : themeChoice
   const exportScope = useViewStore((s) => s.exportScope)
   const map = useMapStore((s) => s.map)
   const focus = useMapStore((s) => s.focus)
@@ -165,7 +167,7 @@ export function Toolbar({ onNew, onExample, onOpen, onCopyLink, onExport, showSc
         choices={[
           ...VIEW_SWITCHES.filter((s) => hasPlanned || s.id !== 'showPlanned').map(({ id, label, ...hint }) => ({ id, label, ...hint, checked: preferences[id], control: 'switch' as const })),
           ...(['light', 'dark', 'system'] as const).map((id) => ({ id, label: THEME_LABEL[id], checked: themeChoice === id, control: 'radio' as const, group: 'Theme' })),
-          ...(Object.keys(PALETTES) as PaletteId[]).map((id) => ({ id, label: PALETTES[id].label, description: PALETTES[id].description, swatches: SWATCH_TOKENS.map((t) => PALETTES[id].light[t]), checked: palette === id, group: 'Palette' })),
+          ...(Object.keys(PALETTES) as PaletteId[]).map((id) => ({ id, label: PALETTES[id].label, description: PALETTES[id].description, swatches: SWATCH_TOKENS.map((t) => PALETTES[id][tone][t]), checked: palette === id, group: 'Palette' })),
         ]}
         onChoose={(id) =>
           id === 'light' || id === 'dark' || id === 'system'

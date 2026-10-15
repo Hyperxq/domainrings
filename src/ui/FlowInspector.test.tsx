@@ -124,6 +124,16 @@ describe('FlowInspector: aggregates', () => {
     expect(aggregates()).toEqual(['d-order'])
   })
 
+  it('drops the unlinked aggregate\'s step note with it, and one undo restores both', () => {
+    load((h) => ({ ...h, useCases: h.useCases.map((u) => (u.id === 'uc-place' ? { ...u, aggregateIds: ['d-order'], stepNotes: { 'd-order': 'Keeps the total', other: 'Stays' } } : u)) }))
+    render(<FlowInspector />)
+    fireEvent.click(screen.getByRole('button', { name: 'Remove aggregate Order' }))
+    expect(useCase().stepNotes).toEqual({ other: 'Stays' })
+    undo()
+    expect(aggregates()).toEqual(['d-order'])
+    expect(useCase().stepNotes).toEqual({ 'd-order': 'Keeps the total', other: 'Stays' })
+  })
+
   it('links an existing root aggregate by name, ignoring case, without creating one', () => {
     render(<FlowInspector />)
     const before = d().domain.length
@@ -149,6 +159,15 @@ describe('FlowInspector: aggregates', () => {
     undo()
     expect(aggregates()).toEqual(['d-order'])
     expect(d().domain.some((i) => i.name === 'Basket')).toBe(false)
+  })
+
+  it('says what Enter will create while the typed name matches no root aggregate', () => {
+    render(<FlowInspector />)
+    const field = screen.getByLabelText('Add aggregate')
+    fireEvent.change(field, { target: { value: 'Basket' } })
+    expect(screen.getByText('Create aggregate “Basket”')).toBeTruthy()
+    fireEvent.change(field, { target: { value: 'order' } })
+    expect(screen.queryByText(/^Create aggregate/)).toBeNull()
   })
 
   it('refuses a blank name and an aggregate already linked, keeping the text', () => {

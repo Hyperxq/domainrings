@@ -21,7 +21,7 @@ describe('OnionEditor', () => {
   it('renders one fold per ring, innermost-first, each starting empty', () => {
     const { container } = renderEditor()
     for (const title of ['Domain Model', 'Domain Services', 'Application Services', 'Infrastructure']) {
-      expect(section(container, title).querySelector('summary')!.textContent).toBe(`${title}· 0`)
+      expect(section(container, title).querySelector('summary')!.textContent).toBe(`${title}0`)
     }
   })
 

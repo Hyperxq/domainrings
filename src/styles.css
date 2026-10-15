@@ -787,7 +787,7 @@ a.icon-button { color: inherit; text-decoration: none; }
 .section-head::-webkit-details-marker { display: none; }
 .section-head .icon { width: 14px; height: 14px; color: var(--muted); transition: transform var(--motion-base) var(--motion-ease); }
 .fold[open] > .section-head .icon { transform: rotate(90deg); }
-.section-head .count { color: var(--muted); font-size: 12px; }
+.section-head .count { margin-left: auto; color: var(--muted); font-size: 12px; }
 .ring-settings { display: grid; gap: 8px; margin-bottom: 8px; }
 .ring-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .add-ring { justify-self: start; margin: 4px 0; }
