@@ -1,5 +1,5 @@
 import type { Diagram } from '../../model/schema'
-import { rectCorners, type Box } from '../geometry'
+import type { Box } from '../geometry'
 import type { LayoutEdge, LayoutNode, LayoutText } from '../layout'
 import { topAt, type Outline } from '../outline'
 import { EDGE_LABEL, measure, SUBTITLE, TITLE } from '../text'
@@ -17,8 +17,7 @@ export function layoutBounds(d: Diagram, outer: Outline, nodes: LayoutNode[], ed
     extent.bottom = Math.max(extent.bottom, b)
   }
   for (const n of nodes) {
-    const c = rectCorners(n.x, n.y, n.width, n.height, n.rotation)
-    grow(Math.min(...c.map((p) => p.x)), Math.max(...c.map((p) => p.x)), Math.min(...c.map((p) => p.y)), Math.max(...c.map((p) => p.y)))
+    grow(n.x - n.width / 2, n.x + n.width / 2, n.y - n.height / 2, n.y + n.height / 2)
   }
   for (const e of edges) {
     if (!e.label || !e.labelAt) continue

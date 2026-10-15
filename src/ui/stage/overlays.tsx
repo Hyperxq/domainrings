@@ -225,9 +225,7 @@ export function ExpandToggles({ model, currentId, mapToScreen, onToggle }: { mod
 
 /** The "Link to…" chip hanging off a selected node's top-right corner. */
 export function LinkChip({ node, name, toScreen, onLink }: { node: LayoutNode; name: string; toScreen: ToScreen; onLink: () => void }) {
-  const a = ((node.rotation ?? 0) * Math.PI) / 180
-  const [c, s] = [Math.abs(Math.cos(a)), Math.abs(Math.sin(a))]
-  const corner = toScreen({ x: node.x + (node.width / 2) * c + (node.height / 2) * s, y: node.y - (node.width / 2) * s - (node.height / 2) * c })
+  const corner = toScreen({ x: node.x + node.width / 2, y: node.y - node.height / 2 })
   return (
     <button type="button" className="link-chip" data-plus="" style={{ left: corner.x, top: corner.y }} aria-label={`Link ${name} to…`} onClick={onLink}>
       Link to…

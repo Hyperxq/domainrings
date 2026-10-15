@@ -54,7 +54,7 @@ describe('MapDiagram — one hexagon (MIG-05.2 equivalence)', () => {
     const map = toMap(EXAMPLE_DIAGRAM)
     const { container, model } = renderSvg(map)
     const hexModel = model.hexagons[0].model
-    const edgePaths = hexModel.edges.reduce((n, e) => n + (e.insideTo !== undefined ? 2 : 1), 0)
+    const edgePaths = hexModel.edges.reduce((n, e) => n + (e.intoDomain !== undefined ? 2 : 1), 0)
     expect(container.querySelectorAll('.ring')).toHaveLength(hexModel.rings.length)
     expect(container.querySelectorAll('.node')).toHaveLength(hexModel.nodes.length)
     expect(container.querySelectorAll('.edge')).toHaveLength(edgePaths)

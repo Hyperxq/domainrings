@@ -15,6 +15,9 @@ function Defs({ rings }: { rings: LayoutRing[] }) {
       <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
         <path className="arrow-head" d="M0 0L10 5L0 10z" />
       </marker>
+      <marker id="arrow-on-domain" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path className="arrow-head on-domain" d="M0 0L10 5L0 10z" />
+      </marker>
       {rings.map((ring) => (
         // The glow colour follows each ring's stroke; flood-color comes from CSS per role.
         <filter key={ring.role} id={`glow-${ring.role}`} x="-10%" y="-10%" width="120%" height="120%">

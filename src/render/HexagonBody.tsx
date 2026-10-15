@@ -8,7 +8,7 @@ import { Ring } from './Ring'
 
 const BOX_PAD_X = 12
 // The domain block is plain text on the solid domain ring.
-const FRAMELESS = new Set<LayoutNode['kind']>(['domainItem', 'note', 'portDecl', 'portLabel'])
+const FRAMELESS = new Set<LayoutNode['kind']>(['domainItem', 'portLabel'])
 // A note belongs to the element's box, not to its outline, its declaration or its overview label.
 const NOTE_CARRIERS = new Set<LayoutNode['kind']>(['actor', 'adapter', 'port', 'useCase', 'external', 'domainItem', 'composition'])
 
@@ -41,13 +41,13 @@ function inChain(edge: LayoutEdge, refs: ReadonlySet<string> | undefined): boole
 function Edge({ edge, chained }: { edge: LayoutEdge; chained: boolean }) {
   const marker = edge.kind === 'import' ? 'url(#arrow)' : undefined
   const chain = chained ? '' : undefined
-  if (edge.insideTo === undefined) {
+  if (edge.intoDomain === undefined) {
     return <path className={`edge edge-${edge.kind}`} data-chain={chain} d={orthogonalPath(edge.points)} markerEnd={marker} />
   }
   return (
     <>
-      <path className={`edge edge-${edge.kind} on-domain`} data-chain={chain} d={orthogonalPath(edge.points.slice(0, edge.insideTo + 1))} />
-      <path className={`edge edge-${edge.kind}`} data-chain={chain} d={orthogonalPath(edge.points.slice(edge.insideTo))} markerEnd={marker} />
+      <path className={`edge edge-${edge.kind}`} data-chain={chain} d={orthogonalPath(edge.points.slice(0, edge.intoDomain + 1))} />
+      <path className={`edge edge-${edge.kind} on-domain`} data-chain={chain} d={orthogonalPath(edge.points.slice(edge.intoDomain))} markerEnd="url(#arrow-on-domain)" />
     </>
   )
 }
@@ -82,7 +82,6 @@ function Node({ node, selected, target, chained, interactive, noted, planned }: 
       role={interactive ? 'button' : undefined}
       aria-label={interactive ? `Edit ${node.lines.map((l) => l.text).join(' ')}` : undefined}
       aria-describedby={selected && noted ? NOTE_POPOVER_ID : undefined}
-      transform={node.rotation ? `rotate(${node.rotation} ${node.x} ${node.y})` : undefined}
     >
       {node.kind === 'aggregate' ? (
         <rect className="aggregate-outline" x={left} y={top} width={node.width} height={node.height} rx={6} />
@@ -143,6 +142,7 @@ export function HexagonBody({ model, showGuides, selected, linkTargets, chain, i
   return (
     <>
       {model.rings.map((ring, i) => <Ring key={ring.key} ring={ring} shape={model.shape} inner={model.rings[i + 1]} interactive={interactive} />)}
+      {model.region && <path className="domain-region" d={bandPath(model.shape, model.region)} aria-hidden="true" />}
       {showGuides && model.guides.map((g, k) => <line key={k} className="guide" x1={g.from.x} y1={g.from.y} x2={g.to.x} y2={g.to.y} />)}
       {model.edges.map((edge) => <Edge key={edge.key} edge={edge} chained={inChain(edge, chain)} />)}
       {model.nodes.map((node) => <Node key={node.key} node={node} selected={node.ref === selected} target={linkTargets.has(node.ref)} chained={!!chain?.has(node.ref)} interactive={interactive} noted={notes.has(node.ref)} planned={planned.has(node.ref)} />)}

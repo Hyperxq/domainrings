@@ -165,7 +165,7 @@ describe('Stage layer hover', () => {
  const { container } = render(<Harness />)
     hover(container, 'application')
     expect(svg(container).hasAttribute('data-hover')).toBe(false)
-    expect(screen.getByRole('button', { name: 'Add a use case' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Add a use case on the south-west wall' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Add a driven port on the north-east wall' })).toBeTruthy()
   })
 })
@@ -186,16 +186,16 @@ describe('Stage "+" affordances', () => {
 
   it('shows only the "+" buttons of the hovered layer', () => {
     const { container } = render(<Harness />)
-    expect(screen.queryByRole('button', { name: 'Add a use case' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Add a use case on the south-west wall' })).toBeNull()
     hover(container, 'domain')
     expect(screen.getByRole('button', { name: 'Add a domain item' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Add a use case' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Add a use case on the south-west wall' })).toBeNull()
   })
 
   it('creates a use case, edits its name inline, and commits it on Enter', () => {
     const { container } = render(<Harness />)
     hover(container, 'application')
-    act(() => fireEvent.click(screen.getByRole('button', { name: 'Add a use case' })))
+    act(() => fireEvent.click(screen.getByRole('button', { name: 'Add a use case on the south-west wall' })))
     const input = screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement
     expect(input.value).toBe('NewUseCase')
     fireEvent.change(input, { target: { value: 'ShipOrder' } })
@@ -225,7 +225,7 @@ describe('Stage "+" affordances', () => {
   it('removes an element whose name was cleared when the input loses focus', () => {
     const { container } = render(<Harness />)
     hover(container, 'application')
-    act(() => fireEvent.click(screen.getByRole('button', { name: 'Add a use case' })))
+    act(() => fireEvent.click(screen.getByRole('button', { name: 'Add a use case on the south-west wall' })))
     const input = screen.getByRole('textbox', { name: 'Name' })
     fireEvent.change(input, { target: { value: '   ' } })
     fireEvent.blur(input)
@@ -572,7 +572,7 @@ describe('Stage — auto-fit after a map-shape change (FIT-02, ADR-05)', () => {
       try {
         useMapStore.getState().replace(twoHexMap())
         const { container } = render(<Harness />)
-        frameAt(container, { x: -900, y: -900 }, 300)
+        frameAt(container, { x: -1300, y: -1300 }, 400)
         const before = viewportOf(container)
 
         act(() => void useMapStore.getState().importHexagon(toMap(STRESS_DIAGRAM), { context: 'same' }))
@@ -1067,7 +1067,7 @@ describe('Stage current-hexagon focus (FOCUS-01, 03, 04, 05, CANVAS-03)', () => 
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<Harness />)
     hover(container, 'application')
-    act(() => fireEvent.click(screen.getByRole('button', { name: 'Add a use case' })))
+    act(() => fireEvent.click(screen.getByRole('button', { name: 'Add a use case on the south-west wall' })))
     const input = screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement
     fireEvent.change(input, { target: { value: 'CommittedOnSwitch' } })
 

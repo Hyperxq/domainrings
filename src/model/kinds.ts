@@ -23,8 +23,6 @@ export interface KindConfig {
   /** Outermost first. Exactly one ring has role 'application' and one 'adapters' right outside it. */
   rings: RingSpec[]
   labels: KindLabels
-  /** When set, the domain declares the driven ports and lists them under this heading. */
-  drivenPortNote?: { title: string }
 }
 
 /** The only architecture a live Diagram can have — Clean/Onion's old kind switcher is gone, and native Onion is
@@ -46,5 +44,4 @@ export const HEXAGONAL_KIND: KindConfig = {
     uses: 'uses',
     asks: 'asks the domain to decide',
   },
-  drivenPortNote: { title: 'driven-ports/' },
 }

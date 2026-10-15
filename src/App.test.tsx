@@ -772,8 +772,7 @@ describe('linking on the canvas', () => {
     expect(toastEl()!.textContent).toContain(`Choose a target for ${adapter.name} · Esc to cancel`)
   })
 
-  it('hangs the chip off the port box, not off the port\'s declaration in the domain', () => {
-    // A driven port is laid out twice under one ref: its `driven-ports/` declaration in the domain and the box on the wall.
+  it('hangs the chip off the port box', () => {
     const port = STRESS_DIAGRAM.ports.find((p) => p.side === 'driven')!
     act(() => useMapStore.getState().restore({ map: toMap(STRESS_DIAGRAM), focus: toMap(STRESS_DIAGRAM).hexagons[0].id }))
     const { container } = render(<App />)
@@ -782,12 +781,9 @@ describe('linking on the canvas', () => {
     const stage = container.querySelector<HTMLElement>('main.stage')!.style
     const scale = parseFloat(stage.backgroundSize) / 20
     const toScreenX = (x: number) => x * scale + parseFloat(stage.backgroundPosition)
-    const nodes = layoutDiagram(STRESS_DIAGRAM).nodes.filter((n) => n.ref === port.id)
-    const box = nodes.find((n) => n.kind === 'port')!
-    const declaration = nodes.find((n) => n.kind === 'portDecl')!
+    const box = layoutDiagram(STRESS_DIAGRAM).nodes.find((n) => n.ref === port.id && n.kind === 'port')!
     const left = parseFloat(chip.style.left)
     expect(Math.abs(left - toScreenX(box.x))).toBeLessThan(box.width * scale)
-    expect(Math.abs(left - toScreenX(declaration.x))).toBeGreaterThan(box.width * scale)
   })
 
   it('enters link mode from the chip too', () => {

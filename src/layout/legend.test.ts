@@ -28,7 +28,7 @@ describe('legendFor', () => {
       '○ value object',
       '▶ use case',
       '⇥ driving port',
-      '⇤ driven port',
+      '◇ driven port',
       '⇥ infrastructure/in',
       '⇤ infrastructure/out',
     ])

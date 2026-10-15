@@ -32,10 +32,5 @@ export function wallFrame(wall: Wall) {
   const n = WALL_NORMAL[wall]
   return { n, dir: { x: -n.y === 0 ? 0 : -n.y, y: n.x } }
 }
-/** The wall's line angle in degrees, folded into (−90, 90]. */
-export const wallAngle = (wall: Wall) => {
-  const { dir } = wallFrame(wall)
-  return (((Math.atan2(dir.y, dir.x) * 180) / Math.PI + 450) % 180) - 90
-}
 /** Smallest apothem keeping a local point (u along the wall, v off its line) inside the wall's sector. */
 export const sectorApothem = (u: number, v: number) => (Math.abs(u) + SECTOR_CLEAR / COS30) * SQRT3 - v

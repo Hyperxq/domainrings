@@ -1,6 +1,6 @@
 import { HEXAGONAL_KIND } from '../../model/kinds'
 import type { Adapter, Diagram, DomainItem, Endpoint, Port, Side, UseCase } from '../../model/schema'
-import { adapterTag, DOMAIN_TAGS, portTag, USE_CASE_TAG } from '../tags'
+import { adapterTag, DOMAIN_TAGS, DRIVEN_GLYPH, portTag, USE_CASE_TAG } from '../tags'
 import { LINE_METRICS, lineWidth, noteLines, styled, type TextLine } from '../text'
 import { LABEL_GAP } from './spacing'
 
@@ -26,7 +26,7 @@ export function boxFrames(overview: boolean) {
   const nameFrame = (name: string) => frame(styled('name', name), 80)
   const NOTCH: Frame = { lines: [], width: 14, height: 30 }
   // With the socket only a notch, the port name (the contract) sits beside it, inside the application ring.
-  const portLabel = (p: Port) => frame(styled('label', p.name), 0, 0, 0)
+  const portLabel = (p: Port) => frame(styled('label', p.side === 'driven' ? `${DRIVEN_GLYPH} ${p.name}` : p.name), 0, 0, 0)
   const labelReach = (p: Port) => (overview ? portLabel(p).width + LABEL_GAP : 0)
   const adapterFrame = (a: Adapter, side: Side) =>
     overview ? nameFrame(a.name) : frame([...styled('eyebrow', adapterTag(side, labels)), ...styled('name', a.name, 18), ...noteLines(a.note)], 110)

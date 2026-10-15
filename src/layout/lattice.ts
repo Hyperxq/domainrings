@@ -6,11 +6,28 @@ import { MAP_GAP } from './gap'
 import { unionBox, type Box, type Point } from './geometry'
 import type { LayoutModel } from './layout'
 import type { MapHexagonLayout } from './map'
+import { CHIP_LABEL, measure } from './text'
 
 export interface LaidOutHexagon {
   hexagon: Hexagon
   model: LayoutModel
   compact: boolean
+  /** The name on the chip of this hexagon's context, when the map draws chips: a compact hexagon keeps the width of its chip clear. */
+  chipLabel?: string
+}
+
+/** The chip is sized again once the lattice is laid out, and comes out a little larger than the lattice allowed for. */
+const CHIP_GROWTH = 1.15
+
+/** A compact hexagon's box grown up to the chip of its context, which hangs above it, so a full hexagon level with the chip
+ * counts as level with the hexagon. The chip is often wider than the hexagon but slides sideways along its region to clear
+ * a neighbour, so the box only widens to it where full hexagons hem it in on both sides. */
+function withChip({ compact, chipLabel }: LaidOutHexagon, own: Box, chipSize: number, hemmed: boolean): Box {
+  if (!compact || !chipLabel) return own
+  const half = hemmed ? measure(chipLabel, { ...CHIP_LABEL, size: chipSize * CHIP_GROWTH }) / 2 : 0
+  const [left, right] = [Math.min(own.x, -half), Math.max(own.x + own.width, half)]
+  const rise = chipSize * CHIP_LINE + CHIP_GAP
+  return { x: left, y: own.y - rise, width: right - left, height: own.height + rise }
 }
 
 /** Where the other hexagons go once the full hexagon `full` claims its box: those at or right of its centre move right,
@@ -100,7 +117,7 @@ export function cellCentre(cell: { q: number; r: number }, pitch: Point): Point 
 /** The lattice the hexagons sit on: each one's centre, the pitch between cells, and the scale the compact silhouettes are drawn at. */
 export function layLattice(perHexagon: LaidOutHexagon[], compacting: boolean): { pitch: Point; centres: Point[]; unit: number } {
   // The lattice and the hexagons' union for compact hexagons drawn at `unit` scale.
-  const place = (unit: number) => {
+  const place = (unit: number, chipSize: number) => {
     const owns = perHexagon.map(({ model, compact }) => (compact ? compactBounds(COMPACT_RADIUS * unit) : model.bounds))
     // The lattice step: with compact neighbours it sizes the cells (each full hexagon claims its room afterwards with
     // `clearFull` instead of inflating every cell); with every hexagon in full it only gives the direction of a grow "+",
@@ -113,10 +130,16 @@ export function layLattice(perHexagon: LaidOutHexagon[], compacting: boolean): {
     const boxX = span('right', 'left')
     // A compact hexagon's chip sits above its hull and is as large as its title; two lines are kept free so chips wider
     // than their hexagons can stagger instead of running into each other.
-    const boxY = span('bottom', 'top') + (compacting ? COMPACT_TITLE.size * unit * CHIP_LINE * 2 + 2 * CHIP_GAP : 0)
+    const boxY = span('bottom', 'top') + (compacting ? Math.max(COMPACT_TITLE.size * unit, chipSize) * CHIP_LINE * 2 + 2 * CHIP_GAP : 0)
     const pitch: Point = { x: boxX, y: boxY }
+    const hemmedIn = (placed: Point[], boxes: Box[], k: number, size: number) => {
+      const at = (i: number): Box => ({ ...boxes[i], x: boxes[i].x + placed[i].x, y: boxes[i].y + placed[i].y })
+      const reach = size * CHIP_LINE + CHIP_GAP
+      const beside = perHexagon.flatMap(({ compact }, i) => (compact || i === k || at(i).y > at(k).y + at(k).height + MAP_GAP || at(k).y - reach - MAP_GAP > at(i).y + at(i).height ? [] : [placed[i].x - placed[k].x]))
+      return beside.some((dx) => dx < 0) && beside.some((dx) => dx > 0)
+    }
     const centres = compacting
-      ? perHexagon.reduce((placed, { compact }, i) => (compact ? placed : clearFull(placed, owns, i)), perHexagon.map(({ hexagon }) => cellCentre(hexagon.cell, pitch)))
+      ? perHexagon.reduce((placed, { compact }, i) => (compact ? placed : clearFull(placed, owns.map((own, k) => withChip(perHexagon[k], own, chipSize, hemmedIn(placed, owns, k, chipSize))), i)), perHexagon.map(({ hexagon }) => cellCentre(hexagon.cell, pitch)))
       : packRows(owns, perHexagon.map(({ hexagon }) => hexagon.cell))
     const bounds = unionBox(owns.map((own, i) => ({ ...own, x: own.x + centres[i].x, y: own.y + centres[i].y })))
     return { pitch, centres, bounds }
@@ -125,15 +148,17 @@ export function layLattice(perHexagon: LaidOutHexagon[], compacting: boolean): {
   // the fit scale the title is sized against, which saturates near 8-9px on screen. More passes never reach
   // CHIP_FLOOR_PX and on large maps keep inflating the silhouette, so the passes stay capped.
   let unit = 1
+  let chipSize: number = CHIP_LABEL.size
   if (compacting) {
     const fullHeight = Math.min(...perHexagon.filter(({ compact }) => !compact).map(({ model }) => model.bounds.height))
     const maxUnit = (fullHeight * COMPACT_MAX_SHARE) / (2 * COMPACT_RADIUS)
     for (let pass = 0; pass < 4; pass++) {
-      const { bounds } = place(unit)
+      const { bounds } = place(unit, chipSize)
       const scale = Math.min(REFERENCE_STAGE.width / bounds.width, REFERENCE_STAGE.height / bounds.height)
       unit = Math.max(1, Math.min(maxUnit, CHIP_FLOOR_PX / (COMPACT_TITLE.size * scale)))
+      chipSize = Math.max(CHIP_LABEL.size, CHIP_FLOOR_PX / scale)
     }
   }
-  const { pitch, centres } = place(unit)
+  const { pitch, centres } = place(unit, chipSize)
   return { pitch, centres, unit }
 }

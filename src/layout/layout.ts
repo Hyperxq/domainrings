@@ -11,6 +11,7 @@ import { ringTitles } from './hexagon/ringTitles'
 import { routeEdges } from './hexagon/routes'
 import { seatUseCases } from './hexagon/useCaseSeating'
 import { VERTEX } from './hexagon/walls'
+import type { Outline } from './outline'
 import type { TextLine } from './text'
 
 /** Colour = side or layer: driving and driven pills, slate external systems, teal ports and use cases. */
@@ -23,8 +24,6 @@ export type NodeKind =
   | 'external'
   | 'domainItem'
   | 'aggregate'
-  | 'note'
-  | 'portDecl'
   | 'composition'
   | 'portLabel'
 
@@ -42,8 +41,6 @@ export interface LayoutNode {
   side?: Side
   /** Hexagons: the application-ring wall a port sits on; its adapter and actor or external share it. */
   wall?: Wall
-  /** Degrees; a socket on a slanted wall lies along it. Every other box stays upright. */
-  rotation?: number
   x: number
   y: number
   width: number
@@ -73,13 +70,13 @@ export interface LayoutRing {
 
 export interface LayoutEdge {
   key: string
-  /** import: arrow; wiring: composition root; declares: domain-declared port → socket. */
-  kind: 'import' | 'wiring' | 'declares'
+  /** import: arrow; wiring: composition root. */
+  kind: 'import' | 'wiring'
   points: Point[]
   label?: string
   labelAt?: Point
-  /** Index of the point where the path leaves the domain fill; the parts either side are drawn in their own tone. */
-  insideTo?: number
+  /** Index of the point where the path crosses into the domain fill; the part from there on is drawn in the domain's own tone. */
+  intoDomain?: number
 }
 
 /** Left-anchored at (x, y). */
@@ -103,6 +100,8 @@ export interface LayoutOptions {
 export interface LayoutModel {
   shape: 'hexagon'
   rings: LayoutRing[]
+  /** Hexagons only: the domain model region inside the domain ring, present when the domain has an aggregate. */
+  region?: Outline
   /** Hexagons only: dashed spokes from each outer vertex in to the matching domain vertex. */
   guides: { from: Point; to: Point }[]
   nodes: LayoutNode[]
@@ -117,19 +116,19 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   const frames = boxFrames(overview)
   const plan = planBoxes(d, overview, frames)
   const titles = ringTitles(d)
-  const centre = layCentre({ d, overview, domainFrame: frames.domainFrame, titles })
   const useCaseFrames = d.useCases.map(frames.useCaseFrame)
   const appIndex = config.rings.findIndex((r) => r.role === 'application')
-  const seating = seatUseCases({ d, overview, appIndex, useCaseFrames, declaredPorts: centre.declared.length, titles, plan, frames })
+  const seating = seatUseCases({ d, overview, useCaseFrames, plan, frames })
+  const centre = layCentre({ d, overview, domainFrame: frames.domainFrame, seating })
 
-  const { outlines, domainShift } = solveRings({ d, overview, appIndex, titles, centre, plan, frames, useCaseFrames, seating })
+  const outlines = solveRings({ d, overview, appIndex, titles, centre, plan, frames, seating })
   const app = outlines[appIndex]
   const insideApp = outlines[appIndex + 1]
   const outer = outlines[0]
   const domain = outlines[config.rings.length - 1]
 
-  const { nodes, composition } = placeNodes({ d, overview, app, insideApp, outer, domain, titles, domainShift, centre, plan, frames, useCaseFrames, seating })
-  const edges = routeEdges({ d, overview, nodes, composition, plan, app, insideApp, domain, outer, seating })
+  const { nodes, composition } = placeNodes({ d, overview, app, outer, domain, centre, plan, frames, seating })
+  const edges = routeEdges({ d, overview, nodes, composition, plan, insideApp, region: centre.region, faces: centre.faces, outer, seating })
   const { texts, bounds } = layoutBounds(d, outer, nodes, edges)
   assignLayers(nodes, centre.serviceItems)
 
@@ -139,6 +138,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed' }: LayoutOptions =
   return {
     shape: 'hexagon',
     rings: titles.rings(outlines),
+    ...(centre.hasRegion ? { region: centre.region } : {}),
     guides,
     nodes,
     edges,

@@ -243,7 +243,7 @@ describe('Hexagonal stage edits', () => {
   const hover = (container: HTMLElement, layer: string) => fireEvent.pointerOver(container.querySelector(`[data-band="${layer}"]`)!)
   const addUseCase = (container: HTMLElement) => {
     hover(container, 'application')
-    act(() => fireEvent.click(screen.getByRole('button', { name: 'Add a use case' })))
+    act(() => fireEvent.click(screen.getByRole('button', { name: 'Add a use case on the south-west wall' })))
   }
 
   it('records adding an item from the canvas "+" and naming it as one silent step', () => {
@@ -356,7 +356,7 @@ describe('the undo refusal gate stays a safety net', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add use case' }))
     fireEvent.change(screen.getAllByLabelText('Placement')[0], { target: { value: 'nw' } })
     hover('application')
-    act(() => fireEvent.click(screen.getByRole('button', { name: 'Add a use case' })))
+    act(() => fireEvent.click(screen.getByRole('button', { name: 'Add a use case on the south-west wall' })))
     fireEvent.keyDown(screen.getByRole('textbox', { name: 'Name' }), { key: 'Enter' })
     fireEvent.click(screen.getAllByRole('button', { name: /^Remove use case / })[0])
 

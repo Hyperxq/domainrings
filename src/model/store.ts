@@ -3,6 +3,7 @@ import { addLink as addLinkToMap, diagramOf, freeCell, freeSides, mergeMap, move
 import { EXAMPLE_DIAGRAM } from './example'
 import { toMap } from './hexa'
 import { browserStorage, loadMap } from './persistence'
+import { withoutAggregates } from './aggregateIds'
 import { MapSchema, REFERENCES, type CollectionKey, type Diagram, type HexaMap, type Hexagon, type Link, type LinkEnd, type Linkable, type Wall } from './schema'
 import { validated } from './validated'
 
@@ -119,7 +120,11 @@ export const useMapStore = create<MapState>()((set, get) => {
       return id
     },
     updateItem: (hexId, key, id, patch) =>
-      editAndPrune(hexId, (d) => withCollection(d, key, (d[key] as Item<typeof key>[]).map((i) => (i.id === id ? merge(i, patch) : i)))),
+      editAndPrune(hexId, (d) => {
+        const next = withCollection(d, key, (d[key] as Item<typeof key>[]).map((i) => (i.id === id ? merge(i, patch) : i)))
+        // An item that stops being an aggregate here can no longer be named by a use case.
+        return key === 'domain' ? { ...next, useCases: withoutAggregates(next.useCases, new Set(next.domain.filter((i) => i.type !== 'aggregate').map((i) => i.id))) } : next
+      }),
     removeItem: (hexId, key, id) =>
       editAndPrune(hexId, (d) => {
         let next = withCollection(d, key, (d[key] as Item<typeof key>[]).filter((i) => i.id !== id))
@@ -128,7 +133,7 @@ export const useMapStore = create<MapState>()((set, get) => {
           const items: Linkable[] = next[owner]
           next = withCollection(next, owner, items.map((i) => (i[field] === id ? { ...i, [field]: undefined } : i)) as Item<typeof owner>[])
         }
-        return next
+        return key === 'domain' ? { ...next, useCases: withoutAggregates(next.useCases, new Set([id])) } : next
       }),
     addHexagon: (from, { side, context }) => {
       const map = get().map

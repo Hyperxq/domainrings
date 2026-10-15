@@ -5,34 +5,25 @@ import { halfWidthAt, type Outline } from '../outline'
 import type { BoxFrames, Frame } from './boxFrames'
 import type { CentreBlock } from './centreBlock'
 import type { BoxPlan, Planned } from './columns'
-import type { RingTitles } from './ringTitles'
 import { GAP, OUTSIDE_GAP } from './spacing'
 import type { UseCaseSeating } from './useCaseSeating'
-import { wallAngle, wallFrame } from './walls'
+import { wallFrame } from './walls'
 
 export interface NodesInput {
   d: Diagram
   overview: boolean
   app: Outline
-  insideApp: Outline
   outer: Outline
   domain: Outline
-  titles: RingTitles
-  /** How far the domain body sits below its title (see the ring solver). */
-  domainShift: number
   centre: CentreBlock
   plan: BoxPlan
   frames: BoxFrames
-  useCaseFrames: Frame[]
   seating: UseCaseSeating
 }
 
 /** Every node of the diagram at its final position, in draw order: domain block, use cases, column boxes, wall boxes, overview port names, composition root; `composition` is that root, absent when none is drawn. */
-export function placeNodes({ d, overview, app, insideApp, outer, domain, titles, domainShift, centre, plan, frames, useCaseFrames, seating }: NodesInput): { nodes: LayoutNode[]; composition: LayoutNode | undefined } {
-  const { titleDepth } = titles
+export function placeNodes({ d, overview, app, outer, domain, centre, plan, frames, seating }: NodesInput): { nodes: LayoutNode[]; composition: LayoutNode | undefined } {
   const { planned, widths, portOf, wallBoxes } = plan
-  const { stack } = seating
-  const useCaseCentres = seating.useCaseCentres(app, insideApp)
   const seats = seating.seatsAt(app)
   const compositionFrame = d.composition && !overview ? frames.compositionFrame(d.composition) : undefined
   const nodes: LayoutNode[] = []
@@ -41,10 +32,9 @@ export function placeNodes({ d, overview, app, insideApp, outer, domain, titles,
     add({ key, ref, kind, tone, lines: f.lines, side, x, y, width: f.width, height: f.height })
   const leafX = (side: Side) => outer.halfWidth + OUTSIDE_GAP + widths[side].leaf / 2
 
-  const blockTop = -domain.apex + titleDepth
   // Outlines first so they draw under the lines they enclose.
   for (const r of centre.boxes) {
-    const node = place(r.key, r.ref, r.kind, 'domain', r.frame, r.x, blockTop + domainShift + r.top + r.frame.height / 2)
+    const node = place(r.key, r.ref, r.kind, 'domain', r.frame, r.x, r.y)
     if (r.kind !== 'aggregate') node.align = 'center'
   }
   let y = -(domain.apex + GAP + centre.servicesBlock.height)
@@ -52,12 +42,6 @@ export function placeNodes({ d, overview, app, insideApp, outer, domain, titles,
     const f = centre.serviceFrames[i]
     place(`domainItem:${item.id}`, item.id, 'domainItem', 'domain', f, 0, y + f.height / 2)
     y += f.height
-  })
-  // Use cases hang right under the application title at the centres `seating` resolved, which lower them only
-  // where the ring is too narrow for a box or for its bus corners.
-  stack.forEach((i, j) => {
-    const u = d.useCases[i]
-    place(`useCase:${u.id}`, u.id, 'useCase', 'teal', useCaseFrames[i], 0, useCaseCentres[j]).align = 'center'
   })
   for (const s of seats) {
     const u = d.useCases[s.i]
@@ -98,7 +82,6 @@ export function placeNodes({ d, overview, app, insideApp, outer, domain, titles,
       align: 'center',
       side: b.side,
       wall: b.wall,
-      rotation: b.kind === 'port' ? wallAngle(b.wall) : undefined,
       x: n.x * depth + dir.x * b.u,
       y: n.y * depth + dir.y * b.u,
       width: b.width,
@@ -106,7 +89,7 @@ export function placeNodes({ d, overview, app, insideApp, outer, domain, titles,
     })
   }
   for (const l of plan.portLabels(app)) {
-    add({ key: `portLabel:${l.ref}`, ref: l.ref, kind: 'portLabel', tone: 'teal', lines: l.frame.lines, align: l.align, side: l.side, rotation: l.rotation, x: l.x, y: l.y, width: l.frame.width, height: l.frame.height })
+    add({ key: `portLabel:${l.ref}`, ref: l.ref, kind: 'portLabel', tone: 'teal', lines: l.frame.lines, align: l.align, side: l.side, x: l.x, y: l.y, width: l.frame.width, height: l.frame.height })
   }
 
   const composition = compositionFrame ? Object.assign(place('composition', 'composition', 'composition', 'muted', compositionFrame, 0, outer.apex + GAP + compositionFrame.height / 2), { align: 'center' as const }) : undefined
