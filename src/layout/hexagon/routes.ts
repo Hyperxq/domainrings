@@ -2,7 +2,6 @@ import { SideSchema, type Side, type Wall } from '../../model/schema'
 import { dedupe, dot, enterBox, reach, type Point } from '../geometry'
 import type { LayoutEdge, LayoutNode } from '../layout'
 import { COS30, SQRT3 } from '../outline'
-import { corridorHalf, MARGIN } from './bands'
 import { onWall, travel } from './corridors'
 import type { Layer, Pair } from './elements'
 import { LANE, OUTSIDE_GAP, TRACK_GAP } from './spacing'
@@ -112,7 +111,7 @@ export function routeEdges({ hops, radii, owners, nodes, composition }: RouteInp
     const ends = a.layer === 3 && b.layer === 4 ? { adapter: pair.from, leaf: pair.to } : a.layer === 4 && b.layer === 3 ? { adapter: pair.to, leaf: pair.from } : undefined
     if (ends) leavesOf.set(ends.adapter, [...(leavesOf.get(ends.adapter) ?? []), ends.leaf])
   }
-  if (composition) edges.push(...wiring(nodes, composition, radii, owners, leavesOf))
+  if (composition) edges.push(...wiring(nodes, composition, radii, leavesOf))
   return edges
 }
 
@@ -121,10 +120,10 @@ const TRUNK_GAP = OUTSIDE_GAP / 2
 
 /**
  * One trunk per side hugging the outermost wall, just outside the endpoints. Each branch runs in along its wall's
- * normal to the adapter's outer face. An adapter with endpoints is reached past the end of its chain, then along the
- * free margin outside the external corridor, then in at the adapter's own end, so no branch crosses an endpoint.
+ * normal to the adapter's outer face. An adapter with endpoints is reached past the end of its chain, then turns once
+ * into the adapter's side, so no branch crosses an endpoint.
  */
-function wiring(nodes: LayoutNode[], composition: LayoutNode, radii: number[], owners: string[][], leavesOf: ReadonlyMap<string, string[]>): LayoutEdge[] {
+function wiring(nodes: LayoutNode[], composition: LayoutNode, radii: number[], leavesOf: ReadonlyMap<string, string[]>): LayoutEdge[] {
   const byKey = new Map(nodes.map((n) => [n.key, n]))
   const edges: LayoutEdge[] = []
   const farthest = Math.max(radii[4], ...nodes.filter((n) => n.wall && (n.kind === 'actor' || n.kind === 'external')).map((n) => dot(n, wallFrame(n.wall!).n) + reach(n.width, n.height, wallFrame(n.wall!).n)))
@@ -134,7 +133,6 @@ function wiring(nodes: LayoutNode[], composition: LayoutNode, radii: number[], o
   const rootTop = { x: 0, y: composition.y - composition.height / 2 }
   const walls: Record<Side, Wall[]> = { driving: ['sw', 'w', 'nw'], driven: ['se', 'e', 'ne'] }
   const vertices: Record<Side, number[]> = { driving: [3, 4, 5, 0], driven: [3, 2, 1, 0] }
-  const margin = corridorCentre(radii, 3) + corridorHalf(owners[3].length) + MARGIN / 2
   for (const side of SideSchema.options) {
     const adapters = nodes.filter((n) => n.kind === 'adapter' && n.side === side && n.wall)
     if (!adapters.length) continue
@@ -145,11 +143,12 @@ function wiring(nodes: LayoutNode[], composition: LayoutNode, radii: number[], o
       const [u, half] = [dot(a, dir), reach(a.width, a.height, dir)]
       const leaves = (leavesOf.get(a.key) ?? []).map((k) => byKey.get(k)!)
       const end = Math.max(u + half, ...leaves.map((l) => dot(l, dir) + reach(l.width, l.height, dir)))
-      const lane = u + half - 6
-      const mouth = enterBox(a, onWall(a.wall!, dot(a, n) + reach(a.width, a.height, n) + 1, lane), { x: -n.x, y: -n.y })
+      const depth = dot(a, n)
+      const mouth = (from: Point, v: Point) => enterBox(a, from, v)
+      // Past the end of its chain the branch runs straight in along the wall, then turns once into the adapter's side.
       const points = leaves.length
-        ? [onWall(a.wall!, trunkDepth, end + 7), onWall(a.wall!, margin, end + 7), onWall(a.wall!, margin, lane), mouth]
-        : [onWall(a.wall!, trunkDepth, lane), mouth]
+        ? [onWall(a.wall!, trunkDepth, end + 7), onWall(a.wall!, depth, end + 7), mouth(onWall(a.wall!, depth, end + 7), { x: -dir.x, y: -dir.y })]
+        : [onWall(a.wall!, trunkDepth, u + half - 6), mouth(onWall(a.wall!, depth + reach(a.width, a.height, n) + 1, u + half - 6), { x: -n.x, y: -n.y })]
       edges.push({ key: `composition->${a.key}`, kind: 'wiring', points })
     }
   }
