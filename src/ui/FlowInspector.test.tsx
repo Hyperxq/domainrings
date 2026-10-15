@@ -6,6 +6,7 @@ import type { HexaMap, Hexagon } from '../model/schema'
 import { useMapStore } from '../model/store'
 import { FlowInspector } from './FlowInspector'
 import { FlowsSection } from './FlowsSection'
+import { PresentPanel } from './PresentPanel'
 import { useHistoryStore } from './state/historyStore'
 import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
@@ -281,5 +282,74 @@ describe('a new flow', () => {
     const name = screen.getByLabelText('Flow name') as HTMLInputElement
     expect(name.value).toBe('NewUseCase')
     expect(document.activeElement).toBe(name)
+  })
+})
+
+describe('FlowInspector: more', () => {
+  it('deletes the flow, unfocuses it, and undoes', () => {
+    render(<FlowInspector />)
+    fireEvent.click(screen.getByRole('button', { name: 'Delete flow' }))
+    expect(d().useCases.some((u) => u.id === 'uc-place')).toBe(false)
+    expect(useViewStore.getState().focusedFlow).toBeNull()
+    undo()
+    expect(useCase().name).toBe('PlaceOrder')
+  })
+
+  it('marks the flow planned and back, as one undo step', () => {
+    render(<FlowInspector />)
+    fireEvent.click(screen.getByLabelText('Flow planned'))
+    expect(useCase().status).toBe('planned')
+    undo()
+    expect(useCase().status).toBeUndefined()
+  })
+
+  it('writes the note, and clears it when emptied', () => {
+    render(<FlowInspector />)
+    type('Note for flow', 'Owned by checkout.')
+    expect(useCase().note).toBe('Owned by checkout.')
+    type('Note for flow', '')
+    expect(useCase().note).toBeUndefined()
+  })
+
+  it('places the flow on a wall, and back under the title', () => {
+    render(<FlowInspector />)
+    fireEvent.change(screen.getByLabelText('Flow placement'), { target: { value: 'ne' } })
+    expect(useCase().placement).toBe('ne')
+    fireEvent.change(screen.getByLabelText('Flow placement'), { target: { value: 'top' } })
+    expect(useCase().placement).toBeUndefined()
+    undo()
+    expect(useCase().placement).toBe('ne')
+  })
+})
+
+describe('FlowInspector: step notes', () => {
+  const open = (name: string) => fireEvent.click(within(screen.getByRole('complementary', { name: 'Flow inspector' })).getAllByRole('button', { name })[0])
+
+  it('reveals a note field when a step is clicked, and writes it under that element id', () => {
+    render(<FlowInspector />)
+    expect(screen.queryByLabelText('Note for orders.routes')).toBeNull()
+    open('orders.routes')
+    type('Note for orders.routes', 'Parses the JSON.')
+    expect(useCase().stepNotes).toEqual({ 'a-rest': 'Parses the JSON.' })
+    undo()
+    expect(useCase().stepNotes).toBeUndefined()
+  })
+
+  it('drops the key, and the map, when the note is emptied', () => {
+    render(<FlowInspector />)
+    open('orders.routes')
+    type('Note for orders.routes', 'x')
+    type('Note for orders.routes', '')
+    expect(useCase().stepNotes).toBeUndefined()
+  })
+
+  it('shows the written note in Present', () => {
+    render(<FlowInspector />)
+    open('orders.routes')
+    type('Note for orders.routes', 'Parses the JSON.')
+    cleanup()
+    act(() => useViewStore.getState().present(1))
+    render(<PresentPanel />)
+    expect(screen.getByText('Parses the JSON.')).toBeTruthy()
   })
 })

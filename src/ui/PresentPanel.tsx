@@ -84,7 +84,7 @@ export function PresentPanel() {
         <button type="button" className="text-button" disabled={index === 0} onClick={() => present(index - 1)}>
           ← Back
         </button>
-        <button type="button" className="text-button" disabled={index === count - 1} onClick={() => present(index + 1)}>
+        <button type="button" className="text-button primary" disabled={index === count - 1} onClick={() => present(index + 1)}>
           Next →
         </button>
         <p>Step {index + 1} of {count} · arrow keys move between steps</p>
