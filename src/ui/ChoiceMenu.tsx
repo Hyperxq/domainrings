@@ -19,11 +19,14 @@ export interface Choice<Id extends string> {
   submenu?: readonly Choice<Id>[]
   /** Stays in the menu and focusable, but choosing it does nothing; `description` should say why. */
   disabled?: boolean
+  /** Colours drawn as a small strip beside the label, to preview what choosing it would apply. */
+  swatches?: readonly string[]
 }
 
 type MenuAt = { top: number; left?: number; right?: number }
 
 const GAP = 4
+const GUTTER = 8
 
 /** Below/above the trigger, aligned to its left or right edge — or, for a submenu (`beside`), right/left of its parent
  * item — the first spot that is fully on screen and clear of every `[data-menu-avoid]` element (e.g. the legend),
@@ -46,7 +49,10 @@ function place(trigger: DOMRect, menu: { width: number; height: number }, align:
     const clear = avoid.every((a) => left >= a.right || left + menu.width <= a.left || top >= a.bottom || top + menu.height <= a.top)
     return { at, onScreen, clear }
   })
-  return (candidates.find((c) => c.onScreen && c.clear) ?? candidates.find((c) => c.onScreen) ?? candidates[0]).at
+  const { at } = candidates.find((c) => c.onScreen && c.clear) ?? candidates.find((c) => c.onScreen) ?? candidates[0]
+  // On a narrow viewport no spot fits: pull the menu back inside, with a gutter, rather than clip its edge.
+  const left = at.left ?? innerWidth - at.right! - menu.width
+  return left < 0 || left + menu.width > innerWidth ? { top: at.top, left: Math.max(GUTTER, Math.min(left, innerWidth - menu.width - GUTTER)) } : at
 }
 
 interface ChoiceMenuProps<Id extends string> {
@@ -66,13 +72,15 @@ interface ChoiceMenuProps<Id extends string> {
   onDismiss?: () => void
   /** Keeps the menu open after a toggle (a choice with `checked`) so several can be set in one visit; actions still close it. */
   stayOpen?: boolean
+  /** Added to the menu's own classes, to size or style one menu without touching the others. */
+  menuClassName?: string
 }
 
 /**
  * A button that opens a menu of labelled choices. The menu is `position: fixed` under the trigger, so a scrolling
  * or clipping ancestor (the toolbar, the editor) never cuts it off — which holds only while no ancestor is transformed.
  */
-export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onChoose, className, align = 'start', onTrigger, autoOpen, onDismiss, stayOpen }: ChoiceMenuProps<Id>) {
+export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onChoose, className, align = 'start', onTrigger, autoOpen, onDismiss, stayOpen, menuClassName }: ChoiceMenuProps<Id>) {
   const [at, setAt] = useState<MenuAt | null>(null)
   const [anchor, setAnchor] = useState<DOMRect | null>(null)
   const [sub, setSub] = useState<{ choice: Choice<Id>; parent: HTMLButtonElement; at: MenuAt; anchor: DOMRect } | null>(null)
@@ -137,6 +145,7 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
       aria-haspopup={choice.submenu ? 'menu' : undefined}
       aria-expanded={choice.submenu ? sub?.choice.id === choice.id : undefined}
       aria-disabled={choice.disabled || undefined}
+      title={choice.swatches ? choice.description : undefined}
       onClick={(e) => {
         if (choice.disabled) return
         if (choice.submenu) return openSub(choice, e.currentTarget)
@@ -152,6 +161,13 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
     >
       {choice.icon && <Icon name={choice.icon} />}
       {choice.label}
+      {choice.swatches && (
+        <span className="choice-swatches" aria-hidden="true">
+          {choice.swatches.map((colour) => (
+            <span key={colour} style={{ background: colour }} />
+          ))}
+        </span>
+      )}
       {choice.description && <span className="choice-description">{choice.description}</span>}
       {choice.shortcut && <kbd className="choice-shortcut" aria-hidden="true">{choice.shortcut}</kbd>}
       {choice.control === 'switch' && (
@@ -245,7 +261,7 @@ export function ChoiceMenu<Id extends string>({ label, ariaLabel, choices, onCho
           id={menuId}
           role="menu"
           aria-labelledby={triggerId}
-          className="island choice-menu"
+          className={menuClassName ? `island choice-menu ${menuClassName}` : 'island choice-menu'}
           style={at}
           onKeyDown={(e) => {
             const list = itemsIn(e.currentTarget)

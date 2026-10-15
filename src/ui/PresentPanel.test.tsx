@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { EXAMPLES } from '../model/example'
+import { EXAMPLES, TWO_SLICES_MAP } from '../model/example'
+import { diagramOf } from '../model/map'
 import type { HexaMap } from '../model/schema'
 import { useMapStore } from '../model/store'
+import { threadSlots } from '../model/threads'
 import { PresentButton, PresentPanel, StepCard } from './PresentPanel'
 import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
@@ -27,6 +29,15 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
+describe('present accent', () => {
+  it('wears the presented flow thread colour on the panel and the step card', () => {
+    present()
+    render(<><PresentPanel /><StepCard /></>)
+    const want = `var(--thread-${threadSlots(diagramOf(useMapStore.getState().map, 'h1')).get('uc-place')})`
+    for (const el of [document.querySelector('.present-panel'), document.querySelector('.step-card')] as HTMLElement[]) expect(el.style.getPropertyValue('--thread')).toBe(want)
+  })
+})
+
 describe('PresentPanel', () => {
   it('heads the flow with its name, lists every step with number, name and a role tag, and marks the current one', () => {
     present()
@@ -42,7 +53,7 @@ describe('PresentPanel', () => {
     expect(rows[6].textContent).toMatch(/chargePayment.*linked port/)
     expect(rows[15].textContent).toMatch(/Postgres.*external/)
     expect(current()).toBe(rows[0])
-    expect(screen.getByText('Step 1 of 16 · arrow keys move between steps')).toBeTruthy()
+    expect(screen.getByText('Step 1 of 16 · ← → move · Esc exits')).toBeTruthy()
   })
 
   it('moves between steps with Next and Back, which stop at the ends', () => {
@@ -53,13 +64,14 @@ describe('PresentPanel', () => {
     expect(back.disabled).toBe(true)
     fireEvent.click(next)
     expect(stepNo()).toBe(1)
-    expect(screen.getByText('Step 2 of 16 · arrow keys move between steps')).toBeTruthy()
+    expect(screen.getByText('Step 2 of 16 · ← → move · Esc exits')).toBeTruthy()
     fireEvent.click(back)
     expect(stepNo()).toBe(0)
     present(15)
-    expect(next.disabled).toBe(true)
-    fireEvent.click(next)
-    expect(stepNo()).toBe(15)
+    expect(screen.queryByRole('button', { name: 'Next →' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    expect(stepNo()).toBeNull()
+    expect(useViewStore.getState().focusedFlow).toBe('uc-place')
   })
 
   it('moves with the arrow keys, ignores them while typing, and stops at the ends', () => {
@@ -92,10 +104,14 @@ describe('PresentPanel', () => {
     expect(stepNo()).toBe(1)
   })
 
-  it('Escape stops presenting but keeps the flow isolated; "All flows" also clears it', () => {
+  it('Escape and Exit stop presenting but keep the flow isolated; "All flows" also clears it', () => {
     present(3)
     render(<PresentPanel />)
     fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(stepNo()).toBeNull()
+    expect(useViewStore.getState().focusedFlow).toBe('uc-place')
+    present(3)
+    fireEvent.click(screen.getByRole('button', { name: 'Exit' }))
     expect(stepNo()).toBeNull()
     expect(useViewStore.getState().focusedFlow).toBe('uc-place')
     present(3)
@@ -130,7 +146,7 @@ describe('StepCard', () => {
     useMapStore.getState().replace({ ...map, hexagons: map.hexagons.map((h) => (h.id === 'h1' ? { ...h, domain: [...h.domain, { id: 'agg', name: 'Order', type: 'aggregate' as const }], useCases: h.useCases.map((u) => (u.id === 'uc-place' ? { ...u, aggregateIds: ['agg'] } : u)) } : h)) })
     present()
     render(<PresentPanel />)
-    expect(screen.getAllByRole('listitem')[4].textContent).toMatch(/Order.*aggregate/)
+    expect(screen.getByText('Order').closest('li')!.textContent).toMatch(/aggregate/)
   })
 
   it('names the step number, its role and the note', () => {
@@ -162,6 +178,15 @@ describe('PresentButton', () => {
     expect(useViewStore.getState()).toMatchObject({ focusedFlow: 'uc-place', presentStep: 0 })
   })
 
+  it("starts the first listed flow when the current hexagon has none", () => {
+    useMapStore.getState().replace({ ...TWO_SLICES_MAP, hexagons: TWO_SLICES_MAP.hexagons.map((h) => (h.id === 'h1' ? { ...h, useCases: [] } : h)) })
+    useMapStore.getState().setFocus('h1')
+    render(<PresentButton />)
+    fireEvent.click(screen.getByRole('button', { name: 'Present' }))
+    expect(useMapStore.getState().focus).toBe('h2')
+    expect(useViewStore.getState()).toMatchObject({ focusedFlow: 'uc-receive', presentStep: 0 })
+  })
+
   it('is absent in Edit mode, while presenting, and with no use case', () => {
     usePreferencesStore.setState({ viewOnly: false })
     const { container, rerender } = render(<PresentButton />)
@@ -172,7 +197,7 @@ describe('PresentButton', () => {
     expect(container.firstChild).toBeNull()
     act(() => useViewStore.setState({ focusedFlow: null, presentStep: null }))
     const map = advanced()
-    useMapStore.getState().replace({ ...map, hexagons: map.hexagons.map((h) => (h.id === 'h1' ? { ...h, useCases: [], ports: [], adapters: [], actors: [], externals: [] } : h)) })
+    useMapStore.getState().replace({ ...map, hexagons: map.hexagons.map((h) => ({ ...h, useCases: [], ports: [], adapters: [], actors: [], externals: [] })) })
     rerender(<PresentButton />)
     expect(container.firstChild).toBeNull()
   })

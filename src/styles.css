@@ -613,6 +613,19 @@ a.icon-button { color: inherit; text-decoration: none; }
 .choice-heading { padding: 4px 8px 2px; color: var(--muted); font-size: 12px; font-weight: 600; }
 .choice-separator { height: 1px; margin: 2px 4px; background: var(--line); }
 .choice-description { color: var(--muted); font-size: 12px; font-weight: 400; }
+/* View options: one narrow column. A switch's description sits under its label, the track spans both rows. */
+.choice-menu.narrow-menu { box-sizing: border-box; width: 300px; max-width: calc(100vw - 16px); }
+.narrow-menu .text-button[data-control='switch']:has(.choice-description) { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; align-items: center; }
+.narrow-menu .text-button[data-control='switch'] .choice-description { grid-column: 1; white-space: normal; text-align: start; }
+.narrow-menu .text-button[data-control='switch'] .switch-track { grid-column: 2; grid-row: 1 / span 2; }
+.narrow-menu .segmented { margin: 0 4px; }
+.narrow-menu [role='group']:has(.choice-swatches) { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 0 4px; }
+.narrow-menu .choice-heading { grid-column: 1 / -1; }
+.narrow-menu .text-button:has(.choice-swatches) { flex-direction: column; align-items: flex-start; gap: 6px; border: 1px solid var(--line); }
+.narrow-menu .text-button:has(.choice-swatches)[aria-checked='true'] { border-color: var(--teal); box-shadow: inset 0 0 0 1px var(--teal); }
+.choice-swatches { display: flex; gap: 3px; }
+.choice-swatches > span { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15); }
+.narrow-menu .choice-swatches + .choice-description { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 
 .architecture-choice-dialog {
   inset: 0;
@@ -664,7 +677,7 @@ a.icon-button { color: inherit; text-decoration: none; }
 .flow-inspector .editor-head { gap: 8px; padding: 12px 10px 8px 14px; }
 .flow-inspector .editor-head .name { flex: 1; min-width: 0; padding: 7px 10px; font-family: var(--font-mono); font-size: 15px; font-weight: 700; }
 .flow-inspector .editor-body { display: flex; flex-direction: column; }
-.flow-dot { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--muted); }
+.flow-dot { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--thread, var(--muted)); }
 .flow-step { margin: 16px 0 8px; }
 .flow-list { display: grid; gap: 6px; margin: 0 0 8px; padding: 0; list-style: none; }
 .flow-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 8px; border-radius: 8px; background: var(--hover); }
@@ -701,14 +714,15 @@ a.icon-button { color: inherit; text-decoration: none; }
   cursor: pointer;
 }
 .flow-row:hover { background: var(--hover); }
-.flow-row[aria-pressed='true'] { background: var(--teal-soft); border-color: var(--teal); }
+.flow-row[aria-pressed='true'] { background: color-mix(in srgb, var(--thread, var(--teal)) 14%, transparent); border-color: var(--thread, var(--teal)); }
 .flow-row > :not(.flow-bar, .flow-stack) { grid-column: 2; }
-.flow-bar { grid-column: 1; grid-row: 1 / span 2; align-self: stretch; border-radius: 2px; background: var(--muted); }
+.flow-bar { grid-column: 1; grid-row: 1 / span 2; align-self: stretch; border-radius: 2px; background: var(--thread, var(--muted)); }
 .flow-name { font-family: var(--font-mono); font-weight: 700; font-size: 13px; }
 .flow-count { grid-column: 3 !important; grid-row: 1; color: var(--muted); font-size: 12px; }
 .flow-summary { color: var(--muted); font-size: 12px; }
 .flow-gap { justify-self: start; padding: 0 6px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 11px; }
 .flow-row-all { grid-template-columns: auto 1fr auto; margin-bottom: 8px; padding: 10px; border-color: var(--line); }
+.flow-group h3 { margin: 12px 0 6px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 .flow-stack { display: flex; gap: 3px; height: 16px; }
 .flow-stack i { width: 4px; border-radius: 2px; background: var(--muted); opacity: 0.7; }
 .flows-section .flow-row { grid-template-columns: 8px 1fr; }
@@ -716,13 +730,13 @@ a.icon-button { color: inherit; text-decoration: none; }
 .flows-section .flow-summary { display: none; }
 .flows-section .flow-gap { grid-column: 2; }
 
-.present-title { margin: 4px 0 8px; padding-left: 10px; border-left: 3px solid var(--muted); font-family: var(--font-mono); font-size: 15px; }
+.present-title { margin: 4px 0 8px; padding-left: 10px; border-left: 3px solid var(--thread, var(--muted)); font-family: var(--font-mono); font-size: 15px; }
 .present-description { margin: 0 0 12px; color: var(--muted); font-size: 12.5px; }
 .present-steps { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .present-steps li { border: 1px solid transparent; border-radius: 8px; }
 .present-steps button { display: grid; grid-template-columns: 22px 1fr auto; column-gap: 6px; align-items: baseline; width: 100%; padding: 6px 8px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 .present-steps button:hover { background: var(--hover); }
-.present-steps [aria-current='step'] { padding-bottom: 6px; border-color: var(--teal); background: var(--teal-soft); }
+.present-steps [aria-current='step'] { padding-bottom: 6px; border-color: var(--thread, var(--teal)); background: color-mix(in srgb, var(--thread, var(--teal)) 14%, transparent); }
 .present-steps [aria-current='step'] button:hover { background: none; }
 .present-steps [aria-current='step'] .present-name { font-family: var(--font-mono); font-weight: 700; }
 .present-no, .present-detail { color: var(--muted); }
@@ -731,13 +745,11 @@ a.icon-button { color: inherit; text-decoration: none; }
 .present-detail { grid-column: 2 / span 2; }
 .present-note, .step-card-note { margin: 2px 8px 4px 36px; font-size: 12.5px; line-height: 1.45; }
 .present-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 14px; }
-.present-foot .text-button { flex: 1; height: 38px; border: 1px solid var(--line); font-size: 13px; }
+.present-foot .text-button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 38px; border: 1px solid var(--line); font-size: 13px; }
 .present-foot .text-button.primary { border-color: var(--teal); background: var(--teal); color: var(--card); }
 .present-foot .text-button[disabled] { opacity: 0.45; cursor: not-allowed; }
 .present-foot p { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 11.5px; }
-.present-button { right: 12px; bottom: 64px; display: flex; align-items: center; gap: 6px; font: inherit; font-weight: 600; color: var(--ink); cursor: pointer; }
-.present-button[data-legend-open] { right: 284px; bottom: 12px; }
-.step-card { bottom: 72px; left: calc(324px + (100% - 324px) / 2); max-width: 360px; padding: 14px 16px; translate: -50% 0; border-radius: 12px; background: var(--ink); color: var(--bg); pointer-events: none; }
+.step-card { bottom: 72px; left: calc(324px + (100% - 324px) / 2); max-width: 360px; padding: 14px 16px; translate: -50% 0; border-radius: 12px; border-left: 4px solid var(--thread, transparent); background: var(--ink); color: var(--bg); pointer-events: none; }
 .step-card p { margin: 0; }
 .step-card-kicker { margin-bottom: 4px !important; color: color-mix(in srgb, var(--bg) 55%, var(--teal)); font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.1em; }
 .step-card-name { font-family: var(--font-mono); font-weight: 700; font-size: 15px; }
@@ -1063,7 +1075,6 @@ span.swatch-element { background: var(--card); border-color: var(--teal); }
   .notices { top: calc(var(--toolbar-bottom, 50px) + 58px); right: 8px; }
   .toast { top: calc(var(--toolbar-bottom, 50px) + 58px); bottom: auto; }
   .legend { top: calc(var(--toolbar-bottom, 50px) + 58px); bottom: auto; right: 8px; }
-  .present-button, .present-button[data-legend-open] { right: 8px; bottom: calc(45dvh + 16px); }
   .step-card { left: 8px; right: 8px; bottom: calc(45dvh + 16px); max-width: none; translate: none; }
 }
 

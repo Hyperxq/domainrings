@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { Toolbar } from './Toolbar'
+import { PALETTES } from './palette'
 import { EXAMPLES } from '../model/example'
 import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
@@ -65,6 +66,7 @@ describe('Toolbar Copy image hint', () => {
 })
 
 describe('Toolbar View options', () => {
+  const rgb = (hex: string) => `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`
   const openOptions = () => fireEvent.click(screen.getByRole('button', { name: 'View options' }))
   // Some switches carry a hover hint as their description, so the accessible name is the label plus the hint.
   const option = (name: string) => screen.getByRole('menuitemcheckbox', { name: new RegExp(`^${name}`) })
@@ -111,6 +113,17 @@ describe('Toolbar View options', () => {
     openOptions()
     expect(option('Dependents').querySelector('.choice-description')?.textContent).toBe('Emphasize what depends on the selection, not what it depends on')
     expect(option('Planned').querySelector('.choice-description')?.textContent).toBe('Show what is not built yet; off hides it from the canvas and image exports')
+  })
+
+  it('opens a narrow menu and shows each palette with a strip of its own colours', () => {
+    renderToolbar()
+    openOptions()
+    expect(screen.getByRole('menu', { name: 'View options' }).classList.contains('narrow-menu')).toBe(true)
+    const palettes = within(screen.getByRole('group', { name: 'Palette' }))
+    for (const [id, { label, light }] of Object.entries(PALETTES)) {
+      const swatches = [...palettes.getByRole('menuitemcheckbox', { name: new RegExp(`^${label}`) }).querySelectorAll<HTMLElement>('.choice-swatches > span')]
+      expect(swatches.map((s) => s.style.backgroundColor), id).toEqual([light.bg, light.teal, light['driving-fill'], light['driven-fill']].map(rgb))
+    }
   })
 
   it('draws the switches as a track with a knob and the themes as one segmented pill', () => {

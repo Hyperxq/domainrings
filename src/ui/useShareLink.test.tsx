@@ -4,8 +4,10 @@ import { EXAMPLE_DIAGRAM } from '../model/example'
 import { toMap } from '../model/hexa'
 import type { StoredFile } from '../model/fileFormat'
 import { decodeSharePayload, SHARE_HASH_PREFIX } from './shareLink'
+import { useMapStore } from '../model/store'
 import { useNoticeStore } from './state/noticeStore'
 import { usePreferencesStore } from './state/preferencesStore'
+import { useOpenDocument } from './useOpenDocument'
 import { useShareLink } from './useShareLink'
 
 vi.mock('./shareLink', async (importOriginal) => ({ ...(await importOriginal<typeof import('./shareLink')>()), decodeSharePayload: vi.fn() }))
@@ -294,5 +296,19 @@ describe('overlapping loads', () => {
     expect(swap).toHaveBeenCalledOnce()
     expect(swap).toHaveBeenCalledWith(file, 'Opened from a link.')
     expect(result.current.opening).toBe(false)
+  })
+
+  it('raises no notice for an older link that fails to parse after a newer one started', async () => {
+    const response = deferred<Response>()
+    vi.stubGlobal('fetch', vi.fn(() => response.promise))
+    history.replaceState(null, '', '/?src=https://example.test/broken.hexa')
+    const { result: doc } = renderHook(() => useOpenDocument({ beforeSwap: { map: useMapStore.getState().map, focus: '' }, setActiveKind: vi.fn() }))
+    renderHook(() => useShareLink({ parseSource: doc.current.parseSource, swap }))
+    vi.mocked(decodeSharePayload).mockReturnValue(deferred<string>().promise)
+    setHash(`${SHARE_HASH_PREFIX}abc`)
+    fireHashChange()
+    response.resolve(new Response('not a hexa file'))
+    await settle()
+    expect(useNoticeStore.getState().notice).toBeNull()
   })
 })
