@@ -1,9 +1,16 @@
 import { HEXAGONAL_KIND } from '../model/kinds'
 import type { CleanFile, Diagram, LayerRole, OnionFile } from '../model/schema'
+import { threadSlots } from '../model/threads'
 import { adapterTag, DOMAIN_TAGS, portTag, USE_CASE_TAG } from './tags'
 import { LINE_METRICS, measure } from './text'
 
 export type Swatch = LayerRole | 'driving' | 'driven' | 'external' | 'element'
+
+/** One use case's thread as the export legend lists it: its name and the palette slot its dot draws with. */
+export interface LegendThread {
+  name: string
+  slot: number
+}
 
 export interface LegendModel {
   colours: { label: string; swatch: Swatch }[]
@@ -13,6 +20,16 @@ export interface LegendModel {
   /** Overrides `legendSections`' default per-section heading — set only where the default wording ("Glyph ·
    * type") wouldn't fit what a section actually lists (Clean's sector wedges are not a glyph/type). */
   sectionTitles?: { colours?: string; strokes?: string; tags?: string }
+  /** Hexagonal only, and only with use cases: the threads key drawn under the other sections of an export. */
+  threads?: LegendThread[]
+}
+
+export const THREADS_TITLE = 'Threads'
+
+/** One row per use case, in `threadSlots` order. */
+export function legendThreads(d: Pick<Diagram, 'useCases'>): LegendThread[] {
+  const slots = threadSlots(d)
+  return d.useCases.map((u) => ({ name: u.name || 'Unnamed', slot: slots.get(u.id)! }))
 }
 
 /** `planned`: the diagram on show draws planned items, so the legend explains how they read. */
@@ -39,6 +56,7 @@ export function legendFor(d: Diagram, planned = false): LegendModel {
       ...(planned ? [{ stroke: 'planned' as const, label: 'Planned: not built yet' }] : []),
     ],
     tags: present,
+    ...(d.useCases.length ? { threads: legendThreads(d) } : {}),
   }
 }
 
@@ -86,9 +104,11 @@ export function legendSize(legend: LegendModel) {
     Math.max(
       ...texts.map((t) => measure(t, LINE_METRICS.muted) + LEGEND_SWATCH),
       ...legend.tags.map((t) => measure(t, LINE_METRICS.tag)),
+      ...(legend.threads ? [measure(THREADS_TITLE, LINE_METRICS.title), ...legend.threads.map((t) => measure(t.name, LINE_METRICS.muted) + LEGEND_SWATCH)] : []),
       ...legendSections(legend).map((s) => measure(s.title, LINE_METRICS.title)),
     ) +
     2 * LEGEND_PAD
-  const rows = legend.colours.length + legend.strokes.length + legend.tags.length
-  return { width, height: 2 * LEGEND_PAD + legendSections(legend).length * LEGEND_HEADING + rows * LEGEND_ROW }
+  const threads = legend.threads?.length ?? 0
+  const rows = legend.colours.length + legend.strokes.length + legend.tags.length + threads
+  return { width, height: 2 * LEGEND_PAD + (legendSections(legend).length + (threads ? 1 : 0)) * LEGEND_HEADING + rows * LEGEND_ROW }
 }

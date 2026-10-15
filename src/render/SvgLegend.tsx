@@ -1,7 +1,24 @@
 import type { ReactNode } from 'react'
 import type { Box } from '../layout/geometry'
-import { LEGEND_GAP, LEGEND_HEADING, LEGEND_PAD, LEGEND_ROW, legendSections, LEGEND_SWATCH, legendSize, type LegendModel } from '../layout/legend'
+import { LEGEND_GAP, LEGEND_HEADING, LEGEND_PAD, LEGEND_ROW, legendSections, LEGEND_SWATCH, legendSize, THREADS_TITLE, type LegendModel, type LegendThread } from '../layout/legend'
 import { LINE_METRICS } from '../layout/text'
+import { threadStyle } from './ThreadDots'
+
+/** The threads key: a heading, then a dot in each thread's colour beside its use case's name, from `y` down. */
+function threadsBlock(threads: LegendThread[], y: number): ReactNode[] {
+  return [
+    <text key="threads-heading" className="legend-heading" x={LEGEND_PAD} y={y + LEGEND_HEADING / 2} fontSize={13}>{THREADS_TITLE}</text>,
+    ...threads.map((t, i) => {
+      const rowY = y + LEGEND_HEADING + i * LEGEND_ROW
+      return (
+        <g key={`thread-${i}`} className="legend-thread">
+          <circle className="legend-thread-dot" cx={LEGEND_PAD + 8} cy={rowY + LEGEND_ROW / 2} r={4} style={threadStyle(t.slot)} />
+          <text className="legend-label" x={LEGEND_PAD + LEGEND_SWATCH} y={rowY + LEGEND_ROW / 2} fontSize={LINE_METRICS.muted.size}>{t.name}</text>
+        </g>
+      )
+    }),
+  ]
+}
 
 /** The legend drawn under a diagram's bottom-right corner — shared by Hexagonal's own `MapDiagram` (below) and,
  * via export, Onion's/Clean's own diagrams (ADR-01): hidden on the canvas (`.canvas .svg-legend`), shown only in
@@ -33,6 +50,7 @@ export function SvgLegend({ legend, bounds }: { legend: LegendModel; bounds: Box
     rows.push(<text key={`t-${t}`} className="legend-tag" x={LEGEND_PAD} y={y + LEGEND_ROW / 2} fontSize={LINE_METRICS.tag.size}>{t}</text>)
     y += LEGEND_ROW
   }
+  if (legend.threads?.length) rows.push(...threadsBlock(legend.threads, y))
   return (
     <g data-legend="" className="svg-legend" transform={`translate(${bounds.x + bounds.width - size.width} ${bounds.y + bounds.height + LEGEND_GAP})`}>
       <rect className="legend-panel" width={size.width} height={size.height} rx={8} />
