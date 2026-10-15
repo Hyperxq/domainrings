@@ -16,9 +16,8 @@ export function markThreads(nodes: LayoutNode[], edges: LayoutEdge[], threads: r
     if (marks.length) node.threads = marks
   }
   for (const edge of edges) {
-    if (edge.kind !== 'import') continue
-    const [from, to] = edge.key.split('->').map((key) => key.slice(key.indexOf(':') + 1))
-    const own = threads.filter((t) => t.refs.has(from) && (edge.key.endsWith('->domain') || t.refs.has(to)))
+    if (edge.from === undefined) continue
+    const own = threads.filter((t) => t.refs.has(edge.from!) && (edge.to === undefined || t.refs.has(edge.to)))
     if (own.length === 1) edge.thread = mark(own[0])
   }
 }

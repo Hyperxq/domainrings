@@ -88,6 +88,9 @@ export interface LayoutEdge {
   labelAt?: Point
   /** Index of the point where the path crosses into the domain fill; the part from there on is drawn in the domain's own tone. */
   intoDomain?: number
+  /** Hexagons, import edges: the refs of the elements it joins; `to` is absent when it ends on the domain fill itself. */
+  from?: string
+  to?: string
   /** Hexagons: the one thread this edge belongs to; absent when none or several do. */
   thread?: ThreadMark
 }

@@ -13,17 +13,22 @@ const laid = (id: string, mode: LayoutMode, hexId = example(id).hexagons[0].id) 
   const threads = threadsOf(map, hexId)
   return { threads, model: layoutDiagram(diagramOf(map, hexId), { mode, threads }) }
 }
-const ends = (e: LayoutEdge) => {
-  const [from, to] = e.key.split('->')
-  const ref = (k: string) => k.slice(k.indexOf(':') + 1)
-  return { from: ref(from), to: to === 'domain' ? undefined : ref(to) }
-}
 const owners = (threads: Thread[], e: LayoutEdge) => {
-  const { from, to } = ends(e)
-  return threads.filter((t) => t.refs.has(from) && (to === undefined || t.refs.has(to)))
+  return threads.filter((t) => t.refs.has(e.from!) && (e.to === undefined || t.refs.has(e.to)))
 }
 
 describe('thread marks on the hexagonal layout', () => {
+  it.each(CASES)('%s %s: every import edge names the elements it joins', (id, mode) => {
+    const { model } = laid(id, mode)
+    const refs = new Set(model.nodes.map((n) => n.ref))
+    for (const edge of model.edges.filter((e) => e.kind === 'import')) {
+      expect(refs.has(edge.from!), edge.key).toBe(true)
+      if (edge.to !== undefined) expect(refs.has(edge.to), edge.key).toBe(true)
+    }
+    if (mode === 'detailed') expect(model.edges.some((e) => e.kind === 'import' && e.to === undefined)).toBe(true)
+    expect(model.edges.filter((e) => e.kind === 'wiring').every((e) => e.from === undefined && e.to === undefined)).toBe(true)
+  })
+
   it.each(CASES)('%s %s: every edge of exactly one thread carries it, every other edge stays neutral', (id, mode) => {
     const { threads, model } = laid(id, mode)
     const imports = model.edges.filter((e) => e.kind === 'import')
@@ -68,19 +73,25 @@ describe('thread marks on the hexagonal layout', () => {
 
 describe('markThreads', () => {
   const node = (kind: LayoutNode['kind'], ref: string) => ({ key: `${kind}:${ref}`, ref, kind, tone: 'teal', lines: [], x: 0, y: 0, width: 1, height: 1 }) as LayoutNode
-  const edge = (key: string): LayoutEdge => ({ key, kind: 'import', points: [] })
+  const edge = (from: string, to?: string): LayoutEdge => ({ key: 'unrelated', kind: 'import', points: [], from, ...(to ? { to } : {}) })
   const thread = (useCaseId: string, slot: number, ...refs: string[]): Thread => ({ useCaseId, slot, refs: new Set(refs) })
 
   it('keeps an edge shared by several threads neutral', () => {
-    const edges = [edge('adapter:a->port:p')]
+    const edges = [edge('a', 'p')]
     markThreads([], edges, [thread('u1', 1, 'a', 'p'), thread('u2', 2, 'a', 'p')])
     expect(edges[0].thread).toBeUndefined()
   })
 
   it('colours a use case ask into the domain by its own thread', () => {
-    const edges = [edge('useCase:u1->domain')]
+    const edges = [edge('u1')]
     markThreads([], edges, [thread('u1', 4, 'u1'), thread('u2', 5, 'u2')])
     expect(edges[0].thread).toEqual({ id: 'u1', slot: 4 })
+  })
+
+  it('leaves a wiring edge, which names no elements, neutral', () => {
+    const wiring: LayoutEdge = { key: 'composition->trunk:driving', kind: 'wiring', points: [] }
+    markThreads([], [wiring], [thread('u1', 1, 'composition')])
+    expect(wiring.thread).toBeUndefined()
   })
 
   it('lists the dots of a box in thread order', () => {

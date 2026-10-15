@@ -5,6 +5,7 @@ import { diagramOf, freeCell, freeSides, neighbour, SIDE_ORDER, UNTITLED_HEXAGON
 import { MapSchema, type HexaMap, type Link, type LinkEnd } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
 import { threadSlots } from './threads'
+import { distinctSlots, slotScore, THREAD_SLOTS } from './threadPalette'
 import { linkedTwoHexMap, twoHexagonMap, twoHexMap } from '../test/fixtures'
 
 const state = () => useMapStore.getState()
@@ -96,6 +97,25 @@ describe('map store', () => {
       const added = currentDiagram().useCases.at(-1)!.id
       state().removeItem(state().focus, 'useCases', added)
       expect(currentDiagram().useCases.every((u) => u.threadSlot === undefined)).toBe(true)
+    })
+
+    it('gives use cases wired onto one wall distinct slots', () => {
+      const ids = [EXAMPLE_DIAGRAM.useCases[0].id, state().addItem(state().focus, 'useCases'), state().addItem(state().focus, 'useCases')]
+      for (const useCaseId of ids) state().addItem(state().focus, 'ports', { side: 'driving', wall: 'w', useCaseId })
+      const slots = ids.map((id) => threadSlots(currentDiagram()).get(id)!)
+      expect(currentDiagram().useCases.find((u) => u.id === ids[2])!.threadSlot).toBe(slots[2])
+      for (let i = 0; i < slots.length; i++) for (let j = i + 1; j < slots.length; j++) expect(distinctSlots(slots[i], slots[j])).toBe(true)
+    })
+
+    it('gives the fifth use case the slot that clears the first four best', () => {
+      for (let i = 0; i < 4; i++) state().addItem(state().focus, 'useCases')
+      const slots = currentDiagram().useCases.map((u) => u.threadSlot ?? threadSlots(currentDiagram()).get(u.id)!)
+      expect(slots).toHaveLength(5)
+      const [first, fifth] = [slots.slice(0, 4), slots[4]]
+      const clearance = (slot: number) => Math.min(...first.map((t) => slotScore(slot, t)))
+      const best = Math.max(...Array.from({ length: THREAD_SLOTS }, (_, slot) => clearance(slot)))
+      expect(clearance(fifth)).toBe(best)
+      expect(first).not.toContain(fifth)
     })
 
     it('keeps a slot given in the patch', () => {
