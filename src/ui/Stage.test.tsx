@@ -1974,8 +1974,8 @@ describe('Stage — box names stay readable when zoomed out', () => {
     }
   }
   const nodeOf = (container: HTMLElement, label: HTMLElement) => {
-    const [hexId, ref] = [label.dataset.boxLabel!.split(':')[0], label.dataset.boxLabel!.split(':')[1]]
-    return [...container.querySelectorAll<SVGGElement>(`[data-hex="${hexId}"] .node[data-ref="${ref}"]`)]
+    const [hexId, kind, ref = kind] = label.dataset.boxLabel!.split(':')
+    return [...container.querySelectorAll<SVGGElement>(`[data-hex="${hexId}"] .node-${kind}[data-ref="${ref}"]`)]
   }
 
   it('names the boxes once a 14px name would render at under half size', () => {

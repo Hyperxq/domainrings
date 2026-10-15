@@ -26,7 +26,7 @@
         { "id": "uc-place", "name": "PlaceOrder", "aggregateIds": ["d-order"], "note": "execute(cmd): Promise<OrderId>\nprice, charge, arrange shipment" }
       ],
       "ports": [
-        { "id": "p-orders-api", "name": "ordersApi", "side": "driving", "wall": "sw", "useCaseId": "uc-place", "note": "(command)" },
+        { "id": "p-orders-api", "name": "ordersApi", "side": "driving", "wall": "nw", "useCaseId": "uc-place", "note": "(command)" },
         { "id": "p-payment-out", "name": "PaymentGateway", "side": "driven", "wall": "se", "useCaseId": "uc-place" },
         { "id": "p-shipment-out", "name": "ShipmentRequester", "side": "driven", "wall": "se", "useCaseId": "uc-place" },
         { "id": "p-catalog-out", "name": "ProductLookup", "side": "driven", "wall": "e", "useCaseId": "uc-place" },
@@ -62,7 +62,7 @@
         { "id": "uc-charge", "name": "ChargePayment", "aggregateIds": ["d-payment"], "note": "execute(cmd): Promise<ChargeId>\nauthorize, capture" }
       ],
       "ports": [
-        { "id": "p-charge-in", "name": "chargePayment", "side": "driving", "wall": "sw", "useCaseId": "uc-charge", "note": "(command)" },
+        { "id": "p-charge-in", "name": "chargePayment", "side": "driving", "wall": "nw", "useCaseId": "uc-charge", "note": "(command)" },
         { "id": "p-gateway-out", "name": "PaymentGatewayClient", "side": "driven", "wall": "se", "useCaseId": "uc-charge" }
       ],
       "adapters": [
@@ -89,7 +89,7 @@
         { "id": "uc-create-shipment", "name": "CreateShipment", "aggregateIds": ["d-shipment"], "note": "execute(cmd): Promise<ShipmentId>\nbook carrier, print label" }
       ],
       "ports": [
-        { "id": "p-shipment-in", "name": "createShipment", "side": "driving", "wall": "sw", "useCaseId": "uc-create-shipment", "note": "(command)" },
+        { "id": "p-shipment-in", "name": "createShipment", "side": "driving", "wall": "nw", "useCaseId": "uc-create-shipment", "note": "(command)" },
         { "id": "p-carrier-out", "name": "CarrierGatewayClient", "side": "driven", "wall": "se", "useCaseId": "uc-create-shipment" }
       ],
       "adapters": [
@@ -116,7 +116,7 @@
         { "id": "uc-lookup", "name": "LookupProduct", "aggregateIds": ["d-product"], "note": "execute(query): Promise<ProductView>" }
       ],
       "ports": [
-        { "id": "p-lookup-in", "name": "lookupProduct", "side": "driving", "wall": "sw", "useCaseId": "uc-lookup", "note": "(query)" },
+        { "id": "p-lookup-in", "name": "lookupProduct", "side": "driving", "wall": "nw", "useCaseId": "uc-lookup", "note": "(query)" },
         { "id": "p-catalog-repo", "name": "ProductRepository", "side": "driven", "wall": "se", "useCaseId": "uc-lookup" }
       ],
       "adapters": [

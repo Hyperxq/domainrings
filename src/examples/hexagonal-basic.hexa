@@ -22,10 +22,10 @@
         { "id": "uc-submit", "name": "SubmitChatFeedback", "aggregateIds": ["d-feedback"], "note": "execute(cmd): Promise<void>\nvalidate, save, notify support" }
       ],
       "ports": [
-        { "id": "p-submit", "name": "submitChatFeedback", "side": "driving", "wall": "sw", "useCaseId": "uc-submit", "note": "(command)" },
+        { "id": "p-submit", "name": "submitChatFeedback", "side": "driving", "wall": "nw", "useCaseId": "uc-submit", "note": "(command)" },
         { "id": "p-repo", "name": "FeedbackRepository", "side": "driven", "wall": "se", "useCaseId": "uc-submit" },
-        { "id": "p-notify", "name": "SupportNotifier", "side": "driven", "wall": "se", "useCaseId": "uc-submit" },
-        { "id": "p-users", "name": "UserDirectory", "side": "driven", "wall": "e", "useCaseId": "uc-submit" }
+        { "id": "p-notify", "name": "SupportNotifier", "side": "driven", "wall": "e", "useCaseId": "uc-submit" },
+        { "id": "p-users", "name": "UserDirectory", "side": "driven", "wall": "ne", "useCaseId": "uc-submit" }
       ],
       "adapters": [
         { "id": "a-http", "name": "feedback.routes/handler/schema", "portId": "p-submit", "note": "HTTP → command" },
