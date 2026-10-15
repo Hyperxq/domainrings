@@ -42,6 +42,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 548.3289024274418,
       },
     ],
+    "slot": 0,
   },
   {
     "id": "l-b",
@@ -67,6 +68,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 548.3289024274418,
       },
     ],
+    "slot": 0,
   },
   {
     "id": "l-c",
@@ -104,6 +106,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 548.3289024274418,
       },
     ],
+    "slot": 1,
   },
 ]
 `;
@@ -150,6 +153,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 548.3289024274418,
       },
     ],
+    "slot": 0,
   },
   {
     "id": "l-b",
@@ -175,6 +179,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 548.3289024274418,
       },
     ],
+    "slot": 0,
   },
   {
     "id": "l-c",
@@ -212,6 +217,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 548.3289024274418,
       },
     ],
+    "slot": 1,
   },
 ]
 `;
@@ -242,6 +248,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 548.3289024274418,
       },
     ],
+    "slot": 0,
   },
   {
     "id": "l-b",
@@ -267,6 +274,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 548.3289024274418,
       },
     ],
+    "slot": 0,
   },
   {
     "id": "l-c",
@@ -300,6 +308,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 3016.328902427442,
       },
     ],
+    "slot": 1,
   },
   {
     "id": "l-d",
@@ -333,6 +342,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 805.6391009508447,
       },
     ],
+    "slot": 2,
   },
   {
     "id": "l-e",
@@ -362,6 +372,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 3068.0500455977417,
       },
     ],
+    "slot": 0,
   },
 ]
 `;
@@ -392,6 +403,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 548.3289024274418,
       },
     ],
+    "slot": 0,
   },
   {
     "id": "l-b",
@@ -417,6 +429,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 548.3289024274418,
       },
     ],
+    "slot": 0,
   },
   {
     "id": "l-c",
@@ -450,6 +463,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 3016.328902427442,
       },
     ],
+    "slot": 1,
   },
   {
     "id": "l-d",
@@ -483,6 +497,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 805.6391009508447,
       },
     ],
+    "slot": 2,
   },
   {
     "id": "l-e",
@@ -512,6 +527,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 3068.0500455977417,
       },
     ],
+    "slot": 0,
   },
 ]
 `;
@@ -558,6 +574,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 548.3289024274418,
       },
     ],
+    "slot": 0,
   },
 ]
 `;
@@ -604,6 +621,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 548.3289024274418,
       },
     ],
+    "slot": 0,
   },
 ]
 `;
@@ -650,6 +668,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 508.57890242744173,
       },
     ],
+    "slot": 0,
   },
   {
     "id": "l-b",
@@ -675,6 +694,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 508.57890242744173,
       },
     ],
+    "slot": 0,
   },
   {
     "id": "l-c",
@@ -712,6 +732,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 508.57890242744173,
       },
     ],
+    "slot": 1,
   },
 ]
 `;
@@ -758,6 +779,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 508.57890242744173,
       },
     ],
+    "slot": 0,
   },
   {
     "id": "l-b",
@@ -783,6 +805,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 508.57890242744173,
       },
     ],
+    "slot": 0,
   },
   {
     "id": "l-c",
@@ -820,6 +843,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 508.57890242744173,
       },
     ],
+    "slot": 1,
   },
 ]
 `;
@@ -850,6 +874,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 508.57890242744173,
       },
     ],
+    "slot": 0,
   },
   {
     "id": "l-b",
@@ -875,6 +900,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 508.57890242744173,
       },
     ],
+    "slot": 0,
   },
   {
     "id": "l-c",
@@ -908,6 +934,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 2870.578902427442,
       },
     ],
+    "slot": 1,
   },
   {
     "id": "l-d",
@@ -941,6 +968,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 765.8891009508447,
       },
     ],
+    "slot": 2,
   },
   {
     "id": "l-e",
@@ -970,6 +998,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 2922.3000455977417,
       },
     ],
+    "slot": 0,
   },
 ]
 `;
@@ -1000,6 +1029,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 508.57890242744173,
       },
     ],
+    "slot": 0,
   },
   {
     "id": "l-b",
@@ -1025,6 +1055,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 508.57890242744173,
       },
     ],
+    "slot": 0,
   },
   {
     "id": "l-c",
@@ -1058,6 +1089,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 2870.578902427442,
       },
     ],
+    "slot": 1,
   },
   {
     "id": "l-d",
@@ -1091,6 +1123,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 765.8891009508447,
       },
     ],
+    "slot": 2,
   },
   {
     "id": "l-e",
@@ -1120,6 +1153,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 2922.3000455977417,
       },
     ],
+    "slot": 0,
   },
 ]
 `;
@@ -1166,6 +1200,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 508.57890242744173,
       },
     ],
+    "slot": 0,
   },
 ]
 `;
@@ -1212,6 +1247,7 @@ exports[`layoutMap — links that are already clear on maps of two or three hexa
         "y": 508.57890242744173,
       },
     ],
+    "slot": 0,
   },
 ]
 `;

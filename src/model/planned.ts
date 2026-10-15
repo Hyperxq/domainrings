@@ -35,8 +35,7 @@ function builtElements(hexagon: Hexagon): Hexagon {
     next = { ...next, [owner]: cleared }
   }
   const plannedDomain = new Set(hexagon.domain.filter(isPlanned).map((item) => item.id))
-  // Setting planned use cases aside must not repaint the built ones.
-  return keepSlots(hexagon, plannedDomain.size ? { ...next, useCases: withoutAggregates(next.useCases, plannedDomain) } : next)
+  return plannedDomain.size ? { ...next, useCases: withoutAggregates(next.useCases, plannedDomain) } : next
 }
 
 /**
@@ -49,5 +48,6 @@ export function withoutPlanned(map: HexaMap, keepHexId: string): HexaMap {
   const standing = new Set(hexagons.map((h) => h.id))
   const links = map.links.filter((l) => !isPlanned(l) && standing.has(l.from.hexagonId) && standing.has(l.to.hexagonId))
   if (links.length === map.links.length && hexagons.length === map.hexagons.length && hexagons.every((h, i) => h === map.hexagons[i])) return map
-  return hexagons.reduce((acc, h) => pruneLinks(acc, h.id).map, { ...map, hexagons, links })
+  // Setting planned elements aside must not repaint the built use cases.
+  return keepSlots(map, hexagons.reduce((acc, h) => pruneLinks(acc, h.id).map, { ...map, hexagons, links }))
 }

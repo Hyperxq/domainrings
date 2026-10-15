@@ -1,3 +1,4 @@
+import { viewOf } from './mapSlots'
 import { linkEndProblem, type Diagram, type HexaMap, type Hexagon, type Link, type LinkEnd, type Side, type Wall } from './schema'
 
 /** Shown wherever a hexagon's title is displayed or exported but was left blank. */
@@ -169,12 +170,12 @@ export function moveToContext(map: HexaMap, hexId: string, contextId?: string): 
   return { ...map, contexts, hexagons }
 }
 
-/** The v1-shaped view of one hexagon, for every consumer still typed on `Diagram` (layout, insertion, links, legend). */
+/** The v1-shaped view of one hexagon, for every consumer still typed on `Diagram` (layout, insertion, links, legend). `threadSlots` reads its map-wide slots. */
 export function diagramOf(map: HexaMap, hexId: string): Diagram {
   const hexagon = map.hexagons.find((h) => h.id === hexId)
   if (!hexagon) throw new Error(`Unknown hexagon id "${hexId}"`)
   const { id: _id, contextId: _contextId, cell: _cell, ...fields } = hexagon
-  return { version: 1, kind: map.kind, ...fields }
+  return viewOf(map, hexId, { version: 1, kind: map.kind, ...fields })
 }
 
 /** Writes a `Diagram` edit back onto its hexagon, dropping the fields that live on the map instead. */

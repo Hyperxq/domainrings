@@ -166,6 +166,19 @@ describe('the Flows rows', () => {
     expect(chained(container)).toEqual(before)
   })
 
+  it('preview a flow of another hexagon without leaving the current one', () => {
+    const { container } = render(<App />)
+    const row = document.querySelector<HTMLButtonElement>('.flow-row[data-flow="uc-charge"]')!
+    const focus = useMapStore.getState().focus
+    fireEvent.pointerEnter(row)
+    expect(canvas(container).hasAttribute('data-emphasis')).toBe(true)
+    expect(container.querySelectorAll('[data-hex="h2"] [data-chain][data-ref]').length).toBeGreaterThan(0)
+    expect(container.querySelector('.map-link[data-chain]')).not.toBeNull()
+    expect(useMapStore.getState().focus).toBe(focus)
+    fireEvent.pointerLeave(row)
+    expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
+  })
+
   it('stop previewing when the hovered flow is deleted', () => {
     const { container } = render(<App />)
     const map = useMapStore.getState().map

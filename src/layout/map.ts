@@ -41,6 +41,8 @@ export interface MapLinkLayout {
   pattern?: Link['pattern']
   /** The pattern label's placement — present iff `pattern` is. */
   label?: LinkLabel
+  /** The thread colour slot of the use case owning the source port; absent when that port has none. */
+  slot?: number
   /** Set only for a planned link. */
   planned?: boolean
 }

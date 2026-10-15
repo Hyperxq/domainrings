@@ -7,6 +7,7 @@ import type { LegendModel } from '../layout/legend'
 import { EDGE_LABEL, TITLE } from '../layout/text'
 import { CompactBody, HexagonBody, HexCue, orthogonalPath } from './HexagonBody'
 import { SvgLegend } from './SvgLegend'
+import { threadStyle } from './ThreadDots'
 
 function Defs({ slots }: { slots: number[] }) {
   return (
@@ -29,7 +30,7 @@ function Defs({ slots }: { slots: number[] }) {
 const NO_TARGETS = new Set<string>()
 
 /** The thread slots some edge is drawn in, each of which needs an arrowhead of its colour. */
-const threadSlotsDrawn = (map: MapLayout) => [...new Set(map.hexagons.flatMap((h) => h.model.edges.flatMap((e) => (e.thread ? [e.thread.slot] : []))))].sort((a, b) => a - b)
+const threadSlotsDrawn = (map: MapLayout) => [...new Set([...map.hexagons.flatMap((h) => h.model.edges.flatMap((e) => (e.thread ? [e.thread.slot] : []))), ...map.links.flatMap((l) => (l.slot === undefined ? [] : [l.slot]))])].sort((a, b) => a - b)
 
 /** One `M...Z` subpath per loop — several loops in one `<path>` drawn `fill-rule="evenodd"` is exactly how a
  * split context or a hole around a foreign hexagon is meant to paint (ADR-04). */
@@ -130,7 +131,7 @@ export const MapDiagram = memo(function MapDiagram({ map, legend, showGuides, fo
         )
       })}
       {map.links.map((link) => (
-        <path key={link.id} className={link.planned ? 'map-link planned' : 'map-link'} data-map-link="" data-chain={chain?.links.has(link.id) ? '' : undefined} aria-hidden="true" d={orthogonalPath(link.points)} markerEnd="url(#arrow)" />
+        <path key={link.id} className={link.planned ? 'map-link planned' : 'map-link'} data-map-link="" data-chain={chain?.links.has(link.id) ? '' : undefined} aria-hidden="true" d={orthogonalPath(link.points)} markerEnd={link.slot === undefined ? 'url(#arrow)' : `url(#arrow-thread-${link.slot})`} {...(link.slot === undefined ? {} : { 'data-thread': '', style: threadStyle(link.slot) })} />
       ))}
       {map.links.map(
         (link) =>
