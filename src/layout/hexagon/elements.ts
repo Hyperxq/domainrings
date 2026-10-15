@@ -1,5 +1,5 @@
 import { HEXAGONAL_KIND } from '../../model/kinds'
-import type { Diagram, Side, Wall } from '../../model/schema'
+import { useCasesOf, type Diagram, type Port, type Side, type Wall } from '../../model/schema'
 import type { NodeKind, Tone } from '../layout'
 import type { BoxFrames, Frame } from './boxFrames'
 import type { ChainSlot } from './chains'
@@ -67,10 +67,7 @@ export function planPairs(d: Diagram, elements: Element[], cards: ReadonlySet<st
   const { labels } = HEXAGONAL_KIND
   const byKey = new Map(elements.map((e) => [e.key, e]))
   const useCaseIds = new Set(d.useCases.map((u) => u.id))
-  const owners = (portId?: string) => {
-    const port = d.ports.find((p) => p.id === portId)
-    return port && port.useCaseId && useCaseIds.has(port.useCaseId) ? port.useCaseId : port ? `port:${port.id}` : undefined
-  }
+  const ownerOf = (port: Port) => useCasesOf(port).find((id) => useCaseIds.has(id)) ?? `port:${port.id}`
   const pairs: Pair[] = []
   const link = (from: Element, to: Element, owner: string, label?: string) =>
     pairs.push({ key: `${from.key}->${to.key}`, from: from.key, to: to.key, fromRef: from.ref, toRef: to.ref, owner, ...(label ? { label } : {}) })
@@ -86,15 +83,16 @@ export function planPairs(d: Diagram, elements: Element[], cards: ReadonlySet<st
   }
   for (const port of d.ports) {
     const box = byKey.get(`port:${port.id}`)!
-    const owner = owners(port.id)!
+    const owner = ownerOf(port)
     for (const adapter of d.adapters.filter((a) => a.portId === port.id)) {
       link(byKey.get(`adapter:${adapter.id}`)!, box, owner)
       adapterPairs(adapter.id, owner)
     }
-    const useCase = byKey.get(`useCase:${port.useCaseId}`)
-    if (useCase) {
-      if (port.side === 'driving') link(box, useCase, owner, labels.runs)
-      else link(useCase, box, owner, port.verb?.trim() || labels.uses)
+    for (const id of useCasesOf(port)) {
+      const useCase = byKey.get(`useCase:${id}`)
+      if (!useCase) continue
+      if (port.side === 'driving') link(box, useCase, id, labels.runs)
+      else link(useCase, box, id, port.verb?.trim() || labels.uses)
     }
   }
   const ported = new Set(d.ports.map((p) => p.id))

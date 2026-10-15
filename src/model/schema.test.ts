@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { kindsFor, ONION_KINDS } from './ringedKinds'
 import { HexaFileV3Schema, HexaFileV4Schema } from './fileFormat'
-import { APP, CleanFileSchema, DiagramSchema, linkEndProblem, MapSchema, OnionFileSchema, VERSION } from './schema'
+import { APP, CleanFileSchema, DiagramSchema, linkEndProblem, MapSchema, OnionFileSchema, useCasesOf, VERSION } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
 import { newCleanMap, newOnionMap, toMap } from './hexa'
 import { twoHexagonMap } from '../test/fixtures'
@@ -522,5 +522,27 @@ describe('planned status', () => {
   it('leaves a file without any status identical on load', () => {
     const map = toMap(EXAMPLE_DIAGRAM)
     expect(JSON.stringify(MapSchema.parse(map))).not.toContain('status')
+  })
+})
+
+describe('ports shared by several use cases', () => {
+  const useCases = [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }]
+  const shared = (port: object) => ({ ...EXAMPLE_DIAGRAM, useCases, ports: [{ id: 'clock', name: 'Clock', side: 'driven', ...port }], adapters: [], actors: [], externals: [] })
+
+  it('lists the use case ids once each, the single id first', () => {
+    expect(useCasesOf({ id: 'p' })).toEqual([])
+    expect(useCasesOf({ id: 'p', useCaseId: 'a' })).toEqual(['a'])
+    expect(useCasesOf({ id: 'p', useCaseId: 'a', useCaseIds: ['b', 'a'] })).toEqual(['a', 'b'])
+  })
+
+  it('keeps useCaseIds on parse and still reads a legacy useCaseId', () => {
+    expect(DiagramSchema.parse(shared({ useCaseIds: ['a', 'b'] })).ports[0].useCaseIds).toEqual(['a', 'b'])
+    expect(DiagramSchema.parse(shared({ useCaseId: 'a' })).ports[0]).not.toHaveProperty('useCaseIds')
+  })
+
+  it('rejects an unknown id in useCaseIds at its own index', () => {
+    const result = DiagramSchema.safeParse(shared({ useCaseIds: ['a', 'gone'] }))
+    expect(result.success).toBe(false)
+    expect(result.error!.issues[0]).toMatchObject({ message: 'Unknown useCases id "gone"', path: ['ports', 0, 'useCaseIds', 1] })
   })
 })

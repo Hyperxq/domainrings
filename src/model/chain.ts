@@ -1,6 +1,6 @@
 import { collectionOf } from './links'
 import { diagramOf } from './map'
-import { COLLECTIONS, type Diagram, type HexaMap, type Linkable } from './schema'
+import { COLLECTIONS, type Diagram, type HexaMap, type Linkable, useCasesOf } from './schema'
 
 /** What a selection depends on, or what depends on it: its element ids per hexagon, and the map links the chain crosses. */
 export interface Chain {
@@ -11,17 +11,17 @@ export interface Chain {
 export type ChainDirection = 'dependencies' | 'dependents'
 
 /** The one thing an item depends on inside its hexagon: endpoint → adapter → port → use case, entity → its parent. */
-const inwardOf = (item: Linkable) => item.adapterId ?? item.portId ?? item.useCaseId ?? item.parentId
+const inwardOf = (item: Linkable) => [item.adapterId, item.portId, item.parentId, ...useCasesOf(item)].filter((id) => id !== undefined)
 
-function inward(d: Diagram, ref: string): string | undefined {
+function inward(d: Diagram, ref: string): string[] {
   const owner = collectionOf(d, ref)
   const item: Linkable | undefined = owner && d[owner].find((i) => i.id === ref)
-  return item && inwardOf(item)
+  return item ? inwardOf(item) : []
 }
 
 /** What depends on `ref` inside its hexagon: the items that point at it, and, for a domain item, every use case. */
 function outward(d: Diagram, ref: string): string[] {
-  const pointing = COLLECTIONS.flatMap((k): Linkable[] => d[k]).filter((i) => inwardOf(i) === ref)
+  const pointing = COLLECTIONS.flatMap((k): Linkable[] => d[k]).filter((i) => inwardOf(i).includes(ref))
   return [...pointing.map((i) => i.id), ...(collectionOf(d, ref) === 'domain' ? d.useCases.map((u) => u.id) : [])]
 }
 
@@ -52,8 +52,8 @@ export function dependencyChain(map: HexaMap, hexId: string, ref: string, expand
     }
     if (!expanded.has(hex)) return
     const d = diagramOf(map, hex)
-    const next = reverse ? outward(d, at) : [inward(d, at), ...(collectionOf(d, at) === 'useCases' ? d.domain.map((i) => i.id) : [])]
-    for (const id of next) if (id) follow(hex, id)
+    const next = reverse ? outward(d, at) : [...inward(d, at), ...(collectionOf(d, at) === 'useCases' ? d.domain.map((i) => i.id) : [])]
+    for (const id of next) follow(hex, id)
   }
   follow(hexId, ref)
   return chain

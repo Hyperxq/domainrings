@@ -1,8 +1,8 @@
 import { createContext, Fragment, useContext, useId, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { rootAggregates } from '../model/aggregateIds'
-import { linkTargets } from '../model/links'
+import { linkTargets, useCasePatch } from '../model/links'
 import { diagramOf } from '../model/map'
-import { defaultWall, WallSchema, type Side } from '../model/schema'
+import { defaultWall, useCasesOf, WallSchema, type Side } from '../model/schema'
 import { useMapStore } from '../model/store'
 import { threadSlots } from '../model/threads'
 import { threadStyle } from '../render/ThreadDots'
@@ -112,12 +112,12 @@ export function FlowInspector() {
   const connect = (key: 'ports' | 'adapters' | 'actors', field: Field, name: string, targetId: string, extra: { side?: Side; wall?: ReturnType<typeof defaultWall> } = {}) => {
     const wanted = name.trim()
     if (!wanted) return 'Type a name first'
-    const items: (Named & { side?: Side } & Partial<Record<Field, string>>)[] = d[key]
+    const items: (Named & { side?: Side } & Partial<Record<Field, string>> & { useCaseIds?: string[] })[] = d[key]
     const same = items.filter((i) => i.name.toLowerCase() === wanted.toLowerCase() && (!extra.side || i.side === extra.side))
-    const hit = same.find((i) => linkTargets(d, i.id).some((t) => t.targetRef === targetId))
-    if (!hit && same.some((i) => i[field] === targetId)) return 'Already in this flow'
+    const target = same.flatMap((i) => linkTargets(d, i.id).filter((t) => t.targetRef === targetId).map((t) => ({ id: i.id, patch: t.patch })))[0]
+    if (!target && same.some((i) => (field === 'useCaseId' ? useCasesOf(i) : [i[field]]).includes(targetId))) return 'Already in this flow'
     record(before)
-    if (hit) updateItem(hexId, key, hit.id, { [field]: targetId } as never)
+    if (target) updateItem(hexId, key, target.id, target.patch as never)
     else addItem(hexId, key, { name: wanted, [field]: targetId, ...extra } as never)
   }
   const actors = (adapterId: string) => d.actors.filter((a) => a.adapterId === adapterId)
@@ -145,8 +145,8 @@ export function FlowInspector() {
     typed({ aggregateIds: left.length ? left : undefined, stepNotes: Object.keys(notes).length ? notes : undefined })
   }
 
-  const entries = d.ports.filter((p) => p.side === 'driving' && p.useCaseId === useCase.id)
-  const calls = d.ports.filter((p) => p.side === 'driven' && p.useCaseId === useCase.id)
+  const entries = d.ports.filter((p) => p.side === 'driving' && useCasesOf(p).includes(useCase.id))
+  const calls = d.ports.filter((p) => p.side === 'driven' && useCasesOf(p).includes(useCase.id))
   const externals = (portId: string): Named[] => d.adapters.filter((a) => a.portId === portId).flatMap((a) => d.externals.filter((e) => e.adapterId === a.id))
   const linked = (portId: string): Named[] =>
     map.links
@@ -231,7 +231,7 @@ export function FlowInspector() {
                 title="Remove call"
                 onClick={() => {
                   record(before)
-                  updateItem(hexId, 'ports', port.id, { useCaseId: undefined })
+                  updateItem(hexId, 'ports', port.id, useCasePatch(useCasesOf(port).filter((id) => id !== useCase.id)))
                 }}
               >
                 <Icon name="close" />

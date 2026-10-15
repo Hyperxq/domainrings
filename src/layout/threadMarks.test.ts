@@ -106,3 +106,22 @@ describe('markThreads', () => {
     expect(nodes.every((n) => n.threads === undefined)).toBe(true)
   })
 })
+
+describe('a port shared by several use cases', () => {
+  it('draws one line from each use case to the port, in that use case’s thread colour', () => {
+    const map = example('hexagonal-basic')
+    const hex = map.hexagons[0]
+    const shared = {
+      ...map,
+      hexagons: [{ ...hex, useCases: [...hex.useCases, { id: 'uc-other', name: 'Other', threadSlot: 9 }], ports: hex.ports.map((p) => (p.id === 'p-repo' ? { ...p, useCaseId: undefined, useCaseIds: ['uc-submit', 'uc-other'] } : p)) }],
+    }
+    const threads = threadsOf(shared, hex.id)
+    const slotOf = (id: string) => threads.find((t) => t.useCaseId === id)!.slot
+    const { edges } = layoutDiagram(diagramOf(shared, hex.id), { threads })
+    const lines = edges.filter((e) => e.kind === 'import' && e.to === 'p-repo' && e.from?.startsWith('uc-'))
+    expect(lines.map((e) => [e.from, e.thread])).toEqual([
+      ['uc-submit', { id: 'uc-submit', slot: slotOf('uc-submit') }],
+      ['uc-other', { id: 'uc-other', slot: 9 }],
+    ])
+  })
+})

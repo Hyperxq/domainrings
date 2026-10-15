@@ -702,3 +702,12 @@ describe('planned status round-trips through .hexa', () => {
     expect(toHexa(toMap(EXAMPLE_DIAGRAM))).not.toContain('status')
   })
 })
+
+describe('a port shared by several use cases', () => {
+  it('survives a save and open without a version bump', () => {
+    const map = toMap({ ...EXAMPLE_DIAGRAM, useCases: [...EXAMPLE_DIAGRAM.useCases, { id: 'uc-two', name: 'Two' }], ports: EXAMPLE_DIAGRAM.ports.map((p) => (p.id === 'p-repo' ? { ...p, useCaseId: undefined, useCaseIds: ['uc-submit', 'uc-two'] } : p)) })
+    const saved = toHexa(map)
+    expect(JSON.parse(saved).version).toBe(4)
+    expect(parseHexa(saved)).toMatchObject({ ok: true, map: { hexagons: [{ ports: expect.arrayContaining([expect.objectContaining({ id: 'p-repo', useCaseIds: ['uc-submit', 'uc-two'] })]) }] } })
+  })
+})

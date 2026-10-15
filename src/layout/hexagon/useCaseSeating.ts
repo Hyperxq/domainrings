@@ -1,4 +1,4 @@
-import type { Diagram, Port, Wall } from '../../model/schema'
+import { useCasesOf, type Diagram, type Port, type Wall } from '../../model/schema'
 import { reach } from '../geometry'
 import type { Frame } from './boxFrames'
 import type { ChainSlot } from './chains'
@@ -14,7 +14,7 @@ export const seatWalls = (d: Diagram, wallOf: (p: Port) => Wall): Wall[] => {
   const explicit = d.useCases.map((u) => (u.placement && u.placement !== 'top' ? u.placement : undefined))
   const load = new Map(WALLS.map((w) => [w, explicit.filter((e) => e === w).length]))
   return d.useCases.map((u, i) => {
-    const mine = d.ports.filter((p) => p.useCaseId === u.id)
+    const mine = d.ports.filter((p) => useCasesOf(p).includes(u.id))
     const score = (w: Wall) => (mine.length ? mine.filter((p) => wallOf(p) === w).length : -load.get(w)!)
     const best = Math.max(...WALLS.map(score))
     const tied = WALLS.filter((w) => score(w) === best)
@@ -56,7 +56,7 @@ export function seatUseCases({ d, useCaseFrames, slots, wallOf }: SeatingInput) 
     const items = here
       .map((i) => {
         const frame = useCaseFrames[i]
-        const own = slots.find((s) => s.kind === 'port' && s.wall === wall && d.ports.find((p) => p.id === s.ref)?.useCaseId === d.useCases[i].id)?.u ?? 0
+        const own = slots.find((s) => s.kind === 'port' && s.wall === wall && useCasesOf(d.ports.find((p) => p.id === s.ref)!).includes(d.useCases[i].id))?.u ?? 0
         return { i, wall, frame, own, along: reach(frame.width, frame.height, dir) }
       })
       .sort((a, b) => a.own - b.own)

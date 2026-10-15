@@ -151,3 +151,21 @@ describe('unionChain', () => {
     expect([...union.links]).toEqual(['l1', 'l2'])
   })
 })
+
+describe('dependencyChain through a port shared by several use cases', () => {
+  const base = linkedTwoHexMap()
+  const map = {
+    ...base,
+    hexagons: base.hexagons.map((h) =>
+      h.id === 'h1' ? { ...h, useCases: [...h.useCases, { id: 'uc-other', name: 'Other' }], ports: h.ports.map((p) => (p.id === 'p-repo' ? { ...p, useCaseId: undefined, useCaseIds: ['uc-submit', 'uc-other'] } : p)) } : h,
+    ),
+  }
+
+  it('reaches every use case of the port', () => {
+    expect(refs(dependencyChain(map, 'h1', 'p-repo', new Set(['h1'])), 'h1')).toEqual(['p-repo', 'uc-submit', 'uc-other', ...DOMAIN].sort())
+  })
+
+  it('lists the port among the dependents of each of its use cases', () => {
+    for (const useCase of ['uc-submit', 'uc-other']) expect(refs(dependencyChain(map, 'h1', useCase, new Set(['h1']), 'dependents'), 'h1')).toContain('p-repo')
+  })
+})

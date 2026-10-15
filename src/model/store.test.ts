@@ -46,6 +46,17 @@ describe('map store', () => {
     expect(currentDiagram().adapters.find((a) => a.id === 'a-email')?.portId).toBe('p-notify')
   })
 
+  it('removing a use case drops only its id from a shared port', () => {
+    const { focus } = state()
+    state().addItem(focus, 'useCases')
+    const other = currentDiagram().useCases.at(-1)!.id
+    state().updateItem(focus, 'ports', 'p-repo', { useCaseId: undefined, useCaseIds: ['uc-submit', other] })
+    state().removeItem(focus, 'useCases', other)
+    expect(currentDiagram().ports.find((p) => p.id === 'p-repo')).toMatchObject({ useCaseIds: ['uc-submit'] })
+    state().removeItem(focus, 'useCases', 'uc-submit')
+    expect(currentDiagram().ports.find((p) => p.id === 'p-repo')!.useCaseIds).toBeUndefined()
+  })
+
   it('removing an adapter unlinks both actors and externals', () => {
     state().addItem(state().focus, 'externals')
     state().updateItem(state().focus, 'externals', currentDiagram().externals.at(-1)!.id, { adapterId: 'a-http' })

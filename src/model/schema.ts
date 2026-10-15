@@ -28,8 +28,8 @@ export const PlacementSchema = z.enum(['top', ...WallSchema.options])
  * aggregate of the diagram (checkIntegrity). `threadSlot` is the index of its thread colour in the thread palette; absent, it is resolved from the diagram.
  */
 const UseCaseSchema = z.object({ id, name: z.string(), placement: PlacementSchema.optional(), aggregateIds: z.array(id).optional(), note, status, description: z.string().optional(), stepNotes: z.record(id, z.string()).optional(), threadSlot: z.number().int().min(0).max(THREAD_SLOTS - 1).optional() })
-/** `verb` labels the call a driven port stands for ("save", "charge"). */
-const PortSchema = z.object({ id, name: z.string(), side: SideSchema, wall: WallSchema.optional(), useCaseId: id.optional(), note, status, verb: z.string().optional() })
+/** `verb` labels the call a driven port stands for ("save", "charge"). `useCaseIds` lists the further use cases sharing the port; read both through `useCasesOf`. */
+const PortSchema = z.object({ id, name: z.string(), side: SideSchema, wall: WallSchema.optional(), useCaseId: id.optional(), useCaseIds: z.array(id).optional(), note, status, verb: z.string().optional() })
 const AdapterSchema = z.object({ id, name: z.string(), portId: id.optional(), note, status })
 const EndpointSchema = z.object({ id, name: z.string(), adapterId: id.optional(), note, status })
 
@@ -54,7 +54,7 @@ export const LegacyDiagramFields = {
   ...diagramFieldsBeforeStatus,
   domain: z.array(DomainItemSchema.omit({ status: true })),
   useCases: z.array(UseCaseSchema.omit({ status: true, aggregateIds: true, description: true, stepNotes: true, threadSlot: true })),
-  ports: z.array(PortSchema.omit({ status: true, verb: true })),
+  ports: z.array(PortSchema.omit({ status: true, verb: true, useCaseIds: true })),
   adapters: z.array(AdapterSchema.omit({ status: true })),
   actors: z.array(EndpointSchema.omit({ status: true })),
   externals: z.array(EndpointSchema.omit({ status: true })),
@@ -70,12 +70,28 @@ export const COLLECTIONS = ['domain', 'useCases', 'ports', 'adapters', 'actors',
 export const REFERENCES = [
   ['domain', 'parentId', 'domain'],
   ['ports', 'useCaseId', 'useCases'],
+  ['ports', 'useCaseIds', 'useCases'],
   ['adapters', 'portId', 'ports'],
   ['actors', 'adapterId', 'adapters'],
   ['externals', 'adapterId', 'adapters'],
 ] as const
 
-export type Linkable = { id: string; parentId?: string; useCaseId?: string; portId?: string; adapterId?: string }
+export type Linkable = { id: string; parentId?: string; useCaseId?: string; useCaseIds?: string[]; portId?: string; adapterId?: string }
+
+/** The ids a reference field holds: one for a plain field, several for a list. */
+export const refsOf = (item: Linkable, field: (typeof REFERENCES)[number][1]): string[] => [item[field] ?? []].flat()
+
+/** `item` without the ids in `gone` from `field`; a list left empty goes with them. */
+export function withoutRefs<T extends Linkable>(item: T, field: (typeof REFERENCES)[number][1], gone: ReadonlySet<string>): T {
+  const refs = refsOf(item, field)
+  if (!refs.some((r) => gone.has(r))) return item
+  const { [field]: _, ...rest } = item
+  const left = refs.filter((r) => !gone.has(r))
+  return (Array.isArray(item[field]) && left.length ? { ...rest, [field]: left } : rest) as T
+}
+
+/** Every use case a port serves: its `useCaseId` first, then `useCaseIds`, each once. */
+export const useCasesOf = ({ useCaseId, useCaseIds = [] }: Linkable) => [...new Set(useCaseId ? [useCaseId, ...useCaseIds] : useCaseIds)]
 
 export const PARENT_TYPES: ReadonlySet<string> = new Set(['entity', 'aggregate'])
 
@@ -93,10 +109,9 @@ export function checkIntegrity(d: Pick<z.infer<typeof DiagramObject>, Collection
     const ids = new Set(d[target].map((t) => t.id))
     const items: Linkable[] = d[owner]
     items.forEach((item, i) => {
-      const ref = item[field]
-      if (ref !== undefined && !ids.has(ref)) {
-        ctx.addIssue({ code: 'custom', message: `Unknown ${target} id "${ref}"`, path: [owner, i, field] })
-      }
+      refsOf(item, field).forEach((ref, j) => {
+        if (!ids.has(ref)) ctx.addIssue({ code: 'custom', message: `Unknown ${target} id "${ref}"`, path: Array.isArray(item[field]) ? [owner, i, field, j] : [owner, i, field] })
+      })
     })
   }
   const domainById = new Map(d.domain.map((item) => [item.id, item]))

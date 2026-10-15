@@ -76,6 +76,8 @@ Each hexagon:
 - Every item in them may carry a `note` (free text, `\n` for a new line). Use it for what the name cannot say.
 - Optional fields:
   - `wall` (ports): which wall of the hexagon the port sits on. `nw`, `w`, `sw` are the driving half; `ne`, `e`, `se` the driven half. It defaults to `w` (driving) or `e` (driven). Spread ports across walls when a hexagon has many.
+  - `useCaseId` (ports): the use case the port belongs to. It is valid on driven ports too: the use case calls the port. A port with none floats unconnected.
+  - `useCaseIds` (ports): the use cases of a port shared by several, such as a clock or a report channel. List every one, e.g. `{ "id": "p-clock", "name": "Clock", "side": "driven", "useCaseIds": ["uc-assign", "uc-track"] }`. Each use case then draws its own line to the port in its own colour, and the port appears in each flow. Use `useCaseId` when only one use case calls the port.
   - `placement` (use cases): `top` (the default) stacks the use case under the Application title. A wall name seats it in that wall's sector, next to the ports it serves.
   - `layers` keys: `outer`, `adapters`, `application`, `domainServices`, `domain`.
 - Id convention: `h1`/`c1`/`link1` for map-level ids, prefixed slugs inside a hexagon (`d-`, `uc-`, `p-`, `a-`, `act-`, `ext-`). It is only a convention; what the app requires is uniqueness.
@@ -118,7 +120,7 @@ The app rejects the map if any of these fail:
 
 - [ ] `app` is `"domainrings"`, `version` is `2`, `3`, or `4`, `kind` is `"hexagonal"` (for a hexagonal file you write).
 - [ ] Ids are unique: contexts, hexagons and links across the map; each collection within its own hexagon.
-- [ ] Every reference points at something that exists **in the same hexagon**: `parentId` → `domain`, `useCaseId` → `useCases`, `portId` → `ports`, `adapterId` → `adapters`. Every hexagon's `contextId` → `contexts`.
+- [ ] Every reference points at something that exists **in the same hexagon**: `parentId` → `domain`, `useCaseId` and every `useCaseIds` entry → `useCases`, `portId` → `ports`, `adapterId` → `adapters`. Every hexagon's `contextId` → `contexts`.
 - [ ] `parentId` points at an `aggregate` or an `entity`, never at a value object or domain service, and never forms a cycle.
 - [ ] A port's `wall` is on its own side's half.
 - [ ] No two hexagons share a `cell`.

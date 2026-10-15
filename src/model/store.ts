@@ -4,7 +4,7 @@ import { EXAMPLE_DIAGRAM } from './example'
 import { toMap } from './hexa'
 import { browserStorage, loadMap } from './persistence'
 import { withoutAggregates } from './aggregateIds'
-import { MapSchema, REFERENCES, type CollectionKey, type Diagram, type HexaMap, type Hexagon, type Link, type LinkEnd, type Linkable, type Wall } from './schema'
+import { MapSchema, REFERENCES, type CollectionKey, type Diagram, type HexaMap, type Hexagon, type Link, type LinkEnd, type Linkable, type Wall, withoutRefs } from './schema'
 import { keepSlots, threadSlots, yieldSlots } from './threads'
 import { validated } from './validated'
 
@@ -151,7 +151,7 @@ export const useMapStore = create<MapState>()((rawSet, get) => {
         for (const [owner, field, target] of REFERENCES) {
           if (target !== key) continue
           const items: Linkable[] = next[owner]
-          next = withCollection(next, owner, items.map((i) => (i[field] === id ? { ...i, [field]: undefined } : i)) as Item<typeof owner>[])
+          next = withCollection(next, owner, items.map((i) => withoutRefs(i, field, new Set([id]))) as Item<typeof owner>[])
         }
         return key === 'domain' ? { ...next, useCases: withoutAggregates(next.useCases, new Set([id])) } : next
       })

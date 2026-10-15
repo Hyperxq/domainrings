@@ -1,7 +1,7 @@
 import { withoutAggregates } from './aggregateIds'
 import { pruneLinks } from './map'
 import { keepSlots } from './threads'
-import { COLLECTIONS, REFERENCES, type CollectionKey, type HexaMap, type Hexagon, type Linkable } from './schema'
+import { COLLECTIONS, REFERENCES, type CollectionKey, type HexaMap, type Hexagon, type Linkable, withoutRefs } from './schema'
 
 const isPlanned = (item: { status?: string }) => item.status === 'planned'
 
@@ -26,13 +26,7 @@ function builtElements(hexagon: Hexagon): Hexagon {
     const gone = new Set(hexagon[target].filter(isPlanned).map((item) => item.id))
     if (gone.size === 0) continue
     const items: Linkable[] = next[owner]
-    const cleared = items.map((item) => {
-      const ref = item[field]
-      if (ref === undefined || !gone.has(ref)) return item
-      const { [field]: _removed, ...rest } = item
-      return rest
-    })
-    next = { ...next, [owner]: cleared }
+    next = { ...next, [owner]: items.map((item) => withoutRefs(item, field, gone)) }
   }
   const plannedDomain = new Set(hexagon.domain.filter(isPlanned).map((item) => item.id))
   return plannedDomain.size ? { ...next, useCases: withoutAggregates(next.useCases, plannedDomain) } : next

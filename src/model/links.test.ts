@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { linkTargets } from './links'
+import { linkTargets, useCasePatch } from './links'
 import type { Diagram } from './schema'
 
 const d: Diagram = {
@@ -53,8 +53,8 @@ describe('linkTargets', () => {
     expect(refs('bare')).toEqual(['in1', 'in2', 'out1', 'out2'])
   })
 
-  it('links a port to any use case but the one it already serves', () => {
-    expect(linkTargets(d, 'in1')).toEqual([{ targetRef: 'uc2', patch: { useCaseId: 'uc2' } }])
+  it('links a port to one more use case, never one it already serves', () => {
+    expect(linkTargets(d, 'in1')).toEqual([{ targetRef: 'uc2', patch: { useCaseId: undefined, useCaseIds: ['uc1', 'uc2'] } }])
     expect(refs('out1')).toEqual(['uc1', 'uc2'])
   })
 
@@ -78,5 +78,19 @@ describe('linkTargets', () => {
 
   it('offers nothing for sources that only receive links, or that are not items', () => {
     for (const ref of ['uc1', 'agg', 'svc', 'composition', 'layer:application', 'driven-ports', 'missing']) expect(refs(ref)).toEqual([])
+  })
+})
+
+describe('ports shared by several use cases', () => {
+  const shared: Diagram = { ...d, ports: [{ id: 'clock', name: 'Clock', side: 'driven', useCaseIds: ['uc1', 'uc2'] }] }
+
+  it('writes the lone id as useCaseId and two or more as useCaseIds', () => {
+    expect(useCasePatch([])).toEqual({ useCaseId: undefined, useCaseIds: undefined })
+    expect(useCasePatch(['uc1'])).toEqual({ useCaseId: 'uc1', useCaseIds: undefined })
+    expect(useCasePatch(['uc1', 'uc2'])).toEqual({ useCaseId: undefined, useCaseIds: ['uc1', 'uc2'] })
+  })
+
+  it('offers a shared port none of the use cases it already serves', () => {
+    expect(linkTargets(shared, 'clock')).toEqual([])
   })
 })

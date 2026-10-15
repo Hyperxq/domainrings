@@ -448,3 +448,27 @@ describe('FlowInspector: step notes', () => {
     expect(screen.getByText('Parses the JSON.')).toBeTruthy()
   })
 })
+
+describe('FlowInspector: a port shared with another flow', () => {
+  beforeEach(() => {
+    load((h) => ({ ...h, useCases: [...h.useCases, { id: 'uc-other', name: 'Other' }] }))
+    useViewStore.setState({ focusedFlow: 'uc-other' })
+  })
+
+  it('adds this use case to a port already linked to another one instead of taking it over', () => {
+    render(<FlowInspector />)
+    add('Add a call', 'PaymentGateway')
+    expect(d().ports).toHaveLength(5)
+    expect(port('PaymentGateway')).toMatchObject({ useCaseId: undefined, useCaseIds: ['uc-place', 'uc-other'] })
+    expect(within(screen.getByRole('list', { name: 'What it calls' })).getAllByRole('listitem')).toHaveLength(1)
+    add('Add a call', 'PaymentGateway')
+    expect(port('PaymentGateway')!.useCaseIds).toEqual(['uc-place', 'uc-other'])
+  })
+
+  it('unlinks only this use case, and settles back to a single useCaseId', () => {
+    render(<FlowInspector />)
+    add('Add a call', 'PaymentGateway')
+    fireEvent.click(screen.getByRole('button', { name: 'Remove call PaymentGateway' }))
+    expect(port('PaymentGateway')).toMatchObject({ useCaseId: 'uc-place', useCaseIds: undefined })
+  })
+})
