@@ -66,11 +66,17 @@ describe('composition wiring on demand', () => {
   })
 
   it('shows it while the composition box is selected', () => {
-    expect(wiring(draw('composition')).every(shown)).toBe(true)
+    const svg = draw('composition')
+    expect(svg.querySelector('.node-composition[data-selected]')).not.toBeNull()
+    expect(wiring(svg).length).toBeGreaterThan(0)
+    expect(wiring(svg).every(shown)).toBe(true)
   })
 
   it('stays hidden when another box is selected', () => {
-    expect(wiring(draw(map.hexagons[0].useCases?.[0]?.id ?? 'x')).every((el) => !shown(el))).toBe(true)
+    const svg = draw(map.hexagons[0].useCases[0].id)
+    expect(svg.querySelector('[data-selected]:not(.node-composition)')).not.toBeNull()
+    expect(wiring(svg).length).toBeGreaterThan(0)
+    expect(wiring(svg).every((el) => !shown(el))).toBe(true)
   })
 
   it('keeps the wiring in the exported SVG', async () => {
