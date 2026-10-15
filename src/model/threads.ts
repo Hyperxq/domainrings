@@ -43,6 +43,38 @@ export function keepSlots(before: HexaMap, after: HexaMap): HexaMap {
   }
 }
 
+/**
+ * `after`, an import of hexagons into `before`, where an incoming use case whose persisted slot is already on the map gives it up
+ * for a free one, which it then persists. Use cases already on the map keep theirs.
+ */
+export function yieldSlots(before: HexaMap, after: HexaMap): HexaMap {
+  const known = new Set(before.hexagons.map((h) => h.id))
+  const taken = new Set(mapSlots(before).flatMap((m) => [...m.values()]))
+  const yielded = new Set<string>()
+  const dropped = {
+    ...after,
+    hexagons: after.hexagons.map((h) =>
+      known.has(h.id)
+        ? h
+        : {
+            ...h,
+            useCases: h.useCases.map((u) => {
+              if (u.threadSlot === undefined) return u
+              if (taken.has(u.threadSlot)) {
+                yielded.add(`${h.id}/${u.id}`)
+                return { ...u, threadSlot: undefined }
+              }
+              taken.add(u.threadSlot)
+              return u
+            }),
+          },
+    ),
+  }
+  if (!yielded.size) return after
+  const slots = mapSlots(dropped)
+  return { ...dropped, hexagons: dropped.hexagons.map((h, i) => ({ ...h, useCases: h.useCases.map((u) => (yielded.has(`${h.id}/${u.id}`) ? { ...u, threadSlot: slots[i].get(u.id) } : u)) })) }
+}
+
 /** One thread per use case of the hexagon, in its order, built from its flow: the single source of which elements belong together. */
 export function threadsOf(map: HexaMap, hexId: string): Thread[] {
   const slots = threadSlots(diagramOf(map, hexId))

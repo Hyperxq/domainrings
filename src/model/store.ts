@@ -5,7 +5,7 @@ import { toMap } from './hexa'
 import { browserStorage, loadMap } from './persistence'
 import { withoutAggregates } from './aggregateIds'
 import { MapSchema, REFERENCES, type CollectionKey, type Diagram, type HexaMap, type Hexagon, type Link, type LinkEnd, type Linkable, type Wall } from './schema'
-import { keepSlots, threadSlots } from './threads'
+import { keepSlots, threadSlots, yieldSlots } from './threads'
 import { validated } from './validated'
 
 export type Item<K extends CollectionKey> = Diagram[K][number]
@@ -113,7 +113,7 @@ export const useMapStore = create<MapState>()((rawSet, get) => {
   // the placeHexagon call and the focus-setting write.
   const placeAndFocus = (map: HexaMap, view: Diagram, cell: Cell, contextId: string | undefined): string => {
     const { map: next, hexId } = placeHexagon(map, view, { cell, contextId })
-    set(() => ({ map: next, focus: hexId }))
+    set(() => ({ map: yieldSlots(map, next), focus: hexId }))
     return hexId
   }
   return {
@@ -170,7 +170,7 @@ export const useMapStore = create<MapState>()((rawSet, get) => {
       const map = get().map
       if (file.hexagons.length > 1) {
         const { map: merged, firstHexId } = mergeMap(map, file)
-        set(() => ({ map: merged, focus: firstHexId }))
+        set(() => ({ map: yieldSlots(map, merged), focus: firstHexId }))
         return firstHexId
       }
       const current = map.hexagons.find((h) => h.id === get().focus)!

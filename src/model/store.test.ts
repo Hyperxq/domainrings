@@ -136,23 +136,127 @@ describe('map store', () => {
       })
 
       const drawn = () => new Map<string, number>(state().map.hexagons.flatMap((h) => [...slotsOf(h.id)].map(([id, slot]) => [`${h.id}/${id}`, slot] as [string, number])))
-      const keepsEveryColour = (before: Map<string, number>) => {
+      // `gone` lists the keys an edit removes on purpose; any other key that vanished or was renamed fails.
+      const keepsEveryColour = (before: Map<string, number>, gone: string[] = []) => {
         const after = drawn()
-        for (const [key, slot] of before) if (after.has(key)) expect(after.get(key)).toBe(slot)
+        for (const [key, slot] of before) if (!gone.includes(key)) expect(after.get(key), key).toBe(slot)
       }
+      const allDistinct = () => expect(new Set(drawn().values()).size).toBe(drawn().size)
+      const addedColours = (before: Map<string, number>) => [...drawn()].filter(([key]) => !before.has(key)).map(([, slot]) => slot)
 
       it('keeps every colour when a use case is added to an earlier hexagon, and gives the new one its own', () => {
         const before = drawn()
         const id = state().addItem(state().map.hexagons[0].id, 'useCases')
         keepsEveryColour(before)
-        expect(new Set(everyone()).size).toBe(everyone().length)
+        allDistinct()
         expect(slotsOf(state().map.hexagons[0].id).has(id)).toBe(true)
+      })
+
+      it('renders an added use case with the slot it persists, in any hexagon', () => {
+        for (const { id: hexId } of state().map.hexagons) {
+          const id = state().addItem(hexId, 'useCases')
+          const persisted = diagramOf(state().map, hexId).useCases.find((u) => u.id === id)!.threadSlot
+          expect(slotsOf(hexId).get(id)).toBe(persisted)
+        }
+        allDistinct()
+      })
+
+      it('keeps every colour when use cases of a hexagon are edited or rewired', () => {
+        const [first] = state().map.hexagons
+        const added = [state().addItem(first.id, 'useCases'), state().addItem(first.id, 'useCases')]
+        const before = drawn()
+        for (const u of diagramOf(state().map, first.id).useCases) state().updateItem(first.id, 'useCases', u.id, { name: `${u.name}2`, status: 'planned' })
+        for (const useCaseId of added) state().addItem(first.id, 'ports', { side: 'driving', wall: 'w', useCaseId })
+        keepsEveryColour(before)
+        allDistinct()
+      })
+
+      it('keeps every colour when a link is added, patched and removed', () => {
+        const [first, second] = state().map.hexagons
+        const out = state().addItem(first.id, 'ports', { side: 'driven' })
+        const into = state().addItem(second.id, 'ports', { side: 'driving' })
+        const before = drawn()
+        const linkId = state().addLink({ hexagonId: first.id, portId: out }, { hexagonId: second.id, portId: into })!
+        expect(linkId).toBeDefined()
+        keepsEveryColour(before)
+        state().updateLink(linkId, { status: 'planned' })
+        keepsEveryColour(before)
+        expect(state().removeLink(linkId)?.id).toBe(linkId)
+        keepsEveryColour(before)
+      })
+
+      describe('importing a file with several hexagons', () => {
+        const file = (threadSlot?: number): HexaMap => {
+          const base = twoHexMap()
+          return { ...base, hexagons: base.hexagons.map((h) => ({ ...h, useCases: h.useCases.map((u) => ({ ...u, threadSlot })) })) }
+        }
+
+        it('keeps every colour already drawn and gives the imported use cases colours of their own', () => {
+          const before = drawn()
+          const hexId = state().importHexagon(file(), { context: 'same' })
+          keepsEveryColour(before)
+          allDistinct()
+          expect(addedColours(before)).toHaveLength(file().hexagons.flatMap((h) => h.useCases).length)
+          expect(state().focus).toBe(hexId)
+        })
+
+        const freeSlot = (before: Map<string, number>) => Array.from({ length: THREAD_SLOTS }, (_, slot) => slot).find((slot) => !new Set(before.values()).has(slot))!
+        const persisted = (hexId: string) => diagramOf(state().map, hexId).useCases.map((u) => u.threadSlot)
+
+        it('keeps a persisted slot that is free on the map', () => {
+          const before = drawn()
+          const free = freeSlot(before)
+          const single: HexaMap = { ...file(), hexagons: [{ ...file().hexagons[0], useCases: file().hexagons[0].useCases.slice(0, 1).map((u) => ({ ...u, threadSlot: free })) }] }
+          state().importHexagon(single, { context: 'same' })
+          keepsEveryColour(before)
+          expect(addedColours(before)).toEqual([free])
+        })
+
+        it('makes an imported use case yield a persisted slot an existing use case holds', () => {
+          const before = drawn()
+          const [taken] = [...before.values()]
+          state().importHexagon(file(taken), { context: 'same' })
+          keepsEveryColour(before)
+          allDistinct()
+          expect(addedColours(before)).not.toContain(taken)
+          expect(addedColours(before)).toHaveLength(file().hexagons.flatMap((h) => h.useCases).length)
+        })
+
+        it('persists the slot a yielding use case settles on', () => {
+          const [taken] = [...drawn().values()]
+          const hexId = state().importHexagon({ ...file(taken), hexagons: file(taken).hexagons.slice(0, 1) }, { context: 'same' })
+          const settled = slotsOf(hexId)
+          expect(persisted(hexId)).toEqual(diagramOf(state().map, hexId).useCases.map((u) => settled.get(u.id)))
+        })
+
+        it('makes the later of two imported use cases yield a slot they both persist', () => {
+          const before = drawn()
+          const free = freeSlot(before)
+          const [h1, h2] = file(free).hexagons
+          const hexId = state().importHexagon({ ...file(), hexagons: [{ ...h1, useCases: h1.useCases.slice(0, 1).map((u) => ({ ...u, threadSlot: free })) }, { ...h2, useCases: h2.useCases.slice(0, 1).map((u) => ({ ...u, threadSlot: free })) }] }, { context: 'same' })
+          keepsEveryColour(before)
+          allDistinct()
+          expect(addedColours(before).filter((slot) => slot === free)).toHaveLength(1)
+          expect(state().focus).toBe(hexId)
+        })
+      })
+
+      it('makes a single imported hexagon yield a slot an existing use case holds', () => {
+        const before = drawn()
+        const [taken] = [...before.values()]
+        const base = twoHexMap().hexagons[0]
+        const hexId = state().importHexagon({ ...twoHexMap(), hexagons: [{ ...base, useCases: base.useCases.map((u) => ({ ...u, threadSlot: taken })) }] }, { context: 'same' })
+        keepsEveryColour(before)
+        allDistinct()
+        expect(slotsOf(hexId).size).toBeGreaterThan(0)
+        expect(addedColours(before)).not.toContain(taken)
       })
 
       it('keeps every colour when a hexagon is removed', () => {
         const before = drawn()
-        state().removeHexagon(state().map.hexagons[0].id)
-        keepsEveryColour(before)
+        const [first] = state().map.hexagons
+        state().removeHexagon(first.id)
+        keepsEveryColour(before, [...before.keys()].filter((key) => key.startsWith(`${first.id}/`)))
       })
 
       it('keeps every colour when a hexagon is added or imported', () => {
@@ -160,6 +264,7 @@ describe('map store', () => {
         state().addHexagon(state().map.hexagons[0].id, { context: 'new' })
         state().importHexagon(toMap(EXAMPLE_DIAGRAM), { context: 'new' })
         keepsEveryColour(before)
+        allDistinct()
       })
 
       it('keeps every colour when a hexagon changes context', () => {
@@ -175,6 +280,19 @@ describe('map store', () => {
         state().removeItem(first.id, 'useCases', first.useCases[0].id)
         unsubscribe()
         expect(updates).toBe(1)
+      })
+
+      it('removes an item that prunes a link in a single store update, keeping the other colours', () => {
+        const before = drawn()
+        const link = state().map.links.find((l) => l.id === 'link-payment')!
+        let updates = 0
+        const unsubscribe = useMapStore.subscribe(() => updates++)
+        const pruned = state().removeItem(link.from.hexagonId, 'ports', link.from.portId)
+        unsubscribe()
+        expect(pruned).toEqual([link])
+        expect(state().map.links.some((l) => l.id === link.id)).toBe(false)
+        expect(updates).toBe(1)
+        keepsEveryColour(before)
       })
     })
 
