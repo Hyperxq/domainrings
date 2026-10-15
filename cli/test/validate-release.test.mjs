@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { PACKAGE_NAME, releaseProblems } from '../scripts/validate-release.mjs'
+import { describe, expect, it, vi } from 'vitest'
+import { PACKAGE_NAME, isPublished, releaseProblems } from '../scripts/validate-release.mjs'
 
 const ok = { name: PACKAGE_NAME, version: '0.2.0' }
 
@@ -26,5 +26,35 @@ describe('releaseProblems', () => {
 
   it('reports every problem at once', () => {
     expect(releaseProblems({ name: 'x', version: 'nope' }, true)).toHaveLength(3)
+  })
+})
+
+describe('isPublished', () => {
+  const pkg = { name: PACKAGE_NAME, version: '0.2.0' }
+  const viewing = (result) => vi.fn(() => result)
+
+  it('is published when npm prints the version', () => {
+    expect(isPublished(pkg, viewing({ status: 0, stdout: '0.2.0\n', stderr: '' }))).toBe(true)
+  })
+
+  it('is not published when npm succeeds with no output', () => {
+    expect(isPublished(pkg, viewing({ status: 0, stdout: '', stderr: '' }))).toBe(false)
+  })
+
+  it('is not published when the package is unknown (E404)', () => {
+    expect(isPublished(pkg, viewing({ status: 1, stdout: '', stderr: 'npm error code E404' }))).toBe(false)
+  })
+
+  it('surfaces a spawn failure instead of reading it as unpublished', () => {
+    const run = viewing({ status: null, stdout: null, stderr: null, error: new Error('spawn npm ENOENT') })
+    expect(() => isPublished(pkg, run)).toThrow(/could not query the registry.*ENOENT/)
+  })
+
+  it('surfaces any other npm failure', () => {
+    expect(() => isPublished(pkg, viewing({ status: 1, stdout: '', stderr: 'npm error code ETIMEDOUT' }))).toThrow(/ETIMEDOUT/)
+  })
+
+  it('names the exit status when npm fails silently', () => {
+    expect(() => isPublished(pkg, viewing({ status: 2, stdout: '', stderr: '' }))).toThrow(/exit status 2/)
   })
 })

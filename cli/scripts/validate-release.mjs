@@ -17,11 +17,13 @@ export function releaseProblems({ name, version }, published) {
 }
 
 // `npm view` exits 0 with no output for an unknown version of a known package, and E404 for an unknown package.
-function isPublished({ name, version }) {
-  const view = spawnSync('npm', ['view', `${name}@${version}`, 'version', '--registry=https://registry.npmjs.org'], { encoding: 'utf8' })
+// The registry comes from npm's own config (npm_config_registry in CI), so there is no URL to keep in sync.
+export function isPublished({ name, version }, run = spawnSync) {
+  const view = run('npm', ['view', `${name}@${version}`, 'version'], { encoding: 'utf8' })
+  if (view.error) throw new Error(`could not query the registry: ${view.error.message}`)
   if (view.status === 0) return view.stdout.trim() !== ''
   if (view.stderr.includes('E404')) return false
-  throw new Error(`could not query the registry: ${view.stderr.trim() || view.error?.message}`)
+  throw new Error(`could not query the registry: ${view.stderr.trim() || `npm failed with exit status ${view.status}`}`)
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
