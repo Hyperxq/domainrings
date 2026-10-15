@@ -45,37 +45,24 @@ describe('threadSlots', () => {
     expect([...threadSlots(d).entries()]).toEqual([['u0', 5], ['u1', 5]])
   })
 
-  it('fills a missing slot in use case order with the lowest slot', () => {
-    expect(slotsOf(onWalls(['w', 'e', 'nw']))).toEqual([0, 0, 0])
+  it('fills missing slots in use case order with the lowest slot distinct from the others', () => {
+    expect(slotsOf(onWalls(['w', 'e', 'nw']))).toEqual([0, 1, 2])
   })
 
-  it('gives up to 4 use cases that share a wall pairwise distinct colours', () => {
-    const slots = slotsOf(onWalls(['w', 'w', 'w', 'w']))
+  it('separates threads whatever their walls: all of them can share the corridor', () => {
+    const slots = slotsOf(onWalls(['w', 'e', undefined, 'sw']))
     for (let i = 0; i < slots.length; i++) for (let j = i + 1; j < slots.length; j++) expect(distinctSlots(slots[i], slots[j])).toBe(true)
   })
 
-  it('still tells 6 use cases on one wall apart by slot when no 6 colours are all distinct', () => {
+  it('still tells 6 use cases apart by slot when no 6 colours are all distinct', () => {
     expect(new Set(slotsOf(onWalls(['w', 'w', 'w', 'w', 'w', 'w']))).size).toBe(6)
   })
 
-  it('treats a port with no wall as sitting on its side default wall', () => {
-    const slots = slotsOf(onWalls([undefined, 'w']))
-    expect(distinctSlots(slots[0], slots[1])).toBe(true)
-  })
-
-  it('treats a seat placement as a wall the use case occupies', () => {
-    const d = onWalls(['w', 'e'])
-    d.useCases[1].placement = 'w'
-    const slots = slotsOf(d)
-    expect(distinctSlots(slots[0], slots[1])).toBe(true)
-  })
-
-  it('treats a shared aggregate as a conflict', () => {
-    const d = onWalls(['w', 'e'])
-    d.domain = [{ id: 'agg', name: 'Order', type: 'aggregate' }]
-    d.useCases.forEach((u) => (u.aggregateIds = ['agg']))
-    const slots = slotsOf(d)
-    expect(distinctSlots(slots[0], slots[1])).toBe(true)
+  it('fills around the slots a file already persists', () => {
+    const d = onWalls(['w', 'e', 'nw'])
+    d.useCases[0].colour = 0
+    d.useCases[2].colour = 1
+    expect(slotsOf(d)).toEqual([0, 2, 1])
   })
 
   it('is deterministic', () => {
