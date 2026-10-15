@@ -3,7 +3,7 @@ import { useMapStore } from './store'
 import { parseHexa, toHexa, toMap } from './hexa'
 import { diagramOf, freeCell, freeSides, neighbour, SIDE_ORDER, UNTITLED_HEXAGON } from './map'
 import { MapSchema, type HexaMap, type Link, type LinkEnd } from './schema'
-import { EXAMPLE_DIAGRAM } from './example'
+import { EXAMPLE_DIAGRAM, EXAMPLES } from './example'
 import { threadSlots } from './threads'
 import { distinctSlots, slotScore, THREAD_SLOTS } from './threadPalette'
 import { linkedTwoHexMap, twoHexagonMap, twoHexMap } from '../test/fixtures'
@@ -116,6 +116,24 @@ describe('map store', () => {
       const best = Math.max(...Array.from({ length: THREAD_SLOTS }, (_, slot) => clearance(slot)))
       expect(clearance(fifth)).toBe(best)
       expect(first).not.toContain(fifth)
+    })
+
+    describe('across hexagons', () => {
+      const slotsOf = (hexId: string) => threadSlots(diagramOf(state().map, hexId))
+      const everyone = () => state().map.hexagons.flatMap((h) => [...slotsOf(h.id).values()])
+      beforeEach(() => state().replace(EXAMPLES.find((e) => e.id === 'hexagonal-advanced')!.map as HexaMap))
+
+      it('gives a use case added in another hexagon a slot of its own on the whole map', () => {
+        state().addItem(state().map.hexagons[2].id, 'useCases')
+        expect(new Set(everyone()).size).toBe(everyone().length)
+      })
+
+      it('keeps every colour of the map when a use case is removed', () => {
+        const [first, ...rest] = state().map.hexagons
+        const before = rest.map((h) => slotsOf(h.id))
+        state().removeItem(first.id, 'useCases', first.useCases[0].id)
+        rest.forEach((h, i) => expect(slotsOf(h.id)).toEqual(before[i]))
+      })
     })
 
     it('keeps a slot given in the patch', () => {

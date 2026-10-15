@@ -118,9 +118,13 @@ export const useMapStore = create<MapState>()((set, get) => {
     addItem: (hexId, key, patch) => {
       const id = `${key}-${crypto.randomUUID().slice(0, 8)}`
       // A new use case settles on a colour slot once and for all; the ones already drawn stay as the file has them.
-      editHexagon(hexId, (d) => {
-        const next = withCollection(d, key, [...d[key], { ...NEW_ITEM[key], ...patch, id } as Item<typeof key>])
-        return key === 'useCases' ? { ...next, useCases: next.useCases.map((u) => (u.id === id ? { ...u, threadSlot: threadSlots(next).get(id)! } : u)) } : next
+      set((s) => {
+        const before = diagramOf(s.map, hexId)
+        const map = putDiagram(s.map, hexId, withCollection(before, key, [...before[key], { ...NEW_ITEM[key], ...patch, id } as Item<typeof key>]))
+        if (key !== 'useCases') return { map }
+        const d = diagramOf(map, hexId)
+        const threadSlot = threadSlots(d).get(id)!
+        return { map: putDiagram(map, hexId, { ...d, useCases: d.useCases.map((u) => (u.id === id ? { ...u, threadSlot } : u)) }) }
       })
       return id
     },
@@ -130,18 +134,21 @@ export const useMapStore = create<MapState>()((set, get) => {
         // An item that stops being an aggregate here can no longer be named by a use case.
         return key === 'domain' ? { ...next, useCases: withoutAggregates(next.useCases, new Set(next.domain.filter((i) => i.type !== 'aggregate').map((i) => i.id))) } : next
       }),
-    removeItem: (hexId, key, id) =>
-      editAndPrune(hexId, (before) => {
-        let next = withCollection(before, key, (before[key] as Item<typeof key>[]).filter((i) => i.id !== id))
+    removeItem: (hexId, key, id) => {
+      const before = get().map
+      const pruned = editAndPrune(hexId, (d) => {
+        let next = withCollection(d, key, (d[key] as Item<typeof key>[]).filter((i) => i.id !== id))
         for (const [owner, field, target] of REFERENCES) {
           if (target !== key) continue
           const items: Linkable[] = next[owner]
           next = withCollection(next, owner, items.map((i) => (i[field] === id ? { ...i, [field]: undefined } : i)) as Item<typeof owner>[])
         }
-        if (key === 'domain') return { ...next, useCases: withoutAggregates(next.useCases, new Set([id])) }
-        // The use cases left keep the colours they had, in this same step.
-        return key === 'useCases' ? keepSlots(before, next) : next
-      }),
+        return key === 'domain' ? { ...next, useCases: withoutAggregates(next.useCases, new Set([id])) } : next
+      })
+      // The use cases left, in every hexagon, keep the colours they had.
+      if (key === 'useCases') set((s) => ({ map: keepSlots(before, s.map) }))
+      return pruned
+    },
     addHexagon: (from, { side, context }) => {
       const map = get().map
       const source = map.hexagons.find((h) => h.id === from)

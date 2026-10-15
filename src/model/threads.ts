@@ -1,7 +1,7 @@
 import { flowsOf } from './flow'
 import { diagramOf } from './map'
-import type { Diagram, HexaMap } from './schema'
-import { slotScore, THREAD_SLOTS } from './threadPalette'
+import { fillSlots, mapSlots, slotsOfView } from './mapSlots'
+import type { Diagram, HexaMap, Hexagon } from './schema'
 
 /** One use case's flow inside one hexagon: the colour slot it draws with and the refs of every element it touches. */
 export interface Thread {
@@ -10,49 +10,36 @@ export interface Thread {
   refs: ReadonlySet<string>
 }
 
-/** The lowest slot distinct from every slot in `taken`; when none is, the one that clears them best. */
-function lowestDistinct(taken: number[]): number {
-  let best = 0
-  let bestScore = -1
-  for (let slot = 0; slot < THREAD_SLOTS; slot++) {
-    const score = Math.min(...taken.map((t) => slotScore(slot, t)), Infinity)
-    if (score >= 1) return slot
-    if (score > bestScore) [best, bestScore] = [slot, score]
-  }
-  return best
-}
-
 /**
- * The slot every use case draws with: its persisted `threadSlot`, else the lowest slot distinct from every other use case
- * of the hexagon, filled in use case order. Every thread shares the application corridor, so any two can run side by
- * side; a wall or a box shared by only some of them is not a safe boundary. Persisted slots are never touched, so a
+ * The slot every use case draws with: its persisted `threadSlot`, else the lowest slot distinct from every other use case,
+ * filled in use case order. On a diagram from `diagramOf` that is every use case of the map, so no two hexagons repeat a
+ * colour; on any other diagram, those of the diagram. Every thread shares the application corridor, so any two can run
+ * side by side; a wall or a box shared by only some of them is not a safe boundary. Persisted slots are never touched, so a
  * colour follows its use case when others come, go or move.
  */
 export function threadSlots(d: Pick<Diagram, 'useCases'>): Map<string, number> {
-  const taken = d.useCases.flatMap((u) => (u.threadSlot === undefined ? [] : [u.threadSlot]))
-  const slots = new Map<string, number>()
-  for (const u of d.useCases) {
-    let slot = u.threadSlot
-    if (slot === undefined) {
-      slot = lowestDistinct(taken)
-      taken.push(slot)
-    }
-    slots.set(u.id, slot)
-  }
-  return slots
+  return slotsOfView(d) ?? fillSlots([d.useCases])[0]
 }
 
 /**
  * `after`, an edit of `before` that removes or reorders use cases, with the slot written on every remaining use case
  * the edit would otherwise repaint: a colour follows its use case, never its rank.
  */
-export function keepSlots<T extends Pick<Diagram, 'useCases'>>(before: Pick<Diagram, 'useCases'>, after: T): T {
-  const was = threadSlots(before)
+export function keepSlots(before: HexaMap, after: HexaMap): HexaMap {
+  const was = mapSlots(before)
+  const wasOf = new Map(before.hexagons.map((h, i) => [h.id, was[i]]))
   for (let next = after; ; ) {
-    const now = threadSlots(next)
-    const repainted = next.useCases.filter((u) => u.threadSlot === undefined && was.has(u.id) && now.get(u.id) !== was.get(u.id))
-    if (!repainted.length) return next
-    next = { ...next, useCases: next.useCases.map((u) => (repainted.includes(u) ? { ...u, threadSlot: was.get(u.id)! } : u)) }
+    const now = mapSlots(next)
+    let repainted = false
+    const hexagons = next.hexagons.map((h, i) => {
+      const old = wasOf.get(h.id)
+      const stale = (u: Hexagon['useCases'][number]) => u.threadSlot === undefined && old?.has(u.id) === true && now[i].get(u.id) !== old.get(u.id)
+      if (!h.useCases.some(stale)) return h
+      repainted = true
+      return { ...h, useCases: h.useCases.map((u) => (stale(u) ? { ...u, threadSlot: old!.get(u.id)! } : u)) }
+    })
+    if (!repainted) return next
+    next = { ...next, hexagons }
   }
 }
 

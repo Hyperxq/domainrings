@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { layoutMap } from '../layout/map'
 import { EXAMPLES } from './example'
 import { toMap } from './hexa'
+import { diagramOf } from './map'
 import { DiagramSchema, type Diagram, type HexaMap } from './schema'
 import { distinctSlots, THREAD_SLOTS, threadColour } from './threadPalette'
 import { keepSlots, threadSlots, threadsOf } from './threads'
@@ -123,10 +125,11 @@ describe('threadsOf', () => {
 describe('keepSlots', () => {
   const legacy = () => onWalls(['w', 'e', 'nw'])
   const without = (d: Diagram, id: string): Diagram => ({ ...d, useCases: d.useCases.filter((u) => u.id !== id) })
+  const keep = (before: Diagram, after: Diagram) => diagramOf(keepSlots(toMap(before), toMap(after)), 'h1')
 
   it('writes the old slot on the use cases a removal would repaint', () => {
     const before = legacy()
-    const after = keepSlots(before, without(before, 'u0'))
+    const after = keep(before, without(before, 'u0'))
     expect(after.useCases.map((u) => [u.id, u.threadSlot])).toEqual([['u1', 1], ['u2', 2]])
     expect(threadSlots(after).get('u1')).toBe(threadSlots(before).get('u1'))
   })
@@ -134,20 +137,54 @@ describe('keepSlots', () => {
   it('keeps the colours when the use cases are reordered', () => {
     const before = legacy()
     const reordered = { ...before, useCases: [before.useCases[2], before.useCases[0], before.useCases[1]] }
-    const after = keepSlots(before, reordered)
+    const after = keep(before, reordered)
     for (const [id, slot] of threadSlots(before)) expect(threadSlots(after).get(id)).toBe(slot)
   })
 
   it('writes nothing when no other slot changes, as when the last use case goes', () => {
     const before = legacy()
-    const after = without(before, 'u2')
-    expect(keepSlots(before, after)).toBe(after)
+    const after = toMap(without(before, 'u2'))
+    expect(keepSlots(toMap(before), after)).toBe(after)
   })
 
   it('leaves a persisted slot alone', () => {
     const before = legacy()
     before.useCases[1].threadSlot = 9
-    const after = keepSlots(before, without(before, 'u0'))
+    const after = keep(before, without(before, 'u0'))
     expect(after.useCases[0].threadSlot).toBe(9)
+  })
+})
+
+describe('map-wide slots', () => {
+  const advanced = () => EXAMPLES.find((e) => e.id === 'hexagonal-advanced')!.map as HexaMap
+  const slotsIn = (map: HexaMap, hexId: string) => threadSlots(diagramOf(map, hexId))
+  const all = (map: HexaMap) => map.hexagons.flatMap((h) => [...slotsIn(map, h.id).values()])
+
+  it('gives every use case of a multi-hexagon map its own slot', () => {
+    const slots = all(advanced())
+    expect(slots.length).toBeGreaterThan(1)
+    expect(new Set(slots).size).toBe(slots.length)
+  })
+
+  it('keeps persisted slots and fills the other hexagons around them', () => {
+    const map = advanced()
+    const [first, second] = map.hexagons
+    const persisted = { ...map, hexagons: map.hexagons.map((h) => (h === first ? { ...h, useCases: h.useCases.map((u) => ({ ...u, threadSlot: 7 })) } : h)) }
+    expect(slotsIn(persisted, first.id).get(first.useCases[0].id)).toBe(7)
+    expect(slotsIn(persisted, second.id).get(second.useCases[0].id)).not.toBe(7)
+  })
+
+  it('resolves a single hexagon exactly as the diagram alone', () => {
+    const d = onWalls(['w', 'e', 'nw', 'w'])
+    expect(slotsIn(toMap(d), 'h1')).toEqual(threadSlots(d))
+  })
+
+  it('colours a link by its source use case, whichever hexagon holds it', () => {
+    const map = advanced()
+    const link = { id: 'l-x', from: { hexagonId: 'h2', portId: 'p-gateway-out' }, to: { hexagonId: 'h4', portId: 'p-lookup-in' } }
+    const { links } = layoutMap({ ...map, links: [...map.links, link] }, { mode: 'detailed' })
+    const slot = (id: string) => links.find((l) => l.id === id)!.slot
+    expect(slot('l-x')).toBe(slotsIn(map, 'h2').get('uc-charge'))
+    expect(slot('l-x')).not.toBe(slot(map.links[0].id))
   })
 })
