@@ -43,17 +43,19 @@ function inChain(edge: LayoutEdge, refs: ReadonlySet<string> | undefined): boole
 function Edge({ edge, chained }: { edge: LayoutEdge; chained: boolean }) {
   const marker = edge.kind === 'import' ? `url(#arrow${edge.thread ? `-thread-${edge.thread.slot}` : ''})` : undefined
   const chain = chained ? '' : undefined
+  // A label with no room on the canvas is still there on hover.
+  const title = edge.label && !edge.labelAt ? <title>{edge.label}</title> : null
   const thread = edge.thread ? { 'data-thread': edge.thread.id, style: threadStyle(edge.thread.slot) } : {}
   // An edge that runs wholly on the domain fill keeps its thread colour; one with no thread takes the domain's own ink.
   if (edge.intoDomain === 0) {
-    return <path className={`edge edge-${edge.kind}${edge.thread ? '' : ' on-domain'}`} data-chain={chain} {...thread} d={roundedPath(edge.points)} markerEnd={edge.thread ? marker : 'url(#arrow-on-domain)'} />
+    return <path className={`edge edge-${edge.kind}${edge.thread ? '' : ' on-domain'}`} data-chain={chain} {...thread} d={roundedPath(edge.points)} markerEnd={edge.thread ? marker : 'url(#arrow-on-domain)'}>{title}</path>
   }
   if (edge.intoDomain === undefined) {
-    return <path className={`edge edge-${edge.kind}`} data-chain={chain} {...thread} d={roundedPath(edge.points)} markerEnd={marker} />
+    return <path className={`edge edge-${edge.kind}`} data-chain={chain} {...thread} d={roundedPath(edge.points)} markerEnd={marker}>{title}</path>
   }
   return (
     <>
-      <path className={`edge edge-${edge.kind}`} data-chain={chain} {...thread} d={roundedPath(edge.points.slice(0, edge.intoDomain + 1))} />
+      <path className={`edge edge-${edge.kind}`} data-chain={chain} {...thread} d={roundedPath(edge.points.slice(0, edge.intoDomain + 1))}>{title}</path>
       <path className={`edge edge-${edge.kind} on-domain`} data-chain={chain} d={roundedPath(edge.points.slice(edge.intoDomain))} markerEnd="url(#arrow-on-domain)" />
     </>
   )

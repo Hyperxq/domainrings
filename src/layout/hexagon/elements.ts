@@ -94,7 +94,7 @@ export function planPairs(d: Diagram, elements: Element[], cards: ReadonlySet<st
     const useCase = byKey.get(`useCase:${port.useCaseId}`)
     if (useCase) {
       if (port.side === 'driving') link(box, useCase, owner, labels.runs)
-      else link(useCase, box, owner, labels.uses)
+      else link(useCase, box, owner, port.verb?.trim() || labels.uses)
     }
   }
   const ported = new Set(d.ports.map((p) => p.id))
@@ -102,8 +102,9 @@ export function planPairs(d: Diagram, elements: Element[], cards: ReadonlySet<st
   for (const useCase of d.useCases) {
     const box = byKey.get(`useCase:${useCase.id}`)!
     const named = [...new Set(useCase.aggregateIds)].filter((id) => cards.has(id))
-    for (const id of named) pairs.push({ key: `${box.key}->aggregate:${id}`, from: box.key, to: `aggregate:${id}`, fromRef: useCase.id, toRef: id, owner: useCase.id })
-    if (!named.length) pairs.push({ key: `${box.key}->domain`, from: box.key, to: 'domain', fromRef: useCase.id, owner: useCase.id })
+    // The ask is said once per use case, on its first arrow; every arrow into a card is the same ask.
+    named.forEach((id, i) => pairs.push({ key: `${box.key}->aggregate:${id}`, from: box.key, to: `aggregate:${id}`, fromRef: useCase.id, toRef: id, owner: useCase.id, ...(i ? {} : { label: labels.asks }) }))
+    if (!named.length) pairs.push({ key: `${box.key}->domain`, from: box.key, to: 'domain', fromRef: useCase.id, owner: useCase.id, label: labels.asks })
   }
   return pairs
 }

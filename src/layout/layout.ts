@@ -7,6 +7,7 @@ import { layoutBounds } from './hexagon/bounds'
 import { boxFrames } from './hexagon/boxFrames'
 import { planChains } from './hexagon/chains'
 import { layCentre } from './hexagon/centreBlock'
+import { placeEdgeLabels } from './hexagon/edgeLabels'
 import { placeElements, planPairs } from './hexagon/elements'
 import { assignLayers, placeNodes } from './hexagon/nodes'
 import { ringTitles } from './hexagon/ringTitles'
@@ -171,7 +172,9 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed', threads = [] }: L
   const outer = outlines[0]
 
   const { nodes, composition } = placeNodes({ d, elements, radii, outerApex: externalWall.apex, centre, frames })
+  const rings = titles.rings(outlines)
   const edges = routeEdges({ hops, radii, owners, nodes, composition })
+  placeEdgeLabels(edges, [...nodes.map((n) => ({ x: n.x - n.width / 2, y: n.y - n.height / 2, width: n.width, height: n.height })), ...rings.map((r) => r.titleBox)])
   const { texts, bounds } = layoutBounds(d, outer, nodes, edges)
   assignLayers(nodes)
   markThreads(nodes, edges, threads)
@@ -183,7 +186,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed', threads = [] }: L
 
   return {
     shape: 'hexagon',
-    rings: titles.rings(outlines),
+    rings,
     ...(centre.hasRegion ? { region: centre.region } : {}),
     guides,
     corridors,

@@ -2,8 +2,6 @@ import { SideSchema, type Side, type Wall } from '../../model/schema'
 import { dedupe, dot, enterBox, reach, type Point } from '../geometry'
 import type { LayoutEdge, LayoutNode } from '../layout'
 import { COS30, SQRT3 } from '../outline'
-import { EDGE_LABEL, measure } from '../text'
-import { corridorHalf, MARGIN } from './bands'
 import { onWall, travel } from './corridors'
 import type { Layer, Pair } from './elements'
 import { LANE, OUTSIDE_GAP, TRACK_GAP } from './spacing'
@@ -84,7 +82,6 @@ export const corridorCentre = (radii: number[], corridor: number) => (radii[corr
  * enters the next box square to its wall.
  */
 export function routeEdges({ hops, radii, owners, nodes, composition }: RouteInput): LayoutEdge[] {
-  const byKey = new Map(nodes.map((n) => [n.key, n]))
   const centreOf = (t: Terminal) => onWall(t.wall, t.depth ?? radii[t.layer], t.u)
   /** Where a line along the wall normal at lateral `l` meets the face of the box looking `sign` (-1 in, +1 out). */
   const face = (t: Terminal, l: number, sign: 1 | -1): Point => {
@@ -94,7 +91,6 @@ export function routeEdges({ hops, radii, owners, nodes, composition }: RouteInp
     return { x: c.x + dir.x * l + n.x * sign * through, y: c.y + dir.y * l + n.y * sign * through }
   }
 
-  const labelled = new Set<string>()
   const edges = hops.map(({ pair, a, b, la, lb, corridor, run }): LayoutEdge => {
     const start = face(a, la, b.layer < a.layer ? -1 : 1)
     const end = face(b, lb, a.layer < b.layer ? -1 : 1)
@@ -107,30 +103,7 @@ export function routeEdges({ hops, radii, owners, nodes, composition }: RouteInp
       points = [start, face(b, a.u + la - b.u, a.layer < b.layer ? -1 : 1)]
     }
     const edge: LayoutEdge = { key: pair.key, kind: 'import', from: pair.fromRef, ...(pair.toRef ? { to: pair.toRef } : {}), points, ...(b.layer === 0 ? { intoDomain: 0 } : {}) }
-    if (!pair.label) return edge
-    edge.label = pair.label
-    const port = a.layer === 2 ? a : b
-    if (points.length === 2) {
-      // Written flat beside the short run, clear of it along the wall.
-      const { dir } = wallFrame(port.wall)
-      const mid = { x: (points[0].x + points[1].x) / 2, y: (points[0].y + points[1].y) / 2 }
-      const off = reach(measure(pair.label, EDGE_LABEL), EDGE_LABEL.size + 4, dir) + 4
-      edge.labelAt = { x: mid.x + dir.x * off, y: mid.y + dir.y * off }
-      return edge
-    }
-    // The verb is written once per use case and side, flat beside the longest stretch of the first run.
-    const lane = `${pair.owner}:${byKey.get(a.layer === 2 ? pair.from : pair.to)!.side}`
-    if (labelled.has(lane)) {
-      delete edge.label
-      return edge
-    }
-    labelled.add(lane)
-    const [from, to] = points.slice(1).map((q, i) => [points[i], q]).reduce((longest, seg) => (Math.hypot(seg[1].x - seg[0].x, seg[1].y - seg[0].y) > Math.hypot(longest[1].x - longest[0].x, longest[1].y - longest[0].y) ? seg : longest))
-    const len = Math.hypot(to.x - from.x, to.y - from.y)
-    const toward = { x: -(to.y - from.y) / len, y: (to.x - from.x) / len }
-    const side = toward.y > 1e-9 || (Math.abs(toward.y) <= 1e-9 && toward.x < 0) ? -1 : 1
-    const off = reach(measure(pair.label, EDGE_LABEL), EDGE_LABEL.size + 4, toward) + 4
-    edge.labelAt = { x: (from.x + to.x) / 2 + side * toward.x * off, y: (from.y + to.y) / 2 + side * toward.y * off }
+    if (pair.label) edge.label = pair.label
     return edge
   })
   const leavesOf = new Map<string, string[]>()
@@ -138,7 +111,7 @@ export function routeEdges({ hops, radii, owners, nodes, composition }: RouteInp
     const ends = a.layer === 3 && b.layer === 4 ? { adapter: pair.from, leaf: pair.to } : a.layer === 4 && b.layer === 3 ? { adapter: pair.to, leaf: pair.from } : undefined
     if (ends) leavesOf.set(ends.adapter, [...(leavesOf.get(ends.adapter) ?? []), ends.leaf])
   }
-  if (composition) edges.push(...wiring(nodes, composition, radii, owners, leavesOf))
+  if (composition) edges.push(...wiring(nodes, composition, radii, leavesOf))
   return edges
 }
 
@@ -147,10 +120,10 @@ const TRUNK_GAP = OUTSIDE_GAP / 2
 
 /**
  * One trunk per side hugging the outermost wall, just outside the endpoints. Each branch runs in along its wall's
- * normal to the adapter's outer face. An adapter with endpoints is reached past the end of its chain, then along the
- * free margin outside the external corridor, then in at the adapter's own end, so no branch crosses an endpoint.
+ * normal to the adapter's outer face. An adapter with endpoints is reached past the end of its chain, then turns once
+ * into the adapter's side, so no branch crosses an endpoint.
  */
-function wiring(nodes: LayoutNode[], composition: LayoutNode, radii: number[], owners: string[][], leavesOf: ReadonlyMap<string, string[]>): LayoutEdge[] {
+function wiring(nodes: LayoutNode[], composition: LayoutNode, radii: number[], leavesOf: ReadonlyMap<string, string[]>): LayoutEdge[] {
   const byKey = new Map(nodes.map((n) => [n.key, n]))
   const edges: LayoutEdge[] = []
   const farthest = Math.max(radii[4], ...nodes.filter((n) => n.wall && (n.kind === 'actor' || n.kind === 'external')).map((n) => dot(n, wallFrame(n.wall!).n) + reach(n.width, n.height, wallFrame(n.wall!).n)))
@@ -160,7 +133,6 @@ function wiring(nodes: LayoutNode[], composition: LayoutNode, radii: number[], o
   const rootTop = { x: 0, y: composition.y - composition.height / 2 }
   const walls: Record<Side, Wall[]> = { driving: ['sw', 'w', 'nw'], driven: ['se', 'e', 'ne'] }
   const vertices: Record<Side, number[]> = { driving: [3, 4, 5, 0], driven: [3, 2, 1, 0] }
-  const margin = corridorCentre(radii, 3) + corridorHalf(owners[3].length) + MARGIN / 2
   for (const side of SideSchema.options) {
     const adapters = nodes.filter((n) => n.kind === 'adapter' && n.side === side && n.wall)
     if (!adapters.length) continue
@@ -171,11 +143,12 @@ function wiring(nodes: LayoutNode[], composition: LayoutNode, radii: number[], o
       const [u, half] = [dot(a, dir), reach(a.width, a.height, dir)]
       const leaves = (leavesOf.get(a.key) ?? []).map((k) => byKey.get(k)!)
       const end = Math.max(u + half, ...leaves.map((l) => dot(l, dir) + reach(l.width, l.height, dir)))
-      const lane = u + half - 6
-      const mouth = enterBox(a, onWall(a.wall!, dot(a, n) + reach(a.width, a.height, n) + 1, lane), { x: -n.x, y: -n.y })
+      const depth = dot(a, n)
+      const mouth = (from: Point, v: Point) => enterBox(a, from, v)
+      // Past the end of its chain the branch runs straight in along the wall, then turns once into the adapter's side.
       const points = leaves.length
-        ? [onWall(a.wall!, trunkDepth, end + 7), onWall(a.wall!, margin, end + 7), onWall(a.wall!, margin, lane), mouth]
-        : [onWall(a.wall!, trunkDepth, lane), mouth]
+        ? [onWall(a.wall!, trunkDepth, end + 7), onWall(a.wall!, depth, end + 7), mouth(onWall(a.wall!, depth, end + 7), { x: -dir.x, y: -dir.y })]
+        : [onWall(a.wall!, trunkDepth, u + half - 6), mouth(onWall(a.wall!, depth + reach(a.width, a.height, n) + 1, u + half - 6), { x: -n.x, y: -n.y })]
       edges.push({ key: `composition->${a.key}`, kind: 'wiring', points })
     }
   }
