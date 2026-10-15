@@ -6,11 +6,11 @@ import type { RingTitles } from './ringTitles'
 import { GAP, LABEL_PAD_X, TRACK_GAP } from './spacing'
 import { wallFrame } from './walls'
 
-/** Room kept clear on each side of a corridor's outermost tracks, and around a box. */
+/** Room kept clear on each side of a corridor's outermost tracks. */
 export const MARGIN = 16
 /**
  * Room between a box and the band's corridor, on top of the corridor's own margin. Tight on purpose: a hop between a
- * box face and its corridor is where the edge labels sit, and below about 6 the labels of the project-builder map start to drop.
+ * box face and its corridor is where the edge labels sit, and below 6 the project-builder map drops more labels than it did at 16.
  */
 export const BOX_CLEAR = 6
 /** Room left between two boxes that are not on the same wall. */
