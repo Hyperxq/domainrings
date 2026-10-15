@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { EXAMPLES, TWO_SLICES_MAP } from '../model/example'
 import type { HexaMap } from '../model/schema'
 import { useMapStore } from '../model/store'
@@ -17,7 +17,7 @@ const example = () => EXAMPLES.find((e) => e.id === 'hexagonal-advanced')!.map a
 const single = (map: HexaMap): HexaMap => ({ ...map, hexagons: map.hexagons.filter((h) => h.id === 'h1'), links: [] })
 beforeEach(() => {
   useMapStore.getState().replace(single(example()))
-  useViewStore.getState().focusFlow(null)
+  useViewStore.setState({ focusedFlow: null, hoveredFlows: [] })
 })
 afterEach(cleanup)
 
@@ -80,6 +80,66 @@ describe('FlowsPanel', () => {
     render(<FlowsPanel />)
     expect(screen.getByText('No use cases yet. Switch to Edit to add one.')).toBeTruthy()
     expect(screen.queryByRole('button')).toBeNull()
+  })
+})
+
+describe('the Layers key', () => {
+  const key = () => screen.getByRole('region', { name: 'Layers' })
+  const names = () => within(key()).getAllByRole('listitem').map((li) => li.textContent)
+
+  it('lists the three layers with their swatch above Present, in the pinned footer', () => {
+    usePreferencesStore.setState({ viewOnly: true })
+    render(<FlowsPanel />)
+    expect(names()).toEqual(['Infrastructure', 'Application', 'Domain'])
+    expect(key().querySelector('.swatch-application')).toBeTruthy()
+    const footer = key().closest('footer.present-foot')!
+    expect(footer.contains(screen.getByRole('button', { name: 'Present' }))).toBe(true)
+    expect(key().compareDocumentPosition(screen.getByRole('button', { name: 'Present' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('honours the diagram’s own layer names', () => {
+    const map = single(example())
+    useMapStore.getState().replace({ ...map, hexagons: map.hexagons.map((h) => ({ ...h, layers: { application: { title: ' Core ' } } })) })
+    render(<FlowsPanel />)
+    expect(names()).toEqual(['Infrastructure', 'Core', 'Domain'])
+  })
+
+  it('stays when the hexagon has no use case', () => {
+    const map = single(example())
+    useMapStore.getState().replace({ ...map, hexagons: map.hexagons.map((h) => ({ ...h, useCases: [], ports: [], adapters: [], actors: [], externals: [] })) })
+    render(<FlowsPanel />)
+    expect(names()).toHaveLength(3)
+  })
+})
+
+describe('previewing a flow from its row', () => {
+  const row = () => screen.getByRole('button', { name: /PlaceOrder/ })
+
+  it('previews while the row is hovered or focused, and ends with the pointer or the blur', () => {
+    render(<FlowsPanel />)
+    fireEvent.pointerEnter(row())
+    expect(useViewStore.getState().hoveredFlows).toEqual(['uc-place'])
+    fireEvent.pointerLeave(row())
+    expect(useViewStore.getState().hoveredFlows).toEqual([])
+    fireEvent.focus(row())
+    expect(useViewStore.getState().hoveredFlows).toEqual(['uc-place'])
+    fireEvent.blur(row())
+    expect(useViewStore.getState().hoveredFlows).toEqual([])
+  })
+
+  it('ends when the hovered row goes away with its use case', () => {
+    render(<FlowsPanel />)
+    fireEvent.pointerEnter(row())
+    const map = useMapStore.getState().map
+    act(() => useMapStore.getState().replace({ ...map, hexagons: map.hexagons.map((h) => ({ ...h, useCases: [] })) }))
+    expect(useViewStore.getState().hoveredFlows).toEqual([])
+  })
+
+  it('leaves another flow’s preview alone when a row goes away', () => {
+    const { unmount } = render(<FlowsPanel />)
+    act(() => useViewStore.getState().hoverFlows(['uc-other']))
+    unmount()
+    expect(useViewStore.getState().hoveredFlows).toEqual(['uc-other'])
   })
 })
 

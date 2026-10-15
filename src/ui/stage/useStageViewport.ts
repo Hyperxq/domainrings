@@ -14,7 +14,6 @@ export function useStageViewport({
   hex,
   mainRef,
   revision,
-  legendOpen,
   panelOpen,
   inspectorOpen,
   onPanStart,
@@ -23,13 +22,12 @@ export function useStageViewport({
   hex: MapHexagonLayout
   mainRef: RefObject<HTMLElement | null>
   revision: number
-  legendOpen: boolean
   panelOpen: boolean
   inspectorOpen: boolean
   onPanStart: () => void
 }) {
   const size = useElementSize(mainRef)
-  const inset = islandInset(size, panelOpen, legendOpen, useViewStore((s) => s.toolbarBottom), inspectorOpen)
+  const inset = islandInset(size, panelOpen, false, useViewStore((s) => s.toolbarBottom), inspectorOpen)
   const effectiveSize = { width: size.width || model.bounds.width, height: size.height || model.bounds.height }
   const wholeFit = fitTo(canvasBounds(model), effectiveSize.width, effectiveSize.height, inset, 0)
   const singleFit = fitMap(model.bounds, hexagonBounds(hex), effectiveSize.width, effectiveSize.height, inset)
@@ -37,7 +35,7 @@ export function useStageViewport({
   // when that fit would read as illegible clutter (MIN_FIT_SCALE only still applies on a single-hexagon map).
   const autoFit = model.hexagons.length >= 2 ? wholeFit : singleFit
   // A new diagram refits (unfreezes a manual viewport back to 'auto') — unlike grow/import/delete, it bumps
-  // `revision`, so this key alone can never see the map-shape changes FIT-02 covers. The legend only changes the
+  // `revision`, so this key alone can never see the map-shape changes FIT-02 covers. The panels only change the
   // inset: an 'auto' view follows it, and a manual zoom stays where the author put it.
   const fitKey = `${revision}`
   const interactions = useViewportInteractions({

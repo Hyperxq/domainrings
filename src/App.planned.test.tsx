@@ -53,21 +53,20 @@ const hidePlanned = () => {
 const LEGEND_ENTRY = 'Planned: not built yet'
 
 describe('planned items on the canvas', () => {
-  it('draws them marked, and explains the marking in the legend', () => {
+  it('draws them marked, without a legend entry for the marking', () => {
     const { container } = render(<App />)
     expect(canvas(container).querySelector('[data-hex="h1"] .node[data-ref="uc-submit"]')!.classList.contains('planned')).toBe(true)
     expect(canvas(container).querySelector('[data-hex="h2"]')!.classList.contains('planned')).toBe(true)
-    expect(screen.queryAllByText(LEGEND_ENTRY)).not.toHaveLength(0)
+    expect(screen.queryAllByText(LEGEND_ENTRY)).toHaveLength(0)
   })
 
-  it('leaves them out when the Planned switch is off, along with their legend entry, keeping the built ones', () => {
+  it('leaves them out when the Planned switch is off, keeping the built ones', () => {
     const { container } = render(<App />)
     hidePlanned()
     expect(canvas(container).querySelector('.node[data-ref="uc-submit"]')).toBeNull()
     expect(canvas(container).querySelector('[data-hex="h1"] .node[data-ref="p-submit"]')).not.toBeNull()
     expect(canvas(container).querySelector('[data-hex="h2"]')).toBeNull()
     expect(canvas(container).querySelectorAll('[data-map-link]')).toHaveLength(0)
-    expect(screen.queryAllByText(LEGEND_ENTRY)).toHaveLength(0)
     hidePlanned()
     expect(canvas(container).querySelector('.node[data-ref="uc-submit"]')).not.toBeNull()
   })
@@ -78,7 +77,6 @@ describe('planned items on the canvas', () => {
     hidePlanned()
     expect(canvas(container).querySelector('[data-hex="h2"]')).not.toBeNull()
     expect(canvas(container).querySelector('[data-hex="h1"]')).not.toBeNull()
-    expect(screen.queryAllByText(LEGEND_ENTRY)).not.toHaveLength(0)
   })
 
   it('keeps showing every item in the editor', () => {

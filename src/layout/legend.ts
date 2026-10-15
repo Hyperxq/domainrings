@@ -1,7 +1,6 @@
 import { HEXAGONAL_KIND } from '../model/kinds'
 import type { CleanFile, Diagram, LayerRole, OnionFile } from '../model/schema'
 import { threadSlots } from '../model/threads'
-import { adapterTag, DOMAIN_TAGS, portTag, USE_CASE_TAG } from './tags'
 import { LINE_METRICS, measure } from './text'
 
 export type Swatch = LayerRole | 'driving' | 'driven' | 'external' | 'element'
@@ -14,7 +13,7 @@ export interface LegendThread {
 
 export interface LegendModel {
   colours: { label: string; swatch: Swatch }[]
-  strokes: { stroke: 'dashed' | 'solid' | 'dotted' | 'planned'; label: string }[]
+  strokes: { stroke: 'dashed' | 'solid' | 'dotted'; label: string }[]
   /** Only the element types this diagram actually uses. */
   tags: string[]
   /** Overrides `legendSections`' default per-section heading — set only where the default wording ("Glyph ·
@@ -32,30 +31,13 @@ export function legendThreads(d: Pick<Diagram, 'useCases'>): LegendThread[] {
   return d.useCases.map((u) => ({ name: u.name || 'Unnamed', slot: slots.get(u.id)! }))
 }
 
-/** `planned`: the diagram on show draws planned items, so the legend explains how they read. */
-export function legendFor(d: Diagram, planned = false): LegendModel {
-  const { rings, labels } = HEXAGONAL_KIND
-  const sideOfAdapter = (portId?: string) => d.ports.find((p) => p.id === portId)?.side ?? 'driving'
-  const present = [
-    ...(['aggregate', 'entity', 'valueObject', 'domainService'] as const).filter((t) => d.domain.some((i) => i.type === t)).map((t) => DOMAIN_TAGS[t]),
-    ...(d.useCases.length ? [USE_CASE_TAG] : []),
-    ...(['driving', 'driven'] as const).filter((s) => d.ports.some((p) => p.side === s)).map((s) => portTag(s, labels)),
-    ...(['driving', 'driven'] as const).filter((s) => d.adapters.some((a) => sideOfAdapter(a.portId) === s)).map((s) => adapterTag(s, labels)),
-  ]
+/** Hexagonal's export legend: its layers, then one thread per use case. Strokes and glyphs are not explained. */
+export function legendFor(d: Diagram): LegendModel {
   return {
-    colours: [
-      ...rings.map((r) => ({ label: d.layers?.[r.role]?.title?.trim() || r.name, swatch: r.role })),
-      { label: 'Driving side', swatch: 'driving' },
-      { label: 'Driven side', swatch: 'driven' },
-      { label: 'External systems', swatch: 'external' },
-    ],
-    strokes: [
-      { stroke: 'dashed', label: 'Contract: port' },
-      { stroke: 'solid', label: 'Implementation: adapter, use case' },
-      { stroke: 'dotted', label: 'Wiring and ownership' },
-      ...(planned ? [{ stroke: 'planned' as const, label: 'Planned: not built yet' }] : []),
-    ],
-    tags: present,
+    colours: HEXAGONAL_KIND.rings.map((r) => ({ label: d.layers?.[r.role]?.title?.trim() || r.name, swatch: r.role })),
+    strokes: [],
+    tags: [],
+    sectionTitles: { colours: 'Layers' },
     ...(d.useCases.length ? { threads: legendThreads(d) } : {}),
   }
 }
