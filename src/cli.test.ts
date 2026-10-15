@@ -3,6 +3,9 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
+// @ts-expect-error the CLI is plain untyped ESM
+import { PALETTE_IDS } from '../cli/src/render.mjs'
+import { PALETTES } from './ui/palette'
 import { parseHexa } from './model/hexa'
 import { decodeSharePayload, SHARE_HASH_PREFIX } from './ui/shareLink'
 import { installCompressionStreamPolyfill } from './test/fixtures'
@@ -22,6 +25,12 @@ const optionsOf = (url: string) => {
   const [payload, ...options] = url.trim().slice(url.indexOf(SHARE_HASH_PREFIX) + SHARE_HASH_PREFIX.length).split('&')
   return { payload, options: new URLSearchParams(options.join('&')) }
 }
+
+describe('domainrings render options', () => {
+  it('lists the palettes the app ships', () => {
+    expect([...PALETTE_IDS].sort()).toEqual(Object.keys(PALETTES).sort())
+  })
+})
 
 describe('domainrings link', () => {
   it.each(Object.keys(examples))('prints a link for %s that the app decodes back to the same map', async (path) => {

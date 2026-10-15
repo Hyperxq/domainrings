@@ -24,3 +24,9 @@ Writes one image per flow by driving the app's own export in headless Chrome (`p
 renders every use case of every hexagon; without `--flow` it renders the whole map. Files are named
 `<hexagon>-<use-case>.<ext>` (or `<map-title>.<ext>`) in `--out` (default: the current directory). If Chrome is
 not installed and no bundled chromium is found, run `npx playwright install chromium`.
+
+`--palette <default|purple|terracotta|cool>` (default `purple`) and `--theme <dark|light>` (default `dark`) pick the
+colours of the image, independent of the app's own saved preferences. An unknown value falls back to the default with
+a warning. With `--flow all`, a failed flow is reported and the rest still render; the exit code is non-zero if any
+failed, and `--hex <id>` limits `all` to that hexagon. Two flows that would get the same file name get a `-2`, `-3`
+suffix.
