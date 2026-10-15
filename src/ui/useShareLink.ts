@@ -28,25 +28,29 @@ export function useShareLink(actions: ShareLinkActions) {
   const mountHandled = useRef(false)
   // jsdom and some browsers report the address change that was already there on load; a link is never opened twice.
   const inFlight = useRef('')
+  // Loads can overlap; only the latest one may touch the map, the notices or the indicator, so a slower older link
+  // never replaces what the user pasted after it.
+  const generation = useRef(0)
 
   useEffect(() => {
-    const openLinkedText = async (text: string, view: string | null) => {
+    const openLinkedText = async (text: string, view: string | null, isLatest: () => boolean) => {
       const parsed = await latest.current.parseSource(text, 'This link')
-      if (!parsed) return
+      if (!parsed || !isLatest()) return
       latest.current.swap(parsed, 'Opened from a link.')
       openForReading(view === 'detailed' ? 'detailed' : 'overview')
     }
-    const resolveLink = async () => {
+    const resolveLink = async (isLatest: () => boolean) => {
       if (location.hash.startsWith(SHARE_HASH_PREFIX)) {
         // The payload is base64url, which never contains '&', so anything after it is link options.
         const [payload, ...options] = location.hash.slice(SHARE_HASH_PREFIX.length).split('&')
         const text = await decodeSharePayload(payload)
+        if (!isLatest()) return
         if (text === undefined) {
           showError('This link could not be read.')
           return finishLink()
         }
-        await openLinkedText(text, new URLSearchParams(options.join('&')).get('view'))
-        return finishLink()
+        await openLinkedText(text, new URLSearchParams(options.join('&')).get('view'), isLatest)
+        return isLatest() ? finishLink() : undefined
       }
       const query = new URLSearchParams(location.search)
       const src = query.get('src')
@@ -61,21 +65,26 @@ export function useShareLink(actions: ShareLinkActions) {
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         text = await response.text()
       } catch {
+        if (!isLatest()) return
         showError("This link's file could not be reached.")
         return finishLink()
       }
-      await openLinkedText(text, query.get('view'))
-      finishLink()
+      await openLinkedText(text, query.get('view'), isLatest)
+      if (isLatest()) finishLink()
     }
     const openLink = async () => {
+      const id = ++generation.current
+      const isLatest = () => id === generation.current
       inFlight.current = location.hash
-      const timer = setTimeout(() => setOpening(true), OPENING_DELAY_MS)
+      const timer = setTimeout(() => isLatest() && setOpening(true), OPENING_DELAY_MS)
       try {
-        await resolveLink()
+        await resolveLink(isLatest)
       } finally {
         clearTimeout(timer)
-        inFlight.current = ''
-        setOpening(false)
+        if (isLatest()) {
+          inFlight.current = ''
+          setOpening(false)
+        }
       }
     }
 

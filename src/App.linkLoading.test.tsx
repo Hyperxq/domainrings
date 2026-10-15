@@ -1,9 +1,10 @@
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { App } from './App'
 import { EXAMPLE_DIAGRAM } from './model/example'
 import { toHexa, toMap } from './model/hexa'
 import { useMapStore } from './model/store'
+import { useNoticeStore } from './ui/state/noticeStore'
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class {
@@ -12,6 +13,10 @@ beforeAll(() => {
     disconnect() {}
   } as unknown as typeof ResizeObserver
   window.matchMedia = ((media: string) => ({ matches: false, media, addEventListener() {}, removeEventListener() {} })) as unknown as typeof matchMedia
+})
+beforeEach(() => {
+  useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM))
+  useNoticeStore.setState({ notice: null })
 })
 afterEach(() => {
   cleanup()
