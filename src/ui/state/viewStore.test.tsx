@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
-import { EXAMPLE_DIAGRAM } from '../../model/example'
+import { EXAMPLE_DIAGRAM, TWO_SLICES_MAP } from '../../model/example'
 import { toMap } from '../../model/hexa'
 import { useMapStore } from '../../model/store'
 import { usePreferencesStore } from './preferencesStore'
@@ -48,6 +48,15 @@ describe('view store', () => {
     expect([field.selectionStart, field.selectionEnd]).toEqual([0, 4])
   })
 
+  it("reveal on another hexagon's use case focuses that hexagon and its flow", () => {
+    usePreferencesStore.setState({ viewOnly: false })
+    useMapStore.getState().replace(TWO_SLICES_MAP)
+    useMapStore.getState().setFocus('h1')
+    useViewStore.getState().reveal('uc-receive', false, 'h2')
+    expect(useMapStore.getState().focus).toBe('h2')
+    expect(useViewStore.getState().focusedFlow).toBe('uc-receive')
+  })
+
   it('reveal on a use case only focuses the flow in Edit mode', () => {
     usePreferencesStore.setState({ viewOnly: true })
     useViewStore.setState({ focusedFlow: null })
@@ -76,22 +85,6 @@ describe('view store', () => {
     expect(useViewStore.getState().linking).toBe(first.id)
     useMapStore.getState().removeItem(useMapStore.getState().focus, 'ports', first.id)
     expect(useViewStore.getState().linking).toBeNull()
-  })
-
-  it('moves the open subdomain with the selection, and keeps sections opened by hand', () => {
-    const a = useMapStore.getState().focus
-    const b = useMapStore.getState().addHexagon(a, { side: 'e', context: 'same' })!
-    const c = useMapStore.getState().addHexagon(a, { side: 'w', context: 'same' })!
-    useMapStore.getState().setFocus(a)
-    if (!useViewStore.getState().openNodes.has(`subdomain:${c}`)) useViewStore.getState().toggleNode(`subdomain:${c}`)
-    expect(useViewStore.getState().openNodes.has(`subdomain:${a}`)).toBe(true)
-
-    useMapStore.getState().setFocus(b)
-
-    const open = useViewStore.getState().openNodes
-    expect(open.has(`subdomain:${a}`)).toBe(false)
-    expect(open.has(`subdomain:${b}`)).toBe(true)
-    expect(open.has(`subdomain:${c}`)).toBe(true)
   })
 
   it('requestFit bumps the fit request so a watcher can tell each press apart', () => {

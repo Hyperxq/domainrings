@@ -119,21 +119,21 @@ export function StepCard() {
   )
 }
 
-/** Starts the walkthrough of the focused flow, or of the first when none is focused. */
+/** Starts the walkthrough of the focused flow, or of the first one the Flows panel lists when none is focused. */
 export function PresentButton() {
   const viewOnly = usePreferencesStore((s) => s.viewOnly)
   const map = useMapStore((s) => s.map)
-  const hexId = useMapStore((s) => s.focus)
   const focused = useViewStore((s) => s.focusedFlow)
   const presenting = useViewStore((s) => s.presentStep !== null)
-  const first = diagramOf(map, hexId).useCases[0]
+  const first = map.hexagons.find((h) => h.useCases.length > 0)
   if (!viewOnly || presenting || !first) return null
   return (
     <button
       type="button"
       className="text-button primary"
       onClick={() => {
-        focusFlow(focused ?? first.id)
+        if (!focused) useMapStore.getState().setFocus(first.id)
+        focusFlow(focused ?? first.useCases[0].id)
         present(0)
       }}
     >
