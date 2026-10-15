@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { linkedTwoHexMap } from '../test/fixtures'
-import { dependencyChain } from './chain'
+import { dependencyChain, unionChain } from './chain'
 
 const DOMAIN = ['d-feedback', 'd-rating', 'd-email']
 const both = new Set(['h1', 'h2'])
@@ -138,5 +138,16 @@ describe('dependencyChain', () => {
       const chain = dependents('h1', 'd-rating', both, { ...map, hexagons: [{ ...h1, domain }, ...rest] })
       expect(refs(chain, 'h1')).toContain('d-feedback')
     })
+  })
+})
+
+describe('unionChain', () => {
+  it('holds every element and link of its chains', () => {
+    const a = { elements: new Map([['h1', new Set(['x', 'y'])]]), links: new Set(['l1']) }
+    const b = { elements: new Map([['h1', new Set(['y', 'z'])], ['h2', new Set(['p'])]]), links: new Set(['l2']) }
+    const union = unionChain([a, b])
+    expect([...union.elements.get('h1')!]).toEqual(['x', 'y', 'z'])
+    expect([...union.elements.get('h2')!]).toEqual(['p'])
+    expect([...union.links]).toEqual(['l1', 'l2'])
   })
 })

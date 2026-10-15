@@ -10,7 +10,7 @@ export function ThreadLegend() {
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   const showPlanned = usePreferencesStore((s) => s.showPlanned)
-  const hoverFlow = useViewStore((s) => s.hoverFlow)
+  const hoverFlows = useViewStore((s) => s.hoverFlows)
   const focusFlow = useViewStore((s) => s.focusFlow)
   const diagram = diagramOf(map, hexId)
   const slots = threadSlots(diagram)
@@ -24,10 +24,10 @@ export function ThreadLegend() {
           <li key={u.id}>
             <button
               type="button"
-              onPointerEnter={() => hoverFlow(u.id)}
-              onPointerLeave={() => hoverFlow(null)}
-              onFocus={() => hoverFlow(u.id)}
-              onBlur={() => hoverFlow(null)}
+              onPointerEnter={() => hoverFlows([u.id])}
+              onPointerLeave={() => hoverFlows([])}
+              onFocus={() => hoverFlows([u.id])}
+              onBlur={() => hoverFlows([])}
               onClick={() => focusFlow(u.id)}
             >
               <span className="thread-swatch" aria-hidden="true" style={threadStyle(slots.get(u.id)!)} />

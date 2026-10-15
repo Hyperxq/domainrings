@@ -15,10 +15,9 @@ export const hexIdOf = (target: Element) => target.closest('[data-hex]')?.getAtt
 /** The model element a target belongs to: the `data-ref` of the node it sits in (rings carry none). */
 export const nodeRefOf = (target: Element) => target.closest('.node')?.getAttribute('data-ref') ?? null
 
-/** The one thread a target belongs to: an edge or dot of a single thread, else a box that serves exactly one; none for a box several threads share. */
-export function threadOf(target: Element): string | null {
+/** The threads a target belongs to: the one of an edge or dot, else every thread of a box. */
+export function threadsOf(target: Element): string[] {
   const own = target.closest('[data-thread]')?.getAttribute('data-thread')
-  if (own) return own
-  const shared = target.closest('[data-threads]')?.getAttribute('data-threads')?.split(' ')
-  return shared?.length === 1 ? shared[0] : null
+  if (own) return [own]
+  return target.closest('[data-threads]')?.getAttribute('data-threads')?.split(' ').filter(Boolean) ?? []
 }

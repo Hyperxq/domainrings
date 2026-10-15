@@ -5,6 +5,9 @@
   --hover: color-mix(in srgb, var(--teal) 9%, transparent);
   /* Motion narrates cause and effect (focus moved, item appeared, notice arrived); it never decorates. */
   --motion-fast: 120ms;
+  /* What stays of an element off the emphasised route: boxes stay legible, lines all but vanish. */
+  --dim-node: 0.35;
+  --dim-edge: 0.08;
   --motion-base: 150ms;
   --motion-ease: cubic-bezier(0.2, 0, 0, 1);
 }
@@ -134,7 +137,8 @@
    weight, not just the dimming, tells it apart, so it reads in every palette and theme. */
 svg[data-emphasis] [data-hex]:not([data-chain]),
 svg[data-emphasis] .map-link:not([data-chain]),
-svg[data-emphasis] [data-hex][data-chain] :is(.node, .edge, .edge-label):not([data-chain]) { opacity: 0.35; }
+svg[data-emphasis] [data-hex][data-chain] .node:not([data-chain]) { opacity: var(--dim-node); }
+svg[data-emphasis] [data-hex][data-chain] :is(.edge, .edge-label):not([data-chain]) { opacity: var(--dim-edge); }
 svg[data-emphasis] .edge[data-chain],
 svg[data-emphasis] .map-link[data-chain] { stroke-width: 2.6; }
 svg[data-emphasis] .node[data-chain] .box { stroke-width: 2.8; }
