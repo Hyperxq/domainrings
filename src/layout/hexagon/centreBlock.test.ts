@@ -28,6 +28,7 @@ describe('layCentre', () => {
     const result = centre(domain)
     expect(result.region.apex).toBe(1e5)
     expect(result.boxes.map((b) => b.ref)).toContain('wide')
+    expect(regions.tried).toBeGreaterThan(0)
     expect(regions.tried).toBeLessThan(1000)
   })
 

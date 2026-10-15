@@ -88,9 +88,12 @@ describe('the search against a fine linear walk', () => {
     const rings = [...runs]
     expect(rings.filter((r) => r.probes > 1).length).toBeGreaterThan(0)
     for (const { clashes, start, apex, exhausted } of rings) {
-      let walked = start
-      while (clashes(walked)) walked *= 1.001
       expect(exhausted).toBe(false)
+      let walked = start
+      for (let step = 0; clashes(walked); step++) {
+        expect(step).toBeLessThan(10000)
+        walked *= 1.001
+      }
       expect(Math.abs(apex / walked - 1)).toBeLessThan(0.002)
     }
   })
