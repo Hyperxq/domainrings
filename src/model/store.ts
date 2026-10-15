@@ -5,6 +5,7 @@ import { toMap } from './hexa'
 import { browserStorage, loadMap } from './persistence'
 import { withoutAggregates } from './aggregateIds'
 import { MapSchema, REFERENCES, type CollectionKey, type Diagram, type HexaMap, type Hexagon, type Link, type LinkEnd, type Linkable, type Wall } from './schema'
+import { threadSlots } from './threads'
 import { validated } from './validated'
 
 export type Item<K extends CollectionKey> = Diagram[K][number]
@@ -116,7 +117,11 @@ export const useMapStore = create<MapState>()((set, get) => {
     setMeta: (hexId, meta) => editHexagon(hexId, (d) => merge(d, meta)),
     addItem: (hexId, key, patch) => {
       const id = `${key}-${crypto.randomUUID().slice(0, 8)}`
-      editHexagon(hexId, (d) => withCollection(d, key, [...d[key], { ...NEW_ITEM[key], ...patch, id } as Item<typeof key>]))
+      // A new use case settles on a colour once and for all; the ones already drawn stay as the file has them.
+      editHexagon(hexId, (d) => {
+        const next = withCollection(d, key, [...d[key], { ...NEW_ITEM[key], ...patch, id } as Item<typeof key>])
+        return key === 'useCases' ? { ...next, useCases: next.useCases.map((u) => (u.id === id ? { ...u, colour: threadSlots(next).get(id)! } : u)) } : next
+      })
       return id
     },
     updateItem: (hexId, key, id, patch) =>

@@ -4,6 +4,7 @@ import { parseHexa, toHexa, toMap } from './hexa'
 import { diagramOf, freeCell, freeSides, neighbour, SIDE_ORDER, UNTITLED_HEXAGON } from './map'
 import { MapSchema, type HexaMap, type Link, type LinkEnd } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
+import { threadSlots } from './threads'
 import { linkedTwoHexMap, twoHexagonMap, twoHexMap } from '../test/fixtures'
 
 const state = () => useMapStore.getState()
@@ -55,6 +56,32 @@ describe('map store', () => {
   it('removing a domain parent unlinks its children', () => {
     state().removeItem(state().focus, 'domain', 'd-feedback')
     expect(currentDiagram().domain.every((i) => i.parentId === undefined)).toBe(true)
+  })
+
+  describe('use case colours', () => {
+    it('persists the new use case slot, distinct from the use cases it conflicts with', () => {
+      const id = state().addItem(state().focus, 'useCases')
+      const added = currentDiagram().useCases.find((u) => u.id === id)!
+      expect(Number.isInteger(added.colour)).toBe(true)
+      expect(added.colour).toBe(threadSlots(currentDiagram()).get(id))
+    })
+
+    it('leaves the use cases already drawn as the file has them', () => {
+      state().addItem(state().focus, 'useCases')
+      expect(currentDiagram().useCases.filter((u) => u.colour === undefined).map((u) => u.id)).toEqual(EXAMPLE_DIAGRAM.useCases.map((u) => u.id))
+    })
+
+    it('resolves the new slot around the slots the file leaves unwritten', () => {
+      const before = threadSlots(currentDiagram())
+      const id = state().addItem(state().focus, 'useCases')
+      for (const [other, slot] of before) expect(threadSlots(currentDiagram()).get(other)).toBe(slot)
+      expect(threadSlots(currentDiagram()).has(id)).toBe(true)
+    })
+
+    it('keeps a slot given in the patch', () => {
+      const id = state().addItem(state().focus, 'useCases', { colour: 33 })
+      expect(currentDiagram().useCases.find((u) => u.id === id)!.colour).toBe(33)
+    })
   })
 
   describe('use case aggregates', () => {
