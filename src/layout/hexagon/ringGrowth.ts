@@ -6,7 +6,8 @@ const MAX_STEPS = 64
 /**
  * The smallest apex at or above `apex` that `clashes` accepts, to within TOLERANCE: grows by STEP until clear, then
  * bisects between the last clashing apex and the first clear one. `exhausted` reports a ring that never cleared, whose
- * apex is then the last one tried.
+ * apex is then the last one tried. Assumes `clashes` is monotone in the apex (a clear apex stays clear as it grows);
+ * the examples and crowded hexagons are pinned to that by test.
  */
 export function growToClear(clashes: (apex: number) => boolean, apex: number): { apex: number; exhausted: boolean } {
   if (!clashes(apex)) return { apex, exhausted: false }

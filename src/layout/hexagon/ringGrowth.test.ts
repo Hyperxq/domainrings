@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
-import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../../model/example'
+import { EXAMPLES, EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../../model/example'
+import projectBuilderRaw from '../../model/fixtures/project-builder.hexa?raw'
+import { parseHexa } from '../../model/hexa'
+import { diagramOf } from '../../model/map'
+import type { Diagram } from '../../model/schema'
 import { layoutDiagram } from '../layout'
 import { growToClear } from './ringGrowth'
 
-const runs = vi.hoisted(() => [] as Array<{ exhausted: boolean; probes: number }>)
+const runs = vi.hoisted(() => [] as Array<{ exhausted: boolean; probes: number; clashes: (apex: number) => boolean; start: number; apex: number }>)
 vi.mock('./ringGrowth', async (importOriginal) => {
   const real = await importOriginal<typeof import('./ringGrowth')>()
   return {
@@ -11,7 +15,7 @@ vi.mock('./ringGrowth', async (importOriginal) => {
     growToClear: (clashes: (apex: number) => boolean, apex: number) => {
       let probes = 0
       const result = real.growToClear((a) => (probes++, clashes(a)), apex)
-      runs.push({ exhausted: result.exhausted, probes })
+      runs.push({ exhausted: result.exhausted, probes, clashes, start: apex, apex: result.apex })
       return result
     },
   }
@@ -51,5 +55,43 @@ describe('the application ring of the examples', () => {
     expect(runs.length).toBeGreaterThan(0)
     expect(runs.filter((r) => r.exhausted)).toEqual([])
     expect(Math.max(...runs.map((r) => r.probes))).toBeLessThanOrEqual(20)
+  })
+})
+
+/** One use case whose driven ports all sit on the east wall, each with its own adapter and external system. */
+const crowdedOn = (n: number): Diagram => {
+  const ids = Array.from({ length: n }, (_, i) => i)
+  return {
+    version: 1,
+    kind: 'hexagonal',
+    title: '',
+    domain: [{ id: 'g', name: 'Order', type: 'aggregate' }],
+    useCases: [{ id: 'u', name: 'PlaceOrder', aggregateIds: ['g'] }],
+    ports: ids.map((i) => ({ id: `p${i}`, name: `Port${i}`, side: 'driven' as const, wall: 'e' as const, useCaseId: 'u' })),
+    adapters: ids.map((i) => ({ id: `a${i}`, name: `SomeFairlyLongAdapterName${i}`, portId: `p${i}` })),
+    actors: [],
+    externals: ids.map((i) => ({ id: `x${i}`, name: `External system ${i}`, adapterId: `a${i}` })),
+  }
+}
+
+describe('the search against a fine linear walk', () => {
+  const parsed = parseHexa(projectBuilderRaw)
+  const maps = [...EXAMPLES.map((e) => e.map), ...(parsed.ok ? [parsed.map] : [])]
+  const examples: Diagram[] = [EXAMPLE_DIAGRAM, STRESS_DIAGRAM, ...maps.flatMap((m) => (m.kind === 'hexagonal' ? m.hexagons.map((h) => diagramOf(m, h.id)) : []))]
+  const modes = ['detailed', 'overview'] as const
+
+  const crowded = [4, 6, 8, 10, 12, 14, 18, 24, 30].map(crowdedOn)
+
+  it('lands on the first clear apex of every ring, crowded or not, so the clash test is monotone where it is used', () => {
+    runs.length = 0
+    for (const d of [...examples, ...crowded]) for (const mode of modes) layoutDiagram(d, { mode })
+    const rings = [...runs]
+    expect(rings.filter((r) => r.probes > 1).length).toBeGreaterThan(0)
+    for (const { clashes, start, apex, exhausted } of rings) {
+      let walked = start
+      while (clashes(walked)) walked *= 1.001
+      expect(exhausted).toBe(false)
+      expect(Math.abs(apex / walked - 1)).toBeLessThan(0.002)
+    }
   })
 })
