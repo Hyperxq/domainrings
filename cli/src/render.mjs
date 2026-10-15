@@ -9,16 +9,16 @@ const slug = (title) => title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').r
 export const PALETTE_IDS = ['default', 'purple', 'terracotta', 'cool']
 const THEMES = ['dark', 'light']
 
-export function appearanceOf({ palette = 'purple', theme = 'dark' }, warn) {
-  if (!PALETTE_IDS.includes(palette)) {
-    warn(`Unknown palette "${palette}"; using purple. Valid palettes: ${PALETTE_IDS.join(', ')}.`)
-    palette = 'purple'
+const DEFAULT_PALETTE = 'purple'
+const DEFAULT_THEME = 'dark'
+
+export function appearanceOf({ palette = DEFAULT_PALETTE, theme = DEFAULT_THEME }, warn) {
+  const known = (value, valid, fallback, kind) => {
+    if (valid.includes(value)) return value
+    warn(`Unknown ${kind} "${value}"; using ${fallback}. Valid ${kind}s: ${valid.join(', ')}.`)
+    return fallback
   }
-  if (!THEMES.includes(theme)) {
-    warn(`Unknown theme "${theme}"; using dark. Valid themes: ${THEMES.join(', ')}.`)
-    theme = 'dark'
-  }
-  return { palette, theme }
+  return { palette: known(palette, PALETTE_IDS, DEFAULT_PALETTE, 'palette'), theme: known(theme, THEMES, DEFAULT_THEME, 'theme') }
 }
 
 /** The app's preference keys; it stores the default palette as an absent key (null here). */
@@ -31,7 +31,8 @@ export const outputName = (map, flow, format) => `${flow ? `${slug(flow.hexagonT
 
 export function uniqueName(name, taken) {
   const dot = name.lastIndexOf('.')
-  const [stem, ext] = [name.slice(0, dot), name.slice(dot)]
+  const stem = name.slice(0, dot)
+  const ext = name.slice(dot)
   let candidate = name
   for (let n = 2; taken.has(candidate); n++) candidate = `${stem}-${n}${ext}`
   taken.add(candidate)
@@ -46,8 +47,12 @@ export function targetsOf(map, flow, hexagonId) {
   const flows = flowsOf(map)
   if (hexagonId === undefined) return flows
   if (!(map.hexagons ?? []).some((h) => h.id === hexagonId)) throw new Error(`No hexagon "${hexagonId}".`)
-  return flows.filter((f) => f.hexagonId === hexagonId)
+  const own = flows.filter((f) => f.hexagonId === hexagonId)
+  if (own.length === 0) throw new Error(`Hexagon "${hexagonId}" has no use cases.`)
+  return own
 }
+
+const messageOf = (error) => (error instanceof Error ? error.message : String(error))
 
 export async function launchBrowser(chromium) {
   try {
@@ -56,7 +61,7 @@ export async function launchBrowser(chromium) {
     try {
       return await chromium.launch()
     } catch {
-      throw new Error(`Could not start Chrome (${chromeError.message.split('\n')[0]}) and no bundled chromium was found: install Google Chrome, or run \`npx playwright install chromium\`.`)
+      throw new Error(`Could not start Chrome (${messageOf(chromeError).split('\n')[0]}) and no bundled chromium was found: install Google Chrome, or run \`npx playwright install chromium\`.`)
     }
   }
 }
@@ -64,11 +69,11 @@ export async function launchBrowser(chromium) {
 async function renderOne(browser, url, format, path, appearance) {
   // colorScheme keeps anything the stored theme does not cover from following the system.
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, colorScheme: appearance.theme })
-  await context.addInitScript((entries) => {
-    for (const [key, value] of Object.entries(entries)) value === null ? localStorage.removeItem(key) : localStorage.setItem(key, value)
-  }, storageEntries(appearance))
-  const page = await context.newPage()
   try {
+    await context.addInitScript((entries) => {
+      for (const [key, value] of Object.entries(entries)) value === null ? localStorage.removeItem(key) : localStorage.setItem(key, value)
+    }, storageEntries(appearance))
+    const page = await context.newPage()
     await page.goto(url)
     // The app consumes the share hash once the map is swapped in and the flow is focused.
     await page.waitForFunction(() => !location.hash.startsWith('#m='))
@@ -99,7 +104,7 @@ export async function render(file, { flow, hex, out = '.', format = 'png', baseU
         log(path)
       } catch (error) {
         failed++
-        warn(`${target ? `${target.hexagonTitle} / ${target.name}` : map.title}: ${error.message}`)
+        warn(`${target ? `${target.hexagonTitle} / ${target.name}` : map.title}: ${messageOf(error)}`)
       }
     }
   } finally {

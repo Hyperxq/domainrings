@@ -46,6 +46,11 @@ describe('targetsOf', () => {
     expect(() => targetsOf(map, 'all', 'nope')).toThrow(/nope/)
   })
 
+  it('fails for "all" with a hexagon that has no use cases', () => {
+    const empty = { ...map, hexagons: [...map.hexagons, { id: 'h3', title: 'Empty', useCases: [] }] }
+    expect(() => targetsOf(empty, 'all', 'h3')).toThrow(/"h3".*no use cases/)
+  })
+
   it('fails for "all" on a map without flows', () => {
     expect(() => targetsOf({ ...map, kind: 'onion', version: 5 }, 'all')).toThrow(/hexagonal/)
   })
@@ -77,6 +82,13 @@ describe('launchBrowser', () => {
     await expect(launchBrowser(pw)).rejects.toThrow(/chrome crashed[\s\S]*npx playwright install chromium/)
   })
 
+  it('copes with a launch failure that is not an Error', async () => {
+    const pw = chromium(async (options) => {
+      throw options?.channel ? 'chrome string failure' : 'no bundled'
+    })
+    await expect(launchBrowser(pw)).rejects.toThrow(/chrome string failure[\s\S]*npx playwright install chromium/)
+  })
+
   it('suggests installing chromium when no browser is available', async () => {
     const pw = chromium(async () => {
       throw new Error('missing')
@@ -93,31 +105,26 @@ describe('uniqueName', () => {
 })
 
 describe('appearanceOf', () => {
-  const warnings = () => {
-    const warn = vi.fn()
-    return { warn }
-  }
-
   it('defaults to purple and dark', () => {
-    const { warn } = warnings()
+    const warn = vi.fn()
     expect(appearanceOf({}, warn)).toEqual({ palette: 'purple', theme: 'dark' })
     expect(warn).not.toHaveBeenCalled()
   })
 
   it('accepts every palette and both themes', () => {
-    const { warn } = warnings()
+    const warn = vi.fn()
     for (const palette of PALETTE_IDS) expect(appearanceOf({ palette, theme: 'light' }, warn)).toEqual({ palette, theme: 'light' })
     expect(warn).not.toHaveBeenCalled()
   })
 
   it('falls back to purple with a warning naming the valid palettes', () => {
-    const { warn } = warnings()
+    const warn = vi.fn()
     expect(appearanceOf({ palette: 'neon' }, warn).palette).toBe('purple')
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/neon.*default, purple, terracotta, cool/))
   })
 
   it('falls back to dark with a warning on an unknown theme', () => {
-    const { warn } = warnings()
+    const warn = vi.fn()
     expect(appearanceOf({ theme: 'sepia' }, warn).theme).toBe('dark')
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/sepia.*dark, light/))
   })
@@ -157,6 +164,29 @@ describe('render', () => {
     await render(file, { flow: 'Charge', palette: 'cool', theme: 'light', out: dirname(file) }, { chromium: { launch: async () => browser }, log: () => {}, warn: () => {} })
     expect(browser.newContext).toHaveBeenCalledWith(expect.objectContaining({ colorScheme: 'light' }))
     expect(context.addInitScript).toHaveBeenCalledWith(expect.any(Function), { 'domainrings:palette': 'cool', 'domainrings:theme': 'light' })
+  })
+
+  it('runs an init script that writes the keys and removes the absent ones', async () => {
+    const { browser, context } = browserWith(() => false)
+    await render(file, { flow: 'Charge', palette: 'default', theme: 'light', out: dirname(file) }, { chromium: { launch: async () => browser }, log: () => {}, warn: () => {} })
+    const [script, entries] = context.addInitScript.mock.calls[0]
+    const localStorage = { setItem: vi.fn(), removeItem: vi.fn() }
+    vi.stubGlobal('localStorage', localStorage)
+    try {
+      script(entries)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+    expect(localStorage.setItem).toHaveBeenCalledWith('domainrings:theme', 'light')
+    expect(localStorage.removeItem).toHaveBeenCalledWith('domainrings:palette')
+  })
+
+  it('closes the context when setup after creating it fails', async () => {
+    const { browser, context } = browserWith(() => false)
+    context.addInitScript.mockRejectedValue(new Error('init failed'))
+    await expect(render(file, { flow: 'Charge', out: dirname(file) }, { chromium: { launch: async () => browser }, log: () => {}, warn: () => {} })).rejects.toThrow(/1 of 1/)
+    expect(context.close).toHaveBeenCalledTimes(1)
+    expect(browser.close).toHaveBeenCalledTimes(1)
   })
 
   it('keeps rendering after a failed flow, reports it, and fails at the end', async () => {
