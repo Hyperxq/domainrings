@@ -6,18 +6,53 @@ on:
 permissions:
   contents: read
 
+env:
+  # npm reads this itself, so `npm view` and `npm publish` need no --registry flag.
+  NPM_CONFIG_REGISTRY: https://registry.npmjs.org
+
 jobs:
-  refuse:
-    if: ${{ !(github.repository == 'Hyperxq/domainrings' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') }}
+  guard:
     runs-on: ubuntu-latest
     permissions: {}
     steps:
-      - run: |
-          printf "Publication requires manual dispatch from the canonical repository on main.\n"
-          exit 1
+      - name: Require manual dispatch from the canonical repository on main
+        env:
+          REPOSITORY: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+        run: |
+          if [ "$REPOSITORY" != "Hyperxq/domainrings" ] || [ "$EVENT" != "workflow_dispatch" ] || [ "$REF" != "refs/heads/main" ]; then
+            echo "Publication requires manual dispatch from the canonical repository on main." >&2
+            exit 1
+          fi
+
+  verify:
+    needs: guard
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          registry-url: ${{ env.NPM_CONFIG_REGISTRY }}
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
 
   publish:
-    if: github.repository == 'Hyperxq/domainrings' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: verify
     runs-on: ubuntu-latest
     environment: npm
     concurrency:
@@ -35,7 +70,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
+          registry-url: ${{ env.NPM_CONFIG_REGISTRY }}
 
       - name: Require npm with trusted publishing
         run: |
@@ -45,15 +80,6 @@ jobs:
             echo "npm >= 11.5 is required for trusted publishing." >&2
             exit 1
           fi
-
-      - name: Install
-        run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Test
-        run: npm test
 
       - name: Install CLI dependencies
         run: npm ci
@@ -66,21 +92,32 @@ jobs:
 
       - name: Publish
         id: publish
-        run: npm publish --registry=https://registry.npmjs.org --tag=latest --access=public --provenance --fetch-retries=0 --fetch-timeout=30000
+        run: npm publish --tag=latest --access=public --provenance --fetch-retries=0 --fetch-timeout=30000
         working-directory: cli
 
       - name: Summary
         if: always()
         env:
           VERSION: ${{ steps.release.outputs.version }}
-          OUTCOME: ${{ steps.publish.outcome }}
+          VALIDATE: ${{ steps.release.outcome }}
+          PUBLISH: ${{ steps.publish.outcome }}
           SHA: ${{ github.sha }}
         run: |
+          case "$PUBLISH" in
+            success) outcome="Published" ;;
+            failure) outcome="Publish failed" ;;
+            cancelled) outcome="Cancelled" ;;
+            *)
+              case "$VALIDATE" in
+                failure) outcome="Not published: release validation failed" ;;
+                *) outcome="Not published: an earlier step failed or the run was cancelled" ;;
+              esac ;;
+          esac
           {
             printf "### Publish\n\n"
             printf "| | |\n|---|---|\n"
             printf "| Package | @pbuilder/domainrings |\n"
             printf "| Version | %s |\n" "${VERSION:-unknown}"
             printf "| SHA | %s |\n" "$SHA"
-            printf "| Outcome | %s |\n" "${OUTCOME:-skipped}"
+            printf "| Outcome | %s |\n" "$outcome"
           } >> "$GITHUB_STEP_SUMMARY"
