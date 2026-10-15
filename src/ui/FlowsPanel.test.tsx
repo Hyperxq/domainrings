@@ -3,7 +3,10 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { EXAMPLES } from '../model/example'
 import type { HexaMap } from '../model/schema'
 import { useMapStore } from '../model/store'
+import { diagramOf } from '../model/map'
+import { threadSlots } from '../model/threads'
 import { FlowsPanel } from './FlowsPanel'
+import { FlowsSection } from './FlowsSection'
 import { useViewStore } from './state/viewStore'
 
 const load = (id: string) => useMapStore.getState().replace(EXAMPLES.find((e) => e.id === id)!.map as HexaMap)
@@ -66,3 +69,23 @@ describe('FlowsPanel', () => {
     expect(screen.queryByRole('button')).toBeNull()
   })
 })
+
+describe('flow bars', () => {
+  const withSecondFlow = () => {
+    const map = EXAMPLES.find((e) => e.id === 'hexagonal-advanced')!.map as HexaMap
+    useMapStore.getState().replace({ ...map, hexagons: map.hexagons.map((h) => (h.id === 'h1' ? { ...h, useCases: [...h.useCases, { id: 'uc-two', name: 'RefundOrder' }] } : h)) })
+    return threadSlots(diagramOf(useMapStore.getState().map, 'h1'))
+  }
+  const bars = () => [...document.querySelectorAll<HTMLElement>('.flow-bar')].map((b) => b.style.getPropertyValue('--thread'))
+
+  it.each([
+    ['the Flows panel', FlowsPanel],
+    ['the editor Flows section', FlowsSection],
+  ])('colours each bar in %s with its flow thread slot', (_, Component) => {
+    const slots = withSecondFlow()
+    render(<Component />)
+    expect(slots.get('uc-place')).not.toBe(slots.get('uc-two'))
+    expect(bars()).toEqual([`var(--thread-${slots.get('uc-place')})`, `var(--thread-${slots.get('uc-two')})`])
+  })
+})
+

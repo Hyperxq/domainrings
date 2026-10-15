@@ -2,6 +2,8 @@ import { useEffect, useMemo } from 'react'
 import { flowOf, type FlowRole } from '../model/flow'
 import { diagramOf } from '../model/map'
 import { useMapStore } from '../model/store'
+import { threadSlots } from '../model/threads'
+import { threadStyle } from '../render/ThreadDots'
 import { Icon } from './Icon'
 import { typing } from './keys'
 import { usePreferencesStore } from './state/preferencesStore'
@@ -26,11 +28,12 @@ export function usePresentation() {
   const useCaseId = useViewStore((s) => s.focusedFlow)
   const presentStep = useViewStore((s) => s.presentStep)
   return useMemo(() => {
-    const useCase = useCaseId && presentStep !== null ? diagramOf(map, hexId).useCases.find((u) => u.id === useCaseId) : undefined
+    const diagram = diagramOf(map, hexId)
+    const useCase = useCaseId && presentStep !== null ? diagram.useCases.find((u) => u.id === useCaseId) : undefined
     if (!useCase) return null
     const flow = flowOf(map, hexId, useCase.id)
     const index = Math.min(presentStep!, flow.steps.length - 1)
-    return { flow, name: useCase.name, index, step: flow.steps[index] }
+    return { flow, name: useCase.name, index, step: flow.steps[index], style: threadStyle(threadSlots(diagram).get(useCase.id)!) }
   }, [map, hexId, useCaseId, presentStep])
 }
 
@@ -54,10 +57,10 @@ export function PresentPanel() {
     return () => document.removeEventListener('keydown', onKey)
   }, [presenting, index, count])
   if (!presenting) return null
-  const { flow, name } = presenting
+  const { flow, name, style } = presenting
 
   return (
-    <aside className="island editor flows-panel present-panel" aria-label="Present">
+    <aside className="island editor flows-panel present-panel" aria-label="Present" style={style}>
       <header className="editor-head">
         <button type="button" className="text-button" onClick={() => focusFlow(null)}>
           ← All flows
@@ -97,9 +100,9 @@ export function PresentPanel() {
 export function StepCard() {
   const presenting = usePresentation()
   if (!presenting) return null
-  const { step, index } = presenting
+  const { step, index, style } = presenting
   return (
-    <aside className="island step-card" aria-live="polite">
+    <aside className="island step-card" aria-live="polite" style={style}>
       <p className="step-card-kicker">STEP {index + 1} · {ROLE[step.role].toUpperCase()}</p>
       <p className="step-card-name">{step.name}</p>
       {step.note && <p className="step-card-note">{step.note}</p>}

@@ -4,6 +4,8 @@ import { linkTargets } from '../model/links'
 import { diagramOf } from '../model/map'
 import { defaultWall, WallSchema, type Side } from '../model/schema'
 import { useMapStore } from '../model/store'
+import { threadSlots } from '../model/threads'
+import { threadStyle } from '../render/ThreadDots'
 import { WALL_LABEL } from './editor/CollectionSections'
 import { session } from './editor/fieldSession'
 import { PlannedToggle } from './editor/PlannedToggle'
@@ -146,7 +148,7 @@ export function FlowInspector() {
     <Notes.Provider value={{ open: noting, toggle: (id) => setNoting(noting === id ? undefined : id), written: new Set(Object.keys(useCase.stepNotes ?? {})) }}>
     <aside className="island editor flow-inspector" aria-label="Flow inspector">
       <header className="editor-head">
-        <span className="flow-dot" aria-hidden="true" />
+        <span className="flow-dot" aria-hidden="true" style={threadStyle(threadSlots(d).get(useCase.id)!)} />
         <input className="name" aria-label="Flow name" value={useCase.name} onChange={(e) => typed({ name: e.target.value })} {...session} />
         <button type="button" className="icon-button small" aria-label="Close flow" title="Close flow" onClick={() => focusFlow(null)}>
           <Icon name="close" />

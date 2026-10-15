@@ -1,6 +1,8 @@
 import { flowsOf } from '../model/flow'
 import { diagramOf } from '../model/map'
 import { useMapStore } from '../model/store'
+import { threadSlots } from '../model/threads'
+import { threadStyle } from '../render/ThreadDots'
 import { useViewStore } from './state/viewStore'
 
 /** One row per use case of the current hexagon; picking one focuses its flow, picking the focused one again clears it. */
@@ -9,10 +11,12 @@ export function FlowRows() {
   const hexId = useMapStore((s) => s.focus)
   const focused = useViewStore((s) => s.focusedFlow)
   const focusFlow = useViewStore((s) => s.focusFlow)
-  const names = new Map(diagramOf(map, hexId).useCases.map((u) => [u.id, u.name]))
+  const diagram = diagramOf(map, hexId)
+  const names = new Map(diagram.useCases.map((u) => [u.id, u.name]))
+  const slots = threadSlots(diagram)
   return flowsOf(map, hexId).map((flow) => (
     <button key={flow.useCaseId} type="button" className="flow-row" aria-pressed={focused === flow.useCaseId} onClick={() => focusFlow(focused === flow.useCaseId ? null : flow.useCaseId)}>
-      <span className="flow-bar" aria-hidden="true" />
+      <span className="flow-bar" aria-hidden="true" style={threadStyle(slots.get(flow.useCaseId)!)} />
       <span className="flow-name">{names.get(flow.useCaseId) || 'Unnamed'}</span>
       <span className="flow-summary">{flow.starters.join(', ')} → {flow.destinations.join(', ')}</span>
       {flow.gaps.length > 0 && <span className="flow-gap">incomplete</span>}
