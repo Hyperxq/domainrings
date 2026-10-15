@@ -132,14 +132,21 @@ describe('layoutDiagram', () => {
   })
 
   it('aligns each adapter with its port and each actor/external with its adapter', () => {
+    const u = (n: LayoutNode) => dot(n, wallFrame(n.wall!).dir)
     for (const adapter of EXAMPLE_DIAGRAM.adapters) {
-      expect(find(model, 'adapter', adapter.id).y).toBe(find(model, 'port', adapter.portId!).y)
+      const [node, port] = [find(model, 'adapter', adapter.id), find(model, 'port', adapter.portId!)]
+      expect(node.wall).toBe(port.wall)
+      expect(u(node)).toBeCloseTo(u(port), 6)
     }
     for (const actor of EXAMPLE_DIAGRAM.actors) {
-      expect(find(model, 'actor', actor.id).y).toBe(find(model, 'adapter', actor.adapterId!).y)
+      const [node, adapter] = [find(model, 'actor', actor.id), find(model, 'adapter', actor.adapterId!)]
+      expect(node.wall).toBe(adapter.wall)
+      expect(u(node)).toBeCloseTo(u(adapter), 6)
     }
     for (const external of EXAMPLE_DIAGRAM.externals) {
-      expect(find(model, 'external', external.id).y).toBe(find(model, 'adapter', external.adapterId!).y)
+      const [node, adapter] = [find(model, 'external', external.id), find(model, 'adapter', external.adapterId!)]
+      expect(node.wall).toBe(adapter.wall)
+      expect(u(node)).toBeCloseTo(u(adapter), 6)
     }
   })
 
@@ -147,22 +154,27 @@ describe('layoutDiagram', () => {
     for (const adapter of EXAMPLE_DIAGRAM.adapters) {
       const node = find(model, 'adapter', adapter.id)
       const socket = find(model, 'port', adapter.portId!)
-      expect(Math.abs(node.x)).toBeCloseTo(adapterRing.halfWidth, 6)
-      expect(Math.abs(node.x)).toBeGreaterThan(Math.abs(socket.x))
+      const { n } = wallFrame(node.wall!)
+      expect(dot(node, n)).toBeCloseTo(adapterRing.halfWidth, 6)
+      expect(dot(node, n)).toBeGreaterThan(dot(socket, n))
     }
   })
 
   it('keeps actors and externals outside the outermost ring', () => {
-    for (const n of model.nodes.filter((n) => n.kind === 'actor')) expect(right(n)).toBeLessThan(-outer.halfWidth)
-    for (const n of model.nodes.filter((n) => n.kind === 'external')) expect(left(n)).toBeGreaterThan(outer.halfWidth)
+    for (const n of model.nodes.filter((n) => n.kind === 'actor' || n.kind === 'external')) {
+      const { n: normal } = wallFrame(n.wall!)
+      expect(dot(n, normal)).toBeCloseTo(model.externalWall.halfWidth, 6)
+      expect(dot(n, normal)).toBeGreaterThan(outer.halfWidth)
+    }
   })
 
   it('seats the use case on the wall holding most of its ports, straddling the domain wall', () => {
     const useCase = find(model, 'useCase', 'uc-submit')
-    expect(useCase.wall).toBe('e')
-    expect(useCase.x).toBeCloseTo(domainRing.halfWidth, 6)
-    expect(left(useCase)).toBeLessThan(domainRing.halfWidth)
-    expect(right(useCase)).toBeGreaterThan(domainRing.halfWidth)
+    expect(useCase.wall).toBe('se')
+    const { n } = wallFrame('se')
+    expect(dot(useCase, n)).toBeCloseTo(domainRing.halfWidth, 6)
+    expect(Math.min(...corners(useCase).map((c) => dot(c, n)))).toBeLessThan(domainRing.halfWidth)
+    expect(Math.max(...corners(useCase).map((c) => dot(c, n)))).toBeGreaterThan(domainRing.halfWidth)
   })
 
   it('keeps domain items inside the innermost ring', () => {
@@ -247,7 +259,7 @@ describe('layoutDiagram', () => {
   })
 
   it('grows the rings and the viewBox when the taller side gains rows', () => {
-    const bigger = layoutDiagram(withManyDrivingPorts(8))
+    const bigger = layoutDiagram(withManyDrivingPorts(20))
     expect(ringOf(bigger, 'application').apex).toBeGreaterThan(app.apex)
     expect(bigger.bounds.height).toBeGreaterThan(model.bounds.height)
     for (const n of bigger.nodes.filter((n) => n.kind === 'port' && n.side === 'driving')) {
@@ -285,12 +297,13 @@ describe('layoutDiagram', () => {
     for (const n of model.nodes.filter((n) => n.kind === 'useCase')) expect(top(n)).toBeGreaterThan(bottom(title))
   })
 
-  it('draws every arrow with axis-aligned segments; a corridor run or a hexagon trunk may also follow the ring walls', () => {
+  it('draws every arrow with axis-aligned segments; a corridor run, a hop along a wall normal or a hexagon trunk may also follow the ring walls', () => {
     for (const e of model.edges) {
       for (const [a, b] of segments(e.points)) {
         const deg = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI
         const alongWall = [30, 150, -30, -150].some((t) => Math.abs(deg - t) < 1e-6)
-        expect(a.x === b.x || a.y === b.y || alongWall).toBe(true)
+        const alongNormal = [60, 120, -60, -120].some((t) => Math.abs(deg - t) < 1e-6)
+        expect(a.x === b.x || a.y === b.y || alongWall || alongNormal).toBe(true)
       }
     }
   })
@@ -769,7 +782,7 @@ describe('use cases placed on a wall', () => {
     })
 
     it('seats every other use case on the wall of its ports', () => {
-      expect(Object.fromEntries(STRESS_DIAGRAM.useCases.filter((u) => u !== placed).map((u) => [u.id, find(m, 'useCase', u.id).wall]))).toEqual({ 'uc-place': 'ne', 'uc-cancel': 'sw' })
+      expect(Object.fromEntries(STRESS_DIAGRAM.useCases.filter((u) => u !== placed).map((u) => [u.id, find(m, 'useCase', u.id).wall]))).toEqual({ 'uc-place': 'se', 'uc-cancel': 'sw' })
     })
   })
 
@@ -1030,9 +1043,10 @@ describe('layoutDiagram placement rules', () => {
     }
     const m = layoutDiagram(d)
     const socket = find(m, 'port', 'p-submit')
-    const ys = ['a-http', 'a-cli'].map((id) => find(m, 'adapter', id).y)
-    expect(socket.y).toBeCloseTo((ys[0] + ys[1]) / 2, 6)
-    expect(ys[0]).not.toBeCloseTo(ys[1], 0)
+    const { dir } = wallFrame(socket.wall!)
+    const us = ['a-http', 'a-cli'].map((id) => dot(find(m, 'adapter', id), dir))
+    expect(dot(socket, dir)).toBeCloseTo((us[0] + us[1]) / 2, 6)
+    expect(us[0]).not.toBeCloseTo(us[1], 0)
   })
 
   it('puts unassigned adapters, actors and externals on the least crowded wall of their side', () => {
@@ -1044,7 +1058,7 @@ describe('layoutDiagram placement rules', () => {
     }
     const m = layoutDiagram(d)
     expect(find(m, 'adapter', 'a-loose').wall).toBe('nw')
-    expect(find(m, 'actor', 'act-loose').wall).toBe('sw')
+    expect(find(m, 'actor', 'act-loose').wall).toBe('w')
     expect(find(m, 'external', 'ext-loose').wall).toBe('ne')
   })
 
