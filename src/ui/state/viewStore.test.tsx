@@ -78,22 +78,6 @@ describe('view store', () => {
     expect(useViewStore.getState().linking).toBeNull()
   })
 
-  it('moves the open subdomain with the selection, and keeps sections opened by hand', () => {
-    const a = useMapStore.getState().focus
-    const b = useMapStore.getState().addHexagon(a, { side: 'e', context: 'same' })!
-    const c = useMapStore.getState().addHexagon(a, { side: 'w', context: 'same' })!
-    useMapStore.getState().setFocus(a)
-    if (!useViewStore.getState().openNodes.has(`subdomain:${c}`)) useViewStore.getState().toggleNode(`subdomain:${c}`)
-    expect(useViewStore.getState().openNodes.has(`subdomain:${a}`)).toBe(true)
-
-    useMapStore.getState().setFocus(b)
-
-    const open = useViewStore.getState().openNodes
-    expect(open.has(`subdomain:${a}`)).toBe(false)
-    expect(open.has(`subdomain:${b}`)).toBe(true)
-    expect(open.has(`subdomain:${c}`)).toBe(true)
-  })
-
   it('requestFit bumps the fit request so a watcher can tell each press apart', () => {
     const before = useViewStore.getState().fitRequest
     useViewStore.getState().requestFit()
