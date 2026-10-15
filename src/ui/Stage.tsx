@@ -176,12 +176,15 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   const isolated = viewOnly && !!focusedFlow && diagram.useCases.some((u) => u.id === focusedFlow)
   // A hover previews the union of the hovered element's flows, in either mode, where highlighting is on and nothing is
   // selected or being linked; an isolated flow wins (Edit mode never isolates, so a leftover focus there does not block it).
-  const previewed = highlight && !isolated && !selected && !linking ? hoveredFlows.filter((id) => diagram.useCases.some((u) => u.id === id)) : []
+  // The Flows panel lists every hexagon's rows, and a hovered id names only its use case: the current hexagon owns it
+  // first, else the first hexagon of the map that has it (ids are checked per hexagon, not map-wide).
+  const hexagonOf = (id: string) => (diagram.useCases.some((u) => u.id === id) ? hexId : map.hexagons.find((h) => h.useCases.some((u) => u.id === id))?.id)
+  const previewed = highlight && !isolated && !selected && !linking ? hoveredFlows.filter((id) => hexagonOf(id)) : []
   const shownFlows = isolated ? [focusedFlow!] : previewed
   const chain = useMemo(
     () =>
       shownFlows.length
-        ? unionChain(shownFlows.map((id) => flowChain(map, flowOf(map, hexId, id))))
+        ? unionChain(shownFlows.map((id) => flowChain(map, flowOf(map, hexagonOf(id)!, id))))
         : highlight && !linking && selected
           ? dependencyChain(map, hexId, selected, new Set(model.hexagons.filter((h) => !h.compact).map((h) => h.id)), dependents ? 'dependents' : 'dependencies')
           : undefined,
