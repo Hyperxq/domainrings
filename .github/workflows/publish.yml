@@ -1,0 +1,86 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refuse:
+    if: ${{ !(github.repository == 'Hyperxq/domainrings' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - run: |
+          printf "Publication requires manual dispatch from the canonical repository on main.\n"
+          exit 1
+
+  publish:
+    if: github.repository == 'Hyperxq/domainrings' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: npm
+    concurrency:
+      group: publish-pbuilder-domainrings
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Require npm with trusted publishing
+        run: |
+          version=$(npm --version)
+          echo "npm $version"
+          if [ "$(printf '11.5.0\n%s\n' "$version" | sort -V | head -n1)" != "11.5.0" ]; then
+            echo "npm >= 11.5 is required for trusted publishing." >&2
+            exit 1
+          fi
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Install CLI dependencies
+        run: npm ci
+        working-directory: cli
+
+      - name: Validate release
+        id: release
+        run: node scripts/validate-release.mjs
+        working-directory: cli
+
+      - name: Publish
+        id: publish
+        run: npm publish --registry=https://registry.npmjs.org --tag=latest --access=public --provenance --fetch-retries=0 --fetch-timeout=30000
+        working-directory: cli
+
+      - name: Summary
+        if: always()
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          OUTCOME: ${{ steps.publish.outcome }}
+          SHA: ${{ github.sha }}
+        run: |
+          {
+            printf "### Publish\n\n"
+            printf "| | |\n|---|---|\n"
+            printf "| Package | @pbuilder/domainrings |\n"
+            printf "| Version | %s |\n" "${VERSION:-unknown}"
+            printf "| SHA | %s |\n" "$SHA"
+            printf "| Outcome | %s |\n" "${OUTCOME:-skipped}"
+          } >> "$GITHUB_STEP_SUMMARY"
