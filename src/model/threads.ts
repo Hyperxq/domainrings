@@ -28,7 +28,7 @@ function lowestDistinct(taken: number[]): number {
  * side; a wall or a box shared by only some of them is not a safe boundary. Persisted slots are never touched, so a
  * colour follows its use case when others come, go or move.
  */
-export function threadSlots(d: Diagram): Map<string, number> {
+export function threadSlots(d: Pick<Diagram, 'useCases'>): Map<string, number> {
   const taken = d.useCases.flatMap((u) => (u.colour === undefined ? [] : [u.colour]))
   const slots = new Map<string, number>()
   for (const u of d.useCases) {
@@ -40,6 +40,20 @@ export function threadSlots(d: Diagram): Map<string, number> {
     slots.set(u.id, slot)
   }
   return slots
+}
+
+/**
+ * `after`, an edit of `before` that removes or reorders use cases, with the colour written on every remaining use case
+ * the edit would otherwise repaint: a colour follows its use case, never its rank.
+ */
+export function keepSlots<T extends Pick<Diagram, 'useCases'>>(before: Pick<Diagram, 'useCases'>, after: T): T {
+  const was = threadSlots(before)
+  for (let next = after; ; ) {
+    const now = threadSlots(next)
+    const repainted = next.useCases.filter((u) => u.colour === undefined && was.has(u.id) && now.get(u.id) !== was.get(u.id))
+    if (!repainted.length) return next
+    next = { ...next, useCases: next.useCases.map((u) => (repainted.includes(u) ? { ...u, colour: was.get(u.id)! } : u)) }
+  }
 }
 
 /** One thread per use case of the hexagon, in its order, built from its flow: the single source of which elements belong together. */

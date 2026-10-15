@@ -3,7 +3,7 @@ import { EXAMPLES } from './example'
 import { toMap } from './hexa'
 import { DiagramSchema, type Diagram, type HexaMap } from './schema'
 import { distinctSlots, THREAD_SLOTS, threadColour } from './threadPalette'
-import { threadSlots, threadsOf } from './threads'
+import { keepSlots, threadSlots, threadsOf } from './threads'
 
 const diagram = (fields: Partial<Diagram>): Diagram => ({ version: 1, kind: 'hexagonal', title: 't', domain: [], useCases: [], ports: [], adapters: [], actors: [], externals: [], ...fields })
 /** n use cases, each with a driving port on `walls[i]`. */
@@ -117,5 +117,37 @@ describe('threadsOf', () => {
   it('reads a diagram without links the same way', () => {
     const d = onWalls(['w'])
     expect(threadsOf(toMap(d), 'h1')[0].refs).toEqual(new Set(['u0', 'p0']))
+  })
+})
+
+describe('keepSlots', () => {
+  const legacy = () => onWalls(['w', 'e', 'nw'])
+  const without = (d: Diagram, id: string): Diagram => ({ ...d, useCases: d.useCases.filter((u) => u.id !== id) })
+
+  it('writes the old slot on the use cases a removal would repaint', () => {
+    const before = legacy()
+    const after = keepSlots(before, without(before, 'u0'))
+    expect(after.useCases.map((u) => [u.id, u.colour])).toEqual([['u1', 1], ['u2', 2]])
+    expect(threadSlots(after).get('u1')).toBe(threadSlots(before).get('u1'))
+  })
+
+  it('keeps the colours when the use cases are reordered', () => {
+    const before = legacy()
+    const reordered = { ...before, useCases: [before.useCases[2], before.useCases[0], before.useCases[1]] }
+    const after = keepSlots(before, reordered)
+    for (const [id, slot] of threadSlots(before)) expect(threadSlots(after).get(id)).toBe(slot)
+  })
+
+  it('writes nothing when no other slot changes, as when the last use case goes', () => {
+    const before = legacy()
+    const after = without(before, 'u2')
+    expect(keepSlots(before, after)).toBe(after)
+  })
+
+  it('leaves a persisted colour alone', () => {
+    const before = legacy()
+    before.useCases[1].colour = 9
+    const after = keepSlots(before, without(before, 'u0'))
+    expect(after.useCases[0].colour).toBe(9)
   })
 })

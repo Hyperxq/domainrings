@@ -78,6 +78,26 @@ describe('map store', () => {
       expect(threadSlots(currentDiagram()).has(id)).toBe(true)
     })
 
+    it('keeps the others\' colours when a use case is removed, in the same step', () => {
+      const [first] = EXAMPLE_DIAGRAM.useCases
+      state().replace(toMap({ ...EXAMPLE_DIAGRAM, useCases: [first, { id: 'uc-b', name: 'B' }, { id: 'uc-c', name: 'C' }] }))
+      const before = state().map
+      const slots = threadSlots(currentDiagram())
+      state().removeItem(state().focus, 'useCases', first.id)
+      expect(currentDiagram().useCases.map((u) => [u.id, u.colour])).toEqual([['uc-b', slots.get('uc-b')], ['uc-c', slots.get('uc-c')]])
+      expect(slots.get('uc-b')).not.toBe(0)
+      state().restore({ map: before, focus: state().focus })
+      expect(state().map).toBe(before)
+      expect(diagramOf(before, state().focus).useCases.every((u) => u.colour === undefined)).toBe(true)
+    })
+
+    it('writes nothing to the others when the last use case is removed', () => {
+      state().addItem(state().focus, 'useCases')
+      const added = currentDiagram().useCases.at(-1)!.id
+      state().removeItem(state().focus, 'useCases', added)
+      expect(currentDiagram().useCases.every((u) => u.colour === undefined)).toBe(true)
+    })
+
     it('keeps a slot given in the patch', () => {
       const id = state().addItem(state().focus, 'useCases', { colour: 33 })
       expect(currentDiagram().useCases.find((u) => u.id === id)!.colour).toBe(33)

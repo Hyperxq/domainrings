@@ -1,5 +1,6 @@
 import { withoutAggregates } from './aggregateIds'
 import { pruneLinks } from './map'
+import { keepSlots } from './threads'
 import { COLLECTIONS, REFERENCES, type CollectionKey, type HexaMap, type Hexagon, type Linkable } from './schema'
 
 const isPlanned = (item: { status?: string }) => item.status === 'planned'
@@ -32,7 +33,8 @@ function builtElements(hexagon: Hexagon): Hexagon {
     next = { ...next, [owner]: cleared }
   }
   const plannedDomain = new Set(hexagon.domain.filter(isPlanned).map((item) => item.id))
-  return plannedDomain.size ? { ...next, useCases: withoutAggregates(next.useCases, plannedDomain) } : next
+  // Setting planned use cases aside must not repaint the built ones.
+  return keepSlots(hexagon, plannedDomain.size ? { ...next, useCases: withoutAggregates(next.useCases, plannedDomain) } : next)
 }
 
 /**

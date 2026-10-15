@@ -5,7 +5,7 @@ import { toMap } from './hexa'
 import { browserStorage, loadMap } from './persistence'
 import { withoutAggregates } from './aggregateIds'
 import { MapSchema, REFERENCES, type CollectionKey, type Diagram, type HexaMap, type Hexagon, type Link, type LinkEnd, type Linkable, type Wall } from './schema'
-import { threadSlots } from './threads'
+import { keepSlots, threadSlots } from './threads'
 import { validated } from './validated'
 
 export type Item<K extends CollectionKey> = Diagram[K][number]
@@ -131,14 +131,16 @@ export const useMapStore = create<MapState>()((set, get) => {
         return key === 'domain' ? { ...next, useCases: withoutAggregates(next.useCases, new Set(next.domain.filter((i) => i.type !== 'aggregate').map((i) => i.id))) } : next
       }),
     removeItem: (hexId, key, id) =>
-      editAndPrune(hexId, (d) => {
-        let next = withCollection(d, key, (d[key] as Item<typeof key>[]).filter((i) => i.id !== id))
+      editAndPrune(hexId, (before) => {
+        let next = withCollection(before, key, (before[key] as Item<typeof key>[]).filter((i) => i.id !== id))
         for (const [owner, field, target] of REFERENCES) {
           if (target !== key) continue
           const items: Linkable[] = next[owner]
           next = withCollection(next, owner, items.map((i) => (i[field] === id ? { ...i, [field]: undefined } : i)) as Item<typeof owner>[])
         }
-        return key === 'domain' ? { ...next, useCases: withoutAggregates(next.useCases, new Set([id])) } : next
+        if (key === 'domain') return { ...next, useCases: withoutAggregates(next.useCases, new Set([id])) }
+        // The use cases left keep the colours they had, in this same step.
+        return key === 'useCases' ? keepSlots(before, next) : next
       }),
     addHexagon: (from, { side, context }) => {
       const map = get().map
