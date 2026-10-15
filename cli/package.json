@@ -1,6 +1,6 @@
 {
   "name": "@pbuilder/domainrings",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Open a domainrings map in the browser with one flow focused, and render one image per flow.",
   "type": "module",
   "bin": {
