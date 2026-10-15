@@ -146,7 +146,7 @@ describe('StepCard', () => {
     useMapStore.getState().replace({ ...map, hexagons: map.hexagons.map((h) => (h.id === 'h1' ? { ...h, domain: [...h.domain, { id: 'agg', name: 'Order', type: 'aggregate' as const }], useCases: h.useCases.map((u) => (u.id === 'uc-place' ? { ...u, aggregateIds: ['agg'] } : u)) } : h)) })
     present()
     render(<PresentPanel />)
-    expect(screen.getAllByRole('listitem')[4].textContent).toMatch(/Order.*aggregate/)
+    expect(screen.getByText('Order').closest('li')!.textContent).toMatch(/aggregate/)
   })
 
   it('names the step number, its role and the note', () => {
