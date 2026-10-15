@@ -93,7 +93,7 @@ export const useViewStore = create<ViewStore>()((set, get) => ({
   expandAll: (ids) => set({ expanded: new Set(ids) }),
   requestFit: () => set(({ fitRequest }) => ({ fitRequest: fitRequest + 1 })),
   focusFlow: (focusedFlow) => set({ focusedFlow, presentStep: null }),
-  hoverFlows: (hoveredFlows) => set({ hoveredFlows }),
+  hoverFlows: (ids) => set(({ hoveredFlows }) => (ids.length === hoveredFlows.length && ids.every((id, i) => id === hoveredFlows[i]) ? {} : { hoveredFlows: ids })),
   present: (presentStep) => set({ presentStep }),
   startLinking: (ref) => {
     if (ref) useNoticeStore.getState().clearStatus()

@@ -110,6 +110,28 @@ describe('hovering a thread', () => {
     expect(chained(container)).not.toContain('uc-place')
   })
 
+  it('still previews in Edit mode when a flow was left focused there, where nothing is isolated', () => {
+    usePreferencesStore.setState({ viewOnly: false })
+    useMapStore.getState().replace(EXAMPLES.find((e) => e.id === 'hexagonal-stress')!.map as HexaMap)
+    const { container } = render(<App />)
+    act(() => useViewStore.getState().focusFlow('uc-cancel'))
+    fireEvent.pointerOver(edgeOf(container, 'uc-place'))
+    expect(chained(container)).toContain('uc-place')
+  })
+
+  it('ends a preview when a pan starts, and ignores hovers until it ends', () => {
+    const { container } = render(<App />)
+    const main = container.querySelector('main')!
+    main.setPointerCapture = () => {}
+    fireEvent.pointerOver(edgeOf(container, 'uc-place'))
+    expect(useViewStore.getState().hoveredFlows).toEqual(['uc-place'])
+    fireEvent.pointerDown(canvas(container), { button: 0, buttons: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(main, { buttons: 1, clientX: 160, clientY: 100 })
+    expect(useViewStore.getState().hoveredFlows).toEqual([])
+    fireEvent.pointerOver(edgeOf(container, 'uc-place'))
+    expect(useViewStore.getState().hoveredFlows).toEqual([])
+  })
+
   it('ends when the hovered flow is deleted', () => {
     const { container } = render(<App />)
     act(() => useViewStore.getState().hoverFlows(['gone']))
