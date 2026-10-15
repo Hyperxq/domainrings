@@ -61,9 +61,9 @@ describe('insertionPoints', () => {
     })
 
     it('puts an empty wall "+" at the wall midpoint, and a used wall "+" past the end of its run', () => {
-      const ne = ports.find((p) => p.action.kind === 'port' && p.action.wall === 'ne')!
-      expect(ne.at.x).toBeCloseTo(0.5 * app.halfWidth, 6)
-      expect(ne.at.y).toBeCloseTo(-COS30 * app.halfWidth, 6)
+      const sw = ports.find((p) => p.action.kind === 'port' && p.action.wall === 'sw')!
+      expect(sw.at.x).toBeCloseTo(-0.5 * app.halfWidth, 6)
+      expect(sw.at.y).toBeCloseTo(COS30 * app.halfWidth, 6)
       const e = ports.find((p) => p.action.kind === 'port' && p.action.wall === 'e')!
       const lowest = Math.max(...model.nodes.filter((n) => n.kind === 'port' && n.wall === 'e').map((n) => n.y + n.height / 2))
       expect(e.at.x).toBeCloseTo(app.halfWidth, 6)

@@ -38,11 +38,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "points": [
         {
           "x": -406.036605,
-          "y": 703.27603,
+          "y": -703.27603,
         },
         {
           "x": -325.028475,
-          "y": 562.965832,
+          "y": -562.965832,
         },
       ],
       "to": "p-orders-api",
@@ -54,11 +54,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "points": [
         {
           "x": -532.944083,
-          "y": 923.086229,
+          "y": -923.086229,
         },
         {
           "x": -448.183175,
-          "y": 776.27603,
+          "y": -776.27603,
         },
       ],
       "to": "a-rest",
@@ -69,17 +69,25 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -101.289197,
-        "y": 457.045951,
+        "x": -422.879218,
+        "y": 0,
       },
       "points": [
         {
           "x": -285.191306,
-          "y": 493.965832,
+          "y": -493.965832,
         },
         {
           "x": -243.879609,
-          "y": 422.411874,
+          "y": -422.411874,
+        },
+        {
+          "x": -487.759218,
+          "y": -281.607916,
+        },
+        {
+          "x": -487.759218,
+          "y": 281.607916,
         },
         {
           "x": 0,
@@ -342,6 +350,14 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
           "x": -1158.468492,
           "y": 668.842096,
         },
+        {
+          "x": -1158.468492,
+          "y": -668.842096,
+        },
+        {
+          "x": 0,
+          "y": -1337.684191,
+        },
       ],
     },
     {
@@ -349,16 +365,16 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "wiring",
       "points": [
         {
-          "x": -665.676387,
-          "y": 953.35575,
+          "x": -492.792104,
+          "y": -1053.170537,
         },
         {
-          "x": -513.552032,
-          "y": 689.868637,
+          "x": -340.667749,
+          "y": -789.683424,
         },
         {
-          "x": -490.329745,
-          "y": 703.27603,
+          "x": -363.890036,
+          "y": -776.27603,
         },
       ],
     },
@@ -674,10 +690,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "p-orders-api",
       "side": "driving",
       "tone": "teal",
-      "wall": "sw",
+      "wall": "nw",
       "width": 116.4,
       "x": -305.10989,
-      "y": 528.465832,
+      "y": -528.465832,
     },
     {
       "align": "center",
@@ -702,10 +718,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "a-rest",
       "side": "driving",
       "tone": "driving",
-      "wall": "sw",
+      "wall": "nw",
       "width": 172.2,
       "x": -427.10989,
-      "y": 739.77603,
+      "y": -739.77603,
     },
     {
       "align": "center",
@@ -726,10 +742,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "act-web",
       "side": "driving",
       "tone": "driving",
-      "wall": "sw",
+      "wall": "nw",
       "width": 104,
       "x": -549.10989,
-      "y": 951.086229,
+      "y": -951.086229,
     },
     {
       "align": "center",
@@ -1108,11 +1124,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "points": [
         {
           "x": -381.354881,
-          "y": 660.52603,
+          "y": -660.52603,
         },
         {
           "x": -300.346751,
-          "y": 520.215832,
+          "y": -520.215832,
         },
       ],
       "to": "p-orders-api",
@@ -1124,11 +1140,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "points": [
         {
           "x": -508.262359,
-          "y": 880.336229,
+          "y": -880.336229,
         },
         {
           "x": -423.501451,
-          "y": 733.52603,
+          "y": -733.52603,
         },
       ],
       "to": "a-rest",
@@ -1139,17 +1155,25 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -88.948335,
-        "y": 407.170951,
+        "x": -373.51577,
+        "y": 0,
       },
       "points": [
         {
           "x": -260.509582,
-          "y": 451.215832,
+          "y": -451.215832,
         },
         {
           "x": -219.197885,
-          "y": 379.661874,
+          "y": -379.661874,
+        },
+        {
+          "x": -438.39577,
+          "y": -253.107916,
+        },
+        {
+          "x": -438.39577,
+          "y": 253.107916,
         },
         {
           "x": 0,
@@ -1412,6 +1436,14 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
           "x": -1109.105044,
           "y": 640.342096,
         },
+        {
+          "x": -1109.105044,
+          "y": -640.342096,
+        },
+        {
+          "x": 0,
+          "y": -1280.684191,
+        },
       ],
     },
     {
@@ -1419,16 +1451,16 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "wiring",
       "points": [
         {
-          "x": -640.994663,
-          "y": 910.60575,
+          "x": -468.11038,
+          "y": -1010.420537,
         },
         {
-          "x": -488.870308,
-          "y": 647.118637,
+          "x": -315.986025,
+          "y": -746.933424,
         },
         {
-          "x": -465.648021,
-          "y": 660.52603,
+          "x": -339.208312,
+          "y": -733.52603,
         },
       ],
     },
@@ -1686,10 +1718,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "p-orders-api",
       "side": "driving",
       "tone": "teal",
-      "wall": "sw",
+      "wall": "nw",
       "width": 116.4,
       "x": -280.428166,
-      "y": 485.715832,
+      "y": -485.715832,
     },
     {
       "align": "center",
@@ -1714,10 +1746,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "a-rest",
       "side": "driving",
       "tone": "driving",
-      "wall": "sw",
+      "wall": "nw",
       "width": 172.2,
       "x": -402.428166,
-      "y": 697.02603,
+      "y": -697.02603,
     },
     {
       "align": "center",
@@ -1738,10 +1770,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "act-web",
       "side": "driving",
       "tone": "driving",
-      "wall": "sw",
+      "wall": "nw",
       "width": 104,
       "x": -524.428166,
-      "y": 908.336229,
+      "y": -908.336229,
     },
     {
       "align": "center",
@@ -2120,11 +2152,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "points": [
         {
           "x": -366.553956,
-          "y": 634.890075,
+          "y": -634.890075,
         },
         {
           "x": -295.153484,
-          "y": 511.22083,
+          "y": -511.22083,
         },
       ],
       "to": "p-charge-in",
@@ -2135,17 +2167,17 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -274.811569,
-        "y": 354.308296,
+        "x": -169.434201,
+        "y": -415.147948,
       },
       "points": [
         {
           "x": -255.316315,
-          "y": 442.22083,
+          "y": -442.22083,
         },
         {
           "x": -188.929455,
-          "y": 327.235415,
+          "y": -327.235415,
         },
       ],
       "to": "uc-charge",
@@ -2188,17 +2220,25 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -99.642758,
-        "y": 423.071735,
+        "x": -208.106125,
+        "y": 360.450381,
       },
       "points": [
         {
           "x": -188.929455,
-          "y": 327.235415,
+          "y": -327.235415,
         },
         {
           "x": -216.926733,
-          "y": 375.728122,
+          "y": -375.728122,
+        },
+        {
+          "x": -433.853465,
+          "y": -250.485415,
+        },
+        {
+          "x": -433.853465,
+          "y": 250.485415,
         },
         {
           "x": 0,
@@ -2222,17 +2262,17 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "asks the domain to decide",
       "labelAt": {
-        "x": -151.095553,
-        "y": 89.588552,
+        "x": -2.038185,
+        "y": -175.646863,
       },
       "points": [
         {
           "x": -128.307677,
-          "y": 222.235415,
+          "y": -222.235415,
         },
         {
           "x": -24.826062,
-          "y": 43,
+          "y": -43,
         },
       ],
       "to": "d-payment",
@@ -2253,6 +2293,14 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
           "x": -1083.677185,
           "y": 625.661314,
         },
+        {
+          "x": -1083.677185,
+          "y": -625.661314,
+        },
+        {
+          "x": 0,
+          "y": -1251.322628,
+        },
       ],
     },
     {
@@ -2260,12 +2308,12 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "wiring",
       "points": [
         {
-          "x": -625.621024,
-          "y": 890.120162,
+          "x": -458.05616,
+          "y": -986.863781,
         },
         {
-          "x": -485.192068,
-          "y": 646.890075,
+          "x": -307.960271,
+          "y": -726.890075,
         },
       ],
     },
@@ -2389,7 +2437,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "d-payment",
       "rule": 42,
       "tone": "domain",
-      "wall": "sw",
+      "wall": "nw",
       "width": 155.2,
       "x": 0,
       "y": 0,
@@ -2480,10 +2528,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       ],
       "ref": "uc-charge",
       "tone": "teal",
-      "wall": "sw",
+      "wall": "nw",
       "width": 156.6,
       "x": -158.618566,
-      "y": 274.735415,
+      "y": -274.735415,
     },
     {
       "align": "center",
@@ -2508,10 +2556,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "p-charge-in",
       "side": "driving",
       "tone": "teal",
-      "wall": "sw",
+      "wall": "nw",
       "width": 133.2,
       "x": -275.234899,
-      "y": 476.72083,
+      "y": -476.72083,
     },
     {
       "align": "center",
@@ -2540,10 +2588,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "a-charge-api",
       "side": "driving",
       "tone": "driving",
-      "wall": "sw",
+      "wall": "nw",
       "width": 184.16,
       "x": -393.112068,
-      "y": 680.890075,
+      "y": -680.890075,
     },
     {
       "align": "center",
@@ -2770,11 +2818,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "points": [
         {
           "x": -360.058765,
-          "y": 623.640075,
+          "y": -623.640075,
         },
         {
           "x": -288.658293,
-          "y": 499.97083,
+          "y": -499.97083,
         },
       ],
       "to": "p-charge-in",
@@ -2785,17 +2833,17 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -268.316379,
-        "y": 343.058296,
+        "x": -162.93901,
+        "y": -403.897948,
       },
       "points": [
         {
           "x": -248.821125,
-          "y": 430.97083,
+          "y": -430.97083,
         },
         {
           "x": -182.434264,
-          "y": 315.985415,
+          "y": -315.985415,
         },
       ],
       "to": "uc-charge",
@@ -2838,17 +2886,25 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -96.395163,
-        "y": 409.946735,
+        "x": -403.303084,
+        "y": 0,
       },
       "points": [
         {
           "x": -182.434264,
-          "y": 315.985415,
+          "y": -315.985415,
         },
         {
           "x": -210.431542,
-          "y": 364.478122,
+          "y": -364.478122,
+        },
+        {
+          "x": -420.863084,
+          "y": -242.985415,
+        },
+        {
+          "x": -420.863084,
+          "y": 242.985415,
         },
         {
           "x": 0,
@@ -2872,17 +2928,17 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "asks the domain to decide",
       "labelAt": {
-        "x": -142.074455,
-        "y": 73.963552,
+        "x": 6.982913,
+        "y": -160.021863,
       },
       "points": [
         {
           "x": -121.812486,
-          "y": 210.985415,
+          "y": -210.985415,
         },
         {
           "x": -13.279056,
-          "y": 23,
+          "y": -23,
         },
       ],
       "to": "d-payment",
@@ -2903,6 +2959,14 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
           "x": -1070.686804,
           "y": 618.161314,
         },
+        {
+          "x": -1070.686804,
+          "y": -618.161314,
+        },
+        {
+          "x": 0,
+          "y": -1236.322628,
+        },
       ],
     },
     {
@@ -2910,12 +2974,12 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "wiring",
       "points": [
         {
-          "x": -619.125834,
-          "y": 878.870162,
+          "x": -451.56097,
+          "y": -975.613781,
         },
         {
-          "x": -478.696878,
-          "y": 635.640075,
+          "x": -301.465081,
+          "y": -715.640075,
         },
       ],
     },
@@ -3038,7 +3102,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       ],
       "ref": "d-payment",
       "tone": "domain",
-      "wall": "sw",
+      "wall": "nw",
       "width": 129.6,
       "x": 0,
       "y": 0,
@@ -3091,10 +3155,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       ],
       "ref": "uc-charge",
       "tone": "teal",
-      "wall": "sw",
+      "wall": "nw",
       "width": 156.6,
       "x": -152.123375,
-      "y": 263.485415,
+      "y": -263.485415,
     },
     {
       "align": "center",
@@ -3119,10 +3183,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "p-charge-in",
       "side": "driving",
       "tone": "teal",
-      "wall": "sw",
+      "wall": "nw",
       "width": 133.2,
       "x": -268.739709,
-      "y": 465.47083,
+      "y": -465.47083,
     },
     {
       "align": "center",
@@ -3151,10 +3215,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "a-charge-api",
       "side": "driving",
       "tone": "driving",
-      "wall": "sw",
+      "wall": "nw",
       "width": 184.16,
       "x": -386.616878,
-      "y": 669.640075,
+      "y": -669.640075,
     },
     {
       "align": "center",
@@ -3381,11 +3445,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "points": [
         {
           "x": -401.200743,
-          "y": 694.900071,
+          "y": -694.900071,
         },
         {
           "x": -329.800271,
-          "y": 571.230826,
+          "y": -571.230826,
         },
       ],
       "to": "p-shipment-in",
@@ -3396,17 +3460,17 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -306.209319,
-        "y": 408.690794,
+        "x": -200.83195,
+        "y": -469.530446,
       },
       "points": [
         {
           "x": -289.963103,
-          "y": 502.230826,
+          "y": -502.230826,
         },
         {
           "x": -217.078166,
-          "y": 375.990413,
+          "y": -375.990413,
         },
       ],
       "to": "uc-create-shipment",
@@ -3449,17 +3513,25 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -114.042595,
-        "y": 481.267982,
+        "x": -236.905798,
+        "y": 410.332879,
       },
       "points": [
         {
           "x": -217.078166,
-          "y": 375.990413,
+          "y": -375.990413,
         },
         {
           "x": -245.726406,
-          "y": 425.61062,
+          "y": -425.61062,
+        },
+        {
+          "x": -491.452812,
+          "y": -283.740413,
+        },
+        {
+          "x": -491.452812,
+          "y": 283.740413,
         },
         {
           "x": 0,
@@ -3483,17 +3555,17 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "asks the domain to decide",
       "labelAt": {
-        "x": -157.744746,
-        "y": 101.10529,
+        "x": -8.687377,
+        "y": -187.163602,
       },
       "points": [
         {
           "x": -146.064083,
-          "y": 252.990413,
+          "y": -252.990413,
         },
         {
           "x": -20.36804,
-          "y": 35.278479,
+          "y": -35.278479,
         },
       ],
       "to": "d-shipment",
@@ -3514,6 +3586,14 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
           "x": -1171.381014,
           "y": 676.297144,
         },
+        {
+          "x": -1171.381014,
+          "y": -676.297144,
+        },
+        {
+          "x": 0,
+          "y": -1352.594287,
+        },
       ],
     },
     {
@@ -3521,12 +3601,12 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "wiring",
       "points": [
         {
-          "x": -669.472939,
-          "y": 966.073906,
+          "x": -501.908075,
+          "y": -1062.817525,
         },
         {
-          "x": -519.838856,
-          "y": 706.900071,
+          "x": -342.607059,
+          "y": -786.900071,
         },
       ],
     },
@@ -3650,10 +3730,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "d-shipment",
       "rule": 42,
       "tone": "domain",
-      "wall": "sw",
+      "wall": "nw",
       "width": 198.4,
       "x": -0.73813,
-      "y": 1.278479,
+      "y": -1.278479,
     },
     {
       "align": "center",
@@ -3671,7 +3751,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "tone": "domain",
       "width": 174.4,
       "x": -0.73813,
-      "y": -3.721521,
+      "y": -6.278479,
     },
     {
       "align": "start",
@@ -3690,7 +3770,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "tone": "domain",
       "width": 174.4,
       "x": -0.73813,
-      "y": 20.278479,
+      "y": 17.721521,
     },
     {
       "align": "center",
@@ -3726,10 +3806,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       ],
       "ref": "uc-create-shipment",
       "tone": "teal",
-      "wall": "sw",
+      "wall": "nw",
       "width": 172.2,
       "x": -181.571125,
-      "y": 314.490413,
+      "y": -314.490413,
     },
     {
       "align": "center",
@@ -3754,10 +3834,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "p-shipment-in",
       "side": "driving",
       "tone": "teal",
-      "wall": "sw",
+      "wall": "nw",
       "width": 141.6,
       "x": -309.881687,
-      "y": 536.730826,
+      "y": -536.730826,
     },
     {
       "align": "center",
@@ -3786,10 +3866,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "a-shipment-api",
       "side": "driving",
       "tone": "driving",
-      "wall": "sw",
+      "wall": "nw",
       "width": 184.16,
       "x": -427.758856,
-      "y": 740.900071,
+      "y": -740.900071,
     },
     {
       "align": "center",
@@ -4020,11 +4100,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "points": [
         {
           "x": -383.447222,
-          "y": 664.150071,
+          "y": -664.150071,
         },
         {
           "x": -312.046751,
-          "y": 540.480826,
+          "y": -540.480826,
         },
       ],
       "to": "p-shipment-in",
@@ -4035,17 +4115,17 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -288.455798,
-        "y": 377.940794,
+        "x": -183.07843,
+        "y": -438.780446,
       },
       "points": [
         {
           "x": -272.209582,
-          "y": 471.480826,
+          "y": -471.480826,
         },
         {
           "x": -199.324645,
-          "y": 345.240413,
+          "y": -345.240413,
         },
       ],
       "to": "uc-create-shipment",
@@ -4088,17 +4168,25 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -105.165835,
-        "y": 445.392982,
+        "x": -438.38577,
+        "y": 0,
       },
       "points": [
         {
           "x": -199.324645,
-          "y": 345.240413,
+          "y": -345.240413,
         },
         {
           "x": -227.972885,
-          "y": 394.86062,
+          "y": -394.86062,
+        },
+        {
+          "x": -455.94577,
+          "y": -263.240413,
+        },
+        {
+          "x": -455.94577,
+          "y": 263.240413,
         },
         {
           "x": 0,
@@ -4122,17 +4210,17 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "asks the domain to decide",
       "labelAt": {
-        "x": -145.323493,
-        "y": 79.591051,
+        "x": 3.733875,
+        "y": -165.649362,
       },
       "points": [
         {
           "x": -128.310562,
-          "y": 222.240413,
+          "y": -222.240413,
         },
         {
           "x": -13.279056,
-          "y": 23,
+          "y": -23,
         },
       ],
       "to": "d-shipment",
@@ -4153,6 +4241,14 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
           "x": -1135.873972,
           "y": 655.797144,
         },
+        {
+          "x": -1135.873972,
+          "y": -655.797144,
+        },
+        {
+          "x": 0,
+          "y": -1311.594287,
+        },
       ],
     },
     {
@@ -4160,12 +4256,12 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "wiring",
       "points": [
         {
-          "x": -651.719418,
-          "y": 935.323906,
+          "x": -484.154554,
+          "y": -1032.067525,
         },
         {
-          "x": -502.085335,
-          "y": 676.150071,
+          "x": -324.853538,
+          "y": -756.150071,
         },
       ],
     },
@@ -4288,7 +4384,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       ],
       "ref": "d-shipment",
       "tone": "domain",
-      "wall": "sw",
+      "wall": "nw",
       "width": 129.6,
       "x": 0,
       "y": 0,
@@ -4345,10 +4441,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       ],
       "ref": "uc-create-shipment",
       "tone": "teal",
-      "wall": "sw",
+      "wall": "nw",
       "width": 172.2,
       "x": -163.817604,
-      "y": 283.740413,
+      "y": -283.740413,
     },
     {
       "align": "center",
@@ -4373,10 +4469,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "p-shipment-in",
       "side": "driving",
       "tone": "teal",
-      "wall": "sw",
+      "wall": "nw",
       "width": 141.6,
       "x": -292.128166,
-      "y": 505.980826,
+      "y": -505.980826,
     },
     {
       "align": "center",
@@ -4405,10 +4501,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "a-shipment-api",
       "side": "driving",
       "tone": "driving",
-      "wall": "sw",
+      "wall": "nw",
       "width": 184.16,
       "x": -410.005335,
-      "y": 710.150071,
+      "y": -710.150071,
     },
     {
       "align": "center",
@@ -4639,11 +4735,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "points": [
         {
           "x": -362.665498,
-          "y": 628.155069,
+          "y": -628.155069,
         },
         {
           "x": -291.265026,
-          "y": 504.485824,
+          "y": -504.485824,
         },
       ],
       "to": "p-lookup-in",
@@ -4654,17 +4750,17 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -269.29715,
-        "y": 344.757042,
+        "x": -163.919782,
+        "y": -405.596694,
       },
       "points": [
         {
           "x": -251.427858,
-          "y": 435.485824,
+          "y": -435.485824,
         },
         {
           "x": -181.789074,
-          "y": 314.867912,
+          "y": -314.867912,
         },
       ],
       "to": "uc-lookup",
@@ -4707,17 +4803,25 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -98.184587,
-        "y": 417.178605,
+        "x": -410.460779,
+        "y": 0,
       },
       "points": [
         {
           "x": -181.789074,
-          "y": 314.867912,
+          "y": -314.867912,
         },
         {
           "x": -214.01039,
-          "y": 370.676868,
+          "y": -370.676868,
+        },
+        {
+          "x": -428.020779,
+          "y": -247.117912,
+        },
+        {
+          "x": -428.020779,
+          "y": 247.117912,
         },
         {
           "x": 0,
@@ -4741,17 +4845,17 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "asks the domain to decide",
       "labelAt": {
-        "x": -150.123439,
-        "y": 87.9048,
+        "x": -1.066071,
+        "y": -173.963112,
       },
       "points": [
         {
           "x": -131.5596,
-          "y": 227.867912,
+          "y": -227.867912,
         },
         {
           "x": -19.629909,
-          "y": 34,
+          "y": -34,
         },
       ],
       "to": "d-product",
@@ -4772,6 +4876,14 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
           "x": -1074.45027,
           "y": 620.334153,
         },
+        {
+          "x": -1074.45027,
+          "y": -620.334153,
+        },
+        {
+          "x": 0,
+          "y": -1240.668305,
+        },
       ],
     },
     {
@@ -4779,12 +4891,12 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "wiring",
       "points": [
         {
-          "x": -621.007567,
-          "y": 882.129419,
+          "x": -453.442703,
+          "y": -978.873039,
         },
         {
-          "x": -481.303611,
-          "y": 640.155069,
+          "x": -304.071814,
+          "y": -720.155069,
         },
       ],
     },
@@ -4908,7 +5020,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "d-product",
       "rule": 42,
       "tone": "domain",
-      "wall": "sw",
+      "wall": "nw",
       "width": 155.2,
       "x": 0,
       "y": 0,
@@ -4976,10 +5088,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       ],
       "ref": "uc-lookup",
       "tone": "teal",
-      "wall": "sw",
+      "wall": "nw",
       "width": 180,
       "x": -156.674337,
-      "y": 271.367912,
+      "y": -271.367912,
     },
     {
       "align": "center",
@@ -5004,10 +5116,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "p-lookup-in",
       "side": "driving",
       "tone": "teal",
-      "wall": "sw",
+      "wall": "nw",
       "width": 133.2,
       "x": -271.346442,
-      "y": 469.985824,
+      "y": -469.985824,
     },
     {
       "align": "center",
@@ -5036,10 +5148,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "a-catalog-api",
       "side": "driving",
       "tone": "driving",
-      "wall": "sw",
+      "wall": "nw",
       "width": 184.16,
       "x": -389.223611,
-      "y": 674.155069,
+      "y": -674.155069,
     },
     {
       "align": "center",
@@ -5262,11 +5374,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "points": [
         {
           "x": -356.170308,
-          "y": 616.905069,
+          "y": -616.905069,
         },
         {
           "x": -284.769836,
-          "y": 493.235824,
+          "y": -493.235824,
         },
       ],
       "to": "p-lookup-in",
@@ -5277,17 +5389,17 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -262.80196,
-        "y": 333.507042,
+        "x": -157.424591,
+        "y": -394.346694,
       },
       "points": [
         {
           "x": -244.932667,
-          "y": 424.235824,
+          "y": -424.235824,
         },
         {
           "x": -175.293883,
-          "y": 303.617912,
+          "y": -303.617912,
         },
       ],
       "to": "uc-lookup",
@@ -5330,17 +5442,25 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": -94.936992,
-        "y": 404.053605,
+        "x": -397.470398,
+        "y": 0,
       },
       "points": [
         {
           "x": -175.293883,
-          "y": 303.617912,
+          "y": -303.617912,
         },
         {
           "x": -207.515199,
-          "y": 359.426868,
+          "y": -359.426868,
+        },
+        {
+          "x": -415.030398,
+          "y": -239.617912,
+        },
+        {
+          "x": -415.030398,
+          "y": 239.617912,
         },
         {
           "x": 0,
@@ -5364,17 +5484,17 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "asks the domain to decide",
       "labelAt": {
-        "x": -143.700417,
-        "y": 76.7798,
+        "x": 5.356951,
+        "y": -162.838112,
       },
       "points": [
         {
           "x": -125.06441,
-          "y": 216.617912,
+          "y": -216.617912,
         },
         {
           "x": -13.279056,
-          "y": 23,
+          "y": -23,
         },
       ],
       "to": "d-product",
@@ -5395,6 +5515,14 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
           "x": -1061.459889,
           "y": 612.834153,
         },
+        {
+          "x": -1061.459889,
+          "y": -612.834153,
+        },
+        {
+          "x": 0,
+          "y": -1225.668305,
+        },
       ],
     },
     {
@@ -5402,12 +5530,12 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "wiring",
       "points": [
         {
-          "x": -614.512376,
-          "y": 870.879419,
+          "x": -446.947513,
+          "y": -967.623039,
         },
         {
-          "x": -474.80842,
-          "y": 628.905069,
+          "x": -297.576623,
+          "y": -708.905069,
         },
       ],
     },
@@ -5530,7 +5658,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       ],
       "ref": "d-product",
       "tone": "domain",
-      "wall": "sw",
+      "wall": "nw",
       "width": 129.6,
       "x": 0,
       "y": 0,
@@ -5579,10 +5707,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       ],
       "ref": "uc-lookup",
       "tone": "teal",
-      "wall": "sw",
+      "wall": "nw",
       "width": 180,
       "x": -150.179147,
-      "y": 260.117912,
+      "y": -260.117912,
     },
     {
       "align": "center",
@@ -5607,10 +5735,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "p-lookup-in",
       "side": "driving",
       "tone": "teal",
-      "wall": "sw",
+      "wall": "nw",
       "width": 133.2,
       "x": -264.851252,
-      "y": 458.735824,
+      "y": -458.735824,
     },
     {
       "align": "center",
@@ -5639,10 +5767,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "a-catalog-api",
       "side": "driving",
       "tone": "driving",
-      "wall": "sw",
+      "wall": "nw",
       "width": 184.16,
       "x": -382.72842,
-      "y": 662.905069,
+      "y": -662.905069,
     },
     {
       "align": "center",
@@ -5865,11 +5993,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "points": [
         {
           "x": -412.019727,
-          "y": 713.639101,
+          "y": -713.639101,
         },
         {
           "x": -336.496424,
-          "y": 582.828902,
+          "y": -582.828902,
         },
       ],
       "to": "p-submit",
@@ -5881,11 +6009,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "points": [
         {
           "x": -544.412032,
-          "y": 942.949299,
+          "y": -942.949299,
         },
         {
           "x": -465.135952,
-          "y": 805.639101,
+          "y": -805.639101,
         },
       ],
       "to": "a-http",
@@ -5896,29 +6024,17 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -105.373171,
-        "y": 473.551137,
+        "x": -330.197331,
+        "y": -450.23925,
       },
       "points": [
         {
           "x": -296.659255,
-          "y": 513.828902,
+          "y": -513.828902,
         },
         {
-          "x": -252.047558,
-          "y": 436.559177,
-        },
-        {
-          "x": 0,
-          "y": 582.078902,
-        },
-        {
-          "x": 252.047558,
-          "y": 436.559177,
-        },
-        {
-          "x": 223.024319,
-          "y": 386.289451,
+          "x": -223.024319,
+          "y": -386.289451,
         },
       ],
       "to": "uc-submit",
@@ -5929,12 +6045,12 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "points": [
         {
-          "x": 506.799527,
-          "y": 670.917958,
+          "x": 417.215879,
+          "y": 722.639101,
         },
         {
-          "x": 420.883919,
-          "y": 522.107759,
+          "x": 331.300271,
+          "y": 573.828902,
         },
       ],
       "to": "p-repo",
@@ -5945,12 +6061,12 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "points": [
         {
-          "x": 549.523447,
-          "y": 744.917958,
+          "x": 459.939799,
+          "y": 796.639101,
         },
         {
-          "x": 633.99568,
-          "y": 891.228156,
+          "x": 544.412032,
+          "y": 942.949299,
         },
       ],
       "to": "ext-pg",
@@ -5961,25 +6077,37 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 288.018774,
-        "y": 395.420864,
+        "x": -486.535117,
+        "y": 0,
       },
       "points": [
         {
-          "x": 223.024319,
-          "y": 386.289451,
+          "x": -223.024319,
+          "y": -386.289451,
+        },
+        {
+          "x": -252.047558,
+          "y": -436.559177,
+        },
+        {
+          "x": -504.095117,
+          "y": -291.039451,
+        },
+        {
+          "x": -504.095117,
+          "y": 291.039451,
+        },
+        {
+          "x": 0,
+          "y": 582.078902,
         },
         {
           "x": 252.047558,
           "y": 436.559177,
         },
         {
-          "x": 341.631206,
-          "y": 384.838034,
-        },
-        {
-          "x": 391.439055,
-          "y": 471.107759,
+          "x": 301.855408,
+          "y": 522.828902,
         },
       ],
       "to": "p-repo",
@@ -5990,12 +6118,12 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "points": [
         {
-          "x": 327.632232,
-          "y": 774.360244,
+          "x": 787.155679,
+          "y": 0,
         },
         {
-          "x": 241.716623,
-          "y": 625.550046,
+          "x": 708.155679,
+          "y": 0,
         },
       ],
       "to": "p-notify",
@@ -6003,67 +6131,6 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
     {
       "from": "a-email",
       "key": "adapter:a-email->external:ext-mailgun",
-      "kind": "import",
-      "points": [
-        {
-          "x": 370.356152,
-          "y": 848.360244,
-        },
-        {
-          "x": 454.828384,
-          "y": 994.670443,
-        },
-      ],
-      "to": "ext-mailgun",
-    },
-    {
-      "from": "uc-submit",
-      "key": "useCase:uc-submit->port:p-notify",
-      "kind": "import",
-      "label": "uses",
-      "labelAt": {
-        "x": 198.435126,
-        "y": 447.142007,
-      },
-      "points": [
-        {
-          "x": 223.024319,
-          "y": 386.289451,
-        },
-        {
-          "x": 252.047558,
-          "y": 436.559177,
-        },
-        {
-          "x": 162.46391,
-          "y": 488.28032,
-        },
-        {
-          "x": 212.27176,
-          "y": 574.550046,
-        },
-      ],
-      "to": "p-notify",
-    },
-    {
-      "from": "a-legacy",
-      "key": "adapter:a-legacy->port:p-users",
-      "kind": "import",
-      "points": [
-        {
-          "x": 787.155679,
-          "y": 0,
-        },
-        {
-          "x": 699.755679,
-          "y": 0,
-        },
-      ],
-      "to": "p-users",
-    },
-    {
-      "from": "a-legacy",
-      "key": "adapter:a-legacy->external:ext-legacy",
       "kind": "import",
       "points": [
         {
@@ -6075,6 +6142,75 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
           "y": 0,
         },
       ],
+      "to": "ext-mailgun",
+    },
+    {
+      "from": "uc-submit",
+      "key": "useCase:uc-submit->port:p-notify",
+      "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": 243.22695,
+        "y": -421.281436,
+      },
+      "points": [
+        {
+          "x": -223.024319,
+          "y": -386.289451,
+        },
+        {
+          "x": -252.047558,
+          "y": -436.559177,
+        },
+        {
+          "x": 0,
+          "y": -582.078902,
+        },
+        {
+          "x": 504.095117,
+          "y": -291.039451,
+        },
+        {
+          "x": 504.095117,
+          "y": 0,
+        },
+        {
+          "x": 558.155679,
+          "y": 0,
+        },
+      ],
+      "to": "p-notify",
+    },
+    {
+      "from": "a-legacy",
+      "key": "adapter:a-legacy->port:p-users",
+      "kind": "import",
+      "points": [
+        {
+          "x": 417.215879,
+          "y": -722.639101,
+        },
+        {
+          "x": 331.300271,
+          "y": -573.828902,
+        },
+      ],
+      "to": "p-users",
+    },
+    {
+      "from": "a-legacy",
+      "key": "adapter:a-legacy->external:ext-legacy",
+      "kind": "import",
+      "points": [
+        {
+          "x": 459.939799,
+          "y": -796.639101,
+        },
+        {
+          "x": 538.638529,
+          "y": -932.949299,
+        },
+      ],
       "to": "ext-legacy",
     },
     {
@@ -6083,29 +6219,29 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 369.250729,
-        "y": 348.521573,
+        "x": -134.844387,
+        "y": -524.596781,
       },
       "points": [
         {
-          "x": 223.024319,
-          "y": 386.289451,
+          "x": -223.024319,
+          "y": -386.289451,
+        },
+        {
+          "x": -252.047558,
+          "y": -436.559177,
+        },
+        {
+          "x": 0,
+          "y": -582.078902,
         },
         {
           "x": 252.047558,
-          "y": 436.559177,
+          "y": -436.559177,
         },
         {
-          "x": 504.095117,
-          "y": 291.039451,
-        },
-        {
-          "x": 504.095117,
-          "y": 0,
-        },
-        {
-          "x": 566.555679,
-          "y": 0,
+          "x": 301.855408,
+          "y": -522.828902,
         },
       ],
       "to": "p-users",
@@ -6117,17 +6253,17 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "asks the domain to decide",
       "labelAt": {
-        "x": 163.115417,
-        "y": 110.407566,
+        "x": -14.058049,
+        "y": -196.465878,
       },
       "points": [
         {
-          "x": 152.010236,
-          "y": 263.289451,
+          "x": -152.010236,
+          "y": -263.289451,
         },
         {
-          "x": 25.16323,
-          "y": 43.583993,
+          "x": -25.16323,
+          "y": -43.583993,
         },
       ],
       "to": "d-feedback",
@@ -6142,11 +6278,19 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
         },
         {
           "x": 0,
-          "y": 1378.545795,
+          "y": 1380.345933,
         },
         {
-          "x": -1193.855679,
-          "y": 689.272898,
+          "x": -1195.414644,
+          "y": 690.172967,
+        },
+        {
+          "x": -1195.414644,
+          "y": -690.172967,
+        },
+        {
+          "x": 0,
+          "y": -1380.345933,
         },
       ],
     },
@@ -6155,16 +6299,16 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "wiring",
       "points": [
         {
-          "x": -687.483602,
-          "y": 981.626953,
+          "x": -507.15156,
+          "y": -1087.541844,
         },
         {
-          "x": -529.133602,
-          "y": 707.356707,
+          "x": -348.022077,
+          "y": -811.921495,
         },
         {
-          "x": -518.252177,
-          "y": 713.639101,
+          "x": -358.903502,
+          "y": -805.639101,
         },
       ],
     },
@@ -6178,15 +6322,19 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
         },
         {
           "x": 0,
-          "y": 1378.545795,
+          "y": 1380.345933,
         },
         {
-          "x": 1193.855679,
-          "y": 689.272898,
+          "x": 1195.414644,
+          "y": 690.172967,
         },
         {
-          "x": 1193.855679,
-          "y": -689.272898,
+          "x": 1195.414644,
+          "y": -690.172967,
+        },
+        {
+          "x": 0,
+          "y": -1380.345933,
         },
       ],
     },
@@ -6195,12 +6343,30 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "wiring",
       "points": [
         {
-          "x": 1193.855679,
-          "y": 45,
+          "x": 687.29097,
+          "y": -983.538307,
+        },
+        {
+          "x": 528.161487,
+          "y": -707.917958,
+        },
+        {
+          "x": 502.663719,
+          "y": -722.639101,
+        },
+      ],
+    },
+    {
+      "key": "composition->adapter:a-email",
+      "kind": "wiring",
+      "points": [
+        {
+          "x": 1195.414644,
+          "y": 44,
         },
         {
           "x": 877.155679,
-          "y": 45,
+          "y": 44,
         },
         {
           "x": 877.155679,
@@ -6213,34 +6379,16 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "wiring",
       "points": [
         {
-          "x": 596.927839,
-          "y": 1033.909346,
+          "x": 508.123674,
+          "y": 1086.980593,
         },
         {
-          "x": 438.577839,
-          "y": 759.639101,
+          "x": 348.994192,
+          "y": 811.360244,
         },
         {
-          "x": 464.075607,
-          "y": 744.917958,
-        },
-      ],
-    },
-    {
-      "key": "composition->adapter:a-email",
-      "kind": "wiring",
-      "points": [
-        {
-          "x": 417.760544,
-          "y": 1137.351633,
-        },
-        {
-          "x": 259.410544,
-          "y": 863.081387,
-        },
-        {
-          "x": 284.908312,
-          "y": 848.360244,
+          "x": 374.49196,
+          "y": 796.639101,
         },
       ],
     },
@@ -6328,10 +6476,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "d-feedback",
       "rule": 42,
       "tone": "domain",
-      "wall": "se",
+      "wall": "nw",
       "width": 220,
-      "x": 0.337169,
-      "y": 0.583993,
+      "x": -0.337169,
+      "y": -0.583993,
     },
     {
       "align": "center",
@@ -6348,8 +6496,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "d-feedback",
       "tone": "domain",
       "width": 196,
-      "x": 0.337169,
-      "y": -13.416007,
+      "x": -0.337169,
+      "y": -14.583993,
     },
     {
       "align": "start",
@@ -6367,8 +6515,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "d-rating",
       "tone": "domain",
       "width": 196,
-      "x": 0.337169,
-      "y": 10.583993,
+      "x": -0.337169,
+      "y": 9.416007,
     },
     {
       "align": "start",
@@ -6386,8 +6534,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "d-email",
       "tone": "domain",
       "width": 196,
-      "x": 0.337169,
-      "y": 28.583993,
+      "x": -0.337169,
+      "y": 27.416007,
     },
     {
       "align": "center",
@@ -6423,10 +6571,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       ],
       "ref": "uc-submit",
       "tone": "teal",
-      "wall": "se",
+      "wall": "nw",
       "width": 175.2,
-      "x": 187.517277,
-      "y": 324.789451,
+      "x": -187.517277,
+      "y": -324.789451,
     },
     {
       "align": "center",
@@ -6451,10 +6599,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "p-submit",
       "side": "driving",
       "tone": "teal",
-      "wall": "sw",
+      "wall": "nw",
       "width": 175.2,
       "x": -316.577839,
-      "y": 548.328902,
+      "y": -548.328902,
     },
     {
       "align": "center",
@@ -6483,10 +6631,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "a-http",
       "side": "driving",
       "tone": "driving",
-      "wall": "sw",
+      "wall": "nw",
       "width": 172.2,
       "x": -438.577839,
-      "y": 759.639101,
+      "y": -759.639101,
     },
     {
       "align": "center",
@@ -6507,10 +6655,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "act-frontend",
       "side": "driving",
       "tone": "driving",
-      "wall": "sw",
+      "wall": "nw",
       "width": 104.08,
       "x": -560.577839,
-      "y": 970.949299,
+      "y": -970.949299,
     },
     {
       "align": "center",
@@ -6531,10 +6679,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "p-users",
       "side": "driven",
       "tone": "teal",
-      "wall": "e",
+      "wall": "ne",
       "width": 133.2,
-      "x": 633.155679,
-      "y": 0,
+      "x": 316.577839,
+      "y": -548.328902,
     },
     {
       "align": "center",
@@ -6559,10 +6707,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "a-legacy",
       "side": "driven",
       "tone": "driven",
-      "wall": "e",
+      "wall": "ne",
       "width": 180,
-      "x": 877.155679,
-      "y": 0,
+      "x": 438.577839,
+      "y": -759.639101,
     },
     {
       "align": "center",
@@ -6585,6 +6733,82 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
         },
       ],
       "ref": "ext-legacy",
+      "side": "driven",
+      "tone": "slate",
+      "wall": "ne",
+      "width": 125.4,
+      "x": 560.577839,
+      "y": -970.949299,
+    },
+    {
+      "align": "center",
+      "height": 51,
+      "key": "port:p-notify",
+      "kind": "port",
+      "layer": "adapters",
+      "lines": [
+        {
+          "style": "tag",
+          "text": "◇ driven port",
+        },
+        {
+          "style": "name",
+          "text": "SupportNotifier",
+        },
+      ],
+      "ref": "p-notify",
+      "side": "driven",
+      "tone": "teal",
+      "wall": "e",
+      "width": 150,
+      "x": 633.155679,
+      "y": 0,
+    },
+    {
+      "align": "center",
+      "height": 74,
+      "key": "adapter:a-email",
+      "kind": "adapter",
+      "layer": "adapters",
+      "lines": [
+        {
+          "style": "eyebrow",
+          "text": "⇤ infrastructure/out",
+        },
+        {
+          "style": "name",
+          "text": "EmailSupport",
+        },
+        {
+          "style": "name",
+          "text": "Notifier",
+        },
+      ],
+      "ref": "a-email",
+      "side": "driven",
+      "tone": "driven",
+      "wall": "e",
+      "width": 180,
+      "x": 877.155679,
+      "y": 0,
+    },
+    {
+      "align": "center",
+      "height": 56,
+      "key": "external:ext-mailgun",
+      "kind": "external",
+      "layer": undefined,
+      "lines": [
+        {
+          "style": "title",
+          "text": "Mailgun",
+        },
+        {
+          "style": "mono",
+          "text": "support inbox",
+        },
+      ],
+      "ref": "ext-mailgun",
       "side": "driven",
       "tone": "slate",
       "wall": "e",
@@ -6613,8 +6837,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "tone": "teal",
       "wall": "se",
       "width": 175.2,
-      "x": 406.161487,
-      "y": 496.607759,
+      "x": 316.577839,
+      "y": 548.328902,
     },
     {
       "align": "center",
@@ -6641,8 +6865,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "tone": "driven",
       "wall": "se",
       "width": 180,
-      "x": 528.161487,
-      "y": 707.917958,
+      "x": 438.577839,
+      "y": 759.639101,
     },
     {
       "align": "center",
@@ -6665,84 +6889,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "tone": "slate",
       "wall": "se",
       "width": 125.4,
-      "x": 650.161487,
-      "y": 919.228156,
-    },
-    {
-      "align": "center",
-      "height": 51,
-      "key": "port:p-notify",
-      "kind": "port",
-      "layer": "adapters",
-      "lines": [
-        {
-          "style": "tag",
-          "text": "◇ driven port",
-        },
-        {
-          "style": "name",
-          "text": "SupportNotifier",
-        },
-      ],
-      "ref": "p-notify",
-      "side": "driven",
-      "tone": "teal",
-      "wall": "se",
-      "width": 150,
-      "x": 226.994192,
-      "y": 600.050046,
-    },
-    {
-      "align": "center",
-      "height": 74,
-      "key": "adapter:a-email",
-      "kind": "adapter",
-      "layer": "adapters",
-      "lines": [
-        {
-          "style": "eyebrow",
-          "text": "⇤ infrastructure/out",
-        },
-        {
-          "style": "name",
-          "text": "EmailSupport",
-        },
-        {
-          "style": "name",
-          "text": "Notifier",
-        },
-      ],
-      "ref": "a-email",
-      "side": "driven",
-      "tone": "driven",
-      "wall": "se",
-      "width": 180,
-      "x": 348.994192,
-      "y": 811.360244,
-    },
-    {
-      "align": "center",
-      "height": 56,
-      "key": "external:ext-mailgun",
-      "kind": "external",
-      "layer": undefined,
-      "lines": [
-        {
-          "style": "title",
-          "text": "Mailgun",
-        },
-        {
-          "style": "mono",
-          "text": "support inbox",
-        },
-      ],
-      "ref": "ext-mailgun",
-      "side": "driven",
-      "tone": "slate",
-      "wall": "se",
-      "width": 125.4,
-      "x": 470.994192,
-      "y": 1022.670443,
+      "x": 560.577839,
+      "y": 970.949299,
     },
     {
       "align": "center",
@@ -6854,10 +7002,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
 exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-basic / h1 in overview 1`] = `
 {
   "bounds": {
-    "height": 2302,
+    "height": 2312,
     "width": 2002,
     "x": -848,
-    "y": -976,
+    "y": -986,
   },
   "corridors": [
     {
@@ -6889,11 +7037,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "points": [
         {
           "x": -389.070054,
-          "y": 673.889101,
+          "y": -673.889101,
         },
         {
           "x": -313.546751,
-          "y": 543.078902,
+          "y": -543.078902,
         },
       ],
       "to": "p-submit",
@@ -6905,11 +7053,11 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "points": [
         {
           "x": -521.462359,
-          "y": 903.199299,
+          "y": -903.199299,
         },
         {
           "x": -442.186279,
-          "y": 765.889101,
+          "y": -765.889101,
         },
       ],
       "to": "a-http",
@@ -6920,29 +7068,17 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "runs the use case",
       "labelAt": {
-        "x": -93.898335,
-        "y": 427.176137,
+        "x": -307.247658,
+        "y": -410.48925,
       },
       "points": [
         {
           "x": -273.709582,
-          "y": 474.078902,
+          "y": -474.078902,
         },
         {
-          "x": -229.097885,
-          "y": 396.809177,
-        },
-        {
-          "x": 0,
-          "y": 529.078902,
-        },
-        {
-          "x": 229.097885,
-          "y": 396.809177,
-        },
-        {
-          "x": 200.074645,
-          "y": 346.539451,
+          "x": -200.074645,
+          "y": -346.539451,
         },
       ],
       "to": "uc-submit",
@@ -6953,12 +7089,12 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "points": [
         {
-          "x": 483.849854,
-          "y": 631.167958,
+          "x": 394.266206,
+          "y": 682.889101,
         },
         {
-          "x": 397.934246,
-          "y": 482.357759,
+          "x": 308.350598,
+          "y": 534.078902,
         },
       ],
       "to": "p-repo",
@@ -6969,12 +7105,12 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "points": [
         {
-          "x": 526.573774,
-          "y": 705.167958,
+          "x": 436.990126,
+          "y": 756.889101,
         },
         {
-          "x": 611.046006,
-          "y": 851.478156,
+          "x": 521.462359,
+          "y": 903.199299,
         },
       ],
       "to": "ext-pg",
@@ -6985,25 +7121,37 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 265.069101,
-        "y": 355.670864,
+        "x": -440.63577,
+        "y": 0,
       },
       "points": [
         {
-          "x": 200.074645,
-          "y": 346.539451,
+          "x": -200.074645,
+          "y": -346.539451,
+        },
+        {
+          "x": -229.097885,
+          "y": -396.809177,
+        },
+        {
+          "x": -458.19577,
+          "y": -264.539451,
+        },
+        {
+          "x": -458.19577,
+          "y": 264.539451,
+        },
+        {
+          "x": 0,
+          "y": 529.078902,
         },
         {
           "x": 229.097885,
           "y": 396.809177,
         },
         {
-          "x": 318.681533,
-          "y": 345.088034,
-        },
-        {
-          "x": 368.489382,
-          "y": 431.357759,
+          "x": 278.905734,
+          "y": 483.078902,
         },
       ],
       "to": "p-repo",
@@ -7014,12 +7162,12 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "points": [
         {
-          "x": 304.682558,
-          "y": 734.610244,
+          "x": 741.256332,
+          "y": 0,
         },
         {
-          "x": 218.76695,
-          "y": 585.800046,
+          "x": 662.256332,
+          "y": 0,
         },
       ],
       "to": "p-notify",
@@ -7027,67 +7175,6 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
     {
       "from": "a-email",
       "key": "adapter:a-email->external:ext-mailgun",
-      "kind": "import",
-      "points": [
-        {
-          "x": 347.406478,
-          "y": 808.610244,
-        },
-        {
-          "x": 431.878711,
-          "y": 954.920443,
-        },
-      ],
-      "to": "ext-mailgun",
-    },
-    {
-      "from": "uc-submit",
-      "key": "useCase:uc-submit->port:p-notify",
-      "kind": "import",
-      "label": "uses",
-      "labelAt": {
-        "x": 175.485453,
-        "y": 407.392007,
-      },
-      "points": [
-        {
-          "x": 200.074645,
-          "y": 346.539451,
-        },
-        {
-          "x": 229.097885,
-          "y": 396.809177,
-        },
-        {
-          "x": 139.514237,
-          "y": 448.53032,
-        },
-        {
-          "x": 189.322087,
-          "y": 534.800046,
-        },
-      ],
-      "to": "p-notify",
-    },
-    {
-      "from": "a-legacy",
-      "key": "adapter:a-legacy->port:p-users",
-      "kind": "import",
-      "points": [
-        {
-          "x": 741.256332,
-          "y": 0,
-        },
-        {
-          "x": 653.856332,
-          "y": 0,
-        },
-      ],
-      "to": "p-users",
-    },
-    {
-      "from": "a-legacy",
-      "key": "adapter:a-legacy->external:ext-legacy",
       "kind": "import",
       "points": [
         {
@@ -7099,6 +7186,75 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
           "y": 0,
         },
       ],
+      "to": "ext-mailgun",
+    },
+    {
+      "from": "uc-submit",
+      "key": "useCase:uc-submit->port:p-notify",
+      "kind": "import",
+      "label": "uses",
+      "labelAt": {
+        "x": 220.277277,
+        "y": -381.531436,
+      },
+      "points": [
+        {
+          "x": -200.074645,
+          "y": -346.539451,
+        },
+        {
+          "x": -229.097885,
+          "y": -396.809177,
+        },
+        {
+          "x": 0,
+          "y": -529.078902,
+        },
+        {
+          "x": 458.19577,
+          "y": -264.539451,
+        },
+        {
+          "x": 458.19577,
+          "y": 0,
+        },
+        {
+          "x": 512.256332,
+          "y": 0,
+        },
+      ],
+      "to": "p-notify",
+    },
+    {
+      "from": "a-legacy",
+      "key": "adapter:a-legacy->port:p-users",
+      "kind": "import",
+      "points": [
+        {
+          "x": 394.266206,
+          "y": -682.889101,
+        },
+        {
+          "x": 308.350598,
+          "y": -534.078902,
+        },
+      ],
+      "to": "p-users",
+    },
+    {
+      "from": "a-legacy",
+      "key": "adapter:a-legacy->external:ext-legacy",
+      "kind": "import",
+      "points": [
+        {
+          "x": 436.990126,
+          "y": -756.889101,
+        },
+        {
+          "x": 515.688856,
+          "y": -893.199299,
+        },
+      ],
       "to": "ext-legacy",
     },
     {
@@ -7107,29 +7263,29 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "uses",
       "labelAt": {
-        "x": 334.82622,
-        "y": 315.396573,
+        "x": -123.36955,
+        "y": -478.221781,
       },
       "points": [
         {
-          "x": 200.074645,
-          "y": 346.539451,
+          "x": -200.074645,
+          "y": -346.539451,
+        },
+        {
+          "x": -229.097885,
+          "y": -396.809177,
+        },
+        {
+          "x": 0,
+          "y": -529.078902,
         },
         {
           "x": 229.097885,
-          "y": 396.809177,
+          "y": -396.809177,
         },
         {
-          "x": 458.19577,
-          "y": 264.539451,
-        },
-        {
-          "x": 458.19577,
-          "y": 0,
-        },
-        {
-          "x": 520.656332,
-          "y": 0,
+          "x": 278.905734,
+          "y": -483.078902,
         },
       ],
       "to": "p-users",
@@ -7141,17 +7297,17 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "import",
       "label": "asks the domain to decide",
       "labelAt": {
-        "x": 145.698493,
-        "y": 80.24057,
+        "x": 3.358875,
+        "y": -166.298881,
       },
       "points": [
         {
-          "x": 129.060562,
-          "y": 223.539451,
+          "x": -129.060562,
+          "y": -223.539451,
         },
         {
-          "x": 13.279056,
-          "y": 23,
+          "x": -13.279056,
+          "y": -23,
         },
       ],
       "to": "d-feedback",
@@ -7166,11 +7322,19 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
         },
         {
           "x": 0,
-          "y": 1325.545795,
+          "y": 1327.345933,
         },
         {
-          "x": -1147.956332,
-          "y": 662.772898,
+          "x": -1149.515298,
+          "y": 663.672967,
+        },
+        {
+          "x": -1149.515298,
+          "y": -663.672967,
+        },
+        {
+          "x": 0,
+          "y": -1327.345933,
         },
       ],
     },
@@ -7179,16 +7343,16 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "wiring",
       "points": [
         {
-          "x": -664.533928,
-          "y": 941.876953,
+          "x": -484.201887,
+          "y": -1047.791844,
         },
         {
-          "x": -506.183928,
-          "y": 667.606707,
+          "x": -325.072404,
+          "y": -772.171495,
         },
         {
-          "x": -495.302503,
-          "y": 673.889101,
+          "x": -335.953829,
+          "y": -765.889101,
         },
       ],
     },
@@ -7202,15 +7366,19 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
         },
         {
           "x": 0,
-          "y": 1325.545795,
+          "y": 1327.345933,
         },
         {
-          "x": 1147.956332,
-          "y": 662.772898,
+          "x": 1149.515298,
+          "y": 663.672967,
         },
         {
-          "x": 1147.956332,
-          "y": -662.772898,
+          "x": 1149.515298,
+          "y": -663.672967,
+        },
+        {
+          "x": 0,
+          "y": -1327.345933,
         },
       ],
     },
@@ -7219,12 +7387,30 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "wiring",
       "points": [
         {
-          "x": 1147.956332,
-          "y": 45,
+          "x": 664.341297,
+          "y": -943.788307,
+        },
+        {
+          "x": 505.211814,
+          "y": -668.167958,
+        },
+        {
+          "x": 479.714046,
+          "y": -682.889101,
+        },
+      ],
+    },
+    {
+      "key": "composition->adapter:a-email",
+      "kind": "wiring",
+      "points": [
+        {
+          "x": 1149.515298,
+          "y": 44,
         },
         {
           "x": 831.256332,
-          "y": 45,
+          "y": 44,
         },
         {
           "x": 831.256332,
@@ -7237,34 +7423,16 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "kind": "wiring",
       "points": [
         {
-          "x": 573.978166,
-          "y": 994.159346,
+          "x": 485.174001,
+          "y": 1047.230593,
         },
         {
-          "x": 415.628166,
-          "y": 719.889101,
+          "x": 326.044518,
+          "y": 771.610244,
         },
         {
-          "x": 441.125934,
-          "y": 705.167958,
-        },
-      ],
-    },
-    {
-      "key": "composition->adapter:a-email",
-      "kind": "wiring",
-      "points": [
-        {
-          "x": 394.810871,
-          "y": 1097.601633,
-        },
-        {
-          "x": 236.460871,
-          "y": 823.331387,
-        },
-        {
-          "x": 261.958639,
-          "y": 808.610244,
+          "x": 351.542286,
+          "y": 756.889101,
         },
       ],
     },
@@ -7351,7 +7519,7 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       ],
       "ref": "d-feedback",
       "tone": "domain",
-      "wall": "se",
+      "wall": "nw",
       "width": 129.6,
       "x": 0,
       "y": 0,
@@ -7408,10 +7576,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       ],
       "ref": "uc-submit",
       "tone": "teal",
-      "wall": "se",
+      "wall": "nw",
       "width": 175.2,
-      "x": 164.567604,
-      "y": 285.039451,
+      "x": -164.567604,
+      "y": -285.039451,
     },
     {
       "align": "center",
@@ -7436,10 +7604,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "p-submit",
       "side": "driving",
       "tone": "teal",
-      "wall": "sw",
+      "wall": "nw",
       "width": 175.2,
       "x": -293.628166,
-      "y": 508.578902,
+      "y": -508.578902,
     },
     {
       "align": "center",
@@ -7468,10 +7636,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "a-http",
       "side": "driving",
       "tone": "driving",
-      "wall": "sw",
+      "wall": "nw",
       "width": 172.2,
       "x": -415.628166,
-      "y": 719.889101,
+      "y": -719.889101,
     },
     {
       "align": "center",
@@ -7492,10 +7660,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "act-frontend",
       "side": "driving",
       "tone": "driving",
-      "wall": "sw",
+      "wall": "nw",
       "width": 104.08,
       "x": -537.628166,
-      "y": 931.199299,
+      "y": -931.199299,
     },
     {
       "align": "center",
@@ -7516,10 +7684,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "p-users",
       "side": "driven",
       "tone": "teal",
-      "wall": "e",
+      "wall": "ne",
       "width": 133.2,
-      "x": 587.256332,
-      "y": 0,
+      "x": 293.628166,
+      "y": -508.578902,
     },
     {
       "align": "center",
@@ -7544,10 +7712,10 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "ref": "a-legacy",
       "side": "driven",
       "tone": "driven",
-      "wall": "e",
+      "wall": "ne",
       "width": 180,
-      "x": 831.256332,
-      "y": 0,
+      "x": 415.628166,
+      "y": -719.889101,
     },
     {
       "align": "center",
@@ -7570,6 +7738,82 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
         },
       ],
       "ref": "ext-legacy",
+      "side": "driven",
+      "tone": "slate",
+      "wall": "ne",
+      "width": 125.4,
+      "x": 537.628166,
+      "y": -931.199299,
+    },
+    {
+      "align": "center",
+      "height": 51,
+      "key": "port:p-notify",
+      "kind": "port",
+      "layer": "adapters",
+      "lines": [
+        {
+          "style": "tag",
+          "text": "◇ driven port",
+        },
+        {
+          "style": "name",
+          "text": "SupportNotifier",
+        },
+      ],
+      "ref": "p-notify",
+      "side": "driven",
+      "tone": "teal",
+      "wall": "e",
+      "width": 150,
+      "x": 587.256332,
+      "y": 0,
+    },
+    {
+      "align": "center",
+      "height": 74,
+      "key": "adapter:a-email",
+      "kind": "adapter",
+      "layer": "adapters",
+      "lines": [
+        {
+          "style": "eyebrow",
+          "text": "⇤ infrastructure/out",
+        },
+        {
+          "style": "name",
+          "text": "EmailSupport",
+        },
+        {
+          "style": "name",
+          "text": "Notifier",
+        },
+      ],
+      "ref": "a-email",
+      "side": "driven",
+      "tone": "driven",
+      "wall": "e",
+      "width": 180,
+      "x": 831.256332,
+      "y": 0,
+    },
+    {
+      "align": "center",
+      "height": 56,
+      "key": "external:ext-mailgun",
+      "kind": "external",
+      "layer": undefined,
+      "lines": [
+        {
+          "style": "title",
+          "text": "Mailgun",
+        },
+        {
+          "style": "mono",
+          "text": "support inbox",
+        },
+      ],
+      "ref": "ext-mailgun",
       "side": "driven",
       "tone": "slate",
       "wall": "e",
@@ -7598,8 +7842,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "tone": "teal",
       "wall": "se",
       "width": 175.2,
-      "x": 383.211814,
-      "y": 456.857759,
+      "x": 293.628166,
+      "y": 508.578902,
     },
     {
       "align": "center",
@@ -7626,8 +7870,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "tone": "driven",
       "wall": "se",
       "width": 180,
-      "x": 505.211814,
-      "y": 668.167958,
+      "x": 415.628166,
+      "y": 719.889101,
     },
     {
       "align": "center",
@@ -7650,84 +7894,8 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "tone": "slate",
       "wall": "se",
       "width": 125.4,
-      "x": 627.211814,
-      "y": 879.478156,
-    },
-    {
-      "align": "center",
-      "height": 51,
-      "key": "port:p-notify",
-      "kind": "port",
-      "layer": "adapters",
-      "lines": [
-        {
-          "style": "tag",
-          "text": "◇ driven port",
-        },
-        {
-          "style": "name",
-          "text": "SupportNotifier",
-        },
-      ],
-      "ref": "p-notify",
-      "side": "driven",
-      "tone": "teal",
-      "wall": "se",
-      "width": 150,
-      "x": 204.044518,
-      "y": 560.300046,
-    },
-    {
-      "align": "center",
-      "height": 74,
-      "key": "adapter:a-email",
-      "kind": "adapter",
-      "layer": "adapters",
-      "lines": [
-        {
-          "style": "eyebrow",
-          "text": "⇤ infrastructure/out",
-        },
-        {
-          "style": "name",
-          "text": "EmailSupport",
-        },
-        {
-          "style": "name",
-          "text": "Notifier",
-        },
-      ],
-      "ref": "a-email",
-      "side": "driven",
-      "tone": "driven",
-      "wall": "se",
-      "width": 180,
-      "x": 326.044518,
-      "y": 771.610244,
-    },
-    {
-      "align": "center",
-      "height": 56,
-      "key": "external:ext-mailgun",
-      "kind": "external",
-      "layer": undefined,
-      "lines": [
-        {
-          "style": "title",
-          "text": "Mailgun",
-        },
-        {
-          "style": "mono",
-          "text": "support inbox",
-        },
-      ],
-      "ref": "ext-mailgun",
-      "side": "driven",
-      "tone": "slate",
-      "wall": "se",
-      "width": 125.4,
-      "x": 448.044518,
-      "y": 982.920443,
+      "x": 537.628166,
+      "y": 931.199299,
     },
     {
       "align": "center",
@@ -7823,14 +7991,14 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > hexagonal-
       "style": "title",
       "text": "Chat feedback slice",
       "x": -831.256332,
-      "y": -947.852135,
+      "y": -957.199299,
     },
     {
       "key": "subtitle",
       "style": "subtitle",
       "text": "Ports & adapters, one use case end to end",
       "x": -831.256332,
-      "y": -920.852135,
+      "y": -930.199299,
     },
   ],
 }
