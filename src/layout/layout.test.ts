@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { hairline, quadsOverlap, rectCorners, reach, type Point } from './geometry'
 import { layoutDiagram, type LayoutModel, type LayoutNode, type LayoutRing } from './layout'
-import { TRACK_GAP } from './hexagon/spacing'
 import { halfWidthAt, hexagon } from './outline'
 import { DOMAIN_TITLE, EDGE_LABEL, measure, RING_LABEL, RING_SUBTITLE } from './text'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
@@ -144,13 +143,12 @@ describe('layoutDiagram', () => {
     }
   })
 
-  it('places adapters inside the adapter ring, outside their socket', () => {
+  it('centres adapters on the infrastructure wall, outside their port', () => {
     for (const adapter of EXAMPLE_DIAGRAM.adapters) {
       const node = find(model, 'adapter', adapter.id)
       const socket = find(model, 'port', adapter.portId!)
-      for (const c of corners(node)) expect(inside(model, adapterRing, c)).toBe(true)
-      if (node.x < 0) expect(right(node)).toBeLessThan(left(socket))
-      else expect(left(node)).toBeGreaterThan(right(socket))
+      expect(Math.abs(node.x)).toBeCloseTo(adapterRing.halfWidth, 6)
+      expect(Math.abs(node.x)).toBeGreaterThan(Math.abs(socket.x))
     }
   })
 
@@ -159,14 +157,12 @@ describe('layoutDiagram', () => {
     for (const n of model.nodes.filter((n) => n.kind === 'external')) expect(left(n)).toBeGreaterThan(outer.halfWidth)
   })
 
-  it('seats the use case on the wall holding most of its ports, in the application band outside the inner layers', () => {
-    const innerRing = model.rings[model.rings.indexOf(app) + 1]
+  it('seats the use case on the wall holding most of its ports, straddling the domain wall', () => {
     const useCase = find(model, 'useCase', 'uc-submit')
     expect(useCase.wall).toBe('e')
-    for (const c of corners(useCase)) {
-      expect(inside(model, app, c)).toBe(true)
-      expect(inside(model, innerRing, c)).toBe(false)
-    }
+    expect(useCase.x).toBeCloseTo(domainRing.halfWidth, 6)
+    expect(left(useCase)).toBeLessThan(domainRing.halfWidth)
+    expect(right(useCase)).toBeGreaterThan(domainRing.halfWidth)
   })
 
   it('keeps domain items inside the innermost ring', () => {
@@ -369,8 +365,8 @@ describe('layoutDiagram', () => {
       const run = { x: b.x - a.x, y: b.y - a.y }
       expect(Math.abs(run.x * n.y - run.y * n.x)).toBeLessThan(1e-6)
       expect(-dot(run, n)).toBeGreaterThanOrEqual(12 - 1e-6)
-      // Onion's domain is two rings; the arrow stops on the outer one, before any domain service box.
-      expect(dot(b, n)).toBeCloseTo(model.rings[model.rings.indexOf(app) + 1].halfWidth, 6)
+      // With no card named, the arrow stops on the wall of the domain model region.
+      expect(dot(b, n)).toBeCloseTo(model.region!.halfWidth, 6)
     }
     const domainKeys = new Set(['domain', ...model.nodes.filter((n) => DOMAIN_BLOCK.has(n.kind)).map((n) => n.key)])
     const outbound = model.edges.filter((e) => e.kind === 'import' && domainKeys.has(endpointsOf(e.key)[0]))
@@ -436,7 +432,7 @@ describe('layoutDiagram edges', () => {
 
   it('labels a use case\'s corridor runs once per side, flat beside the run, and its straight runs each', () => {
     const labelled = model.edges.filter((e) => e.label && !e.key.endsWith('->domain'))
-    expect(labelled.map((e) => e.label).sort()).toEqual(['runs the use case', 'uses', 'uses'])
+    expect(labelled.map((e) => e.label).sort()).toEqual(['runs the use case', 'uses'])
     const distanceTo = (e: LayoutModel['edges'][number], q: { x: number; y: number }) =>
       Math.min(...segments(e.points).map(([a, b]) => {
         const len2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2 || 1
@@ -583,184 +579,14 @@ describe('guides, tones and modes', () => {
     const detailed = layoutDiagram(diagram)
     const overview = layoutDiagram(diagram, { mode: 'overview' })
 
-    it('keeps only the straight horizontal flow arrows, with no labels', () => {
-      expect(overview.edges.length).toBeGreaterThan(0)
-      for (const e of overview.edges) {
-        expect(e.kind).toBe('import')
-        expect(e.label).toBeUndefined()
-        expect(e.points).toHaveLength(2)
-        const [a, b] = e.points
-        const along = Math.atan2(b.y - a.y, b.x - a.x) * (180 / Math.PI)
-        expect(a.y === b.y || [60, 120, -60, -120].some((deg) => Math.abs(along - deg) < 1e-6)).toBe(true)
-        const kinds = endpointsOf(e.key).map((k) => k.split(':')[0])
-        expect([['actor', 'adapter'], ['adapter', 'port'], ['port', 'adapter'], ['adapter', 'external']]).toContainEqual(kinds)
-      }
-    })
-
-    it('shows names only: one line per element, no tags, notes or signatures', () => {
-      for (const n of overview.nodes) {
-        expect(n.lines.length).toBeLessThanOrEqual(1)
-        for (const l of n.lines) expect(l.tag).toBeUndefined()
-      }
-      expect(overview.nodes.some((n) => n.kind === 'composition' || n.kind === 'aggregate')).toBe(false)
-    })
-
     it('lists only aggregate and entity roots in the domain', () => {
       const roots = diagram.domain.filter((i) => !i.parentId && (i.type === 'aggregate' || i.type === 'entity')).map((i) => i.id)
       expect(overview.nodes.filter((n) => n.kind === 'domainItem').map((n) => n.ref).sort()).toEqual(roots.sort())
     })
 
-    it('keeps sockets as small notches on the application ring edge', () => {
-      const sockets = overview.nodes.filter((n) => n.kind === 'port')
-      expect(sockets).toHaveLength(diagram.ports.length)
-      for (const s of sockets) {
-        expect(s.lines).toEqual([])
-        // A notch is thin across its wall; on a slanted wall its long side lies along the wall.
-        expect(Math.min(s.width, s.height)).toBeLessThan(24)
-      }
-    })
-
-    it('keeps the stacked use cases in the application band, above the ring inside it', () => {
-      const app = ringOf(overview, 'application')
-      const inner = overview.rings[overview.rings.indexOf(app) + 1]
-      for (const u of overview.nodes.filter((n) => n.kind === 'useCase' && !n.wall)) {
-        expect(bottom(u)).toBeLessThanOrEqual(-inner.apex)
-        for (const c of corners(u)) expect(inside(overview, app, c)).toBe(true)
-      }
-    })
-
     it('shrinks the rings', () => {
       expect(overview.rings[0].apex).toBeLessThan(detailed.rings[0].apex)
     })
-  })
-})
-
-// Names far longer than their notches, two of them sharing a slanted wall with no adapter to space them out.
-const LONG_NAMES: Diagram = {
-  version: 1,
-  kind: 'hexagonal',
-  title: '',
-  domain: ['Order', 'Invoice', 'Customer'].map((name) => ({ id: name, name, type: 'entity' as const })),
-  useCases: [],
-  ports: [
-    { id: 'pw', name: 'placeOrderFromTheStorefrontCheckout', side: 'driving', wall: 'w' },
-    { id: 'pn1', name: 'PublishOrderPlacedIntegrationEvent', side: 'driven', wall: 'ne' },
-    { id: 'pn2', name: 'ReserveStockInTheWarehouseSystem', side: 'driven', wall: 'ne' },
-    { id: 'pe', name: 'ChargeTheCustomerPaymentMethod', side: 'driven', wall: 'e' },
-  ],
-  adapters: [],
-  actors: [],
-  externals: [],
-}
-// Long names sharing the lower walls: no title or use case down there, so the spokes are what size the ring.
-const LOWER_WALLS: Diagram = {
-  ...LONG_NAMES,
-  ports: (['sw', 'se'] as const).flatMap((wall) =>
-    [1, 2].map((k) => ({ id: `${wall}${k}`, name: `ALongPortNameOnTheLowerWall${k}`, side: wall === 'sw' ? ('driving' as const) : ('driven' as const), wall })),
-  ),
-}
-// With no slanted wall, only the side walls' own width keeps a long name off the domain.
-const SIDE_WALLS_ONLY: Diagram = { ...LONG_NAMES, ports: LONG_NAMES.ports.map((p) => (p.wall === 'ne' ? { ...p, wall: 'e' as const } : p)) }
-// A tall west column of long names: its outer rows' names reach in toward the spokes.
-const TALL_COLUMN: Diagram = {
-  ...LONG_NAMES,
-  ports: [
-    ...Array.from({ length: 6 }, (_, i) => ({ id: `w${i}`, name: `HandleIncomingRequestNumber${i}FromTheWeb`, side: 'driving' as const, wall: 'w' as const })),
-    { id: 'pn', name: 'x', side: 'driven', wall: 'ne' },
-  ],
-}
-
-describe('overview port labels', () => {
-  describe.each([
-    ['feedback', EXAMPLE_DIAGRAM],
-    ['six-wall stress', STRESS_DIAGRAM],
-    ['long names', LONG_NAMES],
-    ['lower walls', LOWER_WALLS],
-    ['side walls only', SIDE_WALLS_ONLY],
-    ['tall column', TALL_COLUMN],
-  ])('%s example', (_, diagram) => {
-    const m = layoutDiagram(diagram, { mode: 'overview' })
-    const app = ringOf(m, 'application')
-    const inner = m.rings[m.rings.indexOf(app) + 1]
-    const labels = m.nodes.filter((n) => n.kind === 'portLabel')
-    const sockets = m.nodes.filter((n) => n.kind === 'port')
-    const edgePoints = (n: LayoutNode) => {
-      const [a, b, c, e] = corners(n)
-      return [[a, b], [b, e], [e, c], [c, a]].flatMap(([p, q]) => sample([p, q] as Segment, 0.05))
-    }
-
-    it('gives every socket exactly one label carrying just the port name, a driven one marked with a diamond', () => {
-      expect(sockets.length).toBe(diagram.ports.length)
-      for (const socket of sockets) {
-        const own = labels.filter((l) => l.ref === socket.ref)
-        expect(own).toHaveLength(1)
-        const port = diagram.ports.find((p) => p.id === socket.ref)!
-        expect(own[0].lines).toEqual([{ text: port.side === 'driven' ? `◇ ${port.name}` : port.name, style: 'label' }])
-      }
-      expect(labels).toHaveLength(sockets.length)
-    })
-
-    it('keeps each label inside the application ring and a full gap (14) clear of the ring inside it', () => {
-      const clearOf = shrink(m.shape, inner, -14 + 1e-3)
-      for (const label of labels) {
-        for (const p of edgePoints(label)) {
-          expect(inside(m, app, p)).toBe(true)
-          expect(inside(m, clearOf, p)).toBe(false)
-        }
-      }
-    })
-
-    // As with every column box, sectors only bind once some wall is slanted; w/e-only hexagons have no neighbour to meet.
-    it.runIf(sockets.some((s) => SLANTED.has(s.wall!)))('keeps each label 8 clear of the spokes, inside its own wall sector', () => {
-      const tan30 = Math.tan(Math.PI / 6)
-      for (const label of labels) {
-        const { n, dir } = wallFrame(sockets.find((s) => s.ref === label.ref)!.wall!)
-        for (const c of corners(label)) expect((dot(c, n) * tan30 - Math.abs(dot(c, dir))) * COS30).toBeGreaterThanOrEqual(8 - 1e-6)
-      }
-    })
-
-    it('overlaps no other element and no layer title', () => {
-      const titles = m.rings.map(labelBox)
-      for (const label of labels) {
-        for (const other of [...m.nodes, ...titles]) {
-          if (other === label) continue
-          expect({ label: label.key, other: other.key, overlap: overlap(label, other) }).toEqual({ label: label.key, other: other.key, overlap: false })
-        }
-      }
-    })
-
-    it('reads upright: slanted labels hang under their notch (over it on a lower wall), side-wall labels start just inside the socket', () => {
-      for (const label of labels) {
-        const socket = sockets.find((s) => s.ref === label.ref)!
-        if (SLANTED.has(socket.wall!)) {
-          expect(label.align).toBe('center')
-          const { n } = wallFrame(socket.wall!)
-          const gap = n.y < 0 ? top(label) - bottom(socket) : top(socket) - bottom(label)
-          expect(gap).toBeCloseTo(4)
-        } else {
-          expect(label.y).toBeCloseTo(socket.y)
-          const driving = socket.side === 'driving'
-          expect(label.align).toBe(driving ? 'start' : 'end')
-          const gap = driving ? left(label) - right(socket) : left(socket) - right(label)
-          expect(gap).toBeGreaterThan(0)
-          expect(gap).toBeLessThanOrEqual(8)
-        }
-      }
-    })
-  })
-
-  it('labels a slanted socket on its inner side, never upside down, on all six walls', () => {
-    const m = layoutDiagram(STRESS_DIAGRAM, { mode: 'overview' })
-    const walls = new Set(m.nodes.filter((n) => n.kind === 'port').map((n) => n.wall))
-    expect(walls).toEqual(new Set(['nw', 'w', 'sw', 'ne', 'e', 'se']))
-    for (const socket of m.nodes.filter((n) => n.kind === 'port' && SLANTED.has(n.wall!))) {
-      const label = find(m, 'portLabel', socket.ref)
-      expect(Math.hypot(label.x, label.y)).toBeLessThan(Math.hypot(socket.x, socket.y))
-    }
-  })
-
-  it('leaves the detailed view without labels', () => {
-    expect(layoutDiagram(STRESS_DIAGRAM).nodes.some((n) => n.kind === 'portLabel')).toBe(false)
   })
 })
 
@@ -832,9 +658,6 @@ describe('ports on every wall (hexagonal stress example)', () => {
   const app = ringOf(model, 'application')
   const adapterRing = ringOf(model, 'adapters')
   const ports = model.nodes.filter((n) => n.kind === 'port')
-  const walled = model.nodes.filter((n) => n.wall)
-  const tan30 = Math.tan(Math.PI / 6)
-
   it('uses all six walls, each port on a wall of its own side', () => {
     expect(new Set(ports.map((p) => p.wall))).toEqual(new Set(['nw', 'w', 'sw', 'ne', 'e', 'se']))
     for (const p of ports) expect(['nw', 'w', 'sw'].includes(p.wall!)).toBe(p.side === 'driving')
@@ -848,7 +671,7 @@ describe('ports on every wall (hexagonal stress example)', () => {
     }
   })
 
-  it('attaches each adapter outward on the wall normal through its socket, inside the adapter ring', () => {
+  it('attaches each adapter outward on the wall normal through its port, centred on the infrastructure wall', () => {
     for (const adapter of STRESS_DIAGRAM.adapters) {
       const node = find(model, 'adapter', adapter.id)
       const socket = find(model, 'port', adapter.portId!)
@@ -857,16 +680,7 @@ describe('ports on every wall (hexagonal stress example)', () => {
       expect(Math.abs(dot(offset, dir))).toBeLessThan(1e-6)
       expect(dot(offset, n)).toBeGreaterThan(0)
       expect(overlap(node, socket)).toBe(false)
-      for (const c of corners(node)) expect(inside(model, adapterRing, c)).toBe(true)
-    }
-  })
-
-  it('keeps every wall box inside its own sector, at least 8 units clear of the spokes', () => {
-    for (const box of walled.filter((b) => SLANTED.has(b.wall!) || walled.some((o) => SLANTED.has(o.wall!)))) {
-      const { n, dir } = wallFrame(box.wall!)
-      for (const c of corners(box)) {
-        expect(Math.abs(dot(c, dir))).toBeLessThanOrEqual(dot(c, n) * tan30 - 8 / Math.cos(Math.PI / 6) + 1e-6)
-      }
+      expect(dot(node, n)).toBeCloseTo(adapterRing.halfWidth, 6)
     }
   })
 
@@ -916,59 +730,6 @@ describe('ports on every wall (hexagonal stress example)', () => {
     }
   })
 
-  it('sizes the application and adapter rings to the wall content: 2×padding smaller breaks something', () => {
-    const boxesOf = (m: LayoutModel) => m.nodes.filter((b) => b.kind !== 'aggregate' && b.kind !== 'domainItem')
-    // The application ring also holds the corridor: one track gap for every track past the first is room the tracks use.
-    const tracks = model.edges.filter((e) => e.key.includes('useCase:') && e.key.includes('port:') && e.points.length > 2).length
-    for (const ring of [app, adapterRing]) {
-      const shrunk = shrink(model.shape, ring, 2 * PADDING + (ring === app ? Math.max(0, tracks - 1) * TRACK_GAP : 0))
-      const delta = ring.halfWidth - shrunk.halfWidth
-      // Re-seat what hangs off this ring's wall: sockets and adapters off the application wall, leaves off the outer one.
-      const moves = (b: LayoutNode) =>
-        !!b.wall && (ring === app ? b.kind === 'port' || b.kind === 'adapter' : b.kind === 'actor' || b.kind === 'external')
-      const seated = boxesOf(model).map((b) => {
-        if (!moves(b)) return b
-        const { n } = wallFrame(b.wall!)
-        return { ...b, x: b.x - n.x * delta, y: b.y - n.y * delta }
-      })
-      const inSector = (b: LayoutNode) => {
-        const { n, dir } = wallFrame(b.wall!)
-        return corners(b).every((c) => Math.abs(dot(c, dir)) <= dot(c, n) * tan30 - 8 / Math.cos(Math.PI / 6) + 1e-6)
-      }
-      const sectorBroken = seated.filter((b) => b.wall && walled.some((o) => SLANTED.has(o.wall!))).some((b) => !inSector(b))
-      const clash = seated.some((a, i) => seated.slice(i + 1).some((b) => overlap(a, b)))
-      const title = labelBox(ring)
-      const reseatedTitle = { ...title, y: title.y + (ring.apex - shrunk.apex) }
-      const titleClash = seated.some((b) => overlap(b, reseatedTitle))
-      const outOfRing = ring === adapterRing && seated.filter((b) => b.kind === 'adapter').some((b) => corners(b).some((c) => !inside(model, shrunk, c)))
-      const innerRing = model.rings[model.rings.indexOf(ring) + 1]
-      const hitsInner = seated.filter((b) => b.kind === 'port').some((b) => corners(b).some((c) => inside(model, innerRing, c)))
-      // A use-case run that now passes through a re-seated socket it does not serve.
-      const runHitsSocket =
-        ring === app &&
-        model.edges
-          .filter((e) => e.kind === 'import' && e.key.includes('useCase:'))
-          .some((e) =>
-            seated
-              .filter((b) => b.kind === 'port' && moves(b) && !endpointsOf(e.key).includes(b.key))
-              .some((b) => segments(e.points).some((seg) => sample(seg).some((p) => strictlyInside(b, p)))),
-          )
-      // A use case left with less than an arrow's run between itself and a re-seated socket on its wall.
-      const runTooShort =
-        ring === app &&
-        seated
-          .filter((u) => u.kind === 'useCase')
-          .some((u) => {
-            const { n } = wallFrame(u.wall!)
-            const outer = dot(u, n) + (u.width / 2) * Math.abs(n.x) + (u.height / 2) * Math.abs(n.y)
-            return seated.filter((b) => b.kind === 'port' && b.wall === u.wall).some((b) => dot(b, n) - ((b.width / 2) * Math.abs(n.x) + (b.height / 2) * Math.abs(n.y)) - outer < RUN_MIN)
-          })
-      expect({ ring: ring.role, breaks: sectorBroken || clash || titleClash || outOfRing || hitsInner || runHitsSocket || runTooShort }).toEqual({
-        ring: ring.role,
-        breaks: true,
-      })
-    }
-  })
 })
 
 const RUN_MIN = 16
@@ -976,8 +737,6 @@ const RUN_MIN = 16
 describe('use cases placed on a wall', () => {
   const placed = STRESS_DIAGRAM.useCases.find((u) => u.placement === 'nw')!
   const port = STRESS_DIAGRAM.ports.find((p) => p.useCaseId === placed.id && p.wall === 'nw')!
-  const tan30 = Math.tan(Math.PI / 6)
-
   it('extends the stress example with a use case on nw, next to its driving port', () => {
     expect(placed).toBeDefined()
     expect(port.side).toBe('driving')
@@ -985,25 +744,21 @@ describe('use cases placed on a wall', () => {
 
   describe.each(['detailed', 'overview'] as const)('%s', (mode) => {
     const m = layoutDiagram(STRESS_DIAGRAM, { mode })
-    const app = ringOf(m, 'application')
-    const inner = m.rings[m.rings.indexOf(app) + 1]
     const node = find(m, 'useCase', placed.id)
-    const { n, dir } = wallFrame('nw')
+    const { n } = wallFrame('nw')
 
-    it('sits upright in the nw sector, 8 clear of the spokes, inside the application band', () => {
+    it('sits upright on the nw wall, straddling the domain wall', () => {
+      const domain = ringOf(m, 'domain')
       expect(node.wall).toBe('nw')
-      const clearOfInner = shrink(m.shape, inner, -14 + 1e-3)
-      for (const c of corners(node)) {
-        expect(Math.abs(dot(c, dir))).toBeLessThanOrEqual(dot(c, n) * tan30 - 8 / COS30 + 1e-6)
-        expect(inside(m, app, c)).toBe(true)
-        expect(inside(m, clearOfInner, c)).toBe(false)
-      }
+      expect(dot(node, n)).toBeCloseTo(domain.halfWidth, 6)
+      expect(Math.max(...corners(node).map((c) => dot(c, n)))).toBeGreaterThan(domain.halfWidth)
+      expect(Math.min(...corners(node).map((c) => dot(c, n)))).toBeLessThan(domain.halfWidth)
     })
 
-    it('sits on the inner side of its wall’s sockets and their names', () => {
-      const wallContent = m.nodes.filter((b) => (b.kind === 'port' || b.kind === 'portLabel') && STRESS_DIAGRAM.ports.some((p) => p.id === b.ref && p.wall === 'nw'))
-      const innermost = Math.min(...wallContent.flatMap((b) => corners(b).map((c) => dot(c, n))))
-      for (const c of corners(node)) expect(dot(c, n)).toBeLessThan(innermost)
+    it('sits on the inner side of its wall’s ports', () => {
+      const ports = m.nodes.filter((b) => b.kind === 'port' && STRESS_DIAGRAM.ports.some((p) => p.id === b.ref && p.wall === 'nw'))
+      const innermost = Math.min(...ports.flatMap((b) => corners(b).map((c) => dot(c, n))))
+      expect(dot(node, n)).toBeLessThan(innermost)
     })
 
     it('overlaps no other element and no layer title', () => {
@@ -1020,7 +775,6 @@ describe('use cases placed on a wall', () => {
 
   describe('routing (detailed)', () => {
     const m = layoutDiagram(STRESS_DIAGRAM)
-    const domain = ringOf(m, 'domain')
     const { n } = wallFrame('nw')
     const edge = (key: string) => {
       const e = m.edges.find((x) => x.key === key)
@@ -1038,20 +792,19 @@ describe('use cases placed on a wall', () => {
       expect(e.label).toBe(HEXAGONAL_KIND.labels.runs)
     })
 
-    it('still reaches its ports on other walls through the bus', () => {
+    it('still reaches its ports on other walls along the application corridor', () => {
       for (const p of STRESS_DIAGRAM.ports.filter((p) => p.useCaseId === placed.id && p.wall !== 'nw')) {
         const e = m.edges.find((x) => x.key.includes(`useCase:${placed.id}`) && x.key.includes(`port:${p.id}`))!
         expect(e.points.length).toBeGreaterThanOrEqual(3)
       }
     })
 
-    it('asks the domain along the sector bisector, landing square on the nearest domain wall', () => {
+    it('asks the domain square off its wall, landing on the wall of the domain model', () => {
       const e = edge(`useCase:${placed.id}->domain`)
-      expect(e.points).toHaveLength(2)
-      const [a, b] = e.points
+      const [a, b] = e.points.slice(-2)
       const run = { x: b.x - a.x, y: b.y - a.y }
       expect(Math.abs(run.x * n.y - run.y * n.x)).toBeLessThan(1e-6)
-      expect(dot(b, n)).toBeCloseTo(domain.halfWidth, 6)
+      expect(dot(e.points.at(-1)!, n)).toBeCloseTo(m.region!.halfWidth, 6)
       expect(Math.hypot(run.x, run.y)).toBeGreaterThanOrEqual(16)
     })
   })
@@ -1151,19 +904,14 @@ describe('use cases placed on a wall', () => {
     ['exit from a side wall', EXIT_FROM_SIDE_WALL],
     ['stress', STRESS_DIAGRAM],
   ])('every seated use case (%s)', (_, diagram) => {
-    it.each(['detailed', 'overview'] as const)('stays in its sector and band, clear of everything (%s)', (mode) => {
+    it.each(['detailed', 'overview'] as const)('stays on its wall, straddling the domain wall, clear of everything (%s)', (mode) => {
       const m = layoutDiagram(diagram, { mode })
-      const app = ringOf(m, 'application')
-      const clearOfInner = shrink(m.shape, m.rings[m.rings.indexOf(app) + 1], -14 + 1e-3)
+      const domain = ringOf(m, 'domain')
       const seatedNodes = m.nodes.filter((u) => u.kind === 'useCase' && u.wall)
       expect(seatedNodes).toHaveLength(diagram.useCases.length)
       for (const node of seatedNodes) {
-        const { n, dir } = wallFrame(node.wall!)
-        for (const c of corners(node)) {
-          expect(Math.abs(dot(c, dir))).toBeLessThanOrEqual(dot(c, n) * tan30 - 8 / COS30 + 1e-6)
-          expect(inside(m, app, c)).toBe(true)
-          expect(inside(m, clearOfInner, c)).toBe(false)
-        }
+        const { n } = wallFrame(node.wall!)
+        expect(dot(node, n)).toBeCloseTo(domain.halfWidth, 6)
         for (const other of [...m.nodes, ...m.rings.map(labelBox)]) {
           if (other !== node) expect(overlap(node, other) ? `${node.key} overlaps ${other.key}` : 'apart').toBe('apart')
         }
@@ -1183,19 +931,8 @@ describe('use cases placed on a wall', () => {
       }
     })
 
-    it('reaches its bus without ever entering the domain', () => {
+    it('leaves room for its question to the domain, which lands square on the wall of the domain model', () => {
       const m = layoutDiagram(diagram)
-      const domain = m.rings.at(-1)!
-      for (const node of m.nodes.filter((u) => u.kind === 'useCase' && u.wall)) {
-        for (const e of m.edges.filter((e) => endpointsOf(e.key).includes(node.key) && !e.key.endsWith('->domain'))) {
-          for (const seg of segments(e.points)) for (const q of sample(seg)) expect(inside(m, domain, q) ? `${e.key} enters the domain` : 'outside').toBe('outside')
-        }
-      }
-    })
-
-    it('leaves room for its question to the domain, which lands square on the domain’s matching wall', () => {
-      const m = layoutDiagram(diagram)
-      const domain = m.rings.at(-1)!
       for (const node of m.nodes.filter((u) => u.kind === 'useCase' && u.wall)) {
         const { n } = wallFrame(node.wall!)
         const points = m.edges.find((e) => e.key === `${node.key}->domain`)!.points
@@ -1203,23 +940,9 @@ describe('use cases placed on a wall', () => {
         expect(Math.hypot(b.x - a.x, b.y - a.y)).toBeGreaterThanOrEqual(RUN_MIN)
         const [p, q] = points.slice(-2)
         expect(Math.abs((q.x - p.x) * n.y - (q.y - p.y) * n.x)).toBeLessThan(1e-6)
-        expect(dot(q, n)).toBeCloseTo(domain.halfWidth, 6)
+        expect(dot(q, n)).toBeCloseTo(m.region!.halfWidth, 6)
       }
     })
-  })
-
-  it.each([
-    ['detailed', BY_COLUMN],
-    ['overview', BY_COLUMN],
-    ['detailed', LONG_COLUMN],
-    ['overview', LONG_COLUMN],
-  ] as const)('keeps side-wall sockets and their names in their own sector once a use case is seated (%s)', (mode, diagram) => {
-    const m = layoutDiagram(diagram, { mode })
-    const socketOf = new Map(m.nodes.filter((n) => n.kind === 'port').map((n) => [n.ref, n]))
-    for (const box of m.nodes.filter((n) => n.kind === 'port' || n.kind === 'portLabel')) {
-      const { n, dir } = wallFrame(socketOf.get(box.ref)!.wall!)
-      for (const c of corners(box)) expect(Math.abs(dot(c, dir))).toBeLessThanOrEqual(dot(c, n) * tan30 - 8 / COS30 + 1e-6)
-    }
   })
 
   it('centres a run of seats on the wall as a group, not on the ports they serve', () => {
@@ -1236,43 +959,6 @@ describe('use cases placed on a wall', () => {
     const top = { ...STRESS_DIAGRAM, useCases: STRESS_DIAGRAM.useCases.map((u) => ({ ...u, placement: 'top' as const })) }
     const none = { ...STRESS_DIAGRAM, useCases: STRESS_DIAGRAM.useCases.map(({ placement: _, ...u }) => u) }
     expect(layoutDiagram(top)).toEqual(layoutDiagram(none))
-  })
-})
-
-describe('sector clearance binds without use cases', () => {
-  // Lower walls only, and no use cases: no title or bus to clash with, so the sector rule is what sizes the ring.
-  const d: Diagram = {
-    version: 1,
-    kind: 'hexagonal',
-    title: '',
-    domain: [],
-    useCases: [],
-    ports: ['se', 'sw'].flatMap((wall, i) => [
-      { id: `p${i}a`, name: `LongPortName${i}A`, side: wall.endsWith('w') ? ('driving' as const) : ('driven' as const), wall: wall as 'ne' },
-      { id: `p${i}b`, name: `LongPortName${i}B`, side: wall.endsWith('w') ? ('driving' as const) : ('driven' as const), wall: wall as 'ne' },
-    ]),
-    adapters: [0, 1].flatMap((i) => [
-      { id: `a${i}a`, name: `AVeryLongAdapterName${i}A`, portId: `p${i}a` },
-      { id: `a${i}b`, name: `AVeryLongAdapterName${i}B`, portId: `p${i}b` },
-    ]),
-    actors: [],
-    externals: [],
-  }
-  const model = layoutDiagram(d)
-  const tan30 = Math.tan(Math.PI / 6)
-  const walled = model.nodes.filter((n) => n.wall)
-
-  it('keeps every wall box at least 8 units clear of the spokes, and some box within 2 units of that limit', () => {
-    let tightest = Infinity
-    for (const box of walled) {
-      const { n, dir } = wallFrame(box.wall!)
-      for (const c of corners(box)) {
-        const clearance = (dot(c, n) * tan30 - Math.abs(dot(c, dir))) * Math.cos(Math.PI / 6)
-        expect(clearance).toBeGreaterThanOrEqual(8 - 1e-6)
-        tightest = Math.min(tightest, clearance)
-      }
-    }
-    expect(tightest).toBeLessThan(10)
   })
 })
 
@@ -1346,13 +1032,10 @@ describe('layoutDiagram placement rules', () => {
     const socket = find(m, 'port', 'p-submit')
     const ys = ['a-http', 'a-cli'].map((id) => find(m, 'adapter', id).y)
     expect(socket.y).toBeCloseTo((ys[0] + ys[1]) / 2, 6)
-    for (const y of ys) {
-      expect(y).toBeGreaterThan(top(socket))
-      expect(y).toBeLessThan(bottom(socket))
-    }
+    expect(ys[0]).not.toBeCloseTo(ys[1], 0)
   })
 
-  it('renders unassigned adapters, actors and externals below the assigned ones in their column', () => {
+  it('puts unassigned adapters, actors and externals on the least crowded wall of their side', () => {
     const d: Diagram = {
       ...EXAMPLE_DIAGRAM,
       adapters: [...EXAMPLE_DIAGRAM.adapters, { id: 'a-loose', name: 'LooseAdapter' }],
@@ -1360,11 +1043,9 @@ describe('layoutDiagram placement rules', () => {
       externals: [...EXAMPLE_DIAGRAM.externals, { id: 'ext-loose', name: 'S3' }],
     }
     const m = layoutDiagram(d)
-    const lowest = (kind: LayoutNode['kind'], ids: string[]) => Math.max(...ids.map((id) => find(m, kind, id).y))
-    expect(find(m, 'adapter', 'a-loose').y).toBeGreaterThan(lowest('adapter', ['a-http']))
-    expect(find(m, 'adapter', 'a-loose').x).toBeLessThan(0)
-    expect(find(m, 'actor', 'act-loose').y).toBeGreaterThan(lowest('actor', ['act-frontend']))
-    expect(find(m, 'external', 'ext-loose').y).toBeGreaterThan(lowest('external', ['ext-pg', 'ext-mailgun', 'ext-legacy']))
+    expect(find(m, 'adapter', 'a-loose').wall).toBe('nw')
+    expect(find(m, 'actor', 'act-loose').wall).toBe('sw')
+    expect(find(m, 'external', 'ext-loose').wall).toBe('ne')
   })
 
   it('treats an actor linked to a driven adapter as unassigned instead of crossing the diagram', () => {

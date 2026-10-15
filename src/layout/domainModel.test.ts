@@ -108,11 +108,11 @@ describe('the domain no longer lists its driven ports', () => {
     for (const t of tags('driving')) expect(t).toEqual(['⇥ driving port'])
   })
 
-  it('marks the driven port names written beside the overview notches', () => {
+  it('marks the driven ports of the overview with a diamond just the same', () => {
     const m = layoutDiagram(STRESS_DIAGRAM, { mode: 'overview' })
-    const label = (side: string) => m.nodes.filter((n) => n.kind === 'portLabel' && n.side === side).map((n) => n.lines.map((l) => l.text).join(''))
-    for (const t of label('driven')) expect(t.startsWith('◇ ')).toBe(true)
-    for (const t of label('driving')) expect(t.startsWith('◇')).toBe(false)
+    const tags = (side: string) => m.nodes.filter((n) => n.kind === 'port' && n.side === side).map((n) => n.lines[0].text)
+    for (const t of tags('driven')) expect(t).toBe('◇ driven port')
+    for (const t of tags('driving')) expect(t).toBe('⇥ driving port')
   })
 })
 
