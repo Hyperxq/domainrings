@@ -200,13 +200,56 @@ describe('map store', () => {
           expect(state().focus).toBe(hexId)
         })
 
-        it('keeps the slots the file persists, and every colour already drawn', () => {
+        const freeSlot = (before: Map<string, number>) => Array.from({ length: THREAD_SLOTS }, (_, slot) => slot).find((slot) => !new Set(before.values()).has(slot))!
+        const persisted = (hexId: string) => diagramOf(state().map, hexId).useCases.map((u) => u.threadSlot)
+
+        it('keeps a persisted slot that is free on the map', () => {
+          const before = drawn()
+          const free = freeSlot(before)
+          const single: HexaMap = { ...file(), hexagons: [{ ...file().hexagons[0], useCases: file().hexagons[0].useCases.slice(0, 1).map((u) => ({ ...u, threadSlot: free })) }] }
+          state().importHexagon(single, { context: 'same' })
+          keepsEveryColour(before)
+          expect(addedColours(before)).toEqual([free])
+        })
+
+        it('makes an imported use case yield a persisted slot an existing use case holds', () => {
           const before = drawn()
           const [taken] = [...before.values()]
           state().importHexagon(file(taken), { context: 'same' })
           keepsEveryColour(before)
-          expect(addedColours(before).every((slot) => slot === taken)).toBe(true)
+          allDistinct()
+          expect(addedColours(before)).not.toContain(taken)
+          expect(addedColours(before)).toHaveLength(file().hexagons.flatMap((h) => h.useCases).length)
         })
+
+        it('persists the slot a yielding use case settles on', () => {
+          const [taken] = [...drawn().values()]
+          const hexId = state().importHexagon({ ...file(taken), hexagons: file(taken).hexagons.slice(0, 1) }, { context: 'same' })
+          const settled = slotsOf(hexId)
+          expect(persisted(hexId)).toEqual(diagramOf(state().map, hexId).useCases.map((u) => settled.get(u.id)))
+        })
+
+        it('makes the later of two imported use cases yield a slot they both persist', () => {
+          const before = drawn()
+          const free = freeSlot(before)
+          const [h1, h2] = file(free).hexagons
+          const hexId = state().importHexagon({ ...file(), hexagons: [{ ...h1, useCases: h1.useCases.slice(0, 1).map((u) => ({ ...u, threadSlot: free })) }, { ...h2, useCases: h2.useCases.slice(0, 1).map((u) => ({ ...u, threadSlot: free })) }] }, { context: 'same' })
+          keepsEveryColour(before)
+          allDistinct()
+          expect(addedColours(before).filter((slot) => slot === free)).toHaveLength(1)
+          expect(state().focus).toBe(hexId)
+        })
+      })
+
+      it('makes a single imported hexagon yield a slot an existing use case holds', () => {
+        const before = drawn()
+        const [taken] = [...before.values()]
+        const base = twoHexMap().hexagons[0]
+        const hexId = state().importHexagon({ ...twoHexMap(), hexagons: [{ ...base, useCases: base.useCases.map((u) => ({ ...u, threadSlot: taken })) }] }, { context: 'same' })
+        keepsEveryColour(before)
+        allDistinct()
+        expect(slotsOf(hexId).size).toBeGreaterThan(0)
+        expect(addedColours(before)).not.toContain(taken)
       })
 
       it('keeps every colour when a hexagon is removed', () => {
