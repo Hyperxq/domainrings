@@ -156,7 +156,9 @@ describe('a use case that names its aggregates', () => {
 
   it('draws every use case arrow in the overview too, into the domain where it has no card to reach', () => {
     const o = layoutDiagram(diagram, { mode: 'overview' })
-    expect(o.edges.filter((e) => e.key.endsWith('->domain') || e.key.includes('->aggregate:')).length).toBeGreaterThanOrEqual(diagram.useCases.length)
+    for (const u of diagram.useCases) {
+      expect(o.edges.some((e) => e.key.startsWith(`useCase:${u.id}->`) && (e.key.endsWith('->domain') || e.key.includes('->aggregate:'))), u.id).toBe(true)
+    }
   })
 })
 

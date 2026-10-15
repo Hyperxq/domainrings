@@ -1036,7 +1036,7 @@ describe('layoutDiagram growth (stress example)', () => {
 })
 
 describe('layoutDiagram placement rules', () => {
-  it('stacks a multi-adapter port band so the socket spans its adapters', () => {
+  it('seats the adapters of one port on its wall, side by side within an adapter width of it', () => {
     const d: Diagram = {
       ...EXAMPLE_DIAGRAM,
       adapters: [...EXAMPLE_DIAGRAM.adapters, { id: 'a-cli', name: 'feedback.cli', portId: 'p-submit' }],
@@ -1044,9 +1044,13 @@ describe('layoutDiagram placement rules', () => {
     const m = layoutDiagram(d)
     const socket = find(m, 'port', 'p-submit')
     const { dir } = wallFrame(socket.wall!)
-    const us = ['a-http', 'a-cli'].map((id) => dot(find(m, 'adapter', id), dir))
-    expect(dot(socket, dir)).toBeCloseTo((us[0] + us[1]) / 2, 6)
-    expect(us[0]).not.toBeCloseTo(us[1], 0)
+    const adapters = ['a-http', 'a-cli'].map((id) => find(m, 'adapter', id))
+    for (const a of adapters) {
+      expect(a.wall).toBe(socket.wall)
+      expect(Math.abs(dot(a, dir) - dot(socket, dir))).toBeLessThanOrEqual(a.width)
+    }
+    expect(dot(adapters[0], dir)).not.toBeCloseTo(dot(adapters[1], dir), 0)
+    expect(dot(socket, dir)).toBeCloseTo((dot(adapters[0], dir) + dot(adapters[1], dir)) / 2, 6)
   })
 
   it('puts unassigned adapters, actors and externals on the least crowded wall of their side', () => {
@@ -1067,6 +1071,19 @@ describe('layoutDiagram placement rules', () => {
     const m = layoutDiagram(d)
     expect(find(m, 'actor', 'act-x').x).toBeLessThan(0)
     expect(m.edges.some((e) => e.key === 'actor:act-x->adapter:a-knex')).toBe(false)
+  })
+
+  it('keeps a domain service inside the domain, clear of the other items, as the one layer the domain has', () => {
+    const d: Diagram = {
+      ...EXAMPLE_DIAGRAM,
+      domain: [{ id: 'd-policy', name: 'RatingPolicy', type: 'domainService' }, ...EXAMPLE_DIAGRAM.domain],
+    }
+    const m = layoutDiagram(d)
+    const service = find(m, 'domainItem', 'd-policy')
+    expect(service.layer).toBe('domain')
+    expect(m.rings.some((r) => r.role === 'domainServices')).toBe(false)
+    expect(corners(service).every((p) => inside(m, m.rings.at(-1)!, p))).toBe(true)
+    for (const other of m.nodes.filter((n) => n.kind === 'domainItem' && n !== service)) expect(overlap(service, other)).toBe(false)
   })
 
   it('places childless domain services after the entity tree', () => {
