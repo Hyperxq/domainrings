@@ -1,4 +1,6 @@
+import { diagramOf } from '../model/map'
 import type { HexaMap, Link } from '../model/schema'
+import { threadSlots } from '../model/threads'
 import { hexagonBounds } from './lattice'
 import { chipBox } from './contextChips'
 import { MAP_GAP } from './gap'
@@ -91,6 +93,13 @@ function laneOffsets(links: Link[]): Map<string, number> {
   return offsets
 }
 
+/** The thread slot of the use case owning the link's source port, if it has one. */
+function sourceSlot(map: HexaMap, link: Link): number | undefined {
+  const d = diagramOf(map, link.from.hexagonId)
+  const useCaseId = d.ports.find((p) => p.id === link.from.portId)?.useCaseId
+  return useCaseId === undefined ? undefined : threadSlots(d).get(useCaseId)
+}
+
 /** Every link routed between its two ends, past the hexagons and chips it must avoid; `bounds` grows to hold any detour. */
 export function layLinks(map: HexaMap, hexagons: MapHexagonLayout[], boxes: Box[], contexts: MapContextLayout[], bounds: Box): { links: MapLinkLayout[]; bounds: Box } {
   const hexagonOf = new Map(hexagons.map((h) => [h.id, h]))
@@ -112,7 +121,8 @@ export function layLinks(map: HexaMap, hexagons: MapHexagonLayout[], boxes: Box[
     // Pattern eligibility mirrors checkMap's own rule (LinkSchema refine): only a link crossing contexts may
     // carry a pattern — no hull dependency, just the two hexagons' own contextId.
     const pattern = fromHexagon.contextId !== toHexagon.contextId ? link.pattern : undefined
-    return { id: link.id, points, ...(pattern ? { pattern, label } : {}), ...(link.status ? { planned: true } : {}) }
+    const slot = sourceSlot(map, link)
+    return { id: link.id, points, ...(pattern ? { pattern, label } : {}), ...(slot === undefined ? {} : { slot }), ...(link.status ? { planned: true } : {}) }
   })
   if (detours.length) bounds = unionBox([bounds, ...detours.map((p): Box => ({ x: p.x, y: p.y, width: 0, height: 0 }))])
   return { links, bounds }

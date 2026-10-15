@@ -478,3 +478,63 @@ describe('MapDiagram — planned items', () => {
     expect(container.querySelectorAll('.planned')).toHaveLength(0)
   })
 })
+
+describe('MapDiagram — link thread colour', () => {
+  const linkMap = (): HexaMap => {
+    const map = toMap(EXAMPLE_DIAGRAM)
+    const [h] = map.hexagons
+    const useCases = h.useCases.map((u, i) => ({ ...u, threadSlot: 2 + i }))
+    const ports = [...h.ports, { id: 'p-free', name: 'Free', side: 'driven' as const, wall: 'e' as const }]
+    return {
+      ...map,
+      contexts: [{ id: 'c1' }, { id: 'c2' }],
+      hexagons: [{ ...h, useCases, ports }, { ...h, id: 'h2', contextId: 'c2', cell: { q: 1, r: 0 }, title: 'Second' }],
+      links: [
+        { id: 'from-uc', from: { hexagonId: 'h1', portId: 'p-repo' }, to: { hexagonId: 'h2', portId: 'p-submit' } },
+        { id: 'from-free', from: { hexagonId: 'h1', portId: 'p-free' }, to: { hexagonId: 'h2', portId: 'p-notify' } },
+      ],
+    }
+  }
+  const link = (container: HTMLElement, i: number) => container.querySelectorAll<SVGPathElement>('path[data-map-link]')[i]
+
+  it('wears the thread colour of the use case owning the source port', () => {
+    const { container } = renderSvg(linkMap())
+    expect(link(container, 0).getAttribute('data-thread')).toBe('')
+    expect(link(container, 0).getAttribute('style')).toContain('var(--thread-2)')
+    expect(link(container, 0).getAttribute('marker-end')).toBe('url(#arrow-thread-2)')
+    expect(container.querySelector('marker#arrow-thread-2')).not.toBeNull()
+  })
+
+  it('stays neutral when the source port has no use case', () => {
+    const { container } = renderSvg(linkMap())
+    expect(link(container, 1).hasAttribute('data-thread')).toBe(false)
+    expect(link(container, 1).getAttribute('style')).toBeNull()
+    expect(link(container, 1).getAttribute('marker-end')).toBe('url(#arrow)')
+  })
+
+  it('tells links from different source use cases apart', () => {
+    const map = linkMap()
+    const [h1] = map.hexagons
+    const other = h1.useCases.find((u) => u.id !== 'uc-submit') ?? { id: 'uc-other', name: 'Other', threadSlot: 7 }
+    const withOther: HexaMap = {
+      ...map,
+      hexagons: [{ ...h1, useCases: h1.useCases.some((u) => u.id === other.id) ? h1.useCases : [...h1.useCases, { ...other, threadSlot: 7 }], ports: h1.ports.map((p) => (p.id === 'p-free' ? { ...p, useCaseId: other.id } : p)) }, map.hexagons[1]],
+    }
+    const { container } = renderSvg(withOther)
+    expect(link(container, 0).getAttribute('style')).not.toBe(link(container, 1).getAttribute('style'))
+    expect(link(container, 1).getAttribute('style')).toContain('var(--thread-')
+  })
+
+  it('keeps the planned class and the chain attribute on a coloured link', () => {
+    const map = linkMap()
+    const planned: HexaMap = { ...map, links: map.links.map((l) => ({ ...l, status: 'planned' as const })) }
+    const { container } = renderSvg(planned, { selected: 'p-repo' })
+    expect(link(container, 0).classList.contains('planned')).toBe(true)
+    expect(link(container, 0).hasAttribute('data-thread')).toBe(true)
+  })
+
+  it('has a stylesheet rule for a thread-coloured link', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf-8')
+    expect(css).toMatch(/\.map-link\[data-thread\]\s*\{[^}]*stroke:\s*var\(--thread\)/)
+  })
+})

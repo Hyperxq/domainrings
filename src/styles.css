@@ -294,7 +294,8 @@ svg[data-emphasis='dependents'] .compact-port[data-chain] circle { stroke-dashar
    paint, never `display`, so it still carries the wiring. */
 .canvas [data-hex]:not(:has(.node-composition:is(:hover, :focus-visible, [data-selected]))) .edge-wiring { display: none; }
 /* A use case's own connections wear its thread colour (--thread-<slot>, per theme in the palette). Text never does. */
-.edge-import[data-thread] { stroke: var(--thread); }
+.edge-import[data-thread],
+.map-link[data-thread] { stroke: var(--thread); }
 /* A dot is a surface-ringed disc: the ring is the stroke painted under the fill, so it reads on any box fill. */
 .legend-thread-dot { fill: var(--thread); }
 .thread-dot { fill: var(--thread); stroke: var(--card); stroke-width: 4; paint-order: stroke; }
