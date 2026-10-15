@@ -43,13 +43,7 @@ export function layoutBounds(d: Diagram, outer: Outline, nodes: LayoutNode[], ed
     grow(x, x + blockW, texts[0].y - heading[0].m.size / 2, ty)
   }
 
-  return {
-    texts,
-    bounds: {
-      x: extent.left - MARGIN,
-      y: extent.top - MARGIN,
-      width: extent.right - extent.left + 2 * MARGIN,
-      height: extent.bottom - extent.top + 2 * MARGIN,
-    },
-  }
+  // Whole units, rounded outward: the map packs hexagons by their bounds, and whole numbers add up exactly.
+  const [x, y] = [Math.floor(extent.left - MARGIN), Math.floor(extent.top - MARGIN)]
+  return { texts, bounds: { x, y, width: Math.ceil(extent.right + MARGIN) - x, height: Math.ceil(extent.bottom + MARGIN) - y } }
 }
