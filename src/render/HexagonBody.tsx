@@ -5,6 +5,7 @@ import { EDGE_LABEL, LINE_METRICS, SUBTITLE, TAG_GAP, TITLE } from '../layout/te
 import { bandPath } from './band'
 import { NOTE_INSET, NOTE_POPOVER_ID, NoteMarker } from './NoteMarker'
 import { Ring } from './Ring'
+import { roundedPath } from './roundedPath'
 import { ThreadDots, threadStyle } from './ThreadDots'
 
 const BOX_PAD_X = 12
@@ -43,13 +44,17 @@ function Edge({ edge, chained }: { edge: LayoutEdge; chained: boolean }) {
   const marker = edge.kind === 'import' ? `url(#arrow${edge.thread ? `-thread-${edge.thread.slot}` : ''})` : undefined
   const chain = chained ? '' : undefined
   const thread = edge.thread ? { 'data-thread': edge.thread.id, style: threadStyle(edge.thread.slot) } : {}
+  // An edge that runs wholly on the domain fill keeps its thread colour; one with no thread takes the domain's own ink.
+  if (edge.intoDomain === 0) {
+    return <path className={`edge edge-${edge.kind}${edge.thread ? '' : ' on-domain'}`} data-chain={chain} {...thread} d={roundedPath(edge.points)} markerEnd={edge.thread ? marker : 'url(#arrow-on-domain)'} />
+  }
   if (edge.intoDomain === undefined) {
-    return <path className={`edge edge-${edge.kind}`} data-chain={chain} {...thread} d={orthogonalPath(edge.points)} markerEnd={marker} />
+    return <path className={`edge edge-${edge.kind}`} data-chain={chain} {...thread} d={roundedPath(edge.points)} markerEnd={marker} />
   }
   return (
     <>
-      <path className={`edge edge-${edge.kind}`} data-chain={chain} {...thread} d={orthogonalPath(edge.points.slice(0, edge.intoDomain + 1))} />
-      <path className={`edge edge-${edge.kind} on-domain`} data-chain={chain} d={orthogonalPath(edge.points.slice(edge.intoDomain))} markerEnd="url(#arrow-on-domain)" />
+      <path className={`edge edge-${edge.kind}`} data-chain={chain} {...thread} d={roundedPath(edge.points.slice(0, edge.intoDomain + 1))} />
+      <path className={`edge edge-${edge.kind} on-domain`} data-chain={chain} d={roundedPath(edge.points.slice(edge.intoDomain))} markerEnd="url(#arrow-on-domain)" />
     </>
   )
 }
