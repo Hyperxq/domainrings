@@ -121,6 +121,7 @@ export function useViewportInteractions({
   wholeFitScale,
   fitKey,
   size,
+  snapKey = '',
   onPanStart,
 }: {
   mainRef: RefObject<HTMLElement | null>
@@ -129,6 +130,8 @@ export function useViewportInteractions({
   fitKey: string
   /** The stage's size: a change snaps the view to its fit instead of easing, and a manual view keeps its centre. */
   size?: Size
+  /** A change snaps the view to its fit like a resize does: a different document is not a fit to watch. */
+  snapKey?: string
   /** Fires the instant a press becomes a real pan or pinch (not a plain click) — Stage clears its hovered layer here. */
   onPanStart?: () => void
 }): ViewportInteractions {
@@ -164,7 +167,7 @@ export function useViewportInteractions({
   }
 
   // Only an 'auto' view eases: a manual one is the author's own pan/zoom and must track the pointer exactly.
-  const { viewport, heading } = useEasedViewport(view === 'auto' ? autoFit : view, view === 'auto', size && `${size.width}x${size.height}`)
+  const { viewport, heading } = useEasedViewport(view === 'auto' ? autoFit : view, view === 'auto', `${size?.width}x${size?.height}:${snapKey}`)
   // The floor a manual zoom (wheel or button) can reach: never above MIN_SCALE, but never above what fitting the
   // whole diagram itself needs either, so a view already fitted to it never snaps back in.
   const zoomFloor = Math.min(MIN_SCALE, wholeFitScale)
