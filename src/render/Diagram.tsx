@@ -9,7 +9,7 @@ import { EDGE_LABEL, TITLE } from '../layout/text'
 import { CompactBody, HexagonBody, HexCue, orthogonalPath } from './HexagonBody'
 import { SvgLegend } from './SvgLegend'
 
-function Defs({ rings }: { rings: LayoutRing[] }) {
+function Defs({ rings, slots }: { rings: LayoutRing[]; slots: number[] }) {
   return (
     <defs>
       <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -18,6 +18,11 @@ function Defs({ rings }: { rings: LayoutRing[] }) {
       <marker id="arrow-on-domain" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
         <path className="arrow-head on-domain" d="M0 0L10 5L0 10z" />
       </marker>
+      {slots.map((slot) => (
+        <marker key={slot} id={`arrow-thread-${slot}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path className="arrow-head" style={{ fill: `var(--thread-${slot})` }} d="M0 0L10 5L0 10z" />
+        </marker>
+      ))}
       {rings.map((ring) => (
         // The glow colour follows each ring's stroke; flood-color comes from CSS per role.
         <filter key={ring.role} id={`glow-${ring.role}`} x="-10%" y="-10%" width="120%" height="120%">
@@ -29,6 +34,9 @@ function Defs({ rings }: { rings: LayoutRing[] }) {
 }
 
 const NO_TARGETS = new Set<string>()
+
+/** The thread slots some edge is drawn in, each of which needs an arrowhead of its colour. */
+const threadSlotsDrawn = (map: MapLayout) => [...new Set(map.hexagons.flatMap((h) => h.model.edges.flatMap((e) => (e.thread ? [e.thread.slot] : []))))].sort((a, b) => a - b)
 
 /** One `M...Z` subpath per loop — several loops in one `<path>` drawn `fill-rule="evenodd"` is exactly how a
  * split context or a hole around a foreign hexagon is meant to paint (ADR-04). */
@@ -91,7 +99,7 @@ export const MapDiagram = memo(function MapDiagram({ map, legend, showGuides, fo
   const current = currentHexagon(map, focus)
   return (
     <>
-      <Defs rings={first.model.rings} />
+      <Defs rings={first.model.rings} slots={threadSlotsDrawn(map)} />
       <Hulls contexts={map.contexts} outline={map.outline} />
       {map.hexagons.map((hex) => {
         const isCurrent = hex.id === focus

@@ -4,6 +4,8 @@ import { parseHexa, toHexa, toMap } from './hexa'
 import { diagramOf, freeCell, freeSides, neighbour, SIDE_ORDER, UNTITLED_HEXAGON } from './map'
 import { MapSchema, type HexaMap, type Link, type LinkEnd } from './schema'
 import { EXAMPLE_DIAGRAM } from './example'
+import { threadSlots } from './threads'
+import { distinctSlots, slotScore, THREAD_SLOTS } from './threadPalette'
 import { linkedTwoHexMap, twoHexagonMap, twoHexMap } from '../test/fixtures'
 
 const state = () => useMapStore.getState()
@@ -55,6 +57,71 @@ describe('map store', () => {
   it('removing a domain parent unlinks its children', () => {
     state().removeItem(state().focus, 'domain', 'd-feedback')
     expect(currentDiagram().domain.every((i) => i.parentId === undefined)).toBe(true)
+  })
+
+  describe('use case colours', () => {
+    it('persists the new use case slot, distinct from the use cases it conflicts with', () => {
+      const id = state().addItem(state().focus, 'useCases')
+      const added = currentDiagram().useCases.find((u) => u.id === id)!
+      expect(Number.isInteger(added.threadSlot)).toBe(true)
+      expect(added.threadSlot).toBe(threadSlots(currentDiagram()).get(id))
+    })
+
+    it('leaves the use cases already drawn as the file has them', () => {
+      state().addItem(state().focus, 'useCases')
+      expect(currentDiagram().useCases.filter((u) => u.threadSlot === undefined).map((u) => u.id)).toEqual(EXAMPLE_DIAGRAM.useCases.map((u) => u.id))
+    })
+
+    it('resolves the new slot around the slots the file leaves unwritten', () => {
+      const before = threadSlots(currentDiagram())
+      const id = state().addItem(state().focus, 'useCases')
+      for (const [other, slot] of before) expect(threadSlots(currentDiagram()).get(other)).toBe(slot)
+      expect(threadSlots(currentDiagram()).has(id)).toBe(true)
+    })
+
+    it('keeps the others\' colours when a use case is removed, in the same step', () => {
+      const [first] = EXAMPLE_DIAGRAM.useCases
+      state().replace(toMap({ ...EXAMPLE_DIAGRAM, useCases: [first, { id: 'uc-b', name: 'B' }, { id: 'uc-c', name: 'C' }] }))
+      const before = state().map
+      const slots = threadSlots(currentDiagram())
+      state().removeItem(state().focus, 'useCases', first.id)
+      expect(currentDiagram().useCases.map((u) => [u.id, u.threadSlot])).toEqual([['uc-b', slots.get('uc-b')], ['uc-c', slots.get('uc-c')]])
+      expect(slots.get('uc-b')).not.toBe(0)
+      state().restore({ map: before, focus: state().focus })
+      expect(state().map).toBe(before)
+      expect(diagramOf(before, state().focus).useCases.every((u) => u.threadSlot === undefined)).toBe(true)
+    })
+
+    it('writes nothing to the others when the last use case is removed', () => {
+      state().addItem(state().focus, 'useCases')
+      const added = currentDiagram().useCases.at(-1)!.id
+      state().removeItem(state().focus, 'useCases', added)
+      expect(currentDiagram().useCases.every((u) => u.threadSlot === undefined)).toBe(true)
+    })
+
+    it('gives use cases wired onto one wall distinct slots', () => {
+      const ids = [EXAMPLE_DIAGRAM.useCases[0].id, state().addItem(state().focus, 'useCases'), state().addItem(state().focus, 'useCases')]
+      for (const useCaseId of ids) state().addItem(state().focus, 'ports', { side: 'driving', wall: 'w', useCaseId })
+      const slots = ids.map((id) => threadSlots(currentDiagram()).get(id)!)
+      expect(currentDiagram().useCases.find((u) => u.id === ids[2])!.threadSlot).toBe(slots[2])
+      for (let i = 0; i < slots.length; i++) for (let j = i + 1; j < slots.length; j++) expect(distinctSlots(slots[i], slots[j])).toBe(true)
+    })
+
+    it('gives the fifth use case the slot that clears the first four best', () => {
+      for (let i = 0; i < 4; i++) state().addItem(state().focus, 'useCases')
+      const slots = currentDiagram().useCases.map((u) => u.threadSlot ?? threadSlots(currentDiagram()).get(u.id)!)
+      expect(slots).toHaveLength(5)
+      const [first, fifth] = [slots.slice(0, 4), slots[4]]
+      const clearance = (slot: number) => Math.min(...first.map((t) => slotScore(slot, t)))
+      const best = Math.max(...Array.from({ length: THREAD_SLOTS }, (_, slot) => clearance(slot)))
+      expect(clearance(fifth)).toBe(best)
+      expect(first).not.toContain(fifth)
+    })
+
+    it('keeps a slot given in the patch', () => {
+      const id = state().addItem(state().focus, 'useCases', { threadSlot: 33 })
+      expect(currentDiagram().useCases.find((u) => u.id === id)!.threadSlot).toBe(33)
+    })
   })
 
   describe('use case aggregates', () => {

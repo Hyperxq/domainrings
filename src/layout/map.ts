@@ -1,5 +1,6 @@
 import { contextName, diagramOf, neighbour, occupiedContexts, UNTITLED_HEXAGON } from '../model/map'
 import type { HexaMap, Link, Wall } from '../model/schema'
+import { threadsOf } from '../model/threads'
 import { canCompact, compactOf, type CompactLayout } from './compactHexagon'
 import { layContexts } from './contextChips'
 import { unionBox, type Box, type Point } from './geometry'
@@ -121,7 +122,7 @@ export function layoutMap(map: HexaMap, options: MapLayoutOptions = {}): MapLayo
   const chipped = occupiedContexts(map).length >= 2
   const perHexagon = map.hexagons.map((hexagon) => ({
     hexagon,
-    model: layoutDiagram(diagramOf(map, hexagon.id), options),
+    model: layoutDiagram(diagramOf(map, hexagon.id), { ...options, threads: threadsOf(map, hexagon.id) }),
     compact: compacting && !full(hexagon.id),
     ...(chipped ? { chipLabel: contextName(map, hexagon.contextId) } : {}),
   }))

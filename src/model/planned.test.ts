@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { MapSchema, VERSION, type HexaMap, type Hexagon } from './schema'
+import { threadSlots } from './threads'
 import { hasPlanned, plannedOf, withoutPlanned } from './planned'
 
 const planned = { status: 'planned' } as const
@@ -32,6 +33,15 @@ describe('plannedOf', () => {
 
   it('is empty for a diagram with nothing planned', () => {
     expect(plannedOf({ domain: [{ id: 'd1', name: 'D', type: 'entity' }] }).size).toBe(0)
+  })
+})
+
+describe('withoutPlanned and thread colours', () => {
+  it('keeps the colour of a use case when a planned one before it is set aside', () => {
+    const map: HexaMap = { version: VERSION, kind: 'hexagonal', title: 't', contexts: [{ id: 'c1' }], links: [], hexagons: [hexagon('h1', { q: 0, r: 0 }, { useCases: [{ id: 'a', name: 'A', ...planned }, { id: 'b', name: 'B' }, { id: 'c', name: 'C' }] })] }
+    const shown = withoutPlanned(map, 'h1').hexagons[0]
+    expect(threadSlots(shown).get('b')).toBe(threadSlots(map.hexagons[0]).get('b'))
+    expect(threadSlots(shown).get('c')).toBe(threadSlots(map.hexagons[0]).get('c'))
   })
 })
 

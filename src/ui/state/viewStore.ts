@@ -30,6 +30,8 @@ interface ViewData {
   toolbarBottom: number | null
   /** The use case whose flow the View mode panel isolates on the canvas; null shows every flow. */
   focusedFlow: string | null
+  /** The use case whose flow a hover previews on the canvas, through the same emphasis as a focused flow; null when none. */
+  hoveredFlow: string | null
   /** The step of the focused flow being walked through; null while not presenting. */
   presentStep: number | null
 }
@@ -45,6 +47,7 @@ interface ViewStore extends ViewData {
   requestFit: () => void
   /** Focusing another flow, or none, also ends a walkthrough. */
   focusFlow: (useCaseId: string | null) => void
+  hoverFlow: (useCaseId: string | null) => void
   present: (step: number | null) => void
   /** Enters link mode on `ref`, or leaves it with `null`. */
   startLinking: (ref: string | null) => void
@@ -70,6 +73,7 @@ const initialView = (): ViewData => ({
   fitRequest: 0,
   toolbarBottom: null,
   focusedFlow: null,
+  hoveredFlow: null,
   presentStep: null,
 })
 
@@ -97,6 +101,7 @@ export const useViewStore = create<ViewStore>()((set, get) => ({
   expandAll: (ids) => set({ expanded: new Set(ids) }),
   requestFit: () => set(({ fitRequest }) => ({ fitRequest: fitRequest + 1 })),
   focusFlow: (focusedFlow) => set({ focusedFlow, presentStep: null }),
+  hoverFlow: (hoveredFlow) => set({ hoveredFlow }),
   present: (presentStep) => set({ presentStep }),
   startLinking: (ref) => {
     if (ref) useNoticeStore.getState().clearStatus()
@@ -120,7 +125,7 @@ export const useViewStore = create<ViewStore>()((set, get) => ({
 // link mode also ends once the element being linked is gone.
 useMapStore.subscribe(({ map, focus, revision }, prev) => {
   const { linking, focusedFlow } = useViewStore.getState()
-  if (revision !== prev.revision) useViewStore.setState({ expanded: new Set(), linking: null, focusedFlow: null, presentStep: null, openNodes: new Set(branchOf(map, focus)) })
+  if (revision !== prev.revision) useViewStore.setState({ expanded: new Set(), linking: null, focusedFlow: null, hoveredFlow: null, presentStep: null, openNodes: new Set(branchOf(map, focus)) })
   else {
     if (linking && !collectionOf(diagramOf(map, focus), linking)) useViewStore.setState({ linking: null })
     if (focusedFlow && (focus !== prev.focus || !diagramOf(map, focus).useCases.some((u) => u.id === focusedFlow))) useViewStore.setState({ focusedFlow: null, presentStep: null })

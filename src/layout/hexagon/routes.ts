@@ -85,7 +85,7 @@ export function routeEdges({ d, overview, nodes, composition, plan, app, insideA
     const key = `${fromKey}->${toKey}`
     const run = runs.get(key)
     const joined = slantedWall(a) || slantedWall(b) ? alongNormal(a, b) : horizontal(a, b)
-    const edge: LayoutEdge = { key, kind: 'import', points: run ? (a.kind === 'port' ? run : [...run].reverse()) : joined }
+    const edge: LayoutEdge = { key, kind: 'import', from: a.ref, to: b.ref, points: run ? (a.kind === 'port' ? run : [...run].reverse()) : joined }
     if (!label || !run) return edge
     const port = linked.find((l) => l.key === key)!.port
     edge.label = label
@@ -151,7 +151,7 @@ export function routeEdges({ d, overview, nodes, composition, plan, app, insideA
       for (const id of named) {
         const lanes = arrivals.get(id)!
         const offset = (lanes.indexOf(node.ref) - (lanes.length - 1) / 2) * LANE
-        edges.push({ key: `${node.key}->aggregate:${id}`, kind: 'import', points: toCard(node, byKey.get(`aggregate:${id}`)!, offset), intoDomain: 1 })
+        edges.push({ key: `${node.key}->aggregate:${id}`, kind: 'import', from: node.ref, to: id, points: toCard(node, byKey.get(`aggregate:${id}`)!, offset), intoDomain: 1 })
       }
       continue
     }
@@ -166,7 +166,7 @@ export function routeEdges({ d, overview, nodes, composition, plan, app, insideA
       lo <= hi
         ? [enterBox(node, target, n), target]
         : [enterBox(node, at(insideApp.halfWidth, uu), n), at(insideApp.halfWidth + LANE, uu), at(insideApp.halfWidth + LANE, Math.sign(uu) * half), target]
-    edges.push({ key: `${node.key}->domain`, kind: 'import', points })
+    edges.push({ key: `${node.key}->domain`, kind: 'import', from: node.ref, points })
   }
 
   if (composition) {

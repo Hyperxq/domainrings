@@ -1,0 +1,138 @@
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { App } from './App'
+import { EXAMPLES } from './model/example'
+import type { HexaMap } from './model/schema'
+import { useMapStore } from './model/store'
+import { usePreferencesStore } from './ui/state/preferencesStore'
+import { useViewStore } from './ui/state/viewStore'
+import { installDialogPolyfill } from './test/fixtures'
+
+beforeAll(() => {
+  globalThis.ResizeObserver ??= class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver
+  window.matchMedia = ((media: string) => ({ matches: true, media, addEventListener() {}, removeEventListener() {} })) as unknown as typeof matchMedia
+  Element.prototype.scrollIntoView = vi.fn()
+  installDialogPolyfill()
+})
+beforeEach(() => {
+  useMapStore.getState().replace(EXAMPLES.find((e) => e.id === 'hexagonal-advanced')!.map as HexaMap)
+  useViewStore.setState({ editorOpen: true, focusedFlow: null, hoveredFlow: null, presentStep: null })
+  usePreferencesStore.setState({ viewOnly: true, highlight: true, legendOpen: true })
+})
+afterEach(cleanup)
+
+/** The stress example with every use case working on one aggregate, so that card is touched by three threads. */
+const sharedAggregate = () => {
+  const map = EXAMPLES.find((e) => e.id === 'hexagonal-stress')!.map as HexaMap
+  const [hexagon] = map.hexagons
+  const aggregate = hexagon.domain.find((i) => i.type === 'aggregate')!
+  return { aggregate: aggregate.id, map: { ...map, hexagons: [{ ...hexagon, useCases: hexagon.useCases.map((u) => ({ ...u, aggregateIds: [aggregate.id] })) }, ...map.hexagons.slice(1)] } }
+}
+const canvas = (container: HTMLElement) => container.querySelector('svg.canvas')!
+const chained = (container: HTMLElement) => [...new Set([...container.querySelectorAll('[data-hex] .node[data-chain]')].map((n) => n.getAttribute('data-ref')))]
+const edgeOf = (container: HTMLElement, useCaseId: string) => container.querySelector(`path.edge[data-thread="${useCaseId}"]`)!
+
+describe('hovering a thread in View mode', () => {
+  it('previews the flow of an edge that belongs to one thread, and ends with the pointer', () => {
+    const { container } = render(<App />)
+    expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
+    fireEvent.pointerOver(edgeOf(container, 'uc-place'))
+    expect(canvas(container).hasAttribute('data-emphasis')).toBe(true)
+    expect(chained(container)).toContain('uc-place')
+    fireEvent.pointerLeave(canvas(container))
+    expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
+  })
+
+  it('previews the flow of a box that serves one thread', () => {
+    const { container } = render(<App />)
+    fireEvent.pointerOver(container.querySelector('[data-hex="h1"] .node-useCase[data-ref="uc-place"]')!)
+    expect(useViewStore.getState().hoveredFlow).toBe('uc-place')
+    expect(chained(container)).toContain('uc-place')
+  })
+
+  it('previews nothing for a box several threads touch', () => {
+    const { aggregate, map } = sharedAggregate()
+    useMapStore.getState().replace(map)
+    const { container } = render(<App />)
+    const card = container.querySelector(`[data-hex] .node[data-ref="${aggregate}"][data-threads]`)!
+    expect(card.getAttribute('data-threads')!.split(' ')).toHaveLength(map.hexagons[0].useCases.length)
+    fireEvent.pointerOver(card)
+    expect(useViewStore.getState().hoveredFlow).toBeNull()
+    expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
+  })
+
+  it('previews the one thread of a dot', () => {
+    const { aggregate, map } = sharedAggregate()
+    useMapStore.getState().replace(map)
+    const { container } = render(<App />)
+    const dot = container.querySelector(`.node[data-ref="${aggregate}"] circle.thread-dot[data-thread="uc-cancel"]`)!
+    fireEvent.pointerOver(dot)
+    expect(useViewStore.getState().hoveredFlow).toBe('uc-cancel')
+  })
+
+  it('does nothing when highlighting is off', () => {
+    usePreferencesStore.setState({ highlight: false })
+    const { container } = render(<App />)
+    fireEvent.pointerOver(edgeOf(container, 'uc-place'))
+    expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
+  })
+
+  it('does nothing in Edit mode', () => {
+    usePreferencesStore.setState({ viewOnly: false })
+    const { container } = render(<App />)
+    fireEvent.pointerOver(edgeOf(container, 'uc-place'))
+    expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
+  })
+
+  it('yields to a focused flow', () => {
+    useMapStore.getState().replace(EXAMPLES.find((e) => e.id === 'hexagonal-stress')!.map as HexaMap)
+    const { container } = render(<App />)
+    act(() => useViewStore.getState().focusFlow('uc-cancel'))
+    const before = chained(container)
+    fireEvent.pointerOver(edgeOf(container, 'uc-place'))
+    expect(chained(container)).toEqual(before)
+    expect(chained(container)).not.toContain('uc-place')
+  })
+
+  it('ends when the hovered flow is deleted', () => {
+    const { container } = render(<App />)
+    act(() => useViewStore.getState().hoverFlow('gone'))
+    expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
+  })
+})
+
+describe('the Threads legend', () => {
+  const rows = () => within(screen.getByRole('region', { name: 'Threads' })).getAllByRole('button')
+
+  it('lists every use case of the hexagon with a dot in its colour', () => {
+    render(<App />)
+    const names = useMapStore.getState().map.hexagons[0].useCases.map((u) => u.name)
+    expect(rows().map((r) => r.textContent)).toEqual(names)
+    expect(rows()[0].querySelector('.thread-swatch')?.getAttribute('style')).toMatch(/--thread: var\(--thread-\d+\)/)
+  })
+
+  it('previews a flow while a row is hovered', () => {
+    const { container } = render(<App />)
+    fireEvent.pointerEnter(rows()[0])
+    expect(canvas(container).hasAttribute('data-emphasis')).toBe(true)
+    fireEvent.pointerLeave(rows()[0])
+    expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
+  })
+
+  it('focuses the flow on click', () => {
+    render(<App />)
+    const first = useMapStore.getState().map.hexagons[0].useCases[0].id
+    fireEvent.click(rows()[0])
+    expect(useViewStore.getState().focusedFlow).toBe(first)
+  })
+
+  it('is absent when the hexagon has no use case', () => {
+    useMapStore.getState().replace({ ...(EXAMPLES[0].map as HexaMap), hexagons: (EXAMPLES[0].map as HexaMap).hexagons.map((h) => ({ ...h, useCases: [], ports: [], adapters: [], actors: [], externals: [] })) })
+    render(<App />)
+    expect(screen.queryByRole('region', { name: 'Threads' })).toBeNull()
+  })
+})

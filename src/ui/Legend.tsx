@@ -1,6 +1,7 @@
 import { legendSections, type LegendModel } from '../layout/legend'
 import { Icon } from './Icon'
 import { usePreferencesStore } from './state/preferencesStore'
+import { ThreadLegend } from './ThreadLegend'
 
 /** A help panel in the corner: the header row opens and closes it, and Esc inside it closes it. */
 export function Legend({ legend }: { legend: LegendModel }) {
@@ -68,6 +69,7 @@ export function Legend({ legend }: { legend: LegendModel }) {
               )}
             </div>
           ))}
+          <ThreadLegend />
           <footer className="legend-footer">
             <label className="legend-export">
               <input type="checkbox" checked={includeInExport} onChange={(e) => usePreferencesStore.setState({ legendInExport: e.currentTarget.checked })} />
