@@ -48,6 +48,7 @@ export function useShareLink(actions: ShareLinkActions) {
       // Swapping the map and moving focus each clear the focused flow, so it is set last.
       useMapStore.getState().setFocus(owner.id)
       useViewStore.getState().focusFlow(flow)
+      useViewStore.setState({ framedFlow: options.get('frame') === 'flow' ? flow : null })
     }
     const resolveLink = async (isLatest: () => boolean) => {
       if (location.hash.startsWith(SHARE_HASH_PREFIX)) {

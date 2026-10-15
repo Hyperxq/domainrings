@@ -131,7 +131,7 @@ export const MapDiagram = memo(function MapDiagram({ map, legend, showGuides, fo
         )
       })}
       {map.links.map((link) => (
-        <path key={link.id} className={link.planned ? 'map-link planned' : 'map-link'} data-map-link="" data-chain={chain?.links.has(link.id) ? '' : undefined} aria-hidden="true" d={orthogonalPath(link.points)} markerEnd={link.slot === undefined ? 'url(#arrow)' : `url(#arrow-thread-${link.slot})`} {...(link.slot === undefined ? {} : { 'data-thread': '', style: threadStyle(link.slot) })} />
+        <path key={link.id} className={link.planned ? 'map-link planned' : 'map-link'} data-map-link={link.id} data-chain={chain?.links.has(link.id) ? '' : undefined} aria-hidden="true" d={orthogonalPath(link.points)} markerEnd={link.slot === undefined ? 'url(#arrow)' : `url(#arrow-thread-${link.slot})`} {...(link.slot === undefined ? {} : { 'data-thread': '', style: threadStyle(link.slot) })} />
       ))}
       {map.links.map(
         (link) =>
@@ -140,7 +140,7 @@ export const MapDiagram = memo(function MapDiagram({ map, legend, showGuides, fo
             <text
               key={link.id}
               className="link-pattern-label"
-              data-link-pattern=""
+              data-link-pattern={link.id}
               aria-hidden="true"
               x={link.label.at.x}
               y={link.label.at.y}

@@ -42,9 +42,12 @@ export interface ExportOptions {
   /** Draw the legend block under the diagram's bottom-right corner. */
   legend: boolean
   legendHeight: number
-  /** Restricts the export to one hexagon's `[data-hex]` group — every other hexagon, the map link and the map
+  /** Restricts the export to these hexagons' `[data-hex]` groups — every other hexagon, the map links and the map
    * title are dropped (EXPORT-02). Omitted (or unset) exports the whole map (EXPORT-01). */
-  only?: string
+  only?: ReadonlySet<string>
+  /** A frame around several hexagons: keeps these map links (by id) and the context hulls and chips, which a
+   * single-hexagon scope drops. Only read together with `only`. */
+  links?: ReadonlySet<string>
 }
 
 /** The exported frame: the diagram bounds, grown downward to make room for the legend when it is included. */
@@ -55,7 +58,7 @@ export const exportBounds = (bounds: Box, options: ExportOptions): Box =>
  * strip and the viewBox) and the PNG size both defer to, so neither can grow the frame for a legend the map
  * scope's multi-hexagon rule (EXPORT-01) has already dropped. */
 export const legendDrawn = (svg: SVGSVGElement, options: ExportOptions): boolean =>
-  options.legend && !(!options.only && svg.querySelectorAll('[data-hex]').length > 1)
+  options.legend && !((options.only?.size ?? svg.querySelectorAll('[data-hex]').length) > 1)
 
 // Hooks for styling and editing on the canvas; an exported file is a picture, not a control. Inline styles go
 // too: the resolved paint is already inlined as attributes, and a style could carry canvas motion into the file.
@@ -94,12 +97,18 @@ export async function svgMarkup(svg: SVGSVGElement, bounds: Box, title: string, 
 
   // Scope to one hexagon (EXPORT-02): every other hexagon's group, plus the map-level link, title and every
   // context's hull/chip — none of which make sense scoped to one hexagon — are dropped entirely, not just
-  // stripped of their scoping attribute.
+  // stripped of their scoping attribute. A flow frame keeps its own links and the hulls and chips.
   if (options.only) {
+    const { only, links } = options
     hexGroups.forEach((g) => {
-      if (g.getAttribute('data-hex') !== options.only) g.remove()
+      if (!only.has(g.getAttribute('data-hex')!)) g.remove()
     })
-    clone.querySelectorAll('[data-map-link], [data-map-title], [data-hulls], [data-chip], [data-link-pattern]').forEach((el) => el.remove())
+    clone.querySelectorAll(links ? '[data-map-title]' : '[data-map-link], [data-map-title], [data-hulls], [data-chip], [data-link-pattern]').forEach((el) => el.remove())
+    if (links) {
+      clone.querySelectorAll('[data-map-link], [data-link-pattern]').forEach((el) => {
+        if (!links.has(el.getAttribute('data-map-link') ?? el.getAttribute('data-link-pattern')!)) el.remove()
+      })
+    }
   }
   // The current-hexagon cue is a canvas-only affordance, never part of an export, in either scope. So are Onion's
   // ring/endpoint "+" glyphs and its "Depend on…" chip — they share the svg with the diagram (no separate screen-space

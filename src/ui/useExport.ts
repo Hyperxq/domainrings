@@ -15,6 +15,8 @@ export interface ActiveDocument {
   title: string
   scoped: boolean
   legend: boolean
+  /** An image export framed around the focused flow's hexagons instead of the whole map. */
+  frame?: { only: ReadonlySet<string>; links: ReadonlySet<string> }
 }
 
 /** Builds and downloads the active document as `.hexa`, SVG or PNG, or copies the PNG (also on Ctrl/Cmd+C). Owns the ref the stages hand their `<svg>` to. */
@@ -28,7 +30,7 @@ export function useExport(active: ActiveDocument, legend: LegendModel, hexId: st
     try {
       if (format === 'hexa') return download(toHexa(active.file), `${fileSlug(active.file.title)}.hexa`, 'application/json')
       const name = fileSlug(active.title)
-      const options = { legend: active.legend, legendHeight: legendSize(legend).height, only: active.scoped ? hexId : undefined }
+      const options = { legend: active.legend, legendHeight: legendSize(legend).height, only: active.frame?.only ?? (active.scoped ? new Set([hexId]) : undefined), links: active.frame?.links }
       const requested = 2
       const png = async () => pngBlob(await svgMarkup(svg!, active.bounds, active.title, options), exportBounds(active.bounds, { ...options, legend: legendDrawn(svg!, options) }), requested)
       const reportScale = (pixelRatio: number) =>
