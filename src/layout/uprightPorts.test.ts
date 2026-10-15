@@ -52,12 +52,6 @@ describe.each(CASES)('ports on slanted walls stay upright: %s', (_, diagram) => 
       }
     })
 
-    it('keeps every port name clear of every ring title', () => {
-      for (const l of m.nodes.filter((n) => n.kind === 'portLabel')) {
-        for (const r of m.rings) expect(apart(l, centred(r.titleBox)) ? 'apart' : `${l.key} overlaps the ${r.role} title`).toBe('apart')
-      }
-    })
-
     it('meets every edge on the port box, along the wall normal', () => {
       for (const e of m.edges) {
         const [from, to] = e.key.split('->')

@@ -5,6 +5,9 @@
   --hover: color-mix(in srgb, var(--teal) 9%, transparent);
   /* Motion narrates cause and effect (focus moved, item appeared, notice arrived); it never decorates. */
   --motion-fast: 120ms;
+  /* What stays of an element off the emphasised route: boxes stay legible, lines all but vanish. */
+  --dim-node: 0.35;
+  --dim-edge: 0.08;
   --motion-base: 150ms;
   --motion-ease: cubic-bezier(0.2, 0, 0, 1);
 }
@@ -99,14 +102,16 @@
 .canvas .ring-subtitle.on-domain { fill: var(--domain-ink); fill-opacity: 0.75; }
 .domain-region { fill: var(--domain-ink); fill-opacity: 0.07; stroke: var(--domain-ink); stroke-opacity: 0.35; stroke-width: 1; stroke-dasharray: 4 3; }
 .aggregate-outline { fill: none; stroke: var(--domain-ink); stroke-opacity: 0.5; stroke-width: 1.2; }
+.canvas .card-rule { stroke: var(--domain-ink); stroke-opacity: 0.3; stroke-width: 1; }
 .canvas .line-tag,
 .canvas .inline-tag { font-family: var(--font-mono); fill: var(--muted); }
 .canvas .node-domainItem .line-tag,
 .canvas .node-domainItem .inline-tag,
 .canvas .node-aggregate .line-tag { fill: var(--domain-ink); fill-opacity: 0.7; }
 
-/* Layer hover: data-hover on the CURRENT hexagon's group names the layer, scoping the effect to it (CANVAS-03) —
-   it brightens, glows and titles in ink, the rest dims. */
+/* Layer hover: data-hover on the CURRENT hexagon's group names the layer, scoping the effect to it (CANVAS-03). It is
+   only a hint: the band's ring stroke firms up and its title turns to ink. Nothing else dims or glows, so the route
+   hover stays the one strong emphasis. */
 .ring, .node, .edge, .guide, .edge-label, .ring-label, .ring-subtitle, .domain-title, .box {
   transition-property: opacity, fill, stroke;
   transition-duration: var(--motion-fast);
@@ -114,41 +119,27 @@
 }
 .exporting, .exporting * { transition: none !important; }
 .ring:focus-visible { outline: none; }
-[data-hex][data-hover] .edge,
-[data-hex][data-hover] .edge-label,
-[data-hex][data-hover] .guide,
-[data-hex][data-hover] .node:not([data-layer]) { opacity: 0.55; }
-[data-hex][data-hover='outer'] [data-layer]:not([data-layer='outer']) { opacity: 0.55; }
-[data-hex][data-hover='outer'] .ring[data-band='outer'] { fill: var(--card-hover); stroke-width: 2.2; filter: url(#glow-outer); }
-[data-hex][data-hover='outer'] .ring-label[data-layer='outer'] { fill: var(--ink); }
-[data-hex][data-hover='outer'] .node[data-layer='outer'] .box { stroke-width: 2; filter: brightness(1.2); }
-.glow-outer { flood-color: var(--line); }
-[data-hex][data-hover='adapters'] [data-layer]:not([data-layer='adapters']) { opacity: 0.55; }
-[data-hex][data-hover='adapters'] .ring[data-band='adapters'] { fill: var(--slate-soft-hover); stroke-width: 2.2; filter: url(#glow-adapters); }
-[data-hex][data-hover='adapters'] .ring-label[data-layer='adapters'] { fill: var(--ink); }
-[data-hex][data-hover='adapters'] .node[data-layer='adapters'] .box { stroke-width: 2; filter: brightness(1.2); }
-.glow-adapters { flood-color: var(--slate); }
-[data-hex][data-hover='application'] [data-layer]:not([data-layer='application']) { opacity: 0.55; }
-[data-hex][data-hover='application'] .ring[data-band='application'] { fill: var(--teal-soft-hover); stroke-width: 2.2; filter: url(#glow-application); }
-[data-hex][data-hover='application'] .ring-label[data-layer='application'] { fill: var(--ink); }
-[data-hex][data-hover='application'] .node[data-layer='application'] .box { stroke-width: 2; filter: brightness(1.2); }
-.glow-application { flood-color: var(--teal); }
-[data-hex][data-hover='domainServices'] [data-layer]:not([data-layer='domainServices']) { opacity: 0.55; }
-[data-hex][data-hover='domainServices'] .ring[data-band='domainServices'] { fill: var(--teal-soft-hover); stroke-width: 2.2; filter: url(#glow-domainServices); }
-[data-hex][data-hover='domainServices'] .ring-label[data-layer='domainServices'] { fill: var(--ink); }
-[data-hex][data-hover='domainServices'] .node[data-layer='domainServices'] .box { stroke-width: 2; filter: brightness(1.2); }
-.glow-domainServices { flood-color: var(--teal); }
-[data-hex][data-hover='domain'] [data-layer]:not([data-layer='domain']) { opacity: 0.55; }
-[data-hex][data-hover='domain'] .ring[data-band='domain'] { fill: var(--teal-deep-hover); stroke-width: 2.2; filter: url(#glow-domain); }
-[data-hex][data-hover='domain'] .ring-label[data-layer='domain'] { fill: var(--ink); }
-[data-hex][data-hover='domain'] .node[data-layer='domain'] .box { stroke-width: 2; filter: brightness(1.2); }
-.glow-domain { flood-color: var(--teal-deep); }
+:is(
+  [data-hover='outer'] .ring[data-band='outer'],
+  [data-hover='adapters'] .ring[data-band='adapters'],
+  [data-hover='application'] .ring[data-band='application'],
+  [data-hover='domainServices'] .ring[data-band='domainServices'],
+  [data-hover='domain'] .ring[data-band='domain']
+) { stroke-width: 2.2; }
+:is(
+  [data-hover='outer'] .ring-label[data-layer='outer'],
+  [data-hover='adapters'] .ring-label[data-layer='adapters'],
+  [data-hover='application'] .ring-label[data-layer='application'],
+  [data-hover='domainServices'] .ring-label[data-layer='domainServices'],
+  [data-hover='domain'] .ring-label[data-layer='domain']
+) { fill: var(--ink); }
 
 /* Dependency chain: with a selection, the chain keeps full strength and thickens while the rest of the map dims — the
    weight, not just the dimming, tells it apart, so it reads in every palette and theme. */
 svg[data-emphasis] [data-hex]:not([data-chain]),
 svg[data-emphasis] .map-link:not([data-chain]),
-svg[data-emphasis] [data-hex][data-chain] :is(.node, .edge, .edge-label):not([data-chain]) { opacity: 0.35; }
+svg[data-emphasis] [data-hex][data-chain] .node:not([data-chain]) { opacity: var(--dim-node); }
+svg[data-emphasis] [data-hex][data-chain] :is(.edge, .edge-label):not([data-chain]) { opacity: var(--dim-edge); }
 svg[data-emphasis] .edge[data-chain],
 svg[data-emphasis] .map-link[data-chain] { stroke-width: 2.6; }
 svg[data-emphasis] .node[data-chain] .box { stroke-width: 2.8; }
@@ -409,7 +400,6 @@ svg[data-emphasis='dependents'] .compact-port[data-chain] circle { stroke-dashar
 svg[data-link-mode] :is(.edge, .edge-label, .guide, .ring-label, .ring-subtitle, .domain-title, .node:not([data-link-target], [data-selected])) { opacity: 0.55; }
 svg[data-link-mode] .node[data-link-target] { outline: 1.5px dashed var(--teal); outline-offset: 3px; cursor: pointer; }
 svg[data-link-mode] .node[data-link-target] .box { stroke-width: 2; filter: brightness(1.2); }
-.canvas .node-portLabel text { font-family: var(--font-mono); fill: var(--ink); fill-opacity: 0.85; }
 .canvas .line-title { font-weight: 600; }
 .canvas .line-mono { font-family: var(--font-mono); }
 .canvas .line-eyebrow { font-family: var(--font-mono); fill: var(--muted); }
@@ -419,6 +409,7 @@ svg[data-link-mode] .node[data-link-target] .box { stroke-width: 2; filter: brig
 .canvas .node-aggregate text { fill: var(--domain-ink); }
 .canvas .node-domainItem .line-muted,
 .canvas .node-domainItem .line-minor { fill: var(--domain-ink); fill-opacity: 0.75; }
+.canvas .node-domainItem .line-right { fill-opacity: 0.55; }
 
 .canvas .diagram-title { font-weight: 600; }
 .canvas .diagram-subtitle { fill: var(--muted); }
@@ -1058,6 +1049,7 @@ span.swatch-element { background: var(--card); border-color: var(--teal); }
 .legend-tags { font-family: var(--font-mono); }
 .legend-threads button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 2px 4px; margin: 0 -4px; border: 0; border-radius: 4px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .legend-threads button:hover, .legend-threads button:focus-visible { background: var(--hover); color: var(--ink); }
+.legend-threads button[aria-pressed='true'] { box-shadow: inset 0 0 0 1px var(--thread, var(--teal)); background: color-mix(in srgb, var(--thread, var(--teal)) 14%, transparent); color: var(--ink); }
 .thread-swatch { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--thread); }
 .legend-footer { padding: 8px 0; border-top: 1px solid var(--line); }
 .legend-export { display: flex; align-items: center; gap: 6px; font-size: 12px; }

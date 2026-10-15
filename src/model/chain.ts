@@ -58,3 +58,10 @@ export function dependencyChain(map: HexaMap, hexId: string, ref: string, expand
   follow(hexId, ref)
   return chain
 }
+
+/** The chains merged into one: every element and link any of them holds. */
+export function unionChain(chains: readonly Chain[]): Chain {
+  const elements = new Map<string, Set<string>>()
+  for (const chain of chains) for (const [hex, ids] of chain.elements) elements.set(hex, new Set([...(elements.get(hex) ?? []), ...ids]))
+  return { elements, links: new Set(chains.flatMap((c) => [...c.links])) }
+}

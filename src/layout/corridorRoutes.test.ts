@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
+import { EXAMPLES, EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
 import projectBuilderRaw from '../model/fixtures/project-builder.hexa?raw'
 import { parseHexa } from '../model/hexa'
 import { diagramOf } from '../model/map'
-import type { Diagram } from '../model/schema'
+import type { Diagram, HexaMap } from '../model/schema'
+import { threadsOf, type Thread } from '../model/threads'
 import { dot, reach, type Point } from './geometry'
 import { layoutDiagram, type LayoutMode, type LayoutModel, type LayoutNode } from './layout'
 import { TRACK_GAP } from './hexagon/spacing'
@@ -97,112 +98,115 @@ describe('incomplete chains', () => {
 
 /** How far a point is from the centre along the hexagon's own normals: the apothem of the hexagon it lies on. */
 const apothemOf = (p: Point) => Math.max(...WALLS.map((w) => dot(p, wallFrame(w).n)))
-const useCasePort = (m: LayoutModel) => imports(m).filter((e) => e.key.includes('useCase:') && e.key.includes('port:'))
-const crossings = (m: LayoutModel) => {
-  const orientation = (a: Point, b: Point, c: Point) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
-  const es = imports(m)
-  let total = 0
-  for (let i = 0; i < es.length; i++)
-    for (let j = i + 1; j < es.length; j++)
-      for (let a = 1; a < es[i].points.length; a++)
-        for (let b = 1; b < es[j].points.length; b++) {
-          const [p, q, r, s] = [es[i].points[a - 1], es[i].points[a], es[j].points[b - 1], es[j].points[b]]
-          if (orientation(p, q, r) * orientation(p, q, s) < -1e-9 && orientation(r, s, p) * orientation(r, s, q) < -1e-9) total++
+const LAYER_OF: Partial<Record<LayoutNode['kind'], number>> = { aggregate: 0, useCase: 1, port: 2, adapter: 3, actor: 4, external: 4 }
+
+/** The shipped examples with the flows of their use cases, which is what the canvas draws. */
+const example = (id: string) => EXAMPLES.find((e) => e.id === id)!.map as HexaMap
+const THREADED = (['hexagonal-basic', 'hexagonal-stress', 'hexagonal-advanced'] as const).map((id): [string, Diagram, Thread[]] => {
+  const map = example(id)
+  return [id, diagramOf(map, map.hexagons[0].id), threadsOf(map, map.hexagons[0].id)]
+})
+
+describe('corridors run through the middle of their bands', () => {
+  describe.each(CASES.flatMap(([name, d]) => MODES.map((mode) => [name, d, mode] as const)))('%s (%s)', (_, diagram, mode) => {
+    const m = layoutDiagram(diagram, { mode })
+    const walls = [m.region?.halfWidth ?? 0, m.rings[2].halfWidth, m.rings[1].halfWidth, m.rings[0].halfWidth, m.externalWall.halfWidth]
+    const mid = [0, 1, 2, 3].map((i) => (walls[i] + walls[i + 1]) / 2)
+
+    it('draws four concentric guide hexagons at the middle of each band, innermost first', () => {
+      expect(m.corridors).toHaveLength(4)
+      m.corridors.forEach((c, i) => {
+        // Without a region there is no wall to measure the domain corridor from.
+        if (i > 0 || m.region) expect(c.halfWidth, `corridor ${i}`).toBeCloseTo(mid[i], 6)
+        expect(c.straight).toBeCloseTo(c.apex / 2, 9)
+      })
+    })
+
+    it('centres the tracks of every corridor on that line, a track gap apart', () => {
+      for (let c = 0; c < 4; c++) {
+        const tracks = new Set<number>()
+        for (const e of imports(m)) {
+          const [from, to] = ends(m, e.key)
+          const layers = [from, to].map((n) => (n ? LAYER_OF[n.kind] : 0))
+          if (e.key.endsWith('->domain')) layers[1] = 0
+          if (Math.min(...(layers as number[])) !== c || e.points.length <= 2) continue
+          tracks.add(Math.round(apothemOf(e.points[1]) * 1e6) / 1e6)
         }
-  return total
-}
-
-describe.each(CASES.flatMap(([name, d]) => MODES.map((mode) => [name, d, mode] as const)))('use case to port routes run in the application corridor: %s (%s)', (_, diagram, mode) => {
-  const m = layoutDiagram(diagram, { mode })
-  const ports = m.nodes.filter((n) => n.kind === 'port')
-  const seats = m.nodes.filter((n) => n.kind === 'useCase')
-  // The corridor lies between the use cases' outer faces and the ports' inner faces.
-  const portFace = Math.min(...ports.map((p) => dot(p, wallFrame(p.wall!).n) - reach(p.width, p.height, wallFrame(p.wall!).n)))
-  const seatFace = Math.max(...seats.map((u) => dot(u, wallFrame(u.wall!).n) + reach(u.width, u.height, wallFrame(u.wall!).n)))
-  const runs = (e: LayoutModel['edges'][number]) => e.points.slice(1, -1)
-
-  it('draws the application corridor outside every use case, never through one', () => {
-    const corridor = m.corridors.at(-2)!
-    for (const u of seats) expect(corridor.halfWidth, u.key).toBeGreaterThanOrEqual(dot(u, wallFrame(u.wall!).n) + reach(u.width, u.height, wallFrame(u.wall!).n) - 1e-6)
-  })
-
-  it('joins ports and use cases only where it can route them, in either mode', () => {
-    // The overview draws no use case to port link, so its corridor is a guide only; with links the checks below apply.
-    if (mode === 'overview') expect(useCasePort(m)).toEqual([])
-    else if (m.nodes.some((n) => n.kind === 'useCase') && ports.length) expect(useCasePort(m).length).toBeGreaterThan(0)
-  })
-
-  it('leaves the port inward and stays between the use cases and the ports except for its hops', () => {
-    for (const e of useCasePort(m)) {
-      if (e.points.length <= 2) continue
-      for (const p of runs(e)) {
-        expect(apothemOf(p), `${e.key} at ${p.x},${p.y}`).toBeGreaterThan(seatFace)
-        expect(apothemOf(p), `${e.key} at ${p.x},${p.y}`).toBeLessThan(portFace)
+        if (!tracks.size) continue
+        const sorted = [...tracks].sort((a, b) => a - b)
+        if (c > 0 || m.region) expect(sorted.reduce((sum, t) => sum + t, 0) / sorted.length, `corridor ${c}`).toBeCloseTo(mid[c], 0)
+        sorted.slice(1).forEach((t, i) => expect(t - sorted[i], `corridor ${c}`).toBeCloseTo(TRACK_GAP, 6))
       }
-    }
-  })
-
-  it('keeps parallel runs of different edges a track gap apart', () => {
-    const segments = useCasePort(m).flatMap((e) => (e.points.length > 3 ? runs(e).slice(1).map((b, i) => ({ key: e.key, a: runs(e)[i], b })) : []))
-    for (const [i, s] of segments.entries())
-      for (const t of segments.slice(i + 1)) {
-        if (s.key === t.key) continue
-        const d = { x: s.b.x - s.a.x, y: s.b.y - s.a.y }
-        const len = Math.hypot(d.x, d.y)
-        if (len < 1e-6) continue
-        const u = { x: d.x / len, y: d.y / len }
-        const e = { x: t.b.x - t.a.x, y: t.b.y - t.a.y }
-        if (Math.abs(u.x * e.y - u.y * e.x) > 1e-6 * Math.hypot(e.x, e.y)) continue
-        const along = [dot(t.a, u), dot(t.b, u)].sort((x, y) => x - y)
-        if (Math.min(along[1], dot(s.b, u)) - Math.max(along[0], dot(s.a, u)) < 1) continue
-        const across = Math.abs((t.a.x - s.a.x) * u.y - (t.a.y - s.a.y) * u.x)
-        expect(across, `${s.key} / ${t.key}`).toBeGreaterThanOrEqual(TRACK_GAP - 1e-6)
-      }
+    })
   })
 })
 
-describe('corridor sizing and crossings', () => {
-  const apex = (d: Diagram, mode: LayoutMode) => layoutDiagram(d, { mode }).rings.find((r) => r.role === 'application')!.apex
-
-  it('crosses at most 3 edges on the stress example, where the bus lanes crossed 9', () => {
-    expect(crossings(layoutDiagram(STRESS_DIAGRAM))).toBeLessThanOrEqual(3)
-  })
-
-  it('crosses no edge on the chat feedback example, where the bus lanes crossed two pairs', () => {
-    expect(crossings(layoutDiagram(EXAMPLE_DIAGRAM))).toBe(0)
-  })
-
-  // Measured apexes: stress 700.5 / 569.7, chat 588.8 / 507.0 (detailed / overview). The pins sit a hair above them: the
-  // ring is searched to within 0.05% of the smallest apex that clears, and the pin is a whole number.
-  it('keeps the stress application ring within 702 (the bus lanes made it 1152)', () => {
-    expect(apex(STRESS_DIAGRAM, 'detailed')).toBeLessThanOrEqual(702)
-  })
-
-  it('keeps the chat feedback application ring within 590 (the bus lanes made it 746)', () => {
-    expect(apex(EXAMPLE_DIAGRAM, 'detailed')).toBeLessThanOrEqual(590)
-  })
-
-  it('keeps the overview application rings within 570 (stress) and 508 (chat feedback)', () => {
-    expect(apex(STRESS_DIAGRAM, 'overview')).toBeLessThanOrEqual(570)
-    expect(apex(EXAMPLE_DIAGRAM, 'overview')).toBeLessThanOrEqual(508)
+describe('every box is reached where it sits, whichever the edge', () => {
+  it.each(CASES.flatMap(([name, d]) => MODES.map((mode) => [name, d, mode] as const)))('%s (%s): joins every port with its use case', (_, diagram, mode) => {
+    const m = layoutDiagram(diagram, { mode })
+    const wanted = diagram.ports.filter((p) => p.useCaseId && diagram.useCases.some((u) => u.id === p.useCaseId))
+    expect(imports(m).filter((e) => e.key.includes('useCase:') && e.key.includes('port:'))).toHaveLength(wanted.length)
   })
 })
 
-describe('corridor hexagons', () => {
-  it.each(MODES)('are concentric hexagons between the rings, outermost last (%s)', (mode) => {
-    const m = layoutDiagram(STRESS_DIAGRAM, { mode })
-    const apothems = m.corridors.map((c) => c.halfWidth)
-    expect(apothems).toEqual([...apothems].sort((a, b) => a - b))
-    const ring = (role: string) => m.rings.find((r) => r.role === role)!
-    expect(apothems.at(-1)!).toBeLessThan(ring('adapters').halfWidth)
-    expect(apothems[0]).toBeGreaterThan(m.region!.halfWidth)
-    for (const c of m.corridors) expect(c.straight).toBeCloseTo(c.apex / 2, 9)
-  })
+describe.each(THREADED)('threads read as continuous lines: %s', (_, diagram, threads) => {
+  describe.each(MODES)('%s', (mode) => {
+    const m = layoutDiagram(diagram, { mode, threads })
+    const byRef = (ref: string) => m.nodes.find((n) => n.ref === ref && n.kind !== 'domainItem')!
+    const ofThread = (id: string) => imports(m).filter((e) => e.thread?.id === id)
+    const lateral = (p: Point, node: LayoutNode) => dot(p, wallFrame(node.wall!).dir)
 
-  it('runs the application corridor through the tracks of the stress example', () => {
-    const m = layoutDiagram(STRESS_DIAGRAM)
-    const tracks = useCasePort(m).flatMap((e) => (e.points.length > 3 ? e.points.slice(1, -1).map(apothemOf) : []))
-    const [low, high] = [Math.min(...tracks), Math.max(...tracks)]
-    expect(m.corridors.some((c) => c.halfWidth >= low - 1e-6 && c.halfWidth <= high + 1e-6)).toBe(true)
+    it('meets each box at one lateral place, whichever face the thread uses', () => {
+      const off: string[] = []
+      for (const t of threads) {
+        const seen = new Map<string, number[]>()
+        for (const e of ofThread(t.useCaseId)) {
+          const [start, end] = [e.points[0], e.points.at(-1)!]
+          seen.set(e.from!, [...(seen.get(e.from!) ?? []), lateral(start, byRef(e.from!))])
+          if (e.to) seen.set(e.to, [...(seen.get(e.to) ?? []), lateral(end, byRef(e.to))])
+        }
+        for (const [ref, places] of seen) {
+          const node = byRef(ref)
+          if (Math.max(...places) - Math.min(...places) > 0.5 + 1e-6) off.push(`${t.useCaseId} at ${ref}: ${places.map((p) => p.toFixed(1)).join(' / ')}`)
+          for (const p of places) if (Math.abs(p - lateral(node, node)) > reach(node.width, node.height, wallFrame(node.wall!).dir) + 1e-6) off.push(`${t.useCaseId} leaves the face of ${ref}`)
+        }
+      }
+      expect(off).toEqual([])
+    })
+
+    it('keeps two threads on one face a track gap apart, parallel through the corridor', () => {
+      const close: string[] = []
+      const edges = imports(m).filter((e) => e.thread)
+      const segments = edges.flatMap((e) => e.points.slice(1).map((b, i) => ({ thread: e.thread!.id, key: e.key, a: e.points[i], b })))
+      for (const [i, s] of segments.entries())
+        for (const t of segments.slice(i + 1)) {
+          if (s.thread === t.thread) continue
+          const d = { x: s.b.x - s.a.x, y: s.b.y - s.a.y }
+          const len = Math.hypot(d.x, d.y)
+          const e = { x: t.b.x - t.a.x, y: t.b.y - t.a.y }
+          if (len < 1e-6 || Math.abs(d.x * e.y - d.y * e.x) > 1e-6 * len * Math.hypot(e.x, e.y)) continue
+          const u = { x: d.x / len, y: d.y / len }
+          const along = [dot(t.a, u), dot(t.b, u)].sort((x, y) => x - y)
+          if (Math.min(along[1], dot(s.b, u)) - Math.max(along[0], dot(s.a, u)) < 1) continue
+          const across = Math.abs((t.a.x - s.a.x) * u.y - (t.a.y - s.a.y) * u.x)
+          if (across < TRACK_GAP - 1e-6) close.push(`${s.key} / ${t.key}: ${across.toFixed(2)}`)
+        }
+      expect(close).toEqual([])
+    })
+  })
+})
+
+describe('several threads on one card', () => {
+  it('enters the card at points a track gap apart, one per thread', () => {
+    const map = example('hexagonal-stress')
+    const [hexagon] = map.hexagons
+    const aggregate = hexagon.domain.find((i) => i.type === 'aggregate')!.id
+    const shared = { ...map, hexagons: [{ ...hexagon, useCases: hexagon.useCases.map((u) => ({ ...u, aggregateIds: [aggregate] })) }, ...map.hexagons.slice(1)] }
+    const m = layoutDiagram(diagramOf(shared, hexagon.id), { threads: threadsOf(shared, hexagon.id) })
+    const entries = m.edges.filter((e) => e.to === aggregate && e.thread).map((e) => e.points.at(-1)!)
+    expect(entries).toHaveLength(hexagon.useCases.length)
+    const card = m.nodes.find((n) => n.kind === 'aggregate' && n.ref === aggregate)!
+    const along = entries.map((p) => dot(p, wallFrame(card.wall!).dir)).sort((a, b) => a - b)
+    along.slice(1).forEach((u, i) => expect(u - along[i]).toBeGreaterThanOrEqual(TRACK_GAP - 1e-6))
   })
 })

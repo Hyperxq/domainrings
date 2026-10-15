@@ -25,7 +25,7 @@ describe('thread marks on the hexagonal layout', () => {
       expect(refs.has(edge.from!), edge.key).toBe(true)
       if (edge.to !== undefined) expect(refs.has(edge.to), edge.key).toBe(true)
     }
-    if (mode === 'detailed') expect(model.edges.some((e) => e.kind === 'import' && e.to === undefined)).toBe(true)
+    if (mode === 'detailed') expect(model.edges.some((e) => e.kind === 'import' && e.key.includes('->aggregate:'))).toBe(true)
     expect(model.edges.filter((e) => e.kind === 'wiring').every((e) => e.from === undefined && e.to === undefined)).toBe(true)
   })
 
@@ -42,7 +42,7 @@ describe('thread marks on the hexagonal layout', () => {
 
   it.each(CASES)('%s %s: every box shows a dot for each thread that touches it', (id, mode) => {
     const { threads, model } = laid(id, mode)
-    const DOTTED = new Set(['actor', 'adapter', 'port', 'useCase', 'external', 'aggregate', 'domainItem'])
+    const DOTTED = new Set(['actor', 'adapter', 'port', 'useCase', 'external', 'aggregate'])
     for (const node of model.nodes) {
       const touching = threads.filter((t) => t.refs.has(node.ref)).map((t) => ({ id: t.useCaseId, slot: t.slot }))
       expect(node.threads, `${node.kind}:${node.ref}`).toEqual(DOTTED.has(node.kind) && touching.length ? touching : undefined)
@@ -100,8 +100,8 @@ describe('markThreads', () => {
     expect(nodes[0].threads).toEqual([{ id: 'u1', slot: 7 }, { id: 'u2', slot: 3 }])
   })
 
-  it('gives no dots to labels, the composition root or a thread-less box', () => {
-    const nodes = [node('portLabel', 'p'), node('composition', 'p'), node('adapter', 'z')]
+  it('gives no dots to the composition root or a thread-less box', () => {
+    const nodes = [node('composition', 'p'), node('adapter', 'z')]
     markThreads(nodes, [], [thread('u1', 0, 'p')])
     expect(nodes.every((n) => n.threads === undefined)).toBe(true)
   })

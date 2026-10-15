@@ -1,16 +1,18 @@
-import { HEXAGONAL_KIND } from '../../model/kinds'
 import type { Diagram, DomainItem, Wall } from '../../model/schema'
 import { reach, type Point } from '../geometry'
 import type { NodeKind } from '../layout'
 import { COS30, halfWidthAt, hexagon, type Outline } from '../outline'
-import { DOMAIN_TAGS } from '../tags'
-import { styled } from '../text'
+import { cardHeader, DOMAIN_TAGS, ROW_TYPES } from '../tags'
 import { frame, type Frame } from './boxFrames'
 import type { UseCaseSeating } from './useCaseSeating'
 import { WALLS, wallFrame } from './walls'
 
-/** An aggregate outline: 8 padding all round, plus its tag line above the root. */
-const OUTLINE_PAD = 8
+/** Room between a card's edge and its text, and above its header and below its last row. */
+const CARD_PAD_X = 12
+const CARD_TOP = 4
+const CARD_BOTTOM = 6
+/** Room around the divider between a card's name and its rows. */
+const RULE_GAP = 4
 /** Room kept between two blocks of the region. */
 const BLOCK_GAP = 8
 /** Room kept between a block and the wall of the region it sits on. */
@@ -34,17 +36,20 @@ interface Row {
   ref: string
   kind: NodeKind
   frame: Frame
+  align?: 'center' | 'start'
 }
-/** A root and its descendants, kept together; an aggregate root also gets an outline around the block. */
+/** A root and its descendants, kept together as one card: its type header, its name, then a row per descendant. */
 interface Block {
   root: DomainItem
+  header: Frame
+  name: Frame
   rows: Row[]
-  aggregate?: DomainItem
 }
 /** A box of the domain at its final place; `x` and `y` are its centre. */
 export interface Placed extends Row {
   x: number
   y: number
+  rule?: number
 }
 
 const inside = (o: Outline, p: Point) => Math.abs(p.y) <= o.apex + 1e-6 && Math.abs(p.x) <= halfWidthAt(o, p.y) + 1e-6
@@ -54,57 +59,48 @@ const apart = (a: { c: Point; w: number; h: number }, b: { c: Point; w: number; 
 
 /**
  * The domain body: the domain model region, a hexagon of its own inside the domain ring, holding one card per
- * aggregate on the face toward the use cases that use it, and every other root as plain text. What no use case points
+ * aggregate on the face toward the use cases that use it, and a card of the same shape for every other root. What no use case points
  * at spreads evenly over the faces. The region is the smallest one in which everything fits clear of the rest.
  */
 export function layCentre({ d, overview, domainFrame, seating }: CentreInput) {
-  const config = HEXAGONAL_KIND
-  const splitServices = config.rings.some((r) => r.role === 'domainServices')
-  const coreItems = d.domain.filter((i) => !splitServices || i.type !== 'domainService')
-  const serviceItems = splitServices ? d.domain.filter((i) => i.type === 'domainService') : []
-  const serviceFrames = serviceItems.map(domainFrame)
-  const coreIds = new Set(coreItems.map((i) => i.id))
+  const coreIds = new Set(d.domain.map((i) => i.id))
   const childrenOf = (id: string | undefined) =>
-    coreItems.filter((i) => (i.parentId && coreIds.has(i.parentId) ? i.parentId : undefined) === id)
-  const itemFrame = (item: DomainItem, depth: number) =>
-    depth === 0 ? domainFrame(item) : frame([{ text: item.name, style: 'minor', tag: DOMAIN_TAGS[item.type] }], 0, 2, 0)
-  const walk = (item: DomainItem, depth: number): Row[] => [
-    { key: `domainItem:${item.id}`, ref: item.id, kind: 'domainItem', frame: itemFrame(item, depth) },
-    ...childrenOf(item.id).flatMap((child) => walk(child, depth + 1)),
-  ]
+    d.domain.filter((i) => (i.parentId && coreIds.has(i.parentId) ? i.parentId : undefined) === id)
+  const rowsOf = (item: DomainItem): Row[] =>
+    childrenOf(item.id).flatMap((child) => [
+      { key: `domainItem:${child.id}`, ref: child.id, kind: 'domainItem' as const, align: 'start' as const, frame: frame([{ text: `${DOMAIN_TAGS[child.type].split(' ')[0]} ${child.name}`, style: 'minor', right: ROW_TYPES[child.type] }], 0, 1, 0) },
+      ...rowsOf(child),
+    ])
   const roots = childrenOf(undefined)
-  const blocks: Block[] = overview
-    ? // The overview domain is a plain list of its aggregate and entity roots.
-      roots
-        .filter((r) => r.type === 'aggregate' || r.type === 'entity')
-        .map((root) => ({ root, rows: [{ key: `domainItem:${root.id}`, ref: root.id, kind: 'domainItem', frame: frame(styled(root.type === 'aggregate' ? 'strong' : 'mono', root.name), 0, 2, 0) }] }))
-    : [...roots.filter((r) => r.type !== 'domainService'), ...roots.filter((r) => r.type === 'domainService')].map((root) => ({
-        root,
-        rows: walk(root, 0),
-        aggregate: root.type === 'aggregate' ? root : undefined,
-      }))
+  // Overview keeps every card where Detailed has it; an aggregate just shrinks to its header and name.
+  const blocks: Block[] = [...roots.filter((r) => r.type !== 'domainService'), ...roots.filter((r) => r.type === 'domainService')].map((root) => ({
+    root,
+    header: frame([{ text: cardHeader(root.type), style: 'tag' }], 0, 0, 0),
+    name: domainFrame(root),
+    rows: overview && root.type === 'aggregate' ? [] : rowsOf(root),
+  }))
 
-  const tagFrame = frame(styled('tag', DOMAIN_TAGS.aggregate), 0, 0, 0)
-  const blockSize = (b: Block) => {
-    const width = Math.max(0, ...b.rows.map((r) => r.frame.width))
-    const height = b.rows.reduce((h, r) => h + r.frame.height, 0)
-    return b.aggregate
-      ? { width: Math.max(width, tagFrame.width) + 2 * OUTLINE_PAD, height: height + tagFrame.height + 2 * OUTLINE_PAD }
-      : { width, height }
-  }
+  // Every card of the hexagon is as wide as the widest.
+  const cardWidth = Math.max(0, ...blocks.flatMap((b) => [b.header.width, b.name.width, ...b.rows.map((r) => r.frame.width)])) + 2 * CARD_PAD_X
+  const inner = cardWidth - 2 * CARD_PAD_X
+  const headHeight = (b: Block) => CARD_TOP + b.header.height + b.name.height
+  const blockSize = (b: Block) => ({
+    width: cardWidth,
+    height: headHeight(b) + (b.rows.length ? RULE_GAP + b.rows.reduce((h, r) => h + r.frame.height, 0) : 0) + CARD_BOTTOM,
+  })
   /** The block's boxes, its top edge at `top` and its middle at `x`. */
   const boxesOf = (block: Block, x: number, top: number): Placed[] => {
     const size = blockSize(block)
-    let rowTop = top + (block.aggregate ? OUTLINE_PAD + tagFrame.height : 0)
-    const outline: Placed[] = block.aggregate
-      ? [{ key: `aggregate:${block.aggregate.id}`, ref: block.aggregate.id, kind: 'aggregate', frame: { lines: tagFrame.lines, width: size.width, height: size.height }, x, y: top + size.height / 2 }]
-      : []
+    const { id } = block.root
+    let rowTop = top + headHeight(block) + RULE_GAP
+    const card: Placed = { key: `aggregate:${id}`, ref: id, kind: 'aggregate', align: 'center', frame: { lines: block.header.lines, ...size }, x, y: top + size.height / 2, ...(block.rows.length ? { rule: headHeight(block) + RULE_GAP / 2 } : {}) }
+    const name: Placed = { key: `domainItem:${id}`, ref: id, kind: 'domainItem', align: 'center', frame: { ...block.name, width: inner }, x, y: top + CARD_TOP + block.header.height + block.name.height / 2 }
     const rows = block.rows.map((r) => {
-      const placed = { ...r, x, y: rowTop + r.frame.height / 2 }
+      const placed = { ...r, frame: { ...r.frame, width: inner }, x, y: rowTop + r.frame.height / 2 }
       rowTop += r.frame.height
       return placed
     })
-    return [...outline, ...rows]
+    return [card, name, ...rows]
   }
 
   // Each block's face: the one most of the use cases using it are seated on.
@@ -189,11 +185,7 @@ export function layCentre({ d, overview, domainFrame, seating }: CentreInput) {
   }
   const { faces, apex } = search(free)
   const boxes = layBlocks(apex, faces).flatMap((it) => boxesOf(it.block, it.c.x, it.c.y - it.size.height / 2))
-  const servicesBlock = {
-    width: Math.max(0, ...serviceFrames.map((f) => f.width)),
-    height: serviceFrames.reduce((h, f) => h + f.height, 0),
-  }
-  return { boxes, faces: new Map([...faces].map(([block, face]) => [block.root.id, face])), region: hexagon(apex), hasRegion: blocks.length > 0, serviceItems, serviceFrames, servicesBlock }
+  return { boxes, faces: new Map([...faces].map(([block, face]) => [block.root.id, face])), region: hexagon(apex), hasRegion: blocks.length > 0 }
 }
 
 export type CentreBlock = ReturnType<typeof layCentre>

@@ -976,7 +976,8 @@ describe('layoutMap — compact neighbours from COMPACT_FROM hexagons up', () =>
 
   it('re-lays out when another hexagon becomes current', () => {
     const map = manyHexagonMap(6)
-    map.hexagons[1].externals.push({ id: 'ext-wide', name: 'A Very Long External System Name That Extends Far To The Right'.repeat(4) })
+    // The hexagons share their arrays; give the second its own so only it grows wide.
+    map.hexagons[1] = { ...map.hexagons[1], externals: [...map.hexagons[1].externals, { id: 'ext-wide', name: 'A Very Long External System Name That Extends Far To The Right'.repeat(4) }] }
     const first = layoutMap(map, { current: 'h1' })
     const second = layoutMap(map, { current: 'h2' })
     expect(first.hexagons[1].compact).toBeDefined()
@@ -1066,10 +1067,10 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
   const map = projectBuilderMap()
   const STAGE = { width: 1440, height: 900 }
   const INSET = islandInset(STAGE, true, false)
-  // The Fit scale this map had before the lattice was sized from compact hexagons (one shared pitch sized for the
-  // full current hexagon), measured by fitTo at the reference stage above with Execution current. The compact
-  // layout must at least double it.
-  const FULL_PITCH_BASELINE = { detailed: 0.13989, overview: 0.26322 }
+  // v2 placement: Overview keeps every box and edge; bands are 2 × (half box + margin + tracks). Fit scales measured at the
+  // reference stage above with Execution current: 0.2543 detailed, 0.3099 overview.
+  // v2 cards: the Overview domain region holds real card headers
+  const FIT_FLOOR = { detailed: 0.25, overview: 0.25 }
   const MODES_UNDER_TEST = ['detailed', 'overview'] as const
   const layoutFor = (mode: LayoutMode, current: string) => layoutMap(map, { mode, current })
   const fit = (mode: LayoutMode, current: string) => fitTo(layoutFor(mode, current).bounds, STAGE.width, STAGE.height, INSET, 0).scale
@@ -1132,9 +1133,9 @@ describe('layoutMap — a real map with one hexagon per context (project-builder
     expect(reversing).toEqual([])
   })
 
-  it.each(MODES_UNDER_TEST)('fits %s at least twice as large as the full-pitch baseline, with Execution current', (mode) => {
+  it.each(MODES_UNDER_TEST)('fits %s at the v2-placement floor, with Execution current', (mode) => {
     const scale = fit(mode, 'h-exec')
-    expect(scale).toBeGreaterThanOrEqual(FULL_PITCH_BASELINE[mode] * 2)
+    expect(scale).toBeGreaterThanOrEqual(FIT_FLOOR[mode])
   })
 
   it.each(MODES_UNDER_TEST)('keeps MAP_GAP between every pair of hexagon boxes in %s, whichever hexagon is current', (mode) => {

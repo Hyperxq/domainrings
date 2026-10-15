@@ -95,15 +95,15 @@ describe('view store', () => {
   })
 })
 
-describe('hoveredFlow', () => {
-  it('is set and cleared through hoverFlow, and a swapped map clears it', () => {
-    useViewStore.getState().hoverFlow('uc-submit')
-    expect(useViewStore.getState().hoveredFlow).toBe('uc-submit')
+describe('hoveredFlows', () => {
+  it('is set and cleared through hoverFlows, and a swapped map clears it', () => {
+    useViewStore.getState().hoverFlows(['uc-submit', 'uc-other'])
+    expect(useViewStore.getState().hoveredFlows).toEqual(['uc-submit', 'uc-other'])
     useMapStore.getState().replace(toMap(EXAMPLE_DIAGRAM))
-    expect(useViewStore.getState().hoveredFlow).toBeNull()
-    useViewStore.getState().hoverFlow('uc-submit')
-    useViewStore.getState().hoverFlow(null)
-    expect(useViewStore.getState().hoveredFlow).toBeNull()
+    expect(useViewStore.getState().hoveredFlows).toEqual([])
+    useViewStore.getState().hoverFlows(['uc-submit'])
+    useViewStore.getState().hoverFlows([])
+    expect(useViewStore.getState().hoveredFlows).toEqual([])
   })
 })
 

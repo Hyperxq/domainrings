@@ -145,9 +145,9 @@ describe('FlowInspector: aggregates', () => {
     const basket = d().domain.find((i) => i.name === 'Basket')!
     expect(basket).toMatchObject({ type: 'aggregate' })
     expect(basket.parentId).toBeUndefined()
-    expect(aggregates()).toEqual([basket.id])
+    expect(aggregates()).toEqual(['d-order', basket.id])
     undo()
-    expect(aggregates()).toBeUndefined()
+    expect(aggregates()).toEqual(['d-order'])
     expect(d().domain.some((i) => i.name === 'Basket')).toBe(false)
   })
 

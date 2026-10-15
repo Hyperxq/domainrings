@@ -46,7 +46,7 @@ describe('flows in View mode', () => {
     expect(canvas(container).hasAttribute('data-emphasis')).toBe(true)
     const chained = (hex: string) => [...new Set([...container.querySelectorAll(`[data-hex="${hex}"] [data-chain][data-ref]`)].map((n) => n.getAttribute('data-ref')))]
     expect(chained('h1')).toContain('uc-place')
-    expect(chained('h1')).not.toContain('d-order')
+    expect(chained('h2')).not.toContain('d-payment')
     expect(container.querySelector('.map-link[data-chain]')).not.toBeNull()
     act(() => useViewStore.getState().focusFlow(null))
     expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
@@ -98,9 +98,9 @@ describe('presenting a flow', () => {
 
   it('marks nothing on the canvas for a step that lives in another hexagon, but still shows its card', () => {
     const { container } = render(<App />)
-    start(6)
+    start(7)
     expect(marked(container)).toEqual([])
-    expect(screen.getByText('STEP 7 · LINKED PORT')).toBeTruthy()
+    expect(screen.getByText('STEP 8 · LINKED PORT')).toBeTruthy()
   })
 
   it('stops presenting when the author switches to Edit', () => {
@@ -146,7 +146,7 @@ describe('presenting a flow', () => {
       expect(shows(box('act-web')) && shows(box('ext-orders-db'))).toBe(false)
       start(0)
       expect(shows(box('act-web'))).toBe(true)
-      act(() => useViewStore.getState().present(15))
+      act(() => useViewStore.getState().present(16))
       expect(shows(box('ext-orders-db'))).toBe(true)
     })
   })

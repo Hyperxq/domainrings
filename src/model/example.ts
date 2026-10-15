@@ -21,13 +21,13 @@ export const EXAMPLE_DIAGRAM: Diagram = {
     { id: 'd-email', name: 'AuthorEmail', type: 'valueObject', parentId: 'd-feedback' },
   ],
   useCases: [
-    { id: 'uc-submit', name: 'SubmitChatFeedback', note: 'execute(cmd): Promise<void>\nvalidate, save, notify support' },
+    { id: 'uc-submit', name: 'SubmitChatFeedback', aggregateIds: ['d-feedback'], note: 'execute(cmd): Promise<void>\nvalidate, save, notify support' },
   ],
   ports: [
-    { id: 'p-submit', name: 'submitChatFeedback', side: 'driving', useCaseId: 'uc-submit', note: '(command)' },
-    { id: 'p-repo', name: 'FeedbackRepository', side: 'driven', useCaseId: 'uc-submit' },
-    { id: 'p-notify', name: 'SupportNotifier', side: 'driven', useCaseId: 'uc-submit' },
-    { id: 'p-users', name: 'UserDirectory', side: 'driven', useCaseId: 'uc-submit' },
+    { id: 'p-submit', name: 'submitChatFeedback', side: 'driving', wall: 'sw', useCaseId: 'uc-submit', note: '(command)' },
+    { id: 'p-repo', name: 'FeedbackRepository', side: 'driven', wall: 'se', useCaseId: 'uc-submit' },
+    { id: 'p-notify', name: 'SupportNotifier', side: 'driven', wall: 'se', useCaseId: 'uc-submit' },
+    { id: 'p-users', name: 'UserDirectory', side: 'driven', wall: 'e', useCaseId: 'uc-submit' },
   ],
   adapters: [
     { id: 'a-http', name: 'feedback.routes/handler/schema', portId: 'p-submit', note: 'HTTP → command' },
@@ -51,11 +51,13 @@ const withoutNotes = <T extends { note?: string }>(items: T[]): T[] => items.map
  * Earlier versions of the seed, as they were written to storage. An autosave that still equals one of them was
  * never edited, so it is upgraded to the current seed. Bump SEED_VERSION and append here when the seed changes.
  */
-export const SEED_VERSION = 4
+export const SEED_VERSION = 6
 // Each retired seed is derived from the one after it, so history stays readable as a list of differences.
+const v5: Diagram = { ...EXAMPLE_DIAGRAM, useCases: EXAMPLE_DIAGRAM.useCases.map(({ aggregateIds: _aggregateIds, ...useCase }) => useCase) }
+const v4: Diagram = { ...v5, ports: v5.ports.map(({ wall: _wall, ...port }) => port) }
 const v3: Diagram = {
-  ...EXAMPLE_DIAGRAM,
-  domain: EXAMPLE_DIAGRAM.domain.map((i) => (i.id === 'd-feedback' ? { ...i, type: 'entity' as const } : i)),
+  ...v4,
+  domain: v4.domain.map((i) => (i.id === 'd-feedback' ? { ...i, type: 'entity' as const } : i)),
 }
 const v2 = withoutParents(v3)
 const v1: Diagram = {
@@ -67,7 +69,7 @@ const v1: Diagram = {
   externals: withoutNotes(v2.externals),
   composition: { name: 'composition.ts', note: 'Wires adapters into the use case' },
 }
-export const RETIRED_SEEDS: Diagram[] = [v1, v2, v3]
+export const RETIRED_SEEDS: Diagram[] = [v1, v2, v3, v4, v5]
 
 export const STRESS_DIAGRAM: Diagram = {
   version: 1,
@@ -87,20 +89,20 @@ export const STRESS_DIAGRAM: Diagram = {
     { id: 'v-points', name: 'Points', type: 'valueObject', parentId: 'e-loyalty' },
   ],
   useCases: [
-    { id: 'uc-place', name: 'PlaceOrder', note: 'execute(cmd): Promise<OrderId>\nprice, reserve stock, charge' },
-    { id: 'uc-cancel', name: 'CancelOrder', note: 'execute(cmd): Promise<void>\nrelease stock, notify' },
-    { id: 'uc-earn', name: 'EarnPoints', placement: 'nw', note: 'execute(evt): Promise<void>\ncredit the loyalty card' },
+    { id: 'uc-place', name: 'PlaceOrder', aggregateIds: ['g-order'], note: 'execute(cmd): Promise<OrderId>\nprice, reserve stock, charge' },
+    { id: 'uc-cancel', name: 'CancelOrder', aggregateIds: ['g-order'], note: 'execute(cmd): Promise<void>\nrelease stock, notify' },
+    { id: 'uc-earn', name: 'EarnPoints', placement: 'nw', aggregateIds: ['g-customer'], note: 'execute(evt): Promise<void>\ncredit the loyalty card' },
   ],
   ports: [
     { id: 'p-orders', name: 'ordersApi', side: 'driving', wall: 'w', useCaseId: 'uc-place', note: '(command)' },
     { id: 'p-events', name: 'loyaltyEvents', side: 'driving', wall: 'nw', useCaseId: 'uc-earn', note: '(event)' },
     { id: 'p-admin', name: 'adminCommands', side: 'driving', wall: 'sw', useCaseId: 'uc-cancel', note: '(command)' },
-    { id: 'p-order-repo', name: 'OrderRepository', side: 'driven', wall: 'ne', useCaseId: 'uc-place' },
-    { id: 'p-payments', name: 'PaymentGateway', side: 'driven', wall: 'ne', useCaseId: 'uc-place' },
+    { id: 'p-order-repo', name: 'OrderRepository', side: 'driven', wall: 'se', useCaseId: 'uc-place' },
+    { id: 'p-payments', name: 'PaymentGateway', side: 'driven', wall: 'se', useCaseId: 'uc-place' },
     { id: 'p-stock', name: 'StockLevels', side: 'driven', wall: 'e', useCaseId: 'uc-place' },
     { id: 'p-notify', name: 'CustomerNotifier', side: 'driven', wall: 'e', useCaseId: 'uc-cancel' },
-    { id: 'p-customer-repo', name: 'CustomerRepository', side: 'driven', wall: 'se', useCaseId: 'uc-earn' },
-    { id: 'p-clock', name: 'Clock', side: 'driven', wall: 'se', useCaseId: 'uc-earn' },
+    { id: 'p-customer-repo', name: 'CustomerRepository', side: 'driven', wall: 'ne', useCaseId: 'uc-earn' },
+    { id: 'p-clock', name: 'Clock', side: 'driven', wall: 'ne', useCaseId: 'uc-earn' },
   ],
   adapters: [
     { id: 'a-rest', name: 'orders.routes', portId: 'p-orders', note: 'HTTP → command' },

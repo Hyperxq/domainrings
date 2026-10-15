@@ -70,16 +70,15 @@ describe('insertionPoints', () => {
       expect(e.at.y).toBeGreaterThan(lowest)
     })
 
-    it('puts an overview wall "+" past the port names that run along that wall', () => {
+    it('puts an overview wall "+" past the ports that run along that wall', () => {
       const model = layoutDiagram(STRESS_DIAGRAM, { mode: 'overview' })
       const walls = insertionPoints(model, STRESS_DIAGRAM).flatMap((p) => (p.action.kind === 'port' && p.action.wall ? [{ wall: p.action.wall, at: p.at }] : []))
       for (const { wall, at } of walls.filter((w) => w.wall !== 'w' && w.wall !== 'e')) {
         const sockets = model.nodes.filter((n) => n.kind === 'port' && n.wall === wall)
         const { dir } = wallFrame(wall)
         const along = (q: { x: number; y: number }) => q.x * dir.x + q.y * dir.y
-        const labels = model.nodes.filter((n) => n.kind === 'portLabel' && sockets.some((s) => s.ref === n.ref))
         const half = (l: { width: number; height: number }) => reach(l.width, l.height, dir)
-        const [lo, hi] = [Math.min(...labels.map((l) => along(l) - half(l))), Math.max(...labels.map((l) => along(l) + half(l)))]
+        const [lo, hi] = [Math.min(...sockets.map((l) => along(l) - half(l))), Math.max(...sockets.map((l) => along(l) + half(l)))]
         expect(along(at) < lo || along(at) > hi).toBe(true)
       }
     })

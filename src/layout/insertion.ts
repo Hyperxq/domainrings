@@ -75,16 +75,15 @@ export function insertionPoints(model: LayoutModel, d: Diagram): InsertionPoint[
     })
   }
 
-  // Application: one use case "+" per sector, and one past the end of each wall's port run (the midpoint when empty).
+  // Application: one use case "+" per sector, on the domain wall the use cases straddle, and one past the end of each wall's port run (the middle of the wall when empty).
   const covers = (b: { x: number; y: number; width: number; height: number }, q: Point) =>
     q.x + PLUS / 2 > b.x && q.x - PLUS / 2 < b.x + b.width && q.y + PLUS / 2 > b.y && q.y - PLUS / 2 < b.y + b.height
   const free = (q: Point) => !model.rings.some((r) => covers(r.titleBox, q))
   {
-    const inner = model.rings[model.rings.indexOf(app) + 1]
     for (const wall of WALLS) {
       const { n, dir } = wallFrame(wall)
       const seated = nodesOf('useCase').filter((u) => u.wall === wall)
-      const depth = seated.length ? seated[0].x * n.x + seated[0].y * n.y : (app.halfWidth + inner.halfWidth) / 2
+      const depth = domainRing.halfWidth
       // Along the wall at this depth, a "+" keeps SPOKE_ROOM from both spokes of its sector.
       const limit = Math.max(0, depth / Math.sqrt(3) - SPOKE_ROOM / COS30)
       const us = seated.map((u) => u.x * dir.x + u.y * dir.y)
@@ -109,8 +108,7 @@ export function insertionPoints(model: LayoutModel, d: Diagram): InsertionPoint[
   for (const wall of WALLS) {
     const side: Side = ['nw', 'w', 'sw'].includes(wall) ? 'driving' : 'driven'
     const { n, dir } = wallFrame(wall)
-    // An overview port name can run past its notch along the wall; the "+" goes past both.
-    const onWall = [...sockets.filter((s) => s.wall === wall), ...nodesOf('portLabel').filter((l) => sockets.some((s) => s.ref === l.ref && s.wall === wall))]
+    const onWall = sockets.filter((s) => s.wall === wall)
     const along = onWall.length ? Math.max(...onWall.map((s) => s.x * dir.x + s.y * dir.y + reach(s.width, s.height, dir))) + GAP : 0
     // Where the title is in the way, slide down the wall, away from the vertical axis, within the wall.
     const away = Math.sign(dir.x * n.x) || 1
@@ -135,14 +133,17 @@ export function insertionPoints(model: LayoutModel, d: Diagram): InsertionPoint[
       label: `Add an adapter for ${name(socket.ref, d.ports)}`,
     })
   }
+  // Adapters with no port: past the last adapter on the side's own wall, on the infrastructure wall they straddle.
   for (const side of ['driving', 'driven'] as const) {
-    const column = adapters.filter((a) => a.side === side && (!a.wall || a.wall === 'w' || a.wall === 'e'))
-    const sign = side === 'driving' ? -1 : 1
-    const last = column.length ? lowest(column) : undefined
+    const wall = side === 'driving' ? 'w' : 'e'
+    const { n, dir } = wallFrame(wall)
+    const here = adapters.filter((a) => a.side === side && a.wall === wall)
+    const along = here.length ? Math.max(...here.map((a) => a.x * dir.x + a.y * dir.y + reach(a.width, a.height, dir))) + GAP + PLUS / 2 : 0
+    const depth = model.rings[0].halfWidth
     points.push({
       key: `adapters:column:${side}`,
       layer: 'adapters',
-      at: last ? { x: last.x, y: bottom(last) + GAP } : { x: sign * (app.halfWidth + 60), y: 0 },
+      at: { x: n.x * depth + dir.x * along, y: n.y * depth + dir.y * along },
       action: { kind: 'adapter', side },
       label: `Add a ${side} adapter`,
     })

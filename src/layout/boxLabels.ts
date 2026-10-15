@@ -24,7 +24,6 @@ export interface BoxLabel {
 const TIER: Partial<Record<LayoutNode['kind'], BoxLabel['tier']>> = {
   useCase: 0,
   port: 0,
-  portLabel: 0,
   adapter: 1,
   actor: 1,
   external: 1,

@@ -26,20 +26,20 @@
         { "id": "v-points", "name": "Points", "type": "valueObject", "parentId": "e-loyalty" }
       ],
       "useCases": [
-        { "id": "uc-place", "name": "PlaceOrder", "note": "execute(cmd): Promise<OrderId>\nprice, reserve stock, charge" },
-        { "id": "uc-cancel", "name": "CancelOrder", "note": "execute(cmd): Promise<void>\nrelease stock, notify" },
-        { "id": "uc-earn", "name": "EarnPoints", "placement": "nw", "note": "execute(evt): Promise<void>\ncredit the loyalty card" }
+        { "id": "uc-place", "name": "PlaceOrder", "aggregateIds": ["g-order"], "note": "execute(cmd): Promise<OrderId>\nprice, reserve stock, charge" },
+        { "id": "uc-cancel", "name": "CancelOrder", "aggregateIds": ["g-order"], "note": "execute(cmd): Promise<void>\nrelease stock, notify" },
+        { "id": "uc-earn", "name": "EarnPoints", "placement": "nw", "aggregateIds": ["g-customer"], "note": "execute(evt): Promise<void>\ncredit the loyalty card" }
       ],
       "ports": [
         { "id": "p-orders", "name": "ordersApi", "side": "driving", "wall": "w", "useCaseId": "uc-place", "note": "(command)" },
         { "id": "p-events", "name": "loyaltyEvents", "side": "driving", "wall": "nw", "useCaseId": "uc-earn", "note": "(event)" },
         { "id": "p-admin", "name": "adminCommands", "side": "driving", "wall": "sw", "useCaseId": "uc-cancel", "note": "(command)" },
-        { "id": "p-order-repo", "name": "OrderRepository", "side": "driven", "wall": "ne", "useCaseId": "uc-place" },
-        { "id": "p-payments", "name": "PaymentGateway", "side": "driven", "wall": "ne", "useCaseId": "uc-place" },
+        { "id": "p-order-repo", "name": "OrderRepository", "side": "driven", "wall": "se", "useCaseId": "uc-place" },
+        { "id": "p-payments", "name": "PaymentGateway", "side": "driven", "wall": "se", "useCaseId": "uc-place" },
         { "id": "p-stock", "name": "StockLevels", "side": "driven", "wall": "e", "useCaseId": "uc-place" },
         { "id": "p-notify", "name": "CustomerNotifier", "side": "driven", "wall": "e", "useCaseId": "uc-cancel" },
-        { "id": "p-customer-repo", "name": "CustomerRepository", "side": "driven", "wall": "se", "useCaseId": "uc-earn" },
-        { "id": "p-clock", "name": "Clock", "side": "driven", "wall": "se", "useCaseId": "uc-earn" }
+        { "id": "p-customer-repo", "name": "CustomerRepository", "side": "driven", "wall": "ne", "useCaseId": "uc-earn" },
+        { "id": "p-clock", "name": "Clock", "side": "driven", "wall": "ne", "useCaseId": "uc-earn" }
       ],
       "adapters": [
         { "id": "a-rest", "name": "orders.routes", "portId": "p-orders", "note": "HTTP → command" },

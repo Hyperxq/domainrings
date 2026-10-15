@@ -20,7 +20,7 @@ export function NotePopover({ mainRef, hexId, refId, text }: { mainRef: RefObjec
     const main = mainRef.current
     // A port is drawn twice under one ref (declaration and wall box); the labelled outlines are not boxes either.
     const anchor = [...(main?.querySelectorAll('.node[data-ref]') ?? [])].find(
-      (n) => n.getAttribute('data-ref') === refId && !n.matches('.node-aggregate, .node-portLabel') && (hexId === undefined || hexIdOf(n) === hexId),
+      (n) => n.getAttribute('data-ref') === refId && !n.matches('.node-aggregate') && (hexId === undefined || hexIdOf(n) === hexId),
     )
     if (!main || !anchor) return setAt(null)
     const [stage, box] = [main.getBoundingClientRect(), anchor.getBoundingClientRect()]

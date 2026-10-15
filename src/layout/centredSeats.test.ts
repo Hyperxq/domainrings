@@ -75,8 +75,9 @@ describe('narrow use-case box', () => {
     expect(node.lines.some((l) => l.text.endsWith('…'))).toBe(true)
   })
 
-  it('keeps the overview pill as wide as its name', () => {
-    const node = layoutDiagram(long, { mode: 'overview' }).nodes.find((n) => n.kind === 'useCase')!
-    expect(node.lines.map((l) => l.text)).toEqual(['PlaceTheOrderAndReserveStockForTheCustomer'])
+  it('draws the overview use case as the same narrow box', () => {
+    const [detailed, overview] = (['detailed', 'overview'] as const).map((mode) => layoutDiagram(long, { mode }).nodes.find((n) => n.kind === 'useCase')!)
+    expect(overview.lines).toEqual(detailed.lines)
+    expect(overview.width).toBe(detailed.width)
   })
 })

@@ -6,7 +6,7 @@ import type { LayoutNode } from '../layout/layout'
 import type { Point } from '../layout/geometry'
 import type { LegendModel } from '../layout/legend'
 import { currentHexagon, type MapLayout } from '../layout/map'
-import { dependencyChain } from '../model/chain'
+import { dependencyChain, unionChain } from '../model/chain'
 import { flowChain, flowOf } from '../model/flow'
 import { collectionOf, linkTargets, type LinkChoice } from '../model/links'
 import { noteToShow, notesOf } from '../model/notes'
@@ -17,7 +17,7 @@ import type { CollectionKey, Diagram as DiagramModel, DomainType, HexaMap, Wall 
 import { useMapStore } from '../model/store'
 import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
-import { hexIdOf, hullIdOf, layerOf, nodeRefOf, refOf, threadOf } from './canvasTarget'
+import { hexIdOf, hullIdOf, layerOf, nodeRefOf, refOf, threadsOf } from './canvasTarget'
 import { useInspectedFlow } from './FlowInspector'
 import { StepCard, usePresentation } from './PresentPanel'
 import { NotePopover } from './stage/NotePopover'
@@ -73,8 +73,8 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   // View mode shows the Flows panel in the editor's place, so the fit leaves the same room for it.
   const panelOpen = useViewStore((s) => s.editorOpen) || viewOnly
   const focusedFlow = useViewStore((s) => s.focusedFlow)
-  const hoveredFlow = useViewStore((s) => s.hoveredFlow)
-  const hoverFlow = useViewStore((s) => s.hoverFlow)
+  const hoveredFlows = useViewStore((s) => s.hoveredFlows)
+  const hoverFlows = useViewStore((s) => s.hoverFlows)
   // Edit mode's flow inspector takes the right column, so the fit leaves it free too.
   const inspectorOpen = !!useInspectedFlow()
   const linking = useViewStore((s) => s.linking)
@@ -176,13 +176,19 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   const crossLinkTargets = useMemo(() => targetsByHexagon(crossTargets), [crossTargets])
   // Only what is drawn can be followed, so the chain ends at the ports of a compact hexagon.
   const isolated = viewOnly && !!focusedFlow && diagram.useCases.some((u) => u.id === focusedFlow)
-  // A hover previews a flow the same way, but only where highlighting is on and never over a focused flow.
-  const previewed = viewOnly && highlight && !focusedFlow && diagram.useCases.some((u) => u.id === hoveredFlow) ? hoveredFlow : null
-  const shownFlow = isolated ? focusedFlow : previewed
+  // A hover previews the union of the hovered element's flows, in either mode, where highlighting is on and nothing is
+  // selected or being linked; a focused flow wins.
+  const previewed = highlight && !focusedFlow && !selected && !linking ? hoveredFlows.filter((id) => diagram.useCases.some((u) => u.id === id)) : []
+  const shownFlows = isolated ? [focusedFlow!] : previewed
   const chain = useMemo(
     () =>
-      shownFlow ? flowChain(map, flowOf(map, hexId, shownFlow)) : highlight && !linking && selected ? dependencyChain(map, hexId, selected, new Set(model.hexagons.filter((h) => !h.compact).map((h) => h.id)), dependents ? 'dependents' : 'dependencies') : undefined,
-    [shownFlow, highlight, linking, selected, map, hexId, model, dependents],
+      shownFlows.length
+        ? unionChain(shownFlows.map((id) => flowChain(map, flowOf(map, hexId, id))))
+        : highlight && !linking && selected
+          ? dependencyChain(map, hexId, selected, new Set(model.hexagons.filter((h) => !h.compact).map((h) => h.id)), dependents ? 'dependents' : 'dependencies')
+          : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [shownFlows.join(' '), highlight, linking, selected, map, hexId, model, dependents],
   )
   const nameOf = (ref: string) => {
     const collection = collectionOf(diagram, ref)
@@ -243,12 +249,12 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
           const target = e.target as Element
           if (hexIdOf(target) !== hexId) {
             setHoveredRef(null)
-            hoverFlow(null)
+            hoverFlows([])
             return setHovered(null)
           }
           setHovered(layerOf(target))
           setHoveredRef(nodeRefOf(target))
-          hoverFlow(threadOf(target))
+          hoverFlows(threadsOf(target))
         }}
         onPointerMove={(e) => reveal.rest(dragging ? null : hullIdOf(e.target as Element))}
         onPointerLeave={(e) => {
@@ -256,14 +262,14 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
           if (!(e.relatedTarget as Element | null)?.closest?.('[data-plus]')) {
             setHovered(null)
             setHoveredRef(null)
-            hoverFlow(null)
+            hoverFlows([])
           }
         }}
         onFocus={(e) => {
           if (pointerPressed.current) return
           setHovered(layerOf(e.target as Element))
           setHoveredRef(nodeRefOf(e.target as Element))
-          hoverFlow(threadOf(e.target as Element))
+          hoverFlows(threadsOf(e.target as Element))
           reveal.focus(hexIdOf(e.target as Element))
         }}
         onBlur={(e) => {
@@ -271,11 +277,11 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
           if (!(e.relatedTarget as Element | null)?.closest?.('[data-plus]')) {
             setHovered(null)
             setHoveredRef(null)
-            hoverFlow(null)
+            hoverFlows([])
           }
         }}
         data-link-mode={linking ? '' : undefined}
-        data-emphasis={chain ? (dependents && !shownFlow ? 'dependents' : '') : undefined}
+        data-emphasis={chain ? (dependents && !shownFlows.length ? 'dependents' : '') : undefined}
         onClick={(e) => {
           if (panned.current) return
           const target = e.target as Element

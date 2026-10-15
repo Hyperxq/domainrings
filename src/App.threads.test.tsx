@@ -20,7 +20,7 @@ beforeAll(() => {
 })
 beforeEach(() => {
   useMapStore.getState().replace(EXAMPLES.find((e) => e.id === 'hexagonal-advanced')!.map as HexaMap)
-  useViewStore.setState({ editorOpen: true, focusedFlow: null, hoveredFlow: null, presentStep: null })
+  useViewStore.setState({ editorOpen: true, focusedFlow: null, hoveredFlows: [], presentStep: null })
   usePreferencesStore.setState({ viewOnly: true, highlight: true, legendOpen: true })
 })
 afterEach(cleanup)
@@ -36,7 +36,7 @@ const canvas = (container: HTMLElement) => container.querySelector('svg.canvas')
 const chained = (container: HTMLElement) => [...new Set([...container.querySelectorAll('[data-hex] .node[data-chain]')].map((n) => n.getAttribute('data-ref')))]
 const edgeOf = (container: HTMLElement, useCaseId: string) => container.querySelector(`path.edge[data-thread="${useCaseId}"]`)!
 
-describe('hovering a thread in View mode', () => {
+describe('hovering a thread', () => {
   it('previews the flow of an edge that belongs to one thread, and ends with the pointer', () => {
     const { container } = render(<App />)
     expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
@@ -50,19 +50,21 @@ describe('hovering a thread in View mode', () => {
   it('previews the flow of a box that serves one thread', () => {
     const { container } = render(<App />)
     fireEvent.pointerOver(container.querySelector('[data-hex="h1"] .node-useCase[data-ref="uc-place"]')!)
-    expect(useViewStore.getState().hoveredFlow).toBe('uc-place')
+    expect(useViewStore.getState().hoveredFlows).toEqual(['uc-place'])
     expect(chained(container)).toContain('uc-place')
   })
 
-  it('previews nothing for a box several threads touch', () => {
+  it('previews the union of the threads of a box several threads touch', () => {
     const { aggregate, map } = sharedAggregate()
     useMapStore.getState().replace(map)
     const { container } = render(<App />)
     const card = container.querySelector(`[data-hex] .node[data-ref="${aggregate}"][data-threads]`)!
-    expect(card.getAttribute('data-threads')!.split(' ')).toHaveLength(map.hexagons[0].useCases.length)
+    const useCases = map.hexagons[0].useCases.map((u) => u.id)
+    expect(card.getAttribute('data-threads')!.split(' ')).toHaveLength(useCases.length)
     fireEvent.pointerOver(card)
-    expect(useViewStore.getState().hoveredFlow).toBeNull()
-    expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
+    expect(useViewStore.getState().hoveredFlows).toEqual(useCases)
+    expect(canvas(container).hasAttribute('data-emphasis')).toBe(true)
+    expect(chained(container)).toEqual(expect.arrayContaining(useCases))
   })
 
   it('previews the one thread of a dot', () => {
@@ -71,7 +73,7 @@ describe('hovering a thread in View mode', () => {
     const { container } = render(<App />)
     const dot = container.querySelector(`.node[data-ref="${aggregate}"] circle.thread-dot[data-thread="uc-cancel"]`)!
     fireEvent.pointerOver(dot)
-    expect(useViewStore.getState().hoveredFlow).toBe('uc-cancel')
+    expect(useViewStore.getState().hoveredFlows).toEqual(['uc-cancel'])
   })
 
   it('does nothing when highlighting is off', () => {
@@ -81,11 +83,21 @@ describe('hovering a thread in View mode', () => {
     expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
   })
 
-  it('does nothing in Edit mode', () => {
+  it('previews in Edit mode too, while nothing is selected', () => {
     usePreferencesStore.setState({ viewOnly: false })
     const { container } = render(<App />)
     fireEvent.pointerOver(edgeOf(container, 'uc-place'))
-    expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
+    expect(canvas(container).hasAttribute('data-emphasis')).toBe(true)
+    expect(chained(container)).toContain('uc-place')
+  })
+
+  it('leaves a selection its own dependency chain in Edit mode', () => {
+    usePreferencesStore.setState({ viewOnly: false })
+    const { container } = render(<App />)
+    fireEvent.click(container.querySelector('[data-hex="h1"] .node-port[data-ref="p-orders-api"]')!)
+    const before = chained(container)
+    fireEvent.pointerOver(edgeOf(container, 'uc-place'))
+    expect(chained(container)).toEqual(before)
   })
 
   it('yields to a focused flow', () => {
@@ -100,7 +112,7 @@ describe('hovering a thread in View mode', () => {
 
   it('ends when the hovered flow is deleted', () => {
     const { container } = render(<App />)
-    act(() => useViewStore.getState().hoverFlow('gone'))
+    act(() => useViewStore.getState().hoverFlows(['gone']))
     expect(canvas(container).hasAttribute('data-emphasis')).toBe(false)
   })
 })
@@ -128,6 +140,22 @@ describe('the Threads legend', () => {
     const first = useMapStore.getState().map.hexagons[0].useCases[0].id
     fireEvent.click(rows()[0])
     expect(useViewStore.getState().focusedFlow).toBe(first)
+  })
+
+  it('marks the focused flow as pressed and carries its thread colour', () => {
+    render(<App />)
+    expect(rows().map((r) => r.getAttribute('aria-pressed'))).toEqual(rows().map(() => 'false'))
+    expect(rows()[0].getAttribute('style')).toMatch(/--thread: var\(--thread-\d+\)/)
+    fireEvent.click(rows()[0])
+    expect(rows().map((r) => r.getAttribute('aria-pressed'))).toEqual(rows().map((_, i) => String(i === 0)))
+  })
+
+  it('clears the focus on a second click of the pressed row', () => {
+    render(<App />)
+    fireEvent.click(rows()[0])
+    fireEvent.click(rows()[0])
+    expect(useViewStore.getState().focusedFlow).toBeNull()
+    expect(rows()[0].getAttribute('aria-pressed')).toBe('false')
   })
 
   it('is absent when the hexagon has no use case', () => {

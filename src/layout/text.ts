@@ -1,10 +1,12 @@
-export type LineStyle = 'eyebrow' | 'title' | 'name' | 'mono' | 'muted' | 'minor' | 'strong' | 'tag' | 'label'
+export type LineStyle = 'eyebrow' | 'title' | 'name' | 'mono' | 'muted' | 'minor' | 'strong' | 'tag'
 
 export interface TextLine {
   text: string
   style: LineStyle
   /** A type tag drawn inline, before the text, in the tag style. */
   tag?: string
+  /** Text set against the box's right edge on the same line, in the line's own style. */
+  right?: string
 }
 
 interface Metrics {
@@ -26,8 +28,6 @@ export const LINE_METRICS: Record<LineStyle, Metrics> = {
   minor: { size: 12, height: 16, em: 0.6, tracking: 0 },
   strong: { size: 13, height: 18, em: 0.62, tracking: 0 },
   tag: { size: 11, height: 14, em: 0.6, tracking: 0 },
-  /** An overview socket's port name, beside its notch. */
-  label: { size: 11, height: 14, em: 0.6, tracking: 0 },
 }
 
 export const RING_LABEL = { size: 13, em: 0.68, tracking: 1.6 } as const
@@ -44,8 +44,12 @@ export const measure = (text: string, m: { size: number; em: number; tracking?: 
   text.length * (m.size * m.em + (m.tracking ?? 0))
 
 export const TAG_GAP = 6
+/** The least room between a line's text and its right-hand text. */
+export const RIGHT_GAP = 16
 export const lineWidth = (line: TextLine) =>
-  measure(line.text, LINE_METRICS[line.style]) + (line.tag ? measure(line.tag, LINE_METRICS.tag) + TAG_GAP : 0)
+  measure(line.text, LINE_METRICS[line.style]) +
+  (line.tag ? measure(line.tag, LINE_METRICS.tag) + TAG_GAP : 0) +
+  (line.right ? measure(line.right, LINE_METRICS[line.style]) + RIGHT_GAP : 0)
 
 const WORD_BREAKS = /(?<=[/.\s·_-])|(?<=[a-z0-9])(?=[A-Z])/
 /** A code signature also breaks after an opening parenthesis, a comma and the colon of the closing one. */

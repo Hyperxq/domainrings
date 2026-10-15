@@ -5,11 +5,12 @@ import { EDGE_LABEL, LINE_METRICS, SUBTITLE, TAG_GAP, TITLE } from '../layout/te
 import { bandPath } from './band'
 import { NOTE_INSET, NOTE_POPOVER_ID, NoteMarker } from './NoteMarker'
 import { Ring } from './Ring'
+import { roundedPath } from './roundedPath'
 import { ThreadDots, threadStyle } from './ThreadDots'
 
 const BOX_PAD_X = 12
 // The domain block is plain text on the solid domain ring.
-const FRAMELESS = new Set<LayoutNode['kind']>(['domainItem', 'portLabel'])
+const FRAMELESS = new Set<LayoutNode['kind']>(['domainItem'])
 // A note belongs to the element's box, not to its outline, its declaration or its overview label.
 const NOTE_CARRIERS = new Set<LayoutNode['kind']>(['actor', 'adapter', 'port', 'useCase', 'external', 'domainItem', 'composition'])
 
@@ -43,13 +44,17 @@ function Edge({ edge, chained }: { edge: LayoutEdge; chained: boolean }) {
   const marker = edge.kind === 'import' ? `url(#arrow${edge.thread ? `-thread-${edge.thread.slot}` : ''})` : undefined
   const chain = chained ? '' : undefined
   const thread = edge.thread ? { 'data-thread': edge.thread.id, style: threadStyle(edge.thread.slot) } : {}
+  // An edge that runs wholly on the domain fill keeps its thread colour; one with no thread takes the domain's own ink.
+  if (edge.intoDomain === 0) {
+    return <path className={`edge edge-${edge.kind}${edge.thread ? '' : ' on-domain'}`} data-chain={chain} {...thread} d={roundedPath(edge.points)} markerEnd={edge.thread ? marker : 'url(#arrow-on-domain)'} />
+  }
   if (edge.intoDomain === undefined) {
-    return <path className={`edge edge-${edge.kind}`} data-chain={chain} {...thread} d={orthogonalPath(edge.points)} markerEnd={marker} />
+    return <path className={`edge edge-${edge.kind}`} data-chain={chain} {...thread} d={roundedPath(edge.points)} markerEnd={marker} />
   }
   return (
     <>
-      <path className={`edge edge-${edge.kind}`} data-chain={chain} {...thread} d={orthogonalPath(edge.points.slice(0, edge.intoDomain + 1))} />
-      <path className={`edge edge-${edge.kind} on-domain`} data-chain={chain} d={orthogonalPath(edge.points.slice(edge.intoDomain))} markerEnd="url(#arrow-on-domain)" />
+      <path className={`edge edge-${edge.kind}`} data-chain={chain} {...thread} d={roundedPath(edge.points.slice(0, edge.intoDomain + 1))} />
+      <path className={`edge edge-${edge.kind} on-domain`} data-chain={chain} d={roundedPath(edge.points.slice(edge.intoDomain))} markerEnd="url(#arrow-on-domain)" />
     </>
   )
 }
@@ -93,6 +98,7 @@ function Node({ node, selected, target, chained, interactive, noted, planned }: 
           <rect className="box" x={left} y={top} width={node.width} height={node.height} rx={node.kind === 'port' ? 10 : 8} />
         )
       )}
+      {node.rule !== undefined && <line className="card-rule" x1={left + 10} x2={left + node.width - 10} y1={top + node.rule} y2={top + node.rule} />}
       <text className={centered ? 'centered' : node.align === 'end' ? 'end' : undefined}>
         {node.lines.map((line, i) => {
           const m = LINE_METRICS[line.style]
@@ -107,6 +113,11 @@ function Node({ node, selected, target, chained, interactive, noted, planned }: 
                 </>
               )}
               {!line.tag && line.text}
+              {line.right && (
+                <tspan className="line-right" x={left + node.width} textAnchor="end">
+                  {line.right}
+                </tspan>
+              )}
             </tspan>
           )
         })}

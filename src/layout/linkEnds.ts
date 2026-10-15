@@ -8,7 +8,7 @@ import { GAP_MARGIN, outwardEdgePoint, routeLink } from './links'
 import type { MapContextLayout, MapHexagonLayout, MapLinkLayout } from './map'
 
 /** The node kinds REQ-LNK-05.1 names: a routed link must cross none of them, other than the node each end
- * anchors on. Excludes decorative/label nodes (`portLabel`, titles) — not "node boxes" in the requirement's
+ * anchors on. Excludes decorative/label nodes (titles) — not "node boxes" in the requirement's
  * wording. */
 const AVOIDED_KINDS: ReadonlySet<NodeKind> = new Set(['port', 'adapter', 'actor', 'external', 'useCase', 'domainItem'])
 

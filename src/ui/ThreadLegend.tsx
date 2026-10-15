@@ -10,8 +10,9 @@ export function ThreadLegend() {
   const map = useMapStore((s) => s.map)
   const hexId = useMapStore((s) => s.focus)
   const showPlanned = usePreferencesStore((s) => s.showPlanned)
-  const hoverFlow = useViewStore((s) => s.hoverFlow)
+  const hoverFlows = useViewStore((s) => s.hoverFlows)
   const focusFlow = useViewStore((s) => s.focusFlow)
+  const focused = useViewStore((s) => s.focusedFlow)
   const diagram = diagramOf(map, hexId)
   const slots = threadSlots(diagram)
   const useCases = diagram.useCases.filter((u) => showPlanned || u.status !== 'planned')
@@ -24,11 +25,13 @@ export function ThreadLegend() {
           <li key={u.id}>
             <button
               type="button"
-              onPointerEnter={() => hoverFlow(u.id)}
-              onPointerLeave={() => hoverFlow(null)}
-              onFocus={() => hoverFlow(u.id)}
-              onBlur={() => hoverFlow(null)}
-              onClick={() => focusFlow(u.id)}
+              onPointerEnter={() => hoverFlows([u.id])}
+              onPointerLeave={() => hoverFlows([])}
+              onFocus={() => hoverFlows([u.id])}
+              onBlur={() => hoverFlows([])}
+              aria-pressed={focused === u.id}
+              style={threadStyle(slots.get(u.id)!)}
+              onClick={() => focusFlow(focused === u.id ? null : u.id)}
             >
               <span className="thread-swatch" aria-hidden="true" style={threadStyle(slots.get(u.id)!)} />
               {u.name || 'Unnamed'}

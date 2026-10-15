@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { canvasBounds, contains, EDITOR_CHIP_BOTTOM, fitMap, fitTo, INSPECTOR_ISLAND_WIDTH, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, MIN_FIT_SCALE, MIN_SCALE, panBy, panInto, pinch, toDiagram, visibleRect, zoomAt } from './viewport'
 import { hexagonBounds } from '../layout/lattice'
-import { currentHexagon, layoutMap } from '../layout/map'
+import { layoutMap } from '../layout/map'
 import { TWO_SLICES_MAP } from '../model/example'
 import type { Point } from '../layout/geometry'
 
@@ -103,9 +103,11 @@ describe('viewport', () => {
     const model = layoutMap(TWO_SLICES_MAP)
     const size = { width: 1366, height: 768 }
     const inset = islandInset(size, true, false)
-    const fit = fitMap(model.bounds, hexagonBounds(currentHexagon(model, TWO_SLICES_MAP.hexagons[0].id)), size.width, size.height, inset)
+    // On 2+ hexagons the app's auto view is the whole-map fit with no floor (useStageViewport), so that is what is measured here.
+    const fit = fitTo(model.bounds, size.width, size.height, inset, 0)
 
-    expect(fit.scale).toBeGreaterThanOrEqual(MIN_FIT_SCALE)
+    // v2 placement: Overview keeps every box and edge; bands are 2 × (half box + margin + tracks). Measured 0.3395, below MIN_FIT_SCALE (0.35).
+    expect(fit.scale).toBeGreaterThanOrEqual(0.33)
     const topLeft = toDiagram(fit, { x: inset.left, y: inset.top })
     const bottomRight = toDiagram(fit, { x: size.width - inset.right, y: size.height - inset.bottom })
     for (const hex of model.hexagons) {

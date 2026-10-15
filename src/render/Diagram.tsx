@@ -2,14 +2,13 @@ import { memo } from 'react'
 import type { Chain } from '../model/chain'
 import { hexagonBounds } from '../layout/lattice'
 import { currentHexagon, hexagonTitle, type MapContextLayout, type MapLayout } from '../layout/map'
-import type { LayoutRing } from '../layout/layout'
 import type { Point } from '../layout/geometry'
 import type { LegendModel } from '../layout/legend'
 import { EDGE_LABEL, TITLE } from '../layout/text'
 import { CompactBody, HexagonBody, HexCue, orthogonalPath } from './HexagonBody'
 import { SvgLegend } from './SvgLegend'
 
-function Defs({ rings, slots }: { rings: LayoutRing[]; slots: number[] }) {
+function Defs({ slots }: { slots: number[] }) {
   return (
     <defs>
       <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -22,12 +21,6 @@ function Defs({ rings, slots }: { rings: LayoutRing[]; slots: number[] }) {
         <marker key={slot} id={`arrow-thread-${slot}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
           <path className="arrow-head" style={{ fill: `var(--thread-${slot})` }} d="M0 0L10 5L0 10z" />
         </marker>
-      ))}
-      {rings.map((ring) => (
-        // The glow colour follows each ring's stroke; flood-color comes from CSS per role.
-        <filter key={ring.role} id={`glow-${ring.role}`} x="-10%" y="-10%" width="120%" height="120%">
-          <feDropShadow className={`glow-${ring.role}`} dx="0" dy="0" stdDeviation="6" floodOpacity="0.35" />
-        </filter>
       ))}
     </defs>
   )
@@ -95,11 +88,10 @@ interface MapDiagramProps {
 /** Composes every hexagon of a map into one SVG: one `<defs>`, one `<g data-hex>` per hexagon, the map's links
  * drawn above them, an optional map title, and the legend once — under the current hexagon. */
 export const MapDiagram = memo(function MapDiagram({ map, legend, showGuides, focus, selected, linkTargets, crossLinkTargets, hovered, chain, notes, planned }: MapDiagramProps) {
-  const first = map.hexagons[0]
   const current = currentHexagon(map, focus)
   return (
     <>
-      <Defs rings={first.model.rings} slots={threadSlotsDrawn(map)} />
+      <Defs slots={threadSlotsDrawn(map)} />
       <Hulls contexts={map.contexts} outline={map.outline} />
       {map.hexagons.map((hex) => {
         const isCurrent = hex.id === focus

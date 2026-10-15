@@ -1,17 +1,17 @@
 import { HEXAGONAL_KIND, type RingRole } from '../model/kinds'
-import type { Diagram, Side, Wall } from '../model/schema'
+import { defaultWall, type Diagram, type Port, type Side, type Wall } from '../model/schema'
 import type { Thread } from '../model/threads'
-import { dot, reach, type Box, type Point } from './geometry'
+import { dot, type Box, type Point } from './geometry'
+import { sizeBands } from './hexagon/bands'
 import { layoutBounds } from './hexagon/bounds'
 import { boxFrames } from './hexagon/boxFrames'
+import { planChains } from './hexagon/chains'
 import { layCentre } from './hexagon/centreBlock'
-import { planBoxes } from './hexagon/columns'
+import { placeElements, planPairs } from './hexagon/elements'
 import { assignLayers, placeNodes } from './hexagon/nodes'
-import { solveRings } from './hexagon/ringSolver'
 import { ringTitles } from './hexagon/ringTitles'
-import { routeEdges } from './hexagon/routes'
+import { corridorCentre, planHops, routeEdges, trackOwners, type Terminal } from './hexagon/routes'
 import { markThreads } from './hexagon/threadMarks'
-import { GAP, TRACK_GAP } from './hexagon/spacing'
 import { seatUseCases } from './hexagon/useCaseSeating'
 import { VERTEX, wallFrame } from './hexagon/walls'
 import { COS30, hexagon, type Outline } from './outline'
@@ -28,7 +28,6 @@ export type NodeKind =
   | 'domainItem'
   | 'aggregate'
   | 'composition'
-  | 'portLabel'
 
 /** A use case's thread as the layout carries it: whose flow, and the palette slot it draws with. */
 export interface ThreadMark {
@@ -48,10 +47,12 @@ export interface LayoutNode {
   /** The ring this element belongs to, for layer highlighting; none for elements outside every ring. */
   layer?: RingRole
   side?: Side
-  /** Hexagons: the application-ring wall a port sits on; its adapter and actor or external share it. */
+  /** Hexagons: the wall the box sits on; a port's adapters and their actors or externals share its wall. */
   wall?: Wall
   /** Hexagons: the threads whose flow passes through this box, in use case order. */
   threads?: ThreadMark[]
+  /** Hexagons, domain cards: where a divider rule runs across the box, measured down from its top edge. */
+  rule?: number
   x: number
   y: number
   width: number
@@ -106,7 +107,7 @@ export interface LayoutText {
   size?: number
 }
 
-/** Overview drops everything but names, the rings, notched sockets and the horizontal flow. */
+/** Overview shrinks the domain model's aggregate cards to their headers; every other box, wall and edge stays as in Detailed. */
 export type LayoutMode = 'detailed' | 'overview'
 
 export interface LayoutOptions {
@@ -122,8 +123,10 @@ export interface LayoutModel {
   region?: Outline
   /** Hexagons only: dashed spokes from each outer vertex in to the matching domain vertex. */
   guides: { from: Point; to: Point }[]
-  /** Hexagons only: the corridors the connections run along, as hexagons concentric with the rings: the domain's, the application's and the infrastructure's, innermost first. */
+  /** Hexagons only: the corridors the connections run along, as hexagons concentric with the rings through the middle of each band: the domain's, the application's, the infrastructure's and the external systems', innermost first. */
   corridors: Outline[]
+  /** Hexagons only: the wall the external systems and actors are centred on, just outside the infrastructure ring. */
+  externalWall: Outline
   nodes: LayoutNode[]
   edges: LayoutEdge[]
   texts: LayoutText[]
@@ -133,37 +136,50 @@ export interface LayoutModel {
 export function layoutDiagram(d: Diagram, { mode = 'detailed', threads = [] }: LayoutOptions = {}): LayoutModel {
   const overview = mode === 'overview'
   const config = HEXAGONAL_KIND
-  const frames = boxFrames(overview)
-  const plan = planBoxes(d, overview, frames)
-  const titles = ringTitles(d)
-  const useCaseFrames = d.useCases.map(frames.useCaseFrame)
-  const appIndex = config.rings.findIndex((r) => r.role === 'application')
-  const seating = seatUseCases({ d, overview, useCaseFrames, plan, frames, titleRoom: GAP + titles.titleHeight(appIndex) + titles.titleDepth })
+  const frames = boxFrames()
+  const wallOf = (p: Port): Wall => p.wall ?? defaultWall(p.side)
+  const slots = planChains(d, { port: frames.portFrame, adapter: frames.adapterFrame, leaf: frames.leafFrame })
+  const seating = seatUseCases({ d, useCaseFrames: d.useCases.map(frames.useCaseFrame), slots, wallOf })
   const centre = layCentre({ d, overview, domainFrame: frames.domainFrame, seating })
+  const elements = placeElements(d, frames, slots, seating)
+  const pairs = planPairs(d, elements, new Set(centre.boxes.filter((b) => b.kind === 'aggregate').map((b) => b.ref)))
 
-  const outlines = solveRings({ d, overview, appIndex, titles, centre, plan, frames, seating })
-  const app = outlines[appIndex]
-  const insideApp = outlines[appIndex + 1]
-  const outer = outlines[0]
+  // Threads are ranked in use case order, anything else after them: it sets the order of tracks and of lateral offsets.
+  const order = new Map([...d.useCases.map((u) => u.id), ...pairs.map((p) => p.owner)].map((owner, i) => [owner, i] as const).reverse())
+  const rank = (owner: string) => order.get(owner)!
+  const terminals = new Map<string, Terminal>(elements.map((e) => [e.key, { wall: e.wall, layer: e.layer, u: e.u, width: e.frame.width, height: e.frame.height }]))
+  for (const card of centre.boxes.filter((b) => b.kind === 'aggregate')) {
+    const wall = centre.faces.get(card.ref)!
+    const { n, dir } = wallFrame(wall)
+    terminals.set(card.key, { wall, layer: 0, u: dot(card, dir), width: card.frame.width, height: card.frame.height, depth: dot(card, n) })
+  }
+  const hops = planHops(pairs, terminals, rank, centre.region.halfWidth)
+  const owners = trackOwners(hops, rank)
+
+  const titles = ringTitles(d)
+  const radii = sizeBands({
+    elements,
+    inside: centre.boxes.map((b) => ({ x: b.x - b.frame.width / 2, y: b.y - b.frame.height / 2, width: b.frame.width, height: b.frame.height })),
+    core: centre.region,
+    tracks: owners.map((o) => o.length),
+    titles,
+  })
+  // Rings, outermost first: the infrastructure, application and domain walls; the external systems stand on a wall of their own.
+  const outlines = [3, 2, 1].map((i) => hexagon(radii[i] / COS30))
+  const externalWall = hexagon(radii[4] / COS30)
   const domain = outlines[config.rings.length - 1]
+  const outer = outlines[0]
 
-  const { nodes, composition } = placeNodes({ d, overview, app, outer, domain, centre, plan, frames, seating })
-  const edges = routeEdges({ d, overview, nodes, composition, plan, app, insideApp, region: centre.region, faces: centre.faces, outer, seating })
+  const { nodes, composition } = placeNodes({ d, elements, radii, outerApex: externalWall.apex, centre, frames })
+  const edges = routeEdges({ hops, radii, owners, nodes, composition })
   const { texts, bounds } = layoutBounds(d, outer, nodes, edges)
-  assignLayers(nodes, centre.serviceItems)
+  assignLayers(nodes)
   markThreads(nodes, edges, threads)
 
   // Spokes run along the centre-to-vertex lines, from each outer vertex in to the domain's, never over its fill.
   const guides = VERTEX.map((v) => ({ from: { x: v.x * outer.apex, y: v.y * outer.apex }, to: { x: v.x * domain.apex, y: v.y * domain.apex } }))
-
-  // The domain's corridor runs halfway through its band; the application's through the middle of its tracks; the
-  // infrastructure's just outside the sockets, where a port meets several adapters.
-  const outsideSockets = Math.max(app.halfWidth, ...nodes.filter((n) => n.kind === 'port' && n.wall).map((p) => dot(p, wallFrame(p.wall!).n) + reach(p.width, p.height, wallFrame(p.wall!).n))) + GAP / 2
-  const corridors = [
-    ...(centre.hasRegion ? [(insideApp.halfWidth + centre.region.halfWidth) / 2] : []),
-    seating.corridor.outerAt(app.halfWidth) - (Math.max(1, seating.corridor.tracks) - 1) * TRACK_GAP / 2,
-    outsideSockets,
-  ].map((apothem) => hexagon(apothem / COS30))
+  // Each corridor runs through the middle of its band.
+  const corridors = [0, 1, 2, 3].map((c) => hexagon(corridorCentre(radii, c) / COS30))
 
   return {
     shape: 'hexagon',
@@ -171,6 +187,7 @@ export function layoutDiagram(d: Diagram, { mode = 'detailed', threads = [] }: L
     ...(centre.hasRegion ? { region: centre.region } : {}),
     guides,
     corridors,
+    externalWall,
     nodes,
     edges,
     texts,

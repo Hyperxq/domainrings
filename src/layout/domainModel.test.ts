@@ -17,7 +17,7 @@ const withUses = (d: Diagram, uses: Record<string, { placement?: Wall; aggregate
   useCases: d.useCases.map((u) => ({ ...u, ...uses[u.id] })),
 })
 
-const cardOf = (m: LayoutModel, mode: LayoutMode, id: string) => m.nodes.find((n) => n.key === (mode === 'detailed' ? `aggregate:${id}` : `domainItem:${id}`))!
+const cardOf = (m: LayoutModel, _mode: LayoutMode, id: string) => m.nodes.find((n) => n.key === `aggregate:${id}`)!
 const cardsOf = (m: LayoutModel, mode: LayoutMode, d: Diagram) => d.domain.filter((i) => i.type === 'aggregate' && !i.parentId).map((i) => cardOf(m, mode, i.id))
 const corners = (n: LayoutNode): Point[] => [-1, 1].flatMap((sx) => [-1, 1].map((sy) => ({ x: n.x + (sx * n.width) / 2, y: n.y + (sy * n.height) / 2 })))
 const faceOfCard = (n: LayoutNode): Wall => WALLS.reduce((best, w) => (dot(n, wallFrame(w).n) > dot(n, wallFrame(best).n) ? w : best))
@@ -61,11 +61,11 @@ describe('a domain without aggregates', () => {
     expect(layoutDiagram({ ...EXAMPLE_DIAGRAM, domain: [] }).region).toBeUndefined()
   })
 
-  it('keeps its other roots inside the region, as plain text', () => {
+  it('keeps its other roots inside the region, each on a card headed with its type', () => {
     const d = { ...EXAMPLE_DIAGRAM, domain: [{ id: 'e1', name: 'Order', type: 'entity' as const }] }
     const m = layoutDiagram(d)
     const root = m.nodes.find((n) => n.key === 'domainItem:e1')!
-    expect(m.nodes.some((n) => n.kind === 'aggregate')).toBe(false)
+    expect(m.nodes.find((n) => n.key === 'aggregate:e1')!.lines[0].text).toBe('● entity')
     for (const c of corners(root)) expect(Math.abs(c.x)).toBeLessThanOrEqual(halfWidthAt(m.region!, c.y) + 1e-6)
   })
 })
@@ -73,6 +73,7 @@ describe('a domain without aggregates', () => {
 describe('where a card sits', () => {
   const diagram = withUses(STRESS_DIAGRAM, {
     'uc-place': { placement: 'e', aggregateIds: ['g-order'] },
+    'uc-cancel': { aggregateIds: undefined },
     'uc-earn': { placement: 'nw', aggregateIds: ['g-customer'] },
   })
 
@@ -108,16 +109,16 @@ describe('the domain no longer lists its driven ports', () => {
     for (const t of tags('driving')) expect(t).toEqual(['⇥ driving port'])
   })
 
-  it('marks the driven port names written beside the overview notches', () => {
+  it('marks the driven ports of the overview with a diamond just the same', () => {
     const m = layoutDiagram(STRESS_DIAGRAM, { mode: 'overview' })
-    const label = (side: string) => m.nodes.filter((n) => n.kind === 'portLabel' && n.side === side).map((n) => n.lines.map((l) => l.text).join(''))
-    for (const t of label('driven')) expect(t.startsWith('◇ ')).toBe(true)
-    for (const t of label('driving')) expect(t.startsWith('◇')).toBe(false)
+    const tags = (side: string) => m.nodes.filter((n) => n.kind === 'port' && n.side === side).map((n) => n.lines[0].text)
+    for (const t of tags('driven')) expect(t).toBe('◇ driven port')
+    for (const t of tags('driving')) expect(t).toBe('⇥ driving port')
   })
 })
 
 describe('a use case that names its aggregates', () => {
-  const diagram = withUses(STRESS_DIAGRAM, { 'uc-place': { aggregateIds: ['g-order', 'g-customer'] }, 'uc-cancel': { aggregateIds: ['nope', 'e-line'] } })
+  const diagram = withUses(STRESS_DIAGRAM, { 'uc-place': { aggregateIds: ['g-order', 'g-customer'] }, 'uc-cancel': { aggregateIds: ['nope', 'e-line'] }, 'uc-earn': { aggregateIds: undefined } })
   const m = layoutDiagram(diagram)
   const edge = (key: string) => m.edges.find((e) => e.key === key)
 
@@ -135,7 +136,7 @@ describe('a use case that names its aggregates', () => {
     for (const id of ['g-order', 'g-customer']) {
       const e = edge(`useCase:uc-place->aggregate:${id}`)!
       const card = cardOf(m, 'detailed', id)
-      const others = m.nodes.filter((n) => n.kind !== 'portLabel' && n.key !== 'useCase:uc-place' && n !== card && !strictlyInside(card, n))
+      const others = m.nodes.filter((n) => n.key !== 'useCase:uc-place' && n !== card && !strictlyInside(card, n))
       for (const [a, b] of e.points.slice(1).map((p, i) => [e.points[i], p])) {
         for (let t = 0; t <= 1; t += 0.01) {
           const p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
@@ -154,9 +155,11 @@ describe('a use case that names its aggregates', () => {
     expect(edge('useCase:uc-earn->domain')).toBeDefined()
   })
 
-  it('draws no arrow to a card in the overview', () => {
+  it('draws every use case arrow in the overview too, into the domain where it has no card to reach', () => {
     const o = layoutDiagram(diagram, { mode: 'overview' })
-    expect(o.edges.filter((e) => e.key.includes('->aggregate:') || e.key.endsWith('->domain'))).toEqual([])
+    for (const u of diagram.useCases) {
+      expect(o.edges.some((e) => e.key.startsWith(`useCase:${u.id}->`) && (e.key.endsWith('->domain') || e.key.includes('->aggregate:'))), u.id).toBe(true)
+    }
   })
 })
 

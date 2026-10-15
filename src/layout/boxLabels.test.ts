@@ -43,9 +43,9 @@ describe('boxLabels', () => {
     expect([tierOf('useCase'), tierOf('port'), tierOf('adapter'), tierOf('actor'), tierOf('external'), tierOf('domainItem')]).toEqual([0, 0, 1, 1, 1, 2])
   })
 
-  it('labels a port by the name beside its socket in the overview', () => {
+  it('labels a port by its own box in the overview', () => {
     const overview = layoutMap(twoHexMap(), { mode: 'overview' })
-    const port = boxLabels(overview, twoHexMap()).filter((l) => l.kind === 'portLabel')
+    const port = boxLabels(overview, twoHexMap()).filter((l) => l.kind === 'port')
     expect(port.length).toBeGreaterThan(0)
     expect(port.every((l) => l.tier === 0 && l.text.length > 0)).toBe(true)
   })
@@ -67,9 +67,9 @@ describe('boxLabels', () => {
     }
   })
 
-  it('names the element a label belongs to, shared by its socket and its beside-the-notch text', () => {
+  it('names the element a label belongs to', () => {
     const overview = layoutMap(twoHexMap(), { mode: 'overview' })
-    const ports = boxLabels(overview, twoHexMap()).filter((l) => l.hexagonId === 'h1' && (l.kind === 'port' || l.kind === 'portLabel'))
+    const ports = boxLabels(overview, twoHexMap()).filter((l) => l.hexagonId === 'h1' && l.kind === 'port')
     expect(ports.length).toBeGreaterThan(0)
     for (const l of ports) expect(l.owner).toBe(`h1:${l.ref}`)
   })
