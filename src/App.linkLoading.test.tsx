@@ -76,6 +76,20 @@ describe('opening a link that selects a flow', () => {
     expect(useViewStore.getState().focusedFlow).toBe('uc-submit')
   })
 
+  it('frames the export to the flow only when the link asks for it', async () => {
+    await open('&flow=uc-submit&frame=flow')
+    expect(useViewStore.getState().framedFlow).toBe('uc-submit')
+    cleanup()
+    useViewStore.setState({ framedFlow: null })
+    await open('&flow=uc-submit')
+    expect(useViewStore.getState().framedFlow).toBeNull()
+  })
+
+  it('does not frame an unknown flow', async () => {
+    await open('&flow=uc-nope&frame=flow')
+    expect(useViewStore.getState().framedFlow).toBeNull()
+  })
+
   it('opens the map without focus when the flow or hexagon is unknown', async () => {
     await open('&flow=uc-nope')
     expect(useViewStore.getState().focusedFlow).toBeNull()

@@ -48,8 +48,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test
-        run: npm test
+      # Only cli/ ships; ci.yml runs the whole suite on every push to main.
+      - name: Test the CLI
+        run: npx vitest run cli src/cli.test.ts
 
   publish:
     needs: verify

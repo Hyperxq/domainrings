@@ -181,6 +181,15 @@ describe('render', () => {
     expect(localStorage.removeItem).toHaveBeenCalledWith('domainrings:palette')
   })
 
+  it('asks the app to frame a flow image, and leaves a whole-map image alone', async () => {
+    const { browser, page } = browserWith(() => false)
+    await render(file, { flow: 'Charge', out: dirname(file) }, { chromium: { launch: async () => browser }, log: () => {}, warn: () => {} })
+    expect(page.goto.mock.calls[0][0]).toMatch(/&flow=b&hex=h2&frame=flow$/)
+    page.goto.mockClear()
+    await render(file, { out: dirname(file) }, { chromium: { launch: async () => browser }, log: () => {}, warn: () => {} })
+    expect(page.goto.mock.calls[0][0]).not.toContain('frame=')
+  })
+
   it('closes the context when setup after creating it fails', async () => {
     const { browser, context } = browserWith(() => false)
     context.addInitScript.mockRejectedValue(new Error('init failed'))

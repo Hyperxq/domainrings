@@ -28,6 +28,8 @@ interface ViewData {
   toolbarBottom: number | null
   /** The use case whose flow the View mode panel isolates on the canvas; null shows every flow. */
   focusedFlow: string | null
+  /** The focused flow a share link asked image exports to frame; it applies only while that flow stays focused. */
+  framedFlow: string | null
   /** The use cases whose flows a hover previews on the canvas together, through the same emphasis as a focused flow; none when empty. */
   hoveredFlows: readonly string[]
   /** The step of the focused flow being walked through; null while not presenting. */
@@ -64,6 +66,7 @@ const initialView = (): ViewData => ({
   fitRequest: 0,
   toolbarBottom: null,
   focusedFlow: null,
+  framedFlow: null,
   hoveredFlows: [],
   presentStep: null,
 })
@@ -92,7 +95,7 @@ export const useViewStore = create<ViewStore>()((set, get) => ({
   toggleExpanded: (id) => set(({ expanded }) => ({ expanded: new Set(expanded.has(id) ? [...expanded].filter((x) => x !== id) : [...expanded, id]) })),
   expandAll: (ids) => set({ expanded: new Set(ids) }),
   requestFit: () => set(({ fitRequest }) => ({ fitRequest: fitRequest + 1 })),
-  focusFlow: (focusedFlow) => set({ focusedFlow, presentStep: null }),
+  focusFlow: (focusedFlow) => set({ focusedFlow, framedFlow: null, presentStep: null }),
   hoverFlows: (ids) => set(({ hoveredFlows }) => (ids.length === hoveredFlows.length && ids.every((id, i) => id === hoveredFlows[i]) ? {} : { hoveredFlows: ids })),
   present: (presentStep) => set({ presentStep }),
   startLinking: (ref) => {
