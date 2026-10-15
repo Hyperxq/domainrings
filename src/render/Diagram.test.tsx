@@ -26,6 +26,7 @@ function renderSvg(
     crossLinkTargets?: ReadonlyMap<string, ReadonlySet<string>>
     hovered?: string | null
     mode?: 'overview' | 'detailed'
+    showGuides?: boolean
   } = {},
 ) {
   const model = layoutMap(map, { current: extra.focus ?? map.hexagons[0].id, mode: extra.mode })
@@ -35,7 +36,7 @@ function renderSvg(
       <MapDiagram
         map={model}
         legend={legend}
-        showGuides={false}
+        showGuides={extra.showGuides ?? false}
         focus={extra.focus ?? map.hexagons[0].id}
         selected={extra.selected ?? null}
         linkTargets={extra.linkTargets ?? NO_TARGETS}
@@ -48,6 +49,21 @@ function renderSvg(
   )
   return { container, model }
 }
+
+describe('MapDiagram — corridor guides', () => {
+  it('draws every corridor hexagon of the diagram as a guide, beside the spokes, when guides are on', () => {
+    const { container, model } = renderSvg(toMap(EXAMPLE_DIAGRAM), { showGuides: true })
+    const { guides, corridors } = model.hexagons[0].model
+    expect(corridors.length).toBeGreaterThanOrEqual(2)
+    expect(container.querySelectorAll('line.guide')).toHaveLength(guides.length)
+    expect(container.querySelectorAll('path.guide')).toHaveLength(corridors.length)
+  })
+
+  it('draws no guide at all when guides are off', () => {
+    const { container } = renderSvg(toMap(EXAMPLE_DIAGRAM), { showGuides: false })
+    expect(container.querySelectorAll('.guide')).toHaveLength(0)
+  })
+})
 
 describe('MapDiagram — one hexagon (MIG-05.2 equivalence)', () => {
   it('renders the same element counts as the underlying model, one defs, one legend, no map chrome', () => {

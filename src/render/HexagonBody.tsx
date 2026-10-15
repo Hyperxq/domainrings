@@ -144,6 +144,7 @@ export function HexagonBody({ model, showGuides, selected, linkTargets, chain, i
       {model.rings.map((ring, i) => <Ring key={ring.key} ring={ring} shape={model.shape} inner={model.rings[i + 1]} interactive={interactive} />)}
       {model.region && <path className="domain-region" d={bandPath(model.shape, model.region)} aria-hidden="true" />}
       {showGuides && model.guides.map((g, k) => <line key={k} className="guide" x1={g.from.x} y1={g.from.y} x2={g.to.x} y2={g.to.y} />)}
+      {showGuides && model.corridors.map((c, k) => <path key={`corridor-${k}`} className="guide" fill="none" d={bandPath(model.shape, c)} aria-hidden="true" />)}
       {model.edges.map((edge) => <Edge key={edge.key} edge={edge} chained={inChain(edge, chain)} />)}
       {model.nodes.map((node) => <Node key={node.key} node={node} selected={node.ref === selected} target={linkTargets.has(node.ref)} chained={!!chain?.has(node.ref)} interactive={interactive} noted={notes.has(node.ref)} planned={planned.has(node.ref)} />)}
       {model.edges.map((edge) => <EdgeLabel key={edge.key} edge={edge} chained={inChain(edge, chain)} />)}

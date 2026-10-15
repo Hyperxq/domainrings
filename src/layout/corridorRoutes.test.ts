@@ -174,3 +174,22 @@ describe('corridor sizing and crossings', () => {
     expect(apex(EXAMPLE_DIAGRAM, 'overview')).toBeLessThanOrEqual(552)
   })
 })
+
+describe('corridor hexagons', () => {
+  it.each(MODES)('are concentric hexagons between the rings, outermost last (%s)', (mode) => {
+    const m = layoutDiagram(STRESS_DIAGRAM, { mode })
+    const apothems = m.corridors.map((c) => c.halfWidth)
+    expect(apothems).toEqual([...apothems].sort((a, b) => a - b))
+    const ring = (role: string) => m.rings.find((r) => r.role === role)!
+    expect(apothems.at(-1)!).toBeLessThan(ring('adapters').halfWidth)
+    expect(apothems[0]).toBeGreaterThan(m.region!.halfWidth)
+    for (const c of m.corridors) expect(c.straight).toBeCloseTo(c.apex / 2, 9)
+  })
+
+  it('runs the application corridor through the tracks of the stress example', () => {
+    const m = layoutDiagram(STRESS_DIAGRAM)
+    const tracks = useCasePort(m).flatMap((e) => (e.points.length > 3 ? e.points.slice(1, -1).map(apothemOf) : []))
+    const [low, high] = [Math.min(...tracks), Math.max(...tracks)]
+    expect(m.corridors.some((c) => c.halfWidth >= low - 1e-6 && c.halfWidth <= high + 1e-6)).toBe(true)
+  })
+})
