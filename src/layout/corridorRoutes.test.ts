@@ -161,17 +161,18 @@ describe('corridor sizing and crossings', () => {
     expect(crossings(layoutDiagram(EXAMPLE_DIAGRAM))).toBe(0)
   })
 
-  it('sizes the application ring of the stress example smaller than the bus lanes did (1152)', () => {
-    expect(apex(STRESS_DIAGRAM, 'detailed')).toBeLessThanOrEqual(817)
+  // Seats centred on their wall and a narrow use-case box: the chat feedback ring went 757 -> 589 (overview 551 -> 507), the stress ring 816 -> 701.
+  it('sizes the application ring of the stress example far below the bus lanes (1152)', () => {
+    expect(apex(STRESS_DIAGRAM, 'detailed')).toBeLessThanOrEqual(702)
   })
 
-  it('does not grow the application ring of the chat feedback example (746)', () => {
-    expect(apex(EXAMPLE_DIAGRAM, 'detailed')).toBeLessThanOrEqual(758)
+  it('sizes the application ring of the chat feedback example below the bus lanes (746)', () => {
+    expect(apex(EXAMPLE_DIAGRAM, 'detailed')).toBeLessThanOrEqual(590)
   })
 
-  it('does not grow either ring in the overview (570, 551)', () => {
+  it('does not grow either ring in the overview (570, 507)', () => {
     expect(apex(STRESS_DIAGRAM, 'overview')).toBeLessThanOrEqual(570)
-    expect(apex(EXAMPLE_DIAGRAM, 'overview')).toBeLessThanOrEqual(552)
+    expect(apex(EXAMPLE_DIAGRAM, 'overview')).toBeLessThanOrEqual(508)
   })
 })
 

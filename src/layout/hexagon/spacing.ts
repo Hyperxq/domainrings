@@ -14,3 +14,4 @@ export const LABEL_PAD_X = 8
 export const DOMAIN_RUN = 34
 /** Between an overview socket's inner face and its port name. */
 export const LABEL_GAP = 4
+export const USE_CASE_TEXT_WIDTH = 160

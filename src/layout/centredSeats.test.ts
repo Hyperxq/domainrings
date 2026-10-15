@@ -6,7 +6,9 @@ import { diagramOf } from '../model/map'
 import type { Diagram, Port, UseCase, Wall } from '../model/schema'
 import { dot, reach } from './geometry'
 import { layoutDiagram, type LayoutMode } from './layout'
+import { USE_CASE_TEXT_WIDTH } from './hexagon/spacing'
 import { WALLS, wallFrame } from './hexagon/walls'
+import { lineWidth } from './text'
 
 const MODES: LayoutMode[] = ['detailed', 'overview']
 const parsed = parseHexa(projectBuilderRaw)
@@ -15,7 +17,7 @@ const projectBuilder = parsed.map
 
 const base: Diagram = { version: 1, kind: 'hexagonal', title: '', domain: [{ id: 'd1', name: 'Order', type: 'aggregate' }], useCases: [], ports: [], adapters: [], actors: [], externals: [] }
 const port = (id: string, useCaseId: string, side: Port['side'], wall: Wall): Port => ({ id, name: `op${id}`, side, useCaseId, wall })
-const useCase = (id: string): UseCase => ({ id, name: `Handle${id}` })
+const useCase = (id: string, name = `Handle${id}`, note?: string): UseCase => ({ id, name, ...(note ? { note } : {}) })
 
 const CASES: Array<[string, Diagram]> = [
   ['example', EXAMPLE_DIAGRAM],
@@ -42,5 +44,39 @@ describe('seats centred on their wall', () => {
     const m = layoutDiagram(CASES[2][1])
     const seat = m.nodes.find((n) => n.kind === 'useCase')!
     expect(dot(seat, wallFrame(seat.wall!).dir)).toBeCloseTo(0, 6)
+  })
+})
+
+describe('narrow use-case box', () => {
+  const NOTE = 'execute(command: PlaceTheOrder, context: RequestContext): Promise<OrderConfirmation>\nprice the basket, reserve the stock and charge the customer on file'
+  const long: Diagram = { ...base, useCases: [useCase('u1', 'PlaceTheOrderAndReserveStockForTheCustomer', NOTE)], ports: [port('a', 'u1', 'driving', 'w')] }
+
+  it.each([...CASES, ['long texts', long] as [string, Diagram]])('%s: no detailed use case is wider than the cap, and every line sits inside it', (_, d) => {
+    for (const n of layoutDiagram(d).nodes.filter((n) => n.kind === 'useCase')) {
+      expect(n.width, n.ref).toBeLessThanOrEqual(USE_CASE_TEXT_WIDTH + 24)
+      for (const l of n.lines) expect(lineWidth(l), `${n.ref}: ${l.text}`).toBeLessThanOrEqual(n.width - 24)
+    }
+  })
+
+  it('wraps a long name and signature onto more lines instead of widening the box', () => {
+    const node = layoutDiagram(long).nodes.find((n) => n.kind === 'useCase')!
+    const text = (style: string) => node.lines.filter((l) => l.style === style).map((l) => l.text)
+    expect(text('name').length).toBeGreaterThan(1)
+    expect(text('mono').length).toBeGreaterThan(1)
+    expect(text('muted').length).toBeGreaterThan(1)
+    expect(text('name').join('')).toBe('PlaceTheOrderAndReserveStockForTheCustomer')
+    expect(text('mono').join(' ').replace(/\s+/g, '')).toBe('execute(command:PlaceTheOrder,context:RequestContext):Promise<OrderConfirmation>')
+  })
+
+  it('cuts a word that cannot wrap with an ellipsis rather than overflow', () => {
+    const d = { ...base, useCases: [useCase('u1', 'X'.repeat(60))], ports: [port('a', 'u1', 'driving', 'w')] }
+    const node = layoutDiagram(d).nodes.find((n) => n.kind === 'useCase')!
+    expect(node.width).toBeLessThanOrEqual(USE_CASE_TEXT_WIDTH + 24)
+    expect(node.lines.some((l) => l.text.endsWith('…'))).toBe(true)
+  })
+
+  it('keeps the overview pill as wide as its name', () => {
+    const node = layoutDiagram(long, { mode: 'overview' }).nodes.find((n) => n.kind === 'useCase')!
+    expect(node.lines.map((l) => l.text)).toEqual(['PlaceTheOrderAndReserveStockForTheCustomer'])
   })
 })

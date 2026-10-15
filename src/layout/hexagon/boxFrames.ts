@@ -1,8 +1,8 @@
 import { HEXAGONAL_KIND } from '../../model/kinds'
 import type { Adapter, Diagram, DomainItem, Endpoint, Port, Side, UseCase } from '../../model/schema'
 import { adapterTag, DOMAIN_TAGS, DRIVEN_GLYPH, portTag, USE_CASE_TAG } from '../tags'
-import { LINE_METRICS, lineWidth, noteLines, styled, type TextLine } from '../text'
-import { LABEL_GAP } from './spacing'
+import { LINE_METRICS, lineWidth, noteLines, SIGNATURE_BREAKS, styled, wrapLabel, type LineStyle, type TextLine } from '../text'
+import { LABEL_GAP, USE_CASE_TEXT_WIDTH } from './spacing'
 
 const PAD_X = 12
 const PAD_Y = 9
@@ -40,10 +40,15 @@ export function boxFrames(overview: boolean) {
     i.type === 'aggregate'
       ? frame([...styled('strong', i.name), ...noteLines(i.note)], 0, 2, 0)
       : frame([...styled('tag', DOMAIN_TAGS[i.type]), ...styled('mono', i.name), ...noteLines(i.note)], 0, 2, 0)
+  // A use case's box runs radially on the side walls, so its text wraps to a narrow column; a word that cannot wrap is cut.
+  const narrow = (style: LineStyle, text: string | undefined, breaks?: RegExp): TextLine[] => {
+    const max = Math.floor(USE_CASE_TEXT_WIDTH / (LINE_METRICS[style].size * LINE_METRICS[style].em))
+    return text?.trim() ? wrapLabel(text.trim(), max, breaks).map((t) => ({ text: t.length > max ? `${t.slice(0, max - 1)}…` : t, style })) : []
+  }
   const useCaseFrame = (u: UseCase) => {
     if (overview) return nameFrame(u.name)
     const [signature, ...steps] = (u.note ?? '').split('\n')
-    return frame([...styled('tag', USE_CASE_TAG), ...styled('name', u.name), ...styled('mono', signature, 34), ...steps.flatMap((s) => styled('muted', s, 34))], 120)
+    return frame([...styled('tag', USE_CASE_TAG), ...narrow('name', u.name), ...narrow('mono', signature, SIGNATURE_BREAKS), ...steps.flatMap((s) => narrow('muted', s))], 120)
   }
   const compositionFrame = (composition: NonNullable<Diagram['composition']>) => frame([...styled('mono', composition.name), ...noteLines(composition.note)], 120)
   return { NOTCH, portLabel, labelReach, adapterFrame, socketFrame, leafFrame, domainFrame, useCaseFrame, compositionFrame }
