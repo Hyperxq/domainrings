@@ -81,10 +81,15 @@ export function chipBox(chip: Point, label: string, size: number): Box {
 
 /** The corners of the area a context's hull keeps around `hex`: its outer ring's own hexagon (the silhouette's when
  * compact), stood off by `HULL_PAD`. */
-function footprint(hex: MapHexagonLayout): Point[] {
+export function footprint(hex: MapHexagonLayout): Point[] {
   const { halfWidth, straight, apex } = hex.compact
     ? { halfWidth: (hex.compact.radius * Math.sqrt(3)) / 2, straight: hex.compact.radius / 2, apex: hex.compact.radius }
-    : hex.model.rings[0]
+    : hex.model.rings[0] ?? { halfWidth: 0, straight: 0, apex: 0 }
+  if (!halfWidth) {
+    // No ring to follow (nothing to hug), so the hexagon's own box stands in.
+    const { x, y, width, height } = hexagonBounds(hex)
+    return [{ x: x - HULL_PAD, y: y - HULL_PAD }, { x: x + width + HULL_PAD, y: y - HULL_PAD }, { x: x + width + HULL_PAD, y: y + height + HULL_PAD }, { x: x - HULL_PAD, y: y + height + HULL_PAD }]
+  }
   // Moving the slanted sides out by HULL_PAD shifts the apex and the shoulders along the vertical sides by a multiple of it.
   const slant = Math.hypot(halfWidth, apex - straight)
   const w = halfWidth + HULL_PAD

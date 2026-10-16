@@ -35,6 +35,35 @@ describe('footprintRegions (ADR-04)', () => {
   })
 })
 
+describe('footprintRegions where outlines touch', () => {
+  const square = (x: number, y: number, size = 10) => [{ x, y }, { x: x + size, y }, { x: x + size, y: y + size }, { x, y: y + size }]
+  const apart = (contextId: string, outline: { x: number; y: number }[], q: number) => ({ cell: { q, r: 0 }, contextId, outline })
+
+  it.each([false, true])('two outlines sharing an edge merge into one loop with no seam left behind (swapped: %s)', (swapped) => {
+    const pair = [apart('c1', square(0, 0), 0), apart('c1', square(10, 0), 5)]
+    const loops = footprintRegions(swapped ? pair.reverse() : pair).get('c1')!
+    expect(loops).toHaveLength(1)
+    expect(loops[0]).toHaveLength(4)
+    expect(pointInRegion({ x: 5, y: 5 }, loops)).toBe(true)
+    expect(pointInRegion({ x: 15, y: 5 }, loops)).toBe(true)
+    expect(Math.max(...loops[0].map((p) => p.x))).toBe(20)
+  })
+
+  it('outlines meeting at a single vertex keep both whole', () => {
+    const loops = footprintRegions([apart('c1', square(0, 0), 0), apart('c1', square(10, 10), 5)]).get('c1')!
+    expect(loops).toHaveLength(2)
+    expect(loops.map((l) => l.length)).toEqual([4, 4])
+  })
+
+  it('an outline touched by a vertex on its side stays whole', () => {
+    const triangle = [{ x: 10, y: 5 }, { x: 20, y: 0 }, { x: 20, y: 10 }]
+    const loops = footprintRegions([apart('c1', square(0, 0), 0), apart('c1', triangle, 5)]).get('c1')!
+    expect(loops.flat().length).toBeGreaterThanOrEqual(7)
+    expect(pointInRegion({ x: 5, y: 5 }, loops)).toBe(true)
+    expect(pointInRegion({ x: 18, y: 5 }, loops)).toBe(true)
+  })
+})
+
 describe('pointInRegion — evenodd point-in-polygon', () => {
   it('is true inside a single loop, false outside, false inside a hole', () => {
     const outer: { x: number; y: number }[] = [{ x: -10, y: -10 }, { x: 10, y: -10 }, { x: 10, y: 10 }, { x: -10, y: 10 }]

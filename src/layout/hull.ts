@@ -70,16 +70,29 @@ function crossing(a: Point, b: Point, c: Point, d: Point): number | undefined {
   return t > EPS && t < 1 - EPS && u > -EPS && u < 1 + EPS ? t : undefined
 }
 
+/** Whether `other`'s boundary at `mid` runs the way a→b does (same winding, so same side filled). Undefined when `mid` is not on it. */
+function runsAlong(other: readonly Point[], mid: Point, a: Point, b: Point): boolean | undefined {
+  const edge = other.find((c, m) => {
+    const d = other[(m + 1) % other.length]
+    return Math.abs(cross(c, d, mid)) / Math.hypot(d.x - c.x, d.y - c.y) < EPS
+  })
+  if (!edge) return undefined
+  const end = other[(other.indexOf(edge) + 1) % other.length]
+  return (end.x - edge.x) * (b.x - a.x) + (end.y - edge.y) * (b.y - a.y) > 0
+}
+
 /**
  * The outline of the union of convex polygons, as closed loops (an enclosed gap is a loop of its own, for an evenodd
  * fill). Each edge is cut where other polygons' edges cross it and only the pieces outside every other polygon
- * survive; an edge two polygons share is kept once, by the earlier. Every polygon is wound the same way, so the
- * surviving pieces chain end to end.
+ * survive; an edge two polygons share is kept once, by the earlier, when they run the same way, and dropped by both
+ * when they run opposite ways (the two shapes just touch). Every polygon is wound the same way, so the surviving
+ * pieces chain end to end; where several leave one point the leftmost turn is taken, which keeps touching shapes
+ * apart. Should a chain not close, the convex hull of everything stands in rather than a broken loop.
  */
 function union(input: readonly Point[][]): Point[][] {
   const polys = input.map((poly) => (areaSign(poly) < 0 ? [...poly].reverse() : poly))
   const key = (p: Point) => `${Math.round(p.x * 100)},${Math.round(p.y * 100)}`
-  const next = new Map<string, [Point, Point]>()
+  const out = new Map<string, { from: Point; to: Point; used: boolean }[]>()
   polys.forEach((poly, i) =>
     poly.forEach((a, k) => {
       const b = poly[(k + 1) % poly.length]
@@ -95,21 +108,28 @@ function union(input: readonly Point[][]): Point[][] {
         const covered = polys.some((other, j) => {
           if (j === i) return false
           const d = depth(other, 1, mid)
-          return d > EPS || (d >= -EPS && j < i)
+          if (d > EPS) return true
+          return d >= -EPS && (j < i || !runsAlong(other, mid, a, b))
         })
-        if (!covered && cuts[n] - cuts[n - 1] > EPS) next.set(key(from), [from, to])
+        if (!covered && cuts[n] - cuts[n - 1] > EPS) out.set(key(from), [...(out.get(key(from)) ?? []), { from, to, used: false }])
       }
     }),
   )
   const loops: Point[][] = []
-  const done = new Set<string>()
-  for (const start of next.keys()) {
+  for (const first of [...out.values()].flat()) {
+    if (first.used) continue
     const loop: Point[] = []
-    for (let at = start; !done.has(at) && next.has(at); at = key(next.get(at)![1])) {
-      done.add(at)
-      loop.push(next.get(at)![0])
+    let closed = false
+    for (let piece: typeof first | undefined = first; piece && !piece.used; ) {
+      piece.used = true
+      loop.push(piece.from)
+      if ((closed = key(piece.to) === key(first.from))) break
+      const heading = Math.atan2(piece.to.y - piece.from.y, piece.to.x - piece.from.x)
+      const turn = (c: typeof first) => ((Math.atan2(c.to.y - c.from.y, c.to.x - c.from.x) - heading + 3 * Math.PI) % (2 * Math.PI)) - Math.PI
+      piece = (out.get(key(piece.to)) ?? []).filter((c) => !c.used).sort((p, q) => turn(q) - turn(p)).at(0)
     }
-    if (loop.length > 2) loops.push(loop.filter((p, i) => Math.abs(cross(loop[(i + loop.length - 1) % loop.length], p, loop[(i + 1) % loop.length])) > EPS * 100))
+    if (!closed) return [convexHull(polys.flat())]
+    if (loop.length > 2) loops.push(loop.filter((p, n) => Math.abs(cross(loop[(n + loop.length - 1) % loop.length], p, loop[(n + 1) % loop.length])) > EPS * 100))
   }
   return loops
 }
