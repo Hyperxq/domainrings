@@ -17,7 +17,7 @@ import type { CollectionKey, Diagram as DiagramModel, DomainType, HexaMap, Wall 
 import { useMapStore } from '../model/store'
 import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
-import { hexIdOf, hullIdOf, layerOf, nodeRefOf, refOf, threadsOf } from './canvasTarget'
+import { hexIdOf, layerOf, nodeRefOf, refOf, threadsOf } from './canvasTarget'
 import { useInspectedFlow } from './FlowInspector'
 import { StepCard, usePresentation } from './PresentPanel'
 import { NotePopover } from './stage/NotePopover'
@@ -116,7 +116,6 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
       setHovered(null)
       setHoveredRef(null)
       hoverFlows([])
-      reveal.rest(null)
     },
   })
 
@@ -257,9 +256,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
           setHoveredRef(nodeRefOf(target))
           hoverFlows(threadsOf(target))
         }}
-        onPointerMove={(e) => reveal.rest(dragging ? null : hullIdOf(e.target as Element))}
         onPointerLeave={(e) => {
-          reveal.rest(null)
           if (!(e.relatedTarget as Element | null)?.closest?.('[data-plus]')) {
             setHovered(null)
             setHoveredRef(null)
