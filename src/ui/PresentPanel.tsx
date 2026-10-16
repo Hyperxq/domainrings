@@ -45,6 +45,7 @@ export function PresentPanel() {
   const presenting = usePresentation()
   const count = presenting?.flow.steps.length ?? 0
   const index = presenting?.index ?? 0
+  const open = useViewStore((s) => s.editorOpen)
   useEffect(() => {
     if (!presenting) return
     const onKey = (e: KeyboardEvent) => {
@@ -61,7 +62,7 @@ export function PresentPanel() {
   const { flow, name, style } = presenting
 
   return (
-    <aside className="island editor flows-panel present-panel" aria-label="Present" style={style}>
+    <aside className={`island editor flows-panel present-panel${open ? '' : ' is-collapsed'}`} aria-label="Present" style={style}>
       <header className="editor-head">
         <button type="button" className="text-button" onClick={() => focusFlow(null)}>
           ← All flows
@@ -69,8 +70,11 @@ export function PresentPanel() {
         <button type="button" className="text-button" title="Stop presenting, keep this flow (Esc)" onClick={() => present(null)}>
           Exit
         </button>
+        <button type="button" className="icon-button" aria-expanded={open} aria-controls="present-body" aria-label={open ? 'Collapse walkthrough' : 'Expand walkthrough'} title={open ? 'Collapse walkthrough' : 'Expand walkthrough'} onClick={() => useViewStore.setState({ editorOpen: !open })}>
+          <Icon name="panel" />
+        </button>
       </header>
-      <div className="editor-body">
+      <div id="present-body" className="editor-body" hidden={!open}>
         <h2 className="present-title">{name}</h2>
         {flow.description && <p className="present-description">{flow.description}</p>}
         <ol className="present-steps">
@@ -87,7 +91,7 @@ export function PresentPanel() {
           ))}
         </ol>
       </div>
-      <footer className="present-foot">
+      <footer className="present-foot" hidden={!open}>
         <button type="button" className="text-button" disabled={index === 0} onClick={() => present(index - 1)}>
           ← Back
         </button>

@@ -70,8 +70,8 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   const dependents = usePreferencesStore((s) => s.dependents)
   const showGuides = usePreferencesStore((s) => s.guides)
   const viewOnly = usePreferencesStore((s) => s.viewOnly)
-  // View mode shows the Flows panel in the editor's place, so the fit leaves the same room for it.
-  const panelOpen = useViewStore((s) => s.editorOpen) || viewOnly
+  // View mode shows the Flows panel in the editor's place and collapses it through the same flag.
+  const panelOpen = useViewStore((s) => s.editorOpen)
   const focusedFlow = useViewStore((s) => s.focusedFlow)
   const hoveredFlows = useViewStore((s) => s.hoveredFlows)
   const hoverFlows = useViewStore((s) => s.hoverFlows)

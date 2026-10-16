@@ -6,6 +6,7 @@ import { withoutPlannedUseCases } from '../model/planned'
 import { useMapStore } from '../model/store'
 import { threadSlots } from '../model/threads'
 import { threadStyle } from '../render/ThreadDots'
+import { Icon } from './Icon'
 import { PresentButton } from './PresentPanel'
 import { usePreferencesStore } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
@@ -72,17 +73,21 @@ export function FlowsPanel() {
   const focused = useViewStore((s) => s.focusedFlow)
   const focusFlow = useViewStore((s) => s.focusFlow)
   const hidePlanned = !usePreferencesStore((s) => s.showPlanned)
+  const open = useViewStore((s) => s.editorOpen)
   // Map order, never current-first: picking another hexagon's flow must not reshuffle the list under the pointer.
   const layers = legendFor(diagramOf(map, hexId)).colours
   const hexagons = map.hexagons.filter((h) => withoutPlannedUseCases(h.useCases, hidePlanned).length > 0)
   const count = hexagons.reduce((n, h) => n + withoutPlannedUseCases(h.useCases, hidePlanned).length, 0)
 
   return (
-    <aside className="island editor flows-panel" aria-label="Flows">
+    <aside className={`island editor flows-panel${open ? '' : ' is-collapsed'}`} aria-label="Flows">
       <header className="editor-head">
         <h2>Flows</h2>
+        <button type="button" className="icon-button" aria-expanded={open} aria-controls="flows-body" aria-label={open ? 'Collapse flows' : 'Expand flows'} title={open ? 'Collapse flows' : 'Expand flows'} onClick={() => useViewStore.setState({ editorOpen: !open })}>
+          <Icon name="panel" />
+        </button>
       </header>
-      <div className="editor-body">
+      <div id="flows-body" className="editor-body" hidden={!open}>
         {count === 0 ? (
           <p className="flows-help">No use cases yet. Switch to Edit to add one.</p>
         ) : (
@@ -101,7 +106,7 @@ export function FlowsPanel() {
           </>
         )}
       </div>
-      <footer className="present-foot">
+      <footer className="present-foot" hidden={!open}>
         <section className="layers-key" aria-label="Layers">
           <h4>Layers</h4>
           <ul>

@@ -457,7 +457,6 @@ body {
   user-select: none;
 }
 .stage.is-dragging { cursor: grabbing; }
-.stage.is-fullscreen { z-index: 20; }
 
 .island {
   position: fixed;
@@ -742,6 +741,7 @@ a.icon-button { color: inherit; text-decoration: none; }
 .present-steps [aria-current='step'] .present-no { color: var(--teal); font-weight: 700; }
 .present-detail { grid-column: 2 / span 2; }
 .present-note, .step-card-note { margin: 2px 8px 4px 36px; font-size: 12.5px; line-height: 1.45; }
+.present-foot[hidden] { display: none; }
 .present-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 14px; }
 .present-foot .text-button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 38px; border: 1px solid var(--line); font-size: 13px; }
 .present-foot .text-button.primary { border-color: var(--teal); background: var(--teal); color: var(--card); }

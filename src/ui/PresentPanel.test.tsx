@@ -25,7 +25,7 @@ const current = () => document.querySelector('[aria-current="step"]')!
 beforeEach(() => {
   useMapStore.getState().replace(advanced())
   usePreferencesStore.setState({ viewOnly: true })
-  useViewStore.setState({ focusedFlow: null, presentStep: null })
+  useViewStore.setState({ focusedFlow: null, presentStep: null, editorOpen: true })
 })
 afterEach(cleanup)
 
@@ -39,6 +39,27 @@ describe('present accent', () => {
 })
 
 describe('PresentPanel', () => {
+  it('collapses to its header and expands again, and the arrow keys and Esc keep working meanwhile', () => {
+    present(1)
+    render(<PresentPanel />)
+    const panel = screen.getByRole('complementary', { name: 'Present' })
+    const toggle = screen.getByRole('button', { name: 'Collapse walkthrough' })
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(toggle)
+    expect(useViewStore.getState().editorOpen).toBe(false)
+    expect(panel.classList.contains('is-collapsed')).toBe(true)
+    expect(panel.querySelector('.editor-body')!.hasAttribute('hidden')).toBe(true)
+    expect(panel.querySelector('.present-foot')!.hasAttribute('hidden')).toBe(true)
+    fireEvent.keyDown(document, { key: 'ArrowRight' })
+    expect(stepNo()).toBe(2)
+    fireEvent.keyDown(document, { key: 'ArrowLeft' })
+    expect(stepNo()).toBe(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand walkthrough' }))
+    expect(panel.classList.contains('is-collapsed')).toBe(false)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(stepNo()).toBeNull()
+  })
+
   it('heads the flow with its name, lists every step with number, name and a role tag, and marks the current one', () => {
     present()
     render(<PresentPanel />)

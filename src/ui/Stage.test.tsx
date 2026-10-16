@@ -2333,6 +2333,7 @@ describe('Stage — presenting a flow up close', () => {
     restoreSize = stubFixedSize(SCREEN.width, SCREEN.height)
     useMapStore.getState().replace(manyHexagonMap(6))
     usePreferencesStore.setState({ viewOnly: true })
+    useViewStore.setState({ editorOpen: true })
   })
   afterEach(() => {
     restoreSize()
