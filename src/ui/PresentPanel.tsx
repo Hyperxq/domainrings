@@ -82,7 +82,9 @@ export function PresentPanel() {
             <li key={`${step.hexId}:${step.id}:${i}`} aria-current={i === index ? 'step' : undefined}>
               <button type="button" onClick={() => present(i)}>
                 <span className="present-no">{i + 1}</span>
-                <span className="present-name">{step.name}</span>
+                <span className="present-name" title={step.name}>
+                  {step.name}
+                </span>
                 <span className="present-tag">{ROLE[step.role]}</span>
                 {(step.verb ?? step.useCaseName) && <span className="present-detail">{step.verb ?? step.useCaseName}</span>}
               </button>
