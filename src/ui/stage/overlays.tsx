@@ -126,11 +126,12 @@ export function HexagonTitles({ model, mapToScreen, scale }: { model: MapLayout;
 
 const quoted = (value: string) => `"${value.replace(/[\\"]/g, '\\$&').replace(/\n/g, '\\a ')}"`
 
-/** One rule hiding the SVG text of the labelled boxes only, so a box without a label keeps its name. It lives outside
- * the diagram tree: zooming rewrites this rule, never the diagram. An export keeps every text. */
+/** One rule hiding the SVG text of the labelled boxes only, so a box without a label keeps its name. An aggregate's
+ * name is a box of its own inside its card: the card's kind line goes with it, as the label stands over both. It lives
+ * outside the diagram tree: zooming rewrites this rule, never the diagram. An export keeps every text. */
 export const hiddenTextRule = (labelled: readonly Pick<BoxLabel, 'hexagonId' | 'kind' | 'ref'>[]) =>
   labelled.length
-    ? `${labelled.map((l) => `.canvas:not(.exporting) [data-hex=${quoted(l.hexagonId)}] .node-${l.kind}[data-ref=${quoted(l.ref)}] text`).join(',')}{display:none}`
+    ? `${labelled.map((l) => `.canvas:not(.exporting) [data-hex=${quoted(l.hexagonId)}] ${l.kind === 'domainItem' ? ':is(.node-domainItem,.node-aggregate)' : `.node-${l.kind}`}[data-ref=${quoted(l.ref)}] text`).join(',')}{display:none}`
     : ''
 
 /** Every box's name at a readable size over the map, once the SVG text is too small to read. A name may run past its
