@@ -21,8 +21,16 @@ const between = (from: Viewport, to: Viewport, t: number): Viewport => {
   return { x: along(from.x, to.x), y: along(from.y, to.y), scale }
 }
 
-/** One EASE_MS per doubling or halving of the scale past the first, capped at MAX_EASE_MS. */
-const durationOf = (from: Viewport, to: Viewport) => Math.min(MAX_EASE_MS, EASE_MS * Math.max(1, Math.abs(Math.log2(to.scale / from.scale))))
+/** On-screen travel that earns one more EASE_MS, so a long pan keeps a readable speed. */
+const PAN_PX_PER_EASE = 600
+
+/** One EASE_MS per doubling or halving of the scale, or per PAN_PX_PER_EASE of on-screen travel, whichever is longer;
+ * never under one EASE_MS nor over MAX_EASE_MS. */
+const durationOf = (from: Viewport, to: Viewport) => {
+  const zoom = Math.abs(Math.log2(to.scale / from.scale))
+  const pan = (Math.hypot(to.x - from.x, to.y - from.y) * Math.min(from.scale, to.scale)) / PAN_PX_PER_EASE
+  return Math.min(MAX_EASE_MS, EASE_MS * Math.max(1, zoom, pan))
+}
 
 /** The viewport to draw: eases from the view on screen to `target` whenever the target moves, unless `animate` is
  * off (a manual pan or zoom must track the pointer) or the user prefers reduced motion. A change of `settleKey`

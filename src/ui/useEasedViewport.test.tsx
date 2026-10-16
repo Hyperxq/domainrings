@@ -86,6 +86,16 @@ describe('useEasedViewport', () => {
     expect(result.current.viewport).toEqual(CLOSE)
   })
 
+  it('gives a long pan more time too, so a far step does not streak across the screen', () => {
+    const FAR: Viewport = { x: 1500, y: 0, scale: 1 }
+    const { result, rerender } = render({ target: A })
+    rerender({ target: FAR })
+    frames(EASE_MS + 32)
+    expect(result.current.viewport).not.toEqual(FAR)
+    frames(EASE_MS * 2)
+    expect(result.current.viewport).toEqual(FAR)
+  })
+
   it('retargets from the displayed view when the target moves mid-ease', () => {
     const { result, rerender } = render({ target: A })
     rerender({ target: B })
