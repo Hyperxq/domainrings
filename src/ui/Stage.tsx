@@ -3,7 +3,8 @@ import { canCompact } from '../layout/compactHexagon'
 import { translatedNodeBox } from '../layout/linkEnds'
 import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/insertion'
 import type { LayoutNode } from '../layout/layout'
-import type { Point } from '../layout/geometry'
+import { unionBox, type Point } from '../layout/geometry'
+import { hexagonBounds } from '../layout/lattice'
 import type { LegendModel } from '../layout/legend'
 import { currentHexagon, type MapLayout } from '../layout/map'
 import { dependencyChain, unionChain } from '../model/chain'
@@ -105,7 +106,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
 
   const reveal = useContextReveal(model.hexagons)
 
-  const { size, centre, panTo, view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useStageViewport({
+  const { size, centre, panTo, flyToBox, view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useStageViewport({
     model,
     hex,
     mainRef,
@@ -178,6 +179,20 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   // The Flows panel lists every hexagon's rows, and a hovered id names only its use case: the current hexagon owns it
   // first, else the first hexagon of the map that has it (ids are checked per hexagon, not map-wide).
   const hexagonOf = (id: string) => (diagram.useCases.some((u) => u.id === id) ? hexId : map.hexagons.find((h) => h.useCases.some((u) => u.id === id))?.id)
+  // Picking a flow brings all of it on screen; clearing it leaves the camera, and a walkthrough steers the camera itself.
+  // Keyed on the stage being measured too, so a flow already picked at load (a share link) flies once there is a size.
+  const measured = size.width > 0
+  useEffect(() => {
+    if (!focusedFlow || !measured || useViewStore.getState().presentStep !== null) return
+    const owner = hexagonOf(focusedFlow)
+    if (!owner) return
+    const { elements } = flowChain(map, flowOf(map, owner, focusedFlow))
+    const framed = model.hexagons.filter((h) => elements.has(h.id))
+    if (framed.length) flyToBox(unionBox(framed.map(hexagonBounds)))
+    // Re-fires on the pick alone: the map, layout and view move on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusedFlow, measured])
+
   const previewed = highlight && !isolated && !selected && !linking ? hoveredFlows.filter((id) => hexagonOf(id)) : []
   const shownFlows = isolated ? [focusedFlow!] : previewed
   const chain = useMemo(

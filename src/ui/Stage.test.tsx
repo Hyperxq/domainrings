@@ -2,10 +2,12 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createRef } from 'react'
 import { Stage } from './Stage'
+import { unionBox } from '../layout/geometry'
 import { hexagonBounds } from '../layout/lattice'
 import { currentHexagon, layoutMap } from '../layout/map'
 import { legendFor } from '../layout/legend'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
+import { flowChain, flowOf } from '../model/flow'
 import { toMap } from '../model/hexa'
 import { contextName, diagramOf, freeSides, neighbour, SIDE_ORDER } from '../model/map'
 import { withoutPlanned } from '../model/planned'
@@ -2248,5 +2250,64 @@ describe('Stage — an element that gets hidden while selected or hovered', () =
     act(() => usePreferencesStore.setState({ showPlanned: false }))
     act(() => usePreferencesStore.setState({ showPlanned: true }))
     expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+})
+
+describe('Stage — flying to a picked flow', () => {
+  const SCREEN = { width: 2000, height: 800 }
+  const originalMatchMedia = window.matchMedia
+  let restoreSize: () => void
+  const frames = (ms: number) => act(() => void vi.advanceTimersByTime(ms))
+  const flowBounds = () => {
+    const map = useMapStore.getState().map
+    const model = layoutMap(map, { current: 'h1' })
+    const { elements } = flowChain(map, flowOf(map, 'h1', 'uc-submit'))
+    return unionBox(model.hexagons.filter((h) => elements.has(h.id)).map(hexagonBounds))
+  }
+  beforeEach(() => {
+    vi.useFakeTimers()
+    window.matchMedia = ((media: string) => ({ matches: false, media, addEventListener() {}, removeEventListener() {} })) as unknown as typeof matchMedia
+    restoreSize = stubFixedSize(SCREEN.width, SCREEN.height)
+    useMapStore.getState().replace(manyHexagonMap(6))
+  })
+  afterEach(() => {
+    restoreSize()
+    window.matchMedia = originalMatchMedia
+    vi.useRealTimers()
+  })
+
+  it('eases until the whole flow, across its hexagons, fits clear of the flow inspector', () => {
+    const { container } = render(<Harness />)
+    const before = viewportOf(container)
+    act(() => useViewStore.getState().focusFlow('uc-submit'))
+    frames(48)
+    expect(viewportOf(container)).not.toEqual(before)
+    frames(400)
+    const flow = flowBounds()
+    const fit = fitTo(flow, SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false, null, true), 0)
+    expect(fit.scale).toBeGreaterThan(before.scale)
+    expectViewport(container, fit)
+  })
+
+  it('does not move the camera when the flow is unpicked', () => {
+    const { container } = render(<Harness />)
+    act(() => useViewStore.getState().focusFlow('uc-submit'))
+    frames(400)
+    const picked = viewportOf(container)
+    act(() => useViewStore.getState().focusFlow(null))
+    frames(400)
+    expectViewport(container, picked)
+  })
+
+  it('leaves the camera to the walkthrough when a flow starts presenting', () => {
+    usePreferencesStore.setState({ viewOnly: true })
+    const { container } = render(<Harness />)
+    const before = viewportOf(container)
+    act(() => {
+      useViewStore.getState().focusFlow('uc-submit')
+      useViewStore.getState().present(0)
+    })
+    frames(400)
+    expectViewport(container, before)
   })
 })
