@@ -106,7 +106,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
 
   const reveal = useContextReveal(model.hexagons)
 
-  const { size, centre, panTo, flyToBox, view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useStageViewport({
+  const { size, centre, panTo, flyToBox, flyToElement, view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useStageViewport({
     model,
     hex,
     mainRef,
@@ -313,7 +313,13 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
           // target, creates the link instead of switching focus — checked before the ordinary focus-switch below.
           if (linking && isCrossTarget(crossTargets, hexId, clickedHexId, ref)) return onLink(linking, { kind: 'link', hexagonId: clickedHexId!, portId: ref! })
           if (clickedHexId && clickedHexId !== hexId) return focusHexagon(clickedHexId)
-          if (!linking) return setSelected(ref)
+          if (!linking) {
+            setSelected(ref)
+            const node = ref && hexModel.nodes.find((n) => n.ref === ref && n.kind === NODE_KIND[collectionOf(diagram, ref)!])
+            // The repeat clicks of a double-click go on to reveal the element's editor; the camera moved on the first.
+            if (node && e.detail < 2) flyToElement(translatedNodeBox(node, hex.centre))
+            return
+          }
           const hit = targets.find((t) => t.targetRef === ref)
           if (hit) onLink(linking, { kind: 'field', ...hit })
           else onLinking(null)
