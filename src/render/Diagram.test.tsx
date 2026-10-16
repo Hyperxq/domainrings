@@ -210,6 +210,14 @@ describe('MapDiagram — current-hexagon scoping (FOCUS-01, CANVAS-03, EDIT-01)'
     expect(cues[0].closest('[data-hex]')!.getAttribute('data-hex')).toBe('h2')
   })
 
+  it('draws the cue before the hexagon body, so the body covers it', () => {
+    const { container } = renderSvg(twoHexagonMap(), { focus: 'h2' })
+    const group = container.querySelector('[data-hex="h2"]')!
+    const cue = group.querySelector('[data-cue]')!
+    expect(cue.compareDocumentPosition(group.querySelector('.ring')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(cue.compareDocumentPosition(group.querySelector('.node')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('scopes selection and link targets to the current group, even when another hexagon shares the item id', () => {
     const { container } = renderSvg(sharedIdMap(), { focus: 'h1', selected: 'p-shared', linkTargets: new Set(['p-shared']) })
     const selected = container.querySelectorAll('.node-port[data-selected]')
