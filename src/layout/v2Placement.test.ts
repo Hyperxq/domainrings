@@ -191,12 +191,12 @@ describe('the rings that pinned the empty bands', () => {
           "infra": 891,
         },
         "stress detailed": {
-          "app": 795,
-          "infra": 1053,
+          "app": 802,
+          "infra": 1060,
         },
         "stress overview": {
-          "app": 678,
-          "infra": 936,
+          "app": 685,
+          "infra": 943,
         },
       }
     `)

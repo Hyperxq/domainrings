@@ -3,9 +3,11 @@ import { diagramOf } from '../model/map'
 import type { HexaMap } from '../model/schema'
 import { threadsOf } from '../model/threads'
 import { layoutDiagram, type LayoutEdge } from './layout'
-import { dotsReach, TRACK_GAP } from './hexagon/spacing'
+import { dotsReach } from './hexagon/spacing'
 import { lineWidth } from './text'
 
+// Matches `.map-link[data-thread]` in styles.css.
+const THREAD_STROKE = 2.4
 const both = ['uc-assign', 'uc-track']
 const shared = {
   app: 'domainrings',
@@ -82,7 +84,7 @@ describe('threads sharing a port', () => {
     for (const [i, x] of lines.entries())
       for (const y of lines.slice(i + 1)) {
         if (x.thread!.id === y.thread!.id) continue
-        for (const s of segments(x)) for (const t of segments(y)) expect(parallelGap(s, t), `${x.key} / ${y.key}`).toBeGreaterThanOrEqual(TRACK_GAP - 0.5)
+        for (const s of segments(x)) for (const t of segments(y)) expect(parallelGap(s, t) - THREAD_STROKE, ` / `).toBeGreaterThanOrEqual(5)
       }
   })
 
