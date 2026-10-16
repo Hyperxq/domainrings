@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import type { LayoutNode, LayoutText } from '../../layout/layout'
 import { unionBox, type Box, type Point } from '../../layout/geometry'
-import { canCompact } from '../../layout/compactHexagon'
+import { canCompact, ellipsize } from '../../layout/compactHexagon'
 import { hexagonBounds } from '../../layout/lattice'
 import { boxLabels, boxObstacles, type BoxLabel } from '../../layout/boxLabels'
 import { TITLE } from '../../layout/text'
@@ -11,7 +11,7 @@ import type { HexaMap, Wall } from '../../model/schema'
 import { hullPath } from '../../render/Diagram'
 import { ChoiceMenu } from '../ChoiceMenu'
 import { Icon } from '../Icon'
-import { centreZones, cullLabels } from './labelCulling'
+import { centreZones, cullLabels, touches } from './labelCulling'
 import { labelTextWidth } from './labelWidth'
 import type { Reveal } from './useContextReveal'
 
@@ -82,25 +82,35 @@ export function ContextReveals({
   })
 }
 
-/** Every hexagon's title at a readable size over the map, once zoomed out far enough that the SVG ones are not. A title
- * wider than its hexagon on screen is left out rather than piled onto its neighbours. */
-export function HexagonTitles({ model, mapToScreen, scale }: { model: MapLayout; mapToScreen: ToScreen; scale: number }) {
-  if (!titlesOverlaid(scale)) return null
-  return model.hexagons.map((h) => {
-    const box = hexagonBounds(h)
+const TITLE_HEIGHT = TITLE_FLOOR_PX * 1.3
+const TITLE_GAP = 3
+
+/** Each hexagon's title as the overlay draws it: from the full name, shortened with an ellipsis to its hexagon's
+ * on-screen width, and left out only when not even one letter fits. `rect` is the screen box it covers. */
+function hexagonTitleOverlays(model: MapLayout, mapToScreen: ToScreen, scale: number) {
+  if (!titlesOverlaid(scale)) return []
+  return model.hexagons.flatMap((h) => {
     const title = h.model.texts.find((t) => t.key === 'title')
-    const label = h.compact ? h.compact.label : title?.text
-    if (!label) return null
+    const name = h.compact ? hexagonTitle(h.model) : title?.text
+    if (!name) return []
+    const width = hexagonBounds(h).width * scale
+    const label = ellipsize(name, (candidate) => labelTextWidth(candidate, TITLE_FLOOR_PX) <= width)
+    const textWidth = labelTextWidth(label, TITLE_FLOOR_PX)
+    if (textWidth > width) return []
     // Full hexagons anchor at the heading's own spot (its left edge), compact ones on their centre.
     const at = mapToScreen(h.compact ? { x: h.centre.x, y: h.centre.y - h.compact.size * 0.4 } : { x: h.centre.x + title!.x, y: h.centre.y + title!.y })
-    const width = box.width * scale
-    if (label.length * TITLE_FLOOR_PX * 0.6 > width) return null
-    return (
-      <span key={h.id} className="hexagon-title" data-hexagon-title-overlay={h.id} aria-hidden="true" style={{ left: at.x, top: at.y, maxWidth: width, fontSize: TITLE_FLOOR_PX, ...(!h.compact && { transform: 'translate(0, -100%)' }) }}>
-        {label}
-      </span>
-    )
+    const rect = { x: h.compact ? at.x - textWidth / 2 : at.x, y: at.y - TITLE_HEIGHT, width: textWidth, height: TITLE_HEIGHT }
+    return [{ id: h.id, label, at, width, rect, compact: !!h.compact }]
   })
+}
+
+/** Every hexagon's title at a readable size over the map, once zoomed out far enough that the SVG ones are not. */
+export function HexagonTitles({ model, mapToScreen, scale }: { model: MapLayout; mapToScreen: ToScreen; scale: number }) {
+  return hexagonTitleOverlays(model, mapToScreen, scale).map(({ id, label, at, width, compact }) => (
+    <span key={id} className="hexagon-title" data-hexagon-title-overlay={id} aria-hidden="true" style={{ left: at.x, top: at.y, maxWidth: width, fontSize: TITLE_FLOOR_PX, ...(!compact && { transform: 'translate(0, -100%)' }) }}>
+      {label}
+    </span>
+  ))
 }
 
 const quoted = (value: string) => `"${value.replace(/[\\"]/g, '\\$&').replace(/\n/g, '\\a ')}"`
@@ -147,13 +157,16 @@ export function BoxLabels({ model, map, hexId, forced, mapToScreen, scale, size 
 }
 
 /** The map title at a readable size over the canvas, once the SVG one renders under the floor. It sits at the title's
- * left edge and baseline, like the hexagon headings. */
+ * left edge and baseline, like the hexagon headings, and rises above any hexagon title it would otherwise cover. */
 export function MapTitle({ model, mapToScreen, scale }: { model: MapLayout; mapToScreen: ToScreen; scale: number }) {
   const { title } = model
   if (!title || !mapTitleOverlaid(title, scale)) return null
   const at = mapToScreen({ x: title.x, y: title.y })
+  const titles = hexagonTitleOverlays(model, mapToScreen, scale).map((t) => t.rect)
+  const rect = { x: at.x, y: at.y - TITLE_HEIGHT, width: labelTextWidth(title.text, TITLE_FLOOR_PX), height: TITLE_HEIGHT }
+  for (let hit = titles.find((t) => touches(rect, t)); hit; hit = titles.find((t) => touches(rect, t))) rect.y = hit.y - TITLE_GAP - TITLE_HEIGHT
   return (
-    <span className="hexagon-title" data-map-title-overlay="" aria-hidden="true" style={{ left: at.x, top: at.y, fontSize: TITLE_FLOOR_PX, transform: 'translate(0, -100%)', textAlign: 'left' }}>
+    <span className="hexagon-title" data-map-title-overlay="" aria-hidden="true" style={{ left: at.x, top: rect.y + TITLE_HEIGHT, fontSize: TITLE_FLOOR_PX, transform: 'translate(0, -100%)', textAlign: 'left' }}>
       {title.text}
     </span>
   )

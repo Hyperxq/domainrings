@@ -42,13 +42,17 @@ const ELLIPSIS = '…'
 
 export const compactBounds = (radius: number): Box => ({ x: (-radius * Math.sqrt(3)) / 2, y: -radius, width: radius * Math.sqrt(3), height: radius * 2 })
 
-/** `title` cut to fit the widest part of a compact silhouette, ending in an ellipsis when it had to be shortened. */
-function compactLabel(title: string): string {
-  const room = COMPACT_RADIUS * Math.sqrt(3) - 2 * COMPACT_TITLE_PAD
-  if (measure(title, COMPACT_TITLE) <= room) return title
-  let label = title
-  while (label.length > 1 && measure(label + ELLIPSIS, COMPACT_TITLE) > room) label = label.slice(0, -1).trimEnd()
+/** `text` cut to the longest prefix that `fits` once an ellipsis follows it; whole when it already fits. */
+export function ellipsize(text: string, fits: (candidate: string) => boolean): string {
+  if (fits(text)) return text
+  let label = text
+  while (label.length > 1 && !fits(label + ELLIPSIS)) label = label.slice(0, -1).trimEnd()
   return label + ELLIPSIS
+}
+
+const compactLabel = (title: string): string => {
+  const room = COMPACT_RADIUS * Math.sqrt(3) - 2 * COMPACT_TITLE_PAD
+  return ellipsize(title, (candidate) => measure(candidate, COMPACT_TITLE) <= room)
 }
 
 /** Each port's marker on the wall it sits on, spread along that wall so ports sharing one never share a point. */

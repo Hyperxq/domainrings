@@ -31,7 +31,7 @@ export interface Obstacle {
   rect: Box
 }
 
-const touches = (a: Box, b: Box) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+export const touches = (a: Box, b: Box) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
 
 /** A spatial hash of rectangles: a query only visits the cells the probe covers. */
 function grid<T extends { rect: Box }>(items: readonly T[] = []) {

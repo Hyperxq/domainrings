@@ -1953,6 +1953,53 @@ describe('Stage — hexagon titles stay readable when zoomed out', () => {
     })
   })
 
+  describe('on a large map', () => {
+    const font = 12
+    type Rect = { x: number; y: number; width: number; height: number }
+    // The overlays are positioned by their left/top and a transform: left-anchored with the box above the point, or centred on it.
+    const rectOf = (el: HTMLElement): Rect => {
+      const width = Math.min(labelTextWidth(el.textContent!, font), parseFloat(el.style.maxWidth || 'Infinity'))
+      const x = parseFloat(el.style.left)
+      return { x: el.style.transform.startsWith('translate(0') ? x : x - width / 2, y: parseFloat(el.style.top) - font * 1.3, width, height: font * 1.3 }
+    }
+    const overlap = (a: Rect, b: Rect) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+    const largeMap = (title: string, hexTitle?: string) => {
+      const map = manyHexagonMap(5)
+      map.title = title
+      if (hexTitle) map.hexagons[3] = { ...map.hexagons[3], title: hexTitle }
+      useMapStore.getState().replace(map)
+    }
+
+    it('keeps the map title and every hexagon title apart', () => {
+      withSize(700, 360, () => {
+        largeMap('Propylaea · Growth')
+        const { container } = render(<Harness />)
+        const all = [...titleOverlays(container), ...container.querySelectorAll<HTMLElement>('[data-map-title-overlay]')]
+        expect(all.length).toBeGreaterThan(1)
+        for (const [i, a] of all.entries()) for (const b of all.slice(i + 1)) expect(overlap(rectOf(a), rectOf(b))).toBe(false)
+      })
+    })
+
+    it('keeps a compact hexagon\'s name, cut with an ellipsis from the full one to fit its width', () => {
+      withSize(700, 360, () => {
+        largeMap('Map', 'Analytics events and everything around them')
+        const { container } = render(<Harness />)
+        const label = container.querySelector<HTMLElement>('[data-hexagon-title-overlay="h4"]')!
+        expect(label.textContent!.endsWith('…')).toBe(true)
+        expect('Analytics events and everything around them'.startsWith(label.textContent!.slice(0, -1))).toBe(true)
+        expect(rectOf(label).width).toBeLessThanOrEqual(parseFloat(label.style.maxWidth))
+      })
+    })
+
+    it('shows a compact hexagon\'s whole name once it fits', () => {
+      withSize(1800, 1100, () => {
+        largeMap('Map', 'Analytics')
+        const { container } = render(<Harness />)
+        expect(container.querySelector('[data-hexagon-title-overlay="h4"]')?.textContent).toBe('Analytics')
+      })
+    })
+  })
+
   it('hides the SVG map title only on the canvas, never in an export', () => {
     expect(readFileSync('src/styles.css', 'utf8')).toMatch(/\.canvas\.map-title-overlaid:not\(\.exporting\) \[data-map-title\]\s*\{\s*display:\s*none/)
   })
