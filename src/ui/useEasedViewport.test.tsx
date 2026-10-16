@@ -35,11 +35,22 @@ describe('useEasedViewport', () => {
     expect(result.current.viewport.x).toBeLessThan(B.x)
   })
 
-  it('eases out: past the halfway point of the time it has covered more than half the distance', () => {
+  it('eases in: the first frame barely moves, so a pan never starts with a jolt', () => {
+    const PAN: Viewport = { x: 100, y: 0, scale: 1 }
     const { result, rerender } = render({ target: A })
-    rerender({ target: B })
+    rerender({ target: PAN })
+    frames(32)
+    expect(result.current.viewport.x).toBeGreaterThan(0)
+    expect(result.current.viewport.x).toBeLessThan(5)
+  })
+
+  it('eases in and out: around halfway in time it is around halfway there', () => {
+    const PAN: Viewport = { x: 100, y: 0, scale: 1 }
+    const { result, rerender } = render({ target: A })
+    rerender({ target: PAN })
     frames(EASE_MS / 2)
-    expect(result.current.viewport.x).toBeGreaterThan(B.x / 2)
+    expect(result.current.viewport.x).toBeGreaterThan(30)
+    expect(result.current.viewport.x).toBeLessThan(70)
   })
 
   it('reaches the target after the duration and stays there', () => {

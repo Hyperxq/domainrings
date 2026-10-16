@@ -1,11 +1,12 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import type { Viewport } from './viewport'
 
-export const EASE_MS = 250
+export const EASE_MS = 320
 /** The longest ease: a far zoom gets more time than a short one, but never feels like a wait. */
 const MAX_EASE_MS = 700
 
-const easeOut = (t: number) => 1 - (1 - t) ** 3
+/** Starts and ends at rest: an ease-out would open every move with its fastest frame, which reads as a jolt. */
+const easeInOut = (t: number) => (1 - Math.cos(Math.PI * t)) / 2
 const same = (a: Viewport, b: Viewport) => a.x === b.x && a.y === b.y && a.scale === b.scale
 const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -58,7 +59,7 @@ export function useEasedViewport(target: Viewport, animate: boolean, settleKey =
     const step = (now: number) => {
       start ??= now
       const t = Math.min(1, (now - start) / duration)
-      const next = t >= 1 ? target : between(from, target, easeOut(t))
+      const next = t >= 1 ? target : between(from, target, easeInOut(t))
       onScreen.current = next
       setShown(next)
       if (t < 1) frame = requestAnimationFrame(step)
