@@ -155,3 +155,10 @@ describe('thread-coloured connections', () => {
     expect(widthOf('svg[data-emphasis] .map-link[data-chain] {')).toBeGreaterThan(widthOf('.edge-import[data-thread],\n.map-link[data-thread]'))
   })
 })
+
+describe('step card placement', () => {
+  it('centres the card over the whole canvas once the walkthrough panel is collapsed, on desktop only', () => {
+    const desktop = css.match(/@media \(min-width: 721px\) \{([\s\S]*?)\n\}/g)?.join('\n') ?? ''
+    expect(desktop).toMatch(/:has\(\.present-panel\.is-collapsed\)\s+\.step-card\s*\{[^}]*left:\s*50%/)
+  })
+})

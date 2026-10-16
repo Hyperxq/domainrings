@@ -759,6 +759,8 @@ a.icon-button { color: inherit; text-decoration: none; }
 
 @media (min-width: 721px) {
   .editor:not(.is-collapsed) { height: calc(100dvh - 72px - 66px); }
+  /* The card lives in the stage, not beside the panel, so it learns the collapse from the document. */
+  :root:has(.present-panel.is-collapsed) .step-card { left: 50%; }
 }
 .settings-fold { margin-top: auto; padding-top: 12px; }
 .settings-fold > .section { padding: 0; border: 0; }
