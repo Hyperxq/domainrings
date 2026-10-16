@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canvasBounds, contains, EDITOR_CHIP_BOTTOM, fitMap, fitTo, INSPECTOR_ISLAND_WIDTH, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, MIN_FIT_SCALE, MIN_SCALE, panBy, panInto, pinch, toDiagram, visibleRect, zoomAt } from './viewport'
+import { canvasBounds, centreOn, contains, ELEMENT_FOCUS_SCALE, EDITOR_CHIP_BOTTOM, fitMap, fitTo, INSPECTOR_ISLAND_WIDTH, islandInset, LEGEND_ISLAND_WIDTH, MAX_SCALE, MIN_FIT_SCALE, MIN_SCALE, panBy, panInto, pinch, toDiagram, visibleRect, zoomAt } from './viewport'
 import { hexagonBounds } from '../layout/lattice'
 import { layoutMap } from '../layout/map'
 import { TWO_SLICES_MAP } from '../model/example'
@@ -259,5 +259,36 @@ describe('islandInset with the flow inspector open', () => {
   it('leaves the phone layout alone, where the inspector is a bottom sheet', () => {
     const phone = { width: 390, height: 844 }
     expect(islandInset(phone, true, false, null, true)).toEqual(islandInset(phone, true, false))
+  })
+})
+
+describe('centreOn', () => {
+  const size = { width: 1000, height: 600 }
+  const inset = { top: 0, right: 200, bottom: 0, left: 0 }
+  const box = { x: 400, y: 300, width: 100, height: 40 }
+  const centreOfFree = (view: { x: number; y: number; scale: number }) => {
+    const free = visibleRect(view, size, inset)
+    return { x: free.x + free.width / 2, y: free.y + free.height / 2 }
+  }
+
+  it('puts the box at the centre of the free area', () => {
+    const view = centreOn({ x: 0, y: 0, scale: 1 }, box, size, inset)
+    expect(centreOfFree(view).x).toBeCloseTo(450, 9)
+    expect(centreOfFree(view).y).toBeCloseTo(320, 9)
+  })
+
+  it('zooms in to the reading scale from further out', () => {
+    expect(centreOn({ x: 0, y: 0, scale: 0.4 }, box, size, inset).scale).toBe(ELEMENT_FOCUS_SCALE)
+  })
+
+  it('never zooms out from a closer view', () => {
+    expect(centreOn({ x: 0, y: 0, scale: 2.5 }, box, size, inset).scale).toBe(2.5)
+  })
+
+  it('stops short of the reading scale where the box would fill more than a third of the shorter free side', () => {
+    const wide = { x: 0, y: 0, width: 300, height: 100 }
+    const { scale } = centreOn({ x: 0, y: 0, scale: 0.4 }, wide, size, inset)
+    expect(scale).toBeLessThan(ELEMENT_FOCUS_SCALE)
+    expect(wide.width * scale).toBeLessThanOrEqual(600 / 3 + 1e-9)
   })
 })

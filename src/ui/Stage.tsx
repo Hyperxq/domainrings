@@ -17,7 +17,8 @@ import type { CollectionKey, Diagram as DiagramModel, DomainType, HexaMap, Wall 
 import { useMapStore } from '../model/store'
 import { MapDiagram } from '../render/Diagram'
 import { Affordances, InlineName } from './Affordances'
-import { hexIdOf, hullIdOf, layerOf, nodeRefOf, refOf, threadsOf } from './canvasTarget'
+import { hexIdOf, layerOf, nodeRefOf, refOf, threadsOf } from './canvasTarget'
+import { flowFrame } from './flowFrame'
 import { useInspectedFlow } from './FlowInspector'
 import { StepCard, usePresentation } from './PresentPanel'
 import { NotePopover } from './stage/NotePopover'
@@ -105,7 +106,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
 
   const reveal = useContextReveal(model.hexagons)
 
-  const { size, centre, panTo, view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useStageViewport({
+  const { size, centre, panTo, flyToBox, flyToElement, view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useStageViewport({
     model,
     hex,
     mainRef,
@@ -116,7 +117,6 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
       setHovered(null)
       setHoveredRef(null)
       hoverFlows([])
-      reveal.rest(null)
     },
   })
 
@@ -179,6 +179,19 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   // The Flows panel lists every hexagon's rows, and a hovered id names only its use case: the current hexagon owns it
   // first, else the first hexagon of the map that has it (ids are checked per hexagon, not map-wide).
   const hexagonOf = (id: string) => (diagram.useCases.some((u) => u.id === id) ? hexId : map.hexagons.find((h) => h.useCases.some((u) => u.id === id))?.id)
+  // Picking a flow brings all of it on screen, framed as its export is; clearing it leaves the camera, and a walkthrough steers the camera itself.
+  // Keyed on the stage being measured too, so a flow already picked at load (a share link) flies once there is a size.
+  const measured = size.width > 0
+  useEffect(() => {
+    if (!focusedFlow || !measured || useViewStore.getState().presentStep !== null) return
+    const owner = hexagonOf(focusedFlow)
+    if (!owner) return
+    const frame = flowFrame(map, owner, focusedFlow, model, showGuides)
+    if (frame?.only.size) flyToBox(frame.bounds)
+    // Re-fires on the pick alone: the map, layout and view move on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusedFlow, measured])
+
   const previewed = highlight && !isolated && !selected && !linking ? hoveredFlows.filter((id) => hexagonOf(id)) : []
   const shownFlows = isolated ? [focusedFlow!] : previewed
   const chain = useMemo(
@@ -257,9 +270,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
           setHoveredRef(nodeRefOf(target))
           hoverFlows(threadsOf(target))
         }}
-        onPointerMove={(e) => reveal.rest(dragging ? null : hullIdOf(e.target as Element))}
         onPointerLeave={(e) => {
-          reveal.rest(null)
           if (!(e.relatedTarget as Element | null)?.closest?.('[data-plus]')) {
             setHovered(null)
             setHoveredRef(null)
@@ -301,7 +312,13 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
           // target, creates the link instead of switching focus — checked before the ordinary focus-switch below.
           if (linking && isCrossTarget(crossTargets, hexId, clickedHexId, ref)) return onLink(linking, { kind: 'link', hexagonId: clickedHexId!, portId: ref! })
           if (clickedHexId && clickedHexId !== hexId) return focusHexagon(clickedHexId)
-          if (!linking) return setSelected(ref)
+          if (!linking) {
+            setSelected(ref)
+            const node = ref && hexModel.nodes.find((n) => n.ref === ref && n.kind === NODE_KIND[collectionOf(diagram, ref)!])
+            // The repeat clicks of a double-click go on to reveal the element's editor; the camera moved on the first.
+            if (node && e.detail < 2) flyToElement(translatedNodeBox(node, hex.centre))
+            return
+          }
           const hit = targets.find((t) => t.targetRef === ref)
           if (hit) onLink(linking, { kind: 'field', ...hit })
           else onLinking(null)

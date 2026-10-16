@@ -3,7 +3,7 @@ import { hexagonBounds } from '../../layout/lattice'
 import { type MapHexagonLayout, type MapLayout } from '../../layout/map'
 import { useViewStore } from '../state/viewStore'
 import type { Box } from '../../layout/geometry'
-import { canvasBounds, contains, fitMap, fitTo, islandInset, panInto, visibleRect } from '../viewport'
+import { canvasBounds, centreOn, contains, fitMap, fitTo, islandInset, panInto, visibleRect } from '../viewport'
 import { useElementSize, useFreezeWhilePanelOpen, useViewportInteractions } from '../viewportChrome'
 
 /** The stage's size, fit and pan/zoom state for a map, including the reset that keeps a manual viewport only while
@@ -78,5 +78,9 @@ export function useStageViewport({
     const next = panInto(heading.current, visibleRect(heading.current, effectiveSize, inset), box)
     if (next && (next.x !== heading.current.x || next.y !== heading.current.y)) setView(next)
   }
-  return { ...interactions, size, centre, panTo }
+  /** Eases the view to the scale and place that fit `box` in the free area, however far out that is. */
+  const flyToBox = (box: Box) => interactions.flyTo(fitTo(box, effectiveSize.width, effectiveSize.height, inset, 0))
+  /** Eases to a close view centred on `box`, as when an element is clicked. */
+  const flyToElement = (box: Box) => interactions.flyTo(centreOn(heading.current, box, effectiveSize, inset))
+  return { ...interactions, size, centre, panTo, flyToBox, flyToElement }
 }
