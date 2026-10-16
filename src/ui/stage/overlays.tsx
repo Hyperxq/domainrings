@@ -30,10 +30,15 @@ export const titlesOverlaid = (scale: number) => TITLE.size * scale < TITLE_FLOO
 /** Whether the map title, which grows with the context chips, renders under the floor at `scale`. */
 export const mapTitleOverlaid = (title: LayoutText, scale: number) => (title.size ?? TITLE.size) * scale < TITLE_FLOOR_PX
 
-/** Below this viewport scale a 14px box name renders under 7px, which no one reads, so the labels replace it. Above it
- * the name is still legible and the labels would only cover the diagram. */
-export const BOX_LABELS_BELOW_SCALE = 0.5
-export const boxLabelsOverlaid = (scale: number) => scale < BOX_LABELS_BELOW_SCALE
+/** Detail by zoom: far shows context outlines and names with hexagon names only, mid adds box labels, near shows the
+ * hexagons in full and fades the context outline and name. */
+export const FAR_BELOW_SCALE = 0.25
+export const NEAR_FROM_SCALE = 0.5
+export const zoomLevel = (scale: number) => (scale < FAR_BELOW_SCALE ? 'far' : scale < NEAR_FROM_SCALE ? 'mid' : 'near')
+
+/** At mid a 14px box name renders under 7px, which no one reads, so the labels replace it. Nearer it is legible and the
+ * labels would only cover the diagram; farther out the boxes are too small to name. */
+export const boxLabelsOverlaid = (scale: number) => zoomLevel(scale) === 'mid'
 
 const BOX_LABEL_PX = 11
 const BOX_LABEL_PAD = { x: 5, y: 2 }
@@ -85,23 +90,29 @@ export function ContextReveals({
 const TITLE_HEIGHT = TITLE_FLOOR_PX * 1.3
 const TITLE_GAP = 3
 
-/** Each hexagon's title as the overlay draws it: from the full name, shortened with an ellipsis to its hexagon's
- * on-screen width, and left out only when not even one letter fits. `rect` is the screen box it covers. */
+/** Each hexagon's title as the overlay draws it, from the full name. Up to mid it is shortened with an ellipsis to its
+ * hexagon's on-screen width and left out only when not even one letter fits. Far out those widths are a few pixels,
+ * so the names run free and collide with each other instead: the larger hexagon keeps its name, the other is dropped.
+ * `rect` is the screen box it covers. */
 function hexagonTitleOverlays(model: MapLayout, mapToScreen: ToScreen, scale: number) {
   if (!titlesOverlaid(scale)) return []
-  return model.hexagons.flatMap((h) => {
+  const far = zoomLevel(scale) === 'far'
+  const titles = model.hexagons.flatMap((h) => {
     const title = h.model.texts.find((t) => t.key === 'title')
     const name = h.compact ? hexagonTitle(h.model) : title?.text
     if (!name) return []
     const width = hexagonBounds(h).width * scale
-    const label = ellipsize(name, (candidate) => labelTextWidth(candidate, TITLE_FLOOR_PX) <= width)
+    const label = far ? name : ellipsize(name, (candidate) => labelTextWidth(candidate, TITLE_FLOOR_PX) <= width)
     const textWidth = labelTextWidth(label, TITLE_FLOOR_PX)
-    if (textWidth > width) return []
+    if (!far && textWidth > width) return []
     // Full hexagons anchor at the heading's own spot (its left edge), compact ones on their centre.
     const at = mapToScreen(h.compact ? { x: h.centre.x, y: h.centre.y - h.compact.size * 0.4 } : { x: h.centre.x + title!.x, y: h.centre.y + title!.y })
     const rect = { x: h.compact ? at.x - textWidth / 2 : at.x, y: at.y - TITLE_HEIGHT, width: textWidth, height: TITLE_HEIGHT }
-    return [{ id: h.id, label, at, width, rect, compact: !!h.compact }]
+    return [{ id: h.id, label, at, width: far ? textWidth : width, rect, compact: !!h.compact, area: width * hexagonBounds(h).height * scale }]
   })
+  if (!far) return titles
+  const shown = cullLabels(titles.map((t) => ({ key: t.id, rect: t.rect, tier: 0, area: t.area })), TITLE_GAP)
+  return titles.filter((t) => shown.has(t.id))
 }
 
 /** Every hexagon's title at a readable size over the map, once zoomed out far enough that the SVG ones are not. */
@@ -142,7 +153,8 @@ export function BoxLabels({ model, map, hexId, forced, mapToScreen, scale, size 
     const from = mapToScreen(rect)
     return { owner, rect: { ...from, width: rect.width * scale, height: rect.height * scale } }
   })
-  const shown = cullLabels(placed.map((p) => p.candidate), BOX_LABEL_GAP, centreZones(screenBoxes, BOX_CENTRE_CLEARANCE))
+  const titles = hexagonTitleOverlays(model, mapToScreen, scale).map(({ id, rect }) => ({ owner: `title:${id}`, rect }))
+  const shown = cullLabels(placed.map((p) => p.candidate), BOX_LABEL_GAP, [...centreZones(screenBoxes, BOX_CENTRE_CLEARANCE), ...titles])
   const visible = placed.filter((p) => shown.has(p.label.key))
   return (
     <>

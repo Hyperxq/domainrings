@@ -21,7 +21,7 @@ import { hexIdOf, hullIdOf, layerOf, nodeRefOf, refOf, threadsOf } from './canva
 import { useInspectedFlow } from './FlowInspector'
 import { StepCard, usePresentation } from './PresentPanel'
 import { NotePopover } from './stage/NotePopover'
-import { BoxLabels, ContextReveals, ExpandToggles, GrowButtons, HexagonTitles, LinkChip, MapTitle, mapTitleOverlaid, titlesOverlaid } from './stage/overlays'
+import { BoxLabels, ContextReveals, ExpandToggles, GrowButtons, HexagonTitles, LinkChip, MapTitle, mapTitleOverlaid, titlesOverlaid, zoomLevel } from './stage/overlays'
 import { useCanvasShortcuts } from './stage/useCanvasShortcuts'
 import { useContextReveal } from './stage/useContextReveal'
 import { useHexagonFocus } from './stage/useHexagonFocus'
@@ -241,7 +241,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
     >
       <svg
         ref={svgRef}
-        className={['canvas', titlesOverlaid(viewport.scale) && 'titles-overlaid', model.title && mapTitleOverlaid(model.title, viewport.scale) && 'map-title-overlaid'].filter(Boolean).join(' ')}
+        className={['canvas', `zoom-${zoomLevel(viewport.scale)}`, titlesOverlaid(viewport.scale) && 'titles-overlaid', model.title && mapTitleOverlaid(model.title, viewport.scale) && 'map-title-overlaid'].filter(Boolean).join(' ')}
         style={{ '--zoom': viewport.scale } as CSSProperties}
         role="figure"
         aria-label={title || 'Architecture diagram'}

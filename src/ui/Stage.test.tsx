@@ -19,8 +19,8 @@ import { canvasBounds, contains, fitMap, fitTo, islandInset, MIN_FIT_SCALE, MIN_
 import type { Box, Point } from '../layout/geometry'
 import { readFileSync } from 'node:fs'
 import { boxObstacles } from '../layout/boxLabels'
-import { centreZones } from './stage/labelCulling'
-import { boxLabelsOverlaid } from './stage/overlays'
+import { centreZones, touches } from './stage/labelCulling'
+import { boxLabelsOverlaid, zoomLevel } from './stage/overlays'
 import { labelTextWidth } from './stage/labelWidth'
 import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
 import twoHexagonSample from '../model/fixtures/two-hexagon-sample.hexa?raw'
@@ -1971,7 +1971,7 @@ describe('Stage — hexagon titles stay readable when zoomed out', () => {
     }
 
     it('keeps the map title and every hexagon title apart', () => {
-      withSize(700, 360, () => {
+      withSize(1400, 800, () => {
         largeMap('Propylaea · Growth')
         const { container } = render(<Harness />)
         const all = [...titleOverlays(container), ...container.querySelectorAll<HTMLElement>('[data-map-title-overlay]')]
@@ -1981,9 +1981,10 @@ describe('Stage — hexagon titles stay readable when zoomed out', () => {
     })
 
     it('keeps a compact hexagon\'s name, cut with an ellipsis from the full one to fit its width', () => {
-      withSize(700, 360, () => {
+      withSize(1400, 800, () => {
         largeMap('Map', 'Analytics events and everything around them')
         const { container } = render(<Harness />)
+        expect(zoomLevel(viewportOf(container).scale)).toBe('mid')
         const label = container.querySelector<HTMLElement>('[data-hexagon-title-overlay="h4"]')!
         expect(label.textContent!.endsWith('…')).toBe(true)
         expect('Analytics events and everything around them'.startsWith(label.textContent!.slice(0, -1))).toBe(true)
@@ -2026,7 +2027,7 @@ describe('Stage — box names stay readable when zoomed out', () => {
   }
 
   it('names the boxes once a 14px name would render at under half size', () => {
-    withSize(700, 360, () => {
+    withSize(1400, 900, () => {
       const { container } = render(<Harness />)
       expect(viewportOf(container).scale).toBeLessThan(0.5)
       const shown = labels(container)
@@ -2054,7 +2055,7 @@ describe('Stage — box names stay readable when zoomed out', () => {
   })
 
   it('shows no two labels on top of each other', () => {
-    withSize(700, 360, () => {
+    withSize(1400, 900, () => {
       const { container } = render(<Harness />)
       const rects = labels(container).map((l) => {
         const [x, y] = [parseFloat(l.style.left), parseFloat(l.style.top)]
@@ -2089,7 +2090,7 @@ describe('Stage — box names stay readable when zoomed out', () => {
   })
 
   it('always shows the label of the hovered box, even where another label wins the spot', () => {
-    withSize(700, 360, () => {
+    withSize(1400, 900, () => {
       const { container } = render(<Harness />)
       const shown = new Set(labels(container).map((l) => l.textContent))
       const hidden = [...container.querySelectorAll<SVGGElement>('[data-hex="h1"] .node-domainItem')].find((n) => !shown.has(n.textContent!.trim()))
@@ -2100,7 +2101,7 @@ describe('Stage — box names stay readable when zoomed out', () => {
   })
 
   it('hides the SVG text of exactly the boxes whose label is shown, so none goes blank', () => {
-    withSize(700, 360, () => {
+    withSize(1400, 900, () => {
       const { container } = render(<Harness />)
       const css = readFileSync('src/styles.css', 'utf8')
       const style = document.createElement('style')
@@ -2128,7 +2129,7 @@ describe('Stage — box names stay readable when zoomed out', () => {
   })
 
   it('keeps the aggregate named in the overview, by its label or else its own SVG text', () => {
-    const restore = stubFixedSize(700, 360)
+    const restore = stubFixedSize(1400, 800)
     try {
       useMapStore.getState().replace(twoHexMap())
       usePreferencesStore.setState({ mode: 'overview' })
@@ -2137,6 +2138,7 @@ describe('Stage — box names stay readable when zoomed out', () => {
       style.textContent = readFileSync('src/styles.css', 'utf8')
       document.head.appendChild(style)
       try {
+        expect(zoomLevel(viewportOf(container).scale)).toBe('mid')
         const labelled = labels(container).some((l) => l.dataset.boxLabel === 'h1:domainItem:d-feedback')
         const text = container.querySelector('[data-hex="h1"] .node-domainItem[data-ref="d-feedback"] text')!
         expect(labelled || getComputedStyle(text).display !== 'none').toBe(true)
@@ -2150,14 +2152,14 @@ describe('Stage — box names stay readable when zoomed out', () => {
   })
 
   it('hands the zoom to CSS on the canvas', () => {
-    withSize(700, 360, () => {
+    withSize(1400, 900, () => {
       const { container } = render(<Harness />)
       expect(Number((svg(container) as SVGElement).style.getPropertyValue('--zoom'))).toBeCloseTo(viewportOf(container).scale, 3)
     })
   })
 
   it('leaves compact hexagons to their own title', () => {
-    const restore = stubFixedSize(700, 360)
+    const restore = stubFixedSize(1400, 900)
     try {
       useMapStore.getState().replace(manyHexagonMap(5))
       const { container } = render(<Harness />)
@@ -2295,5 +2297,104 @@ describe('Stage — an element that gets hidden while selected or hovered', () =
     act(() => usePreferencesStore.setState({ showPlanned: false }))
     act(() => usePreferencesStore.setState({ showPlanned: true }))
     expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+})
+
+describe('Stage — detail follows the zoom level', () => {
+  const css = readFileSync('src/styles.css', 'utf8')
+  const boxLabels = (container: HTMLElement) => container.querySelectorAll('[data-box-label]')
+  const titles = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>('[data-hexagon-title-overlay]')]
+  const at = (width: number, height: number, level: 'far' | 'mid' | 'near', map: HexaMap = twoHexMap()) => {
+    const restore = stubFixedSize(width, height)
+    useMapStore.getState().replace(map)
+    const rendered = render(<Harness />)
+    expect(zoomLevel(viewportOf(rendered.container).scale)).toBe(level)
+    return { ...rendered, restore }
+  }
+  const withStyles = (run: () => void) => {
+    const style = document.createElement('style')
+    style.textContent = css
+    document.head.appendChild(style)
+    try {
+      run()
+    } finally {
+      style.remove()
+    }
+  }
+
+  it('cuts the levels at a quarter and a half', () => {
+    expect([0.24, 0.25, 0.49, 0.5].map(zoomLevel)).toEqual(['far', 'mid', 'mid', 'near'])
+  })
+
+  it('far: no box labels, and the canvas is marked far', () => {
+    const { container, restore } = at(300, 160, 'far')
+    try {
+      expect(boxLabels(container)).toHaveLength(0)
+      expect(svg(container).classList.contains('zoom-far')).toBe(true)
+    } finally {
+      restore()
+    }
+  })
+
+  it('far: hexagon names are not cut to the hexagon width, and none overlap', () => {
+    const map = manyHexagonMap(5)
+    map.hexagons[3] = { ...map.hexagons[3], title: 'Analytics events' }
+    const { container, restore } = at(1000, 600, 'far', map)
+    try {
+      expect(container.querySelector('[data-hexagon-title-overlay="h4"]')?.textContent).toBe('Analytics events')
+      const rects = titles(container).map((el) => {
+        const width = labelTextWidth(el.textContent!, 12)
+        const x = parseFloat(el.style.left)
+        return { x: el.style.transform.startsWith('translate(0') ? x : x - width / 2, y: parseFloat(el.style.top) - 15.6, width, height: 15.6 }
+      })
+      expect(rects.length).toBeGreaterThan(1)
+      for (const [i, a] of rects.entries()) for (const b of rects.slice(i + 1)) expect(touches(a, b)).toBe(false)
+    } finally {
+      restore()
+    }
+  })
+
+  it('far: the context name shows on the canvas; mid keeps it hidden', () => {
+    const far = at(600, 300, 'far', manyHexagonMap(5))
+    try {
+      withStyles(() => expect(getComputedStyle(far.container.querySelector('.chip')!).display).not.toBe('none'))
+    } finally {
+      far.restore()
+      cleanup()
+    }
+    const mid = at(1400, 800, 'mid', manyHexagonMap(5))
+    try {
+      withStyles(() => expect(getComputedStyle(mid.container.querySelector('.chip')!).display).toBe('none'))
+    } finally {
+      mid.restore()
+    }
+  })
+
+  it('mid: box labels are drawn, and none sits on a hexagon title', () => {
+    const { container, restore } = at(1400, 900, 'mid')
+    try {
+      expect(boxLabels(container).length).toBeGreaterThan(0)
+      expect(svg(container).classList.contains('zoom-mid')).toBe(true)
+      const rect = (el: HTMLElement, font: number, centred: boolean) => {
+        const width = labelTextWidth(el.textContent!, font)
+        const [x, y] = [parseFloat(el.style.left), parseFloat(el.style.top)]
+        return { x: centred ? x - width / 2 : x, y: centred ? y - font * 0.65 : y - font * 1.3, width, height: font * 1.3 }
+      }
+      for (const title of titles(container))
+        for (const label of container.querySelectorAll<HTMLElement>('[data-box-label]')) expect(touches(rect(title, 12, title.style.transform === ''), rect(label, 11, true))).toBe(false)
+    } finally {
+      restore()
+    }
+  })
+
+  it('near: the canvas is marked near, and only the live canvas fades the context outline and name', () => {
+    const { container, restore } = at(9000, 6000, 'near', linkedTwoHexMap())
+    try {
+      expect(svg(container).classList.contains('zoom-near')).toBe(true)
+      expect(css).toMatch(/\.canvas\.zoom-near:not\(\.exporting\)[^{]*\.hull[^{]*\{[^}]*opacity/)
+      expect(css).toMatch(/\.canvas\.zoom-near:not\(\.exporting\)[^{]*\.chip[^{]*\{[^}]*opacity/)
+    } finally {
+      restore()
+    }
   })
 })

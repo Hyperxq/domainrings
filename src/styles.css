@@ -327,8 +327,11 @@ svg[data-emphasis='dependents'] .compact-port[data-chain] circle { stroke-dashar
   stroke-width: 4px;
   stroke-linejoin: round;
 }
-/* The name shows on hover instead (`.context-reveal`); an export still draws it, since it is read with `.exporting` on. */
-.canvas:not(.exporting) .chip { display: none; }
+/* Zoomed in the name shows on hover instead (`.context-reveal`), but from far out it is all there is to tell contexts
+   apart, so it stays; an export still draws it, since it is read with `.exporting` on. Up close the outline and name
+   fade, the hexagons being what is looked at. */
+.canvas:not(.exporting):not(.zoom-far) .chip { display: none; }
+.canvas.zoom-near:not(.exporting) :is(.hull, .chip) { opacity: 0.35; }
 /* Titles that would render under 12px on screen are drawn by the `HexagonTitles` overlay instead; an export keeps the SVG ones. */
 .canvas.titles-overlaid:not(.exporting) [data-hexagon-title] { display: none; }
 .canvas.map-title-overlaid:not(.exporting) [data-map-title] { display: none; }
