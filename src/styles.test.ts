@@ -82,6 +82,17 @@ describe('a ring/sector title\'s halo matches the band it actually sits on', () 
   })
 })
 
+describe('an edge label over the domain', () => {
+  it('reads in the domain ink with the domain ring\'s own halo, like the ring titles', () => {
+    const at = css.indexOf('.canvas .edge-label.on-domain {')
+    expect(at).toBeGreaterThan(-1)
+    const label = css.slice(at, css.indexOf('}', at))
+    expect(label).toContain('fill: var(--domain-ink)')
+    expect(label).toContain('stroke: var(--teal-deep)')
+    expect(css).toMatch(/\.ring-domain \{ fill: var\(--teal-deep\)/)
+  })
+})
+
 describe('a ringed endpoint\'s own name reads on the canvas, not the tone pill\'s ink', () => {
   it('overrides the tone-driving/tone-driven text colour with the canvas ink for .node-ringedEndpoint', () => {
     const toneRuleIndex = css.indexOf('.canvas .tone-driven text, .canvas .tone-driven tspan { fill: var(--driven-ink); }')

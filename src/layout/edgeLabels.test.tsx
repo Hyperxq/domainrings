@@ -175,6 +175,20 @@ describe('labels that cannot be placed', () => {
   })
 })
 
+describe('a label on the domain', () => {
+  it('carries the on-domain class only when its edge runs wholly on the domain', () => {
+    const [onDomain, onBand] = [{ ...edge(0), intoDomain: 0 }, edge(60)]
+    placeEdgeLabels([onDomain, onBand], [])
+    const model = { ...layoutDiagram(EXAMPLE_DIAGRAM), edges: [onDomain, onBand] }
+    const { container } = render(
+      <svg>
+        <HexagonBody model={model} showGuides={false} selected={null} linkTargets={new Set()} chain={undefined} interactive notes={new Map()} planned={new Set()} />
+      </svg>,
+    )
+    expect([...container.querySelectorAll('text.edge-label')].map((t) => t.classList.contains('on-domain'))).toEqual([true, false])
+  })
+})
+
 describe('what a label says', () => {
   const diagram = (verb?: string): Diagram => ({
     version: 1,

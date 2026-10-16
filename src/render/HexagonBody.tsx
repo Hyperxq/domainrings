@@ -64,7 +64,7 @@ function Edge({ edge, chained }: { edge: LayoutEdge; chained: boolean }) {
 function EdgeLabel({ edge, chained }: { edge: LayoutEdge; chained: boolean }) {
   if (!edge.label || !edge.labelAt) return null
   return (
-    <text className="edge-label" data-chain={chained ? '' : undefined} x={edge.labelAt.x} y={edge.labelAt.y} fontSize={EDGE_LABEL.size}>
+    <text className={`edge-label${edge.intoDomain === 0 ? ' on-domain' : ''}`} data-chain={chained ? '' : undefined} x={edge.labelAt.x} y={edge.labelAt.y} fontSize={EDGE_LABEL.size}>
       {edge.label}
     </text>
   )

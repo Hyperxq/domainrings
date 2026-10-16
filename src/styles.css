@@ -382,6 +382,7 @@ svg[data-emphasis='dependents'] .compact-port[data-chain] circle { stroke-dashar
   stroke-width: 4px;
   stroke-linejoin: round;
 }
+.canvas .edge-label.on-domain { fill: var(--domain-ink); stroke: var(--teal-deep); }
 
 .box { stroke-width: 1.6; }
 /* Pills: colour says the side. Driving and driven pills are solid, with their own ink for every line. */
