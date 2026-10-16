@@ -5,6 +5,7 @@ import { insertionItem, insertionPoints, type InsertionPoint } from '../layout/i
 import type { LayoutNode } from '../layout/layout'
 import type { Point } from '../layout/geometry'
 import type { LegendModel } from '../layout/legend'
+import { hexagonBounds } from '../layout/lattice'
 import { currentHexagon, type MapLayout } from '../layout/map'
 import { dependencyChain, unionChain } from '../model/chain'
 import { flowChain, flowOf } from '../model/flow'
@@ -69,8 +70,8 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   const dependents = usePreferencesStore((s) => s.dependents)
   const showGuides = usePreferencesStore((s) => s.guides)
   const viewOnly = usePreferencesStore((s) => s.viewOnly)
-  // View mode shows the Flows panel in the editor's place, so the fit leaves the same room for it.
-  const panelOpen = useViewStore((s) => s.editorOpen) || viewOnly
+  // View mode shows the Flows panel in the editor's place and collapses it through the same flag.
+  const panelOpen = useViewStore((s) => s.editorOpen)
   const focusedFlow = useViewStore((s) => s.focusedFlow)
   const hoveredFlows = useViewStore((s) => s.hoveredFlows)
   const hoverFlows = useViewStore((s) => s.hoverFlows)
@@ -106,7 +107,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
 
   const reveal = useContextReveal(model.hexagons)
 
-  const { size, centre, panTo, flyToBox, flyToElement, view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useStageViewport({
+  const { size, centre, flyToBox, flyToElement, view, viewport, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp, onPointerCancel } = useStageViewport({
     model,
     hex,
     mainRef,
@@ -127,7 +128,8 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
     if (viewOnly) onLinking(null)
   }, [viewOnly, onLinking])
 
-  // The step being presented is the selection (which lights it and shows its note), and is panned into view.
+  // The step being presented is the selection (which lights it and shows its note), and the camera flies to it as
+  // to a clicked element, or to its whole hexagon when that is drawn compact and has no element to centre on.
   const stepNow = usePresentation()?.step
   useEffect(() => {
     if (!stepNow) return
@@ -135,7 +137,8 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
     const at = model.hexagons.find((h) => h.id === stepNow.hexId)
     const kind = NODE_KIND[collectionOf(diagramOf(map, stepNow.hexId), stepNow.id)!]
     const node = at?.model.nodes.find((n) => n.ref === stepNow.id && n.kind === kind)
-    if (at && node) panTo(translatedNodeBox(node, at.centre))
+    if (at && node && !at.compact) flyToElement(translatedNodeBox(node, at.centre))
+    else if (at) flyToBox(hexagonBounds(at))
     return () => setSelected(null)
     // Re-fires on the step alone: the view and layout move on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -180,17 +183,19 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   // first, else the first hexagon of the map that has it (ids are checked per hexagon, not map-wide).
   const hexagonOf = (id: string) => (diagram.useCases.some((u) => u.id === id) ? hexId : map.hexagons.find((h) => h.useCases.some((u) => u.id === id))?.id)
   // Picking a flow brings all of it on screen, framed as its export is; clearing it leaves the camera, and a walkthrough steers the camera itself.
+  // Ending the walkthrough with the flow still picked frames the flow again.
   // Keyed on the stage being measured too, so a flow already picked at load (a share link) flies once there is a size.
   const measured = size.width > 0
+  const presenting = useViewStore((s) => s.presentStep !== null)
   useEffect(() => {
-    if (!focusedFlow || !measured || useViewStore.getState().presentStep !== null) return
+    if (!focusedFlow || !measured || presenting) return
     const owner = hexagonOf(focusedFlow)
     if (!owner) return
     const frame = flowFrame(map, owner, focusedFlow, model, showGuides)
     if (frame?.only.size) flyToBox(frame.bounds)
-    // Re-fires on the pick alone: the map, layout and view move on every render.
+    // Re-fires on the pick and the walkthrough alone: the map, layout and view move on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusedFlow, measured])
+  }, [focusedFlow, measured, presenting])
 
   const previewed = highlight && !isolated && !selected && !linking ? hoveredFlows.filter((id) => hexagonOf(id)) : []
   const shownFlows = isolated ? [focusedFlow!] : previewed

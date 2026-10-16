@@ -144,7 +144,8 @@ export function useViewportInteractions({
   const panned = useRef(false)
   const [view, setView] = useState<'auto' | Viewport>('auto')
   const [dragging, setDragging] = useState(false)
-  const [fullscreen, setFullscreen] = useState(false)
+  const fullscreen = useViewStore((s) => s.fullscreen)
+  const setFullscreen = useViewStore((s) => s.setFullscreen)
 
   const [seenFitKey, setSeenFitKey] = useState(fitKey)
   if (fitKey !== seenFitKey) {
@@ -218,8 +219,10 @@ export function useViewportInteractions({
 
   useEffect(() => {
     if (!fullscreen) return
-    const el = mainRef.current
-    el?.requestFullscreen?.().catch(() => {})
+    // The root, not the stage: the panels and the zoom island live outside it and would vanish. A refusal drops the
+    // flag, or the toolbar would stay hidden in a fullscreen that never happened.
+    if (!document.documentElement.requestFullscreen) return void setFullscreen(false)
+    document.documentElement.requestFullscreen().catch(() => setFullscreen(false))
     const onChange = () => !document.fullscreenElement && setFullscreen(false)
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setFullscreen(false)
     document.addEventListener('fullscreenchange', onChange)
@@ -227,6 +230,7 @@ export function useViewportInteractions({
     return () => {
       document.removeEventListener('fullscreenchange', onChange)
       document.removeEventListener('keydown', onKey)
+      setFullscreen(false)
       if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

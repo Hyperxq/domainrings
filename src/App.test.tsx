@@ -3678,3 +3678,22 @@ describe('copy PNG to the clipboard', () => {
     expect(screen.getByText('Copy failed: Write permission denied.')).toBeTruthy()
   })
 })
+
+describe('fullscreen', () => {
+  // jsdom has no Fullscreen API, and a browser without one never hides the toolbar.
+  beforeEach(() => void (document.documentElement.requestFullscreen = vi.fn().mockResolvedValue(undefined)))
+  afterEach(() => {
+    useViewStore.setState({ fullscreen: false })
+    delete (document.documentElement as Partial<HTMLElement>).requestFullscreen
+  })
+
+  it('hides the top toolbar and keeps the zoom island with the exit button', () => {
+    render(<App />)
+    expect(screen.getByRole('button', { name: 'Share' })).toBeTruthy()
+    act(() => useViewStore.setState({ fullscreen: true }))
+    expect(screen.queryByRole('button', { name: 'Share' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Exit fullscreen' })).toBeTruthy()
+    act(() => useViewStore.setState({ fullscreen: false }))
+    expect(screen.getByRole('button', { name: 'Share' })).toBeTruthy()
+  })
+})
