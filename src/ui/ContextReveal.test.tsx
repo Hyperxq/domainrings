@@ -59,7 +59,6 @@ function Harness() {
   )
 }
 
-const REST = 400
 const hull = (container: HTMLElement, id: string) => container.querySelector(`[data-hull="${id}"]`)!
 const overlays = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>('[data-context-reveal]')]
 const wait = (ms: number) => act(() => void vi.advanceTimersByTime(ms))
@@ -72,79 +71,18 @@ describe('context name reveal', () => {
     for (const chip of container.querySelectorAll('[data-chip]')) expect(getComputedStyle(chip).display).toBe('none')
   })
 
-  it('blurs the region and centres its name once the pointer rests on its empty area', () => {
+  it('never blurs a context on hover, however long the pointer rests on its empty area', () => {
     const { container } = render(<Harness />)
     fireEvent.pointerMove(hull(container, 'c2'))
-    wait(REST - 1)
-    expect(overlays(container)).toHaveLength(0)
-    wait(1)
-    const [overlay] = overlays(container)
-    expect(overlays(container)).toHaveLength(1)
-    expect(overlay.getAttribute('data-context-reveal')).toBe('c2')
-    expect(overlay.textContent).toBe('Context 2')
-    expect(overlay.querySelector('.context-blur')).not.toBeNull()
-  })
-
-  it('restarts the delay while the pointer keeps moving across the region', () => {
-    const { container } = render(<Harness />)
-    fireEvent.pointerMove(hull(container, 'c2'))
-    wait(REST - 100)
-    fireEvent.pointerMove(hull(container, 'c2'))
-    wait(REST - 100)
-    expect(overlays(container)).toHaveLength(0)
-    wait(100)
-    expect(overlays(container)).toHaveLength(1)
-  })
-
-  it('shows nothing while the pointer is over a hexagon', () => {
-    const { container } = render(<Harness />)
-    fireEvent.pointerMove(hexGroup(container, 'h2').querySelector('.node')!)
-    wait(REST * 2)
-    expect(overlays(container)).toHaveLength(0)
-  })
-
-  it('cancels a pending reveal when the pointer enters a hexagon, and removes a shown one', () => {
-    const { container } = render(<Harness />)
-    fireEvent.pointerMove(hull(container, 'c2'))
-    wait(REST - 1)
-    fireEvent.pointerMove(hexGroup(container, 'h2').querySelector('.node')!)
-    wait(REST)
-    expect(overlays(container)).toHaveLength(0)
-
-    fireEvent.pointerMove(hull(container, 'c2'))
-    wait(REST)
-    expect(overlays(container)).toHaveLength(1)
-    fireEvent.pointerMove(hexGroup(container, 'h2').querySelector('.node')!)
-    expect(overlays(container)).toHaveLength(0)
-  })
-
-  it('removes the overlay when the pointer leaves the canvas', () => {
-    const { container } = render(<Harness />)
-    fireEvent.pointerMove(hull(container, 'c1'))
-    wait(REST)
-    expect(overlays(container)).toHaveLength(1)
-    fireEvent.pointerLeave(container.querySelector('svg.canvas')!)
+    wait(2000)
     expect(overlays(container)).toHaveLength(0)
   })
 
   it('never takes a click: the overlay and everything in it ignore the pointer', () => {
     const { container } = render(<Harness />)
-    fireEvent.pointerMove(hull(container, 'c1'))
-    wait(REST)
+    fireEvent.keyDown(window, { key: 'Alt', altKey: true })
     const [overlay] = overlays(container)
     for (const el of [overlay, ...overlay.querySelectorAll('*')]) expect(getComputedStyle(el).pointerEvents).toBe('none')
-  })
-
-  it('does not reveal while the stage is being panned', () => {
-    const { container } = render(<Harness />)
-    const main = container.querySelector('main')!
-    main.setPointerCapture = () => {}
-    fireEvent.pointerMove(hull(container, 'c1'))
-    fireEvent.pointerDown(hull(container, 'c1'), { button: 0, buttons: 1, clientX: 100, clientY: 100 })
-    fireEvent.pointerMove(main, { buttons: 1, clientX: 140, clientY: 100 })
-    fireEvent.pointerMove(hull(container, 'c1'), { buttons: 1, clientX: 150, clientY: 100 })
-    wait(REST)
-    expect(overlays(container)).toHaveLength(0)
   })
 
   it('shows every context at once while Alt is held, and hides them on release', () => {

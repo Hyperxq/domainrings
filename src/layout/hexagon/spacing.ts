@@ -3,7 +3,7 @@ export const GAP = 14
 /** The room an arrow keeps clear of the end of a wall. */
 export const LANE = 12
 /** Distance between parallel tracks sharing a corridor, and between threads entering one box face. */
-export const TRACK_GAP = 6
+export const TRACK_GAP = 8
 export const OUTSIDE_GAP = 20
 export const LABEL_PAD_X = 8
 export const USE_CASE_TEXT_WIDTH = 160
@@ -19,4 +19,7 @@ export const NOTE_CLEAR = 8
 const MORE_WIDTH = 16
 
 /** How far from a box's edge its `count` thread dots (and a note marker, and the "+N" past MAX_DOTS) reach. */
+/** The least gap between a label and the dots' reach: text renders a little wider than it is measured. */
+export const DOT_CLEAR = 8
+
 export const dotsReach = (count: number) => DOT_INSET + NOTE_CLEAR + (Math.min(count, MAX_DOTS) - 1) * DOT_STEP + DOT_RADIUS + (count > MAX_DOTS ? MORE_WIDTH : 0)

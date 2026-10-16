@@ -166,3 +166,17 @@ describe('thread-coloured connections', () => {
     expect(widthOf('svg[data-emphasis] .map-link[data-chain] {')).toBeGreaterThan(widthOf('.edge-import[data-thread],\n.map-link[data-thread]'))
   })
 })
+
+describe('step card placement', () => {
+  it('centres the card over the whole canvas once the walkthrough panel is collapsed, on desktop only', () => {
+    const desktop = css.match(/@media \(min-width: 721px\) \{([\s\S]*?)\n\}/g)?.join('\n') ?? ''
+    expect(desktop).toMatch(/:has\(\.present-panel\.is-collapsed\)\s+\.step-card\s*\{[^}]*left:\s*50%/)
+  })
+})
+
+describe('present step rows', () => {
+  it('let a long name shrink and end in an ellipsis instead of widening the panel', () => {
+    expect(css).toMatch(/\.present-steps button \{[^}]*grid-template-columns:\s*22px minmax\(0, 1fr\) auto/)
+    expect(css).toMatch(/\.present-name \{[^}]*text-overflow:\s*ellipsis/)
+  })
+})

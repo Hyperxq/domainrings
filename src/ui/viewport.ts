@@ -65,6 +65,25 @@ export function fitTo(bounds: Box, width: number, height: number, inset: Inset =
   }
 }
 
+/** The scale a clicked element is brought to when the view is further out: 40% past true size, enough to read its label comfortably. */
+export const ELEMENT_FOCUS_SCALE = 1.4
+/** The largest share of the free area's shorter side the focused element may span, so it stays a centre piece, not a wall. */
+const ELEMENT_MAX_SHARE = 1 / 3
+
+/** `v` moved to centre `box` in the free area: zoomed in to ELEMENT_FOCUS_SCALE when further out, held where it is when
+ * already closer, and never so close that the box spans more than a third of the free area's shorter side. */
+export function centreOn(v: Viewport, box: Box, size: { width: number; height: number }, inset: Inset = NO_INSET): Viewport {
+  const freeW = Math.max(1, size.width - inset.left - inset.right)
+  const freeH = Math.max(1, size.height - inset.top - inset.bottom)
+  const roomy = (Math.min(freeW, freeH) * ELEMENT_MAX_SHARE) / Math.max(box.width, box.height)
+  const scale = clamp(Math.max(v.scale, Math.min(ELEMENT_FOCUS_SCALE, roomy)), 0)
+  return {
+    x: box.x + box.width / 2 - (inset.left + freeW / 2) / scale,
+    y: box.y + box.height / 2 - (inset.top + freeH / 2) / scale,
+    scale,
+  }
+}
+
 /** What the canvas fits: the layout bounds, plus the single-context outline, which pads past them and is canvas-only
  * (exports frame the bounds alone). */
 export const canvasBounds = ({ bounds, outline }: { bounds: Box; outline?: Point[][] }): Box =>

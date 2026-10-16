@@ -462,7 +462,6 @@ body {
   user-select: none;
 }
 .stage.is-dragging { cursor: grabbing; }
-.stage.is-fullscreen { z-index: 20; }
 
 .island {
   position: fixed;
@@ -737,8 +736,9 @@ a.icon-button { color: inherit; text-decoration: none; }
 .present-description { margin: 0 0 12px; color: var(--muted); font-size: 12.5px; }
 .present-steps { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .present-steps li { border: 1px solid transparent; border-radius: 8px; }
-.present-steps button { display: grid; grid-template-columns: 22px 1fr auto; column-gap: 6px; align-items: baseline; width: 100%; padding: 6px 8px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.present-steps button { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; column-gap: 6px; align-items: baseline; width: 100%; padding: 6px 8px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 .present-steps button:hover { background: var(--hover); }
+.present-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .present-steps [aria-current='step'] { padding-bottom: 6px; border-color: var(--thread, var(--teal)); background: color-mix(in srgb, var(--thread, var(--teal)) 14%, transparent); }
 .present-steps [aria-current='step'] button:hover { background: none; }
 .present-steps [aria-current='step'] .present-name { font-family: var(--font-mono); font-weight: 700; }
@@ -747,6 +747,7 @@ a.icon-button { color: inherit; text-decoration: none; }
 .present-steps [aria-current='step'] .present-no { color: var(--teal); font-weight: 700; }
 .present-detail { grid-column: 2 / span 2; }
 .present-note, .step-card-note { margin: 2px 8px 4px 36px; font-size: 12.5px; line-height: 1.45; }
+.present-foot[hidden] { display: none; }
 .present-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 14px; }
 .present-foot .text-button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 38px; border: 1px solid var(--line); font-size: 13px; }
 .present-foot .text-button.primary { border-color: var(--teal); background: var(--teal); color: var(--card); }
@@ -764,6 +765,8 @@ a.icon-button { color: inherit; text-decoration: none; }
 
 @media (min-width: 721px) {
   .editor:not(.is-collapsed) { height: calc(100dvh - 72px - 66px); }
+  /* The card lives in the stage, not beside the panel, so it learns the collapse from the document. */
+  :root:has(.present-panel.is-collapsed) .step-card { left: 50%; }
 }
 .settings-fold { margin-top: auto; padding-top: 12px; }
 .settings-fold > .section { padding: 0; border: 0; }

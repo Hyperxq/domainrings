@@ -99,6 +99,8 @@ export interface ViewportInteractions {
   /** Where the view was last heading, for freezing it: unlike `viewport` it is never a frame partway through an ease. */
   heading: RefObject<Viewport>
   setView: Dispatch<SetStateAction<'auto' | Viewport>>
+  /** Moves the view to `next` with the same ease as a refit, unlike `setView`, which lands at once (a pan or zoom must track the pointer). */
+  flyTo: (next: Viewport) => void
   zoomFloor: number
   dragging: boolean
   fullscreen: boolean
@@ -142,7 +144,8 @@ export function useViewportInteractions({
   const panned = useRef(false)
   const [view, setView] = useState<'auto' | Viewport>('auto')
   const [dragging, setDragging] = useState(false)
-  const [fullscreen, setFullscreen] = useState(false)
+  const fullscreen = useViewStore((s) => s.fullscreen)
+  const setFullscreen = useViewStore((s) => s.setFullscreen)
 
   const [seenFitKey, setSeenFitKey] = useState(fitKey)
   if (fitKey !== seenFitKey) {
@@ -166,8 +169,14 @@ export function useViewportInteractions({
       setView((v) => (v === 'auto' ? v : { ...v, x: v.x - (size.width - seenSize.width) / 2 / v.scale, y: v.y - (size.height - seenSize.height) / 2 / v.scale }))
   }
 
-  // Only an 'auto' view eases: a manual one is the author's own pan/zoom and must track the pointer exactly.
-  const { viewport, heading } = useEasedViewport(view === 'auto' ? autoFit : view, view === 'auto', `${size?.width}x${size?.height}:${snapKey}`)
+  // The views `flyTo` set: identity marks them, so any later pan or zoom (a new object) is a manual view again.
+  const flights = useRef(new WeakSet<Viewport>())
+  const flyTo = (next: Viewport) => {
+    flights.current.add(next)
+    setView(next)
+  }
+  // Only an 'auto' view or a flight eases: a manual view is the author's own pan/zoom and must track the pointer exactly.
+  const { viewport, heading } = useEasedViewport(view === 'auto' ? autoFit : view, view === 'auto' || flights.current.has(view), `${size?.width}x${size?.height}:${snapKey}`)
   // The floor a manual zoom (wheel or button) can reach: never above MIN_SCALE, but never above what fitting the
   // whole diagram itself needs either, so a view already fitted to it never snaps back in.
   const zoomFloor = Math.min(MIN_SCALE, wholeFitScale)
@@ -210,8 +219,10 @@ export function useViewportInteractions({
 
   useEffect(() => {
     if (!fullscreen) return
-    const el = mainRef.current
-    el?.requestFullscreen?.().catch(() => {})
+    // The root, not the stage: the panels and the zoom island live outside it and would vanish. A refusal drops the
+    // flag, or the toolbar would stay hidden in a fullscreen that never happened.
+    if (!document.documentElement.requestFullscreen) return void setFullscreen(false)
+    document.documentElement.requestFullscreen().catch(() => setFullscreen(false))
     const onChange = () => !document.fullscreenElement && setFullscreen(false)
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setFullscreen(false)
     document.addEventListener('fullscreenchange', onChange)
@@ -219,6 +230,7 @@ export function useViewportInteractions({
     return () => {
       document.removeEventListener('fullscreenchange', onChange)
       document.removeEventListener('keydown', onKey)
+      setFullscreen(false)
       if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -295,7 +307,7 @@ export function useViewportInteractions({
     drag.current = { x: e.clientX, y: e.clientY, panning: true }
   }
 
-  return { view, viewport, heading, setView, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp: liftPointer, onPointerCancel: liftPointer }
+  return { view, viewport, heading, setView, flyTo, zoomFloor, dragging, fullscreen, setFullscreen, panned, onPointerDown, onPointerMove, onPointerUp: liftPointer, onPointerCancel: liftPointer }
 }
 
 /** The zoom island's buttons (out, reset, in, fit, view only, fullscreen, plus expand and collapse all when the map can

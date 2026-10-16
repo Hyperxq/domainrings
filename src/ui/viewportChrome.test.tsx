@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
 import { useRef, useState } from 'react'
 import { useElementSize, useFreezeWhilePanelOpen, useViewportInteractions, ZoomControls } from './viewportChrome'
+import { EASE_MS } from './useEasedViewport'
 import { zoomAt, type Viewport } from './viewport'
 
 import { useViewStore } from './state/viewStore'
@@ -256,5 +257,106 @@ describe('useElementSize', () => {
     } finally {
       globalThis.ResizeObserver = original
     }
+  })
+})
+
+describe('useViewportInteractions flyTo', () => {
+  const AUTO: Viewport = { x: 0, y: 0, scale: 1 }
+  const TARGET: Viewport = { x: 100, y: 50, scale: 0.5 }
+  beforeEach(() => {
+    vi.useFakeTimers()
+    window.matchMedia = ((media: string) => ({ matches: false, media })) as unknown as typeof matchMedia
+  })
+  afterEach(() => vi.useRealTimers())
+  const setup = () => renderHook(() => useViewportInteractions({ mainRef: { current: null }, autoFit: AUTO, wholeFitScale: 0.1, fitKey: 'k' }))
+  const frames = (ms: number) => act(() => void vi.advanceTimersByTime(ms))
+
+  it('eases to the target instead of jumping, and lands exactly on it', () => {
+    const { result } = setup()
+    act(() => result.current.flyTo(TARGET))
+    frames(64)
+    expect(result.current.viewport.x).toBeGreaterThan(AUTO.x)
+    expect(result.current.viewport.x).toBeLessThan(TARGET.x)
+    frames(EASE_MS)
+    expect(result.current.viewport).toEqual(TARGET)
+  })
+
+  it('eases from a manual view as well', () => {
+    const { result } = setup()
+    act(() => result.current.setView({ x: 10, y: 10, scale: 2 }))
+    act(() => result.current.flyTo(TARGET))
+    frames(64)
+    expect(result.current.viewport).not.toEqual(TARGET)
+    // A 4x zoom gets two EASE_MS.
+    frames(EASE_MS * 2)
+    expect(result.current.viewport).toEqual(TARGET)
+  })
+
+  it('leaves a plain setView instant', () => {
+    const { result } = setup()
+    act(() => result.current.setView(TARGET))
+    expect(result.current.viewport).toEqual(TARGET)
+  })
+
+  it('snaps under prefers-reduced-motion', () => {
+    window.matchMedia = ((media: string) => ({ matches: media.includes('prefers-reduced-motion'), media })) as unknown as typeof matchMedia
+    const { result } = setup()
+    act(() => result.current.flyTo(TARGET))
+    expect(result.current.viewport).toEqual(TARGET)
+  })
+})
+
+describe('useViewportInteractions fullscreen', () => {
+  const root = document.documentElement
+  afterEach(() => {
+    useViewStore.setState({ fullscreen: false })
+    delete (root as Partial<HTMLElement>).requestFullscreen
+  })
+  const setup = () => {
+    const main = document.createElement('main')
+    main.requestFullscreen = vi.fn().mockResolvedValue(undefined)
+    root.requestFullscreen = vi.fn().mockResolvedValue(undefined)
+    const hook = renderHook(() => useViewportInteractions({ mainRef: { current: main }, autoFit: { x: 0, y: 0, scale: 1 }, wholeFitScale: 0.1, fitKey: 'k' }))
+    return { main, ...hook }
+  }
+
+  it('fullscreens the whole app, so the side panels stay on screen', () => {
+    const { main, result } = setup()
+    act(() => result.current.setFullscreen(true))
+    expect(root.requestFullscreen).toHaveBeenCalledTimes(1)
+    expect(main.requestFullscreen).not.toHaveBeenCalled()
+    expect(result.current.fullscreen).toBe(true)
+  })
+
+  it('leaves fullscreen when the browser does, and on Escape', () => {
+    const { result } = setup()
+    act(() => result.current.setFullscreen(true))
+    act(() => void document.dispatchEvent(new Event('fullscreenchange')))
+    expect(result.current.fullscreen).toBe(false)
+    act(() => result.current.setFullscreen(true))
+    act(() => void document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })))
+    expect(result.current.fullscreen).toBe(false)
+  })
+
+  it('drops the flag when the browser refuses fullscreen, so the toolbar is never hidden for nothing', async () => {
+    const { result } = setup()
+    root.requestFullscreen = vi.fn().mockRejectedValue(new Error('denied'))
+    await act(async () => result.current.setFullscreen(true))
+    expect(result.current.fullscreen).toBe(false)
+  })
+
+  it('drops the flag when the browser has no fullscreen at all', () => {
+    const { result } = setup()
+    delete (root as Partial<HTMLElement>).requestFullscreen
+    act(() => result.current.setFullscreen(true))
+    expect(result.current.fullscreen).toBe(false)
+  })
+
+  it('shares the flag through the view store, and clears it when the stage goes away', () => {
+    const { result, unmount } = setup()
+    act(() => result.current.setFullscreen(true))
+    expect(useViewStore.getState().fullscreen).toBe(true)
+    unmount()
+    expect(useViewStore.getState().fullscreen).toBe(false)
   })
 })

@@ -6,6 +6,8 @@ import { hexagonBounds } from '../layout/lattice'
 import { currentHexagon, layoutMap } from '../layout/map'
 import { legendFor } from '../layout/legend'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
+import { flowFrame } from './flowFrame'
+import { flowOf } from '../model/flow'
 import { toMap } from '../model/hexa'
 import { contextName, diagramOf, freeSides, neighbour, SIDE_ORDER } from '../model/map'
 import { withoutPlanned } from '../model/planned'
@@ -15,9 +17,10 @@ import { useViewStore } from './state/viewStore'
 import type { HexaMap } from '../model/schema'
 import { parseHexa } from '../model/hexa'
 import { hexGroup, linkedTwoHexMap, manyHexagonMap, twoHexMap } from '../test/fixtures'
-import { canvasBounds, contains, fitMap, fitTo, islandInset, MIN_FIT_SCALE, MIN_SCALE, pinch, visibleRect, zoomAt } from './viewport'
+import { canvasBounds, contains, ELEMENT_FOCUS_SCALE, fitMap, fitTo, islandInset, MIN_FIT_SCALE, MIN_SCALE, pinch, visibleRect, zoomAt } from './viewport'
 import type { Box, Point } from '../layout/geometry'
 import { readFileSync } from 'node:fs'
+import { translatedNodeBox } from '../layout/linkEnds'
 import { boxObstacles } from '../layout/boxLabels'
 import { centreZones, touches } from './stage/labelCulling'
 import { boxLabelsOverlaid, zoomLevel } from './stage/overlays'
@@ -1047,12 +1050,12 @@ describe('Stage current-hexagon focus (FOCUS-01, 03, 04, 05, CANVAS-03)', () => 
     useMapStore.getState().replace(twoHexMap())
     const { container } = render(<Harness />)
     const main = container.querySelector('main') as HTMLElement
-    const positionBefore = main.style.backgroundPosition
     const adapter = EXAMPLE_DIAGRAM.adapters.find((a) => EXAMPLE_DIAGRAM.ports.find((p) => p.id === a.portId)?.side === 'driven')!
     const node = hexGroup(container, 'h1').querySelector(`[data-ref="${adapter.id}"]`)!
 
     fireEvent.click(node)
     expect(node.hasAttribute('data-selected')).toBe(true)
+    const positionBefore = main.style.backgroundPosition
     fireEvent.keyDown(document.body, { key: 'l' })
     expect(svg(container).hasAttribute('data-link-mode')).toBe(true)
 
@@ -2427,5 +2430,245 @@ describe('Stage — detail follows the zoom level', () => {
     } finally {
       restore()
     }
+  })
+})
+
+describe('Stage — flying to a picked flow', () => {
+  const SCREEN = { width: 2000, height: 800 }
+  const originalMatchMedia = window.matchMedia
+  let restoreSize: () => void
+  const frames = (ms: number) => act(() => void vi.advanceTimersByTime(ms))
+  const frameBounds = () => {
+    const map = useMapStore.getState().map
+    return flowFrame(map, 'h1', 'uc-submit', layoutMap(map, { current: 'h1' }))!.bounds
+  }
+  beforeEach(() => {
+    vi.useFakeTimers()
+    window.matchMedia = ((media: string) => ({ matches: false, media, addEventListener() {}, removeEventListener() {} })) as unknown as typeof matchMedia
+    restoreSize = stubFixedSize(SCREEN.width, SCREEN.height)
+    useMapStore.getState().replace(manyHexagonMap(6))
+  })
+  afterEach(() => {
+    restoreSize()
+    window.matchMedia = originalMatchMedia
+    vi.useRealTimers()
+  })
+
+  it('eases until the whole flow, across its hexagons, fits clear of the flow inspector', () => {
+    const { container } = render(<Harness />)
+    const before = viewportOf(container)
+    act(() => useViewStore.getState().focusFlow('uc-submit'))
+    frames(48)
+    expect(viewportOf(container)).not.toEqual(before)
+    frames(400)
+    const fit = fitTo(frameBounds(), SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false, null, true), 0)
+    expect(fit.scale).toBeGreaterThan(before.scale)
+    expectViewport(container, fit)
+  })
+
+  it('frames what a flow export frames, whether or not the corridor guides are shown', () => {
+    usePreferencesStore.setState({ guides: true })
+    const { container } = render(<Harness />)
+    act(() => useViewStore.getState().focusFlow('uc-submit'))
+    frames(400)
+    expectViewport(container, fitTo(frameBounds(), SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false, null, true), 0))
+  })
+
+  it('does not move the camera when the flow is unpicked', () => {
+    const { container } = render(<Harness />)
+    act(() => useViewStore.getState().focusFlow('uc-submit'))
+    frames(400)
+    const picked = viewportOf(container)
+    act(() => useViewStore.getState().focusFlow(null))
+    frames(400)
+    expectViewport(container, picked)
+  })
+})
+
+describe('Stage — presenting a flow up close', () => {
+  const SCREEN = { width: 2000, height: 800 }
+  const originalMatchMedia = window.matchMedia
+  let restoreSize: () => void
+  const frames = (ms: number) => act(() => void vi.advanceTimersByTime(ms))
+  const { focusFlow, present } = useViewStore.getState()
+  const layout = () => layoutMap(useMapStore.getState().map, { current: 'h1' })
+  const stepBox = (index: number) => {
+    const step = flowOf(useMapStore.getState().map, 'h1', 'uc-submit').steps[index]
+    const at = layout().hexagons.find((h) => h.id === step.hexId)!
+    const kind = { actor: 'actor', aggregate: 'domainItem', useCase: 'useCase' }[step.role as string]!
+    return translatedNodeBox(at.model.nodes.find((n) => n.ref === step.id && n.kind === kind)!, at.centre)
+  }
+  const free = (container: HTMLElement) => visibleRect(viewportOf(container), SCREEN, islandInset(SCREEN, true, false, null, false))
+  const expectCentredOn = (container: HTMLElement, box: Box) => {
+    expect(free(container).x + free(container).width / 2).toBeCloseTo(box.x + box.width / 2, 6)
+    expect(free(container).y + free(container).height / 2).toBeCloseTo(box.y + box.height / 2, 6)
+  }
+  const USE_CASE_STEP = 3
+  const COMPACT_STEP = 8
+  beforeEach(() => {
+    vi.useFakeTimers()
+    window.matchMedia = ((media: string) => ({ matches: false, media, addEventListener() {}, removeEventListener() {} })) as unknown as typeof matchMedia
+    restoreSize = stubFixedSize(SCREEN.width, SCREEN.height)
+    useMapStore.getState().replace(manyHexagonMap(6))
+    usePreferencesStore.setState({ viewOnly: true })
+    useViewStore.setState({ editorOpen: true })
+  })
+  afterEach(() => {
+    restoreSize()
+    window.matchMedia = originalMatchMedia
+    vi.useRealTimers()
+  })
+
+  it('eases in on the first step and centres it, instead of flying to the whole flow', () => {
+    const { container } = render(<Harness />)
+    const before = viewportOf(container)
+    act(() => {
+      focusFlow('uc-submit')
+      present(0)
+    })
+    frames(48)
+    const early = viewportOf(container)
+    frames(800)
+    const { scale } = viewportOf(container)
+    expect(early.scale).toBeGreaterThan(before.scale)
+    expect(early.scale).toBeLessThan(scale)
+    expect(scale).toBeLessThanOrEqual(ELEMENT_FOCUS_SCALE)
+    expectCentredOn(container, stepBox(0))
+  })
+
+  it('moves on to the next step with the same close view', () => {
+    const { container } = render(<Harness />)
+    act(() => {
+      focusFlow('uc-submit')
+      present(0)
+    })
+    frames(800)
+    const first = viewportOf(container)
+    act(() => present(USE_CASE_STEP))
+    frames(800)
+    expect(viewportOf(container).x).not.toBeCloseTo(first.x, 3)
+    expectCentredOn(container, stepBox(USE_CASE_STEP))
+  })
+
+  it('frames the whole hexagon of a step that is drawn compact', () => {
+    const { container } = render(<Harness />)
+    act(() => {
+      focusFlow('uc-submit')
+      present(COMPACT_STEP)
+    })
+    frames(800)
+    const h2 = layout().hexagons.find((h) => h.id === 'h2')!
+    expect(h2.compact).toBeTruthy()
+    expectViewport(container, fitTo(hexagonBounds(h2), SCREEN.width, SCREEN.height, islandInset(SCREEN, true, false, null, false), 0))
+  })
+
+  it('flies back to the flow frame when presenting stops and the flow stays picked', () => {
+    const { container } = render(<Harness />)
+    act(() => focusFlow('uc-submit'))
+    frames(800)
+    const flowView = viewportOf(container)
+    act(() => present(USE_CASE_STEP))
+    frames(800)
+    expect(viewportOf(container).scale).toBeGreaterThan(flowView.scale)
+    act(() => present(null))
+    frames(800)
+    expectViewport(container, flowView)
+  })
+
+  it('does not move the camera when the flow is cleared while presenting', () => {
+    const { container } = render(<Harness />)
+    act(() => {
+      focusFlow('uc-submit')
+      present(USE_CASE_STEP)
+    })
+    frames(800)
+    const close = viewportOf(container)
+    act(() => focusFlow(null))
+    frames(800)
+    expectViewport(container, close)
+  })
+})
+
+describe('Stage — zooming to a clicked element', () => {
+  const SCREEN = { width: 2000, height: 800 }
+  let restoreSize: () => void
+  const adapterId = () => diagramOf(useMapStore.getState().map, 'h1').adapters[0].id
+  const adapter = (container: HTMLElement) => hexGroup(container, 'h1').querySelector(`[data-ref="${adapterId()}"]`)!
+  const adapterBox = () => {
+    const h1 = currentHexagon(layoutMap(useMapStore.getState().map, { current: 'h1' }), 'h1')
+    return translatedNodeBox(h1.model.nodes.find((n) => n.ref === adapterId() && n.kind === 'adapter')!, h1.centre)
+  }
+  const free = (container: HTMLElement) => visibleRect(viewportOf(container), SCREEN, islandInset(SCREEN, false, false))
+  beforeEach(() => {
+    restoreSize = stubFixedSize(SCREEN.width, SCREEN.height)
+    useMapStore.getState().replace(manyHexagonMap(4))
+  })
+  afterEach(() => restoreSize())
+
+  it('zooms in and centres the element in the free area, without letting it fill more than a third of the shorter side', () => {
+    const { container } = render(<Harness />)
+    const before = viewportOf(container).scale
+    fireEvent.click(adapter(container))
+    const box = adapterBox()
+    const { scale } = viewportOf(container)
+    expect(scale).toBeGreaterThan(before)
+    expect(scale).toBeLessThanOrEqual(ELEMENT_FOCUS_SCALE)
+    expect(Math.max(box.width, box.height) * scale).toBeLessThanOrEqual(Math.min(free(container).width, free(container).height) * scale / 3 + 1e-6)
+    expect(free(container).x + free(container).width / 2).toBeCloseTo(box.x + box.width / 2, 6)
+    expect(free(container).y + free(container).height / 2).toBeCloseTo(box.y + box.height / 2, 6)
+  })
+
+  it('never zooms out: a closer view keeps its scale and only re-centres', () => {
+    const { container } = render(<Harness />)
+    fireEvent.click(screen.getByRole('button', { name: 'Reset zoom to 100%' }))
+    for (let i = 0; i < 3; i++) fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    const close = viewportOf(container).scale
+    expect(close).toBeGreaterThan(ELEMENT_FOCUS_SCALE)
+    fireEvent.click(adapter(container))
+    expect(viewportOf(container).scale).toBeCloseTo(close, 9)
+    expect(free(container).x + free(container).width / 2).toBeCloseTo(adapterBox().x + adapterBox().width / 2, 6)
+  })
+
+  it('leaves the camera alone for another hexagon, a context hull and empty canvas', () => {
+    const { container } = render(<Harness />)
+    fireEvent.click(hexGroup(container, 'h2'))
+    const autoFit = fitTo(canvasBounds(layoutMap(useMapStore.getState().map, { current: 'h2' })), SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false), 0)
+    expectViewport(container, autoFit)
+    const before = viewportOf(container)
+    fireEvent.click(container.querySelector('[data-hull]')!)
+    expectViewport(container, before)
+    fireEvent.click(svg(container))
+    expectViewport(container, before)
+  })
+
+  it('moves once for a double-click: its repeat click does not fly again', () => {
+    const { container } = render(<Harness />)
+    fireEvent.click(adapter(container), { detail: 1 })
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }))
+    const zoomedOut = viewportOf(container)
+    fireEvent.click(adapter(container), { detail: 2 })
+    expectViewport(container, zoomedOut)
+  })
+
+  it('leaves the camera alone while linking', () => {
+    const { container } = render(<Harness />)
+    fireEvent.click(hexGroup(container, 'h1').querySelector('[data-ref="p-repo"]')!)
+    const selected = viewportOf(container)
+    fireEvent.keyDown(document.body, { key: 'l' })
+    fireEvent.click(adapter(container))
+    expectViewport(container, selected)
+  })
+
+  it('leaves the camera where a pan-drag put it when the press ends over an element', () => {
+    const { container } = render(<Harness />)
+    const main = container.querySelector('main')!
+    main.setPointerCapture = () => {}
+    fireEvent.pointerDown(adapter(container), { button: 0, buttons: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(main, { buttons: 1, clientX: 160, clientY: 100 })
+    flushFrame()
+    const panned = viewportOf(container)
+    fireEvent.pointerUp(main, { clientX: 160, clientY: 100 })
+    fireEvent.click(adapter(container))
+    expectViewport(container, panned)
   })
 })

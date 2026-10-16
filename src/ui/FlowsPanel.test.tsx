@@ -17,11 +17,28 @@ const example = () => EXAMPLES.find((e) => e.id === 'hexagonal-advanced')!.map a
 const single = (map: HexaMap): HexaMap => ({ ...map, hexagons: map.hexagons.filter((h) => h.id === 'h1'), links: [] })
 beforeEach(() => {
   useMapStore.getState().replace(single(example()))
-  useViewStore.setState({ focusedFlow: null, hoveredFlows: [] })
+  useViewStore.setState({ focusedFlow: null, hoveredFlows: [], editorOpen: true })
 })
 afterEach(cleanup)
 
 describe('FlowsPanel', () => {
+  it('collapses to its header and expands again, like the editor', () => {
+    usePreferencesStore.setState({ viewOnly: true })
+    render(<FlowsPanel />)
+    const panel = screen.getByRole('complementary', { name: 'Flows' })
+    const toggle = screen.getByRole('button', { name: 'Collapse flows' })
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    expect(toggle.getAttribute('aria-controls')).toBe(panel.querySelector('.editor-body')!.id)
+    fireEvent.click(toggle)
+    expect(useViewStore.getState().editorOpen).toBe(false)
+    expect(panel.classList.contains('is-collapsed')).toBe(true)
+    expect(panel.querySelector('.editor-body')!.hasAttribute('hidden')).toBe(true)
+    expect(panel.querySelector('.present-foot')!.hasAttribute('hidden')).toBe(true)
+    expect(screen.getByRole('heading', { name: 'Flows' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Expand flows' }))
+    expect(panel.classList.contains('is-collapsed')).toBe(false)
+  })
+
   it('keeps Present in a footer below the scrolling list, so a long list never hides it', () => {
     usePreferencesStore.setState({ viewOnly: true })
     render(<FlowsPanel />)
@@ -63,7 +80,7 @@ describe('FlowsPanel', () => {
   it('is operable from the keyboard: rows are buttons in tab order', () => {
     render(<FlowsPanel />)
     const buttons = screen.getAllByRole('button')
-    expect(buttons.map((b) => b.tagName)).toEqual(['BUTTON', 'BUTTON'])
+    expect(buttons.map((b) => b.tagName)).toEqual(['BUTTON', 'BUTTON', 'BUTTON'])
     expect(buttons.every((b) => b.tabIndex === 0)).toBe(true)
   })
 
@@ -79,7 +96,7 @@ describe('FlowsPanel', () => {
     useMapStore.getState().replace({ ...map, hexagons: map.hexagons.map((h) => (h.id === 'h1' ? { ...h, useCases: [], ports: [], adapters: [], actors: [], externals: [] } : h)) })
     render(<FlowsPanel />)
     expect(screen.getByText('No use cases yet. Switch to Edit to add one.')).toBeTruthy()
-    expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Collapse flows'])
   })
 })
 
