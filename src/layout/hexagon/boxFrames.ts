@@ -2,16 +2,16 @@ import { HEXAGONAL_KIND } from '../../model/kinds'
 import type { Adapter, Diagram, DomainItem, Endpoint, Port, Side, UseCase } from '../../model/schema'
 import { adapterTag, portTag, USE_CASE_TAG } from '../tags'
 import { LINE_METRICS, lineWidth, noteLines, SIGNATURE_BREAKS, styled, wrapLabel, type LineStyle, type TextLine } from '../text'
-import { dotsReach, USE_CASE_TEXT_WIDTH } from './spacing'
+import { DOT_CLEAR, dotsReach, USE_CASE_TEXT_WIDTH } from './spacing'
 
 const PAD_X = 12
 const PAD_Y = 9
 
-/** `threads` is how many thread dots the box carries: from two on, its first line keeps clear of them on both sides. */
+/** `threads` is how many thread dots the box carries: from two on, its first line keeps DOT_CLEAR from them on both sides. */
 export function frame(lines: TextLine[], minWidth = 0, padY = PAD_Y, padX = PAD_X, threads = 0) {
   return {
     lines,
-    width: Math.max(Math.max(minWidth, ...lines.map(lineWidth)) + 2 * padX, threads > 1 ? lineWidth(lines[0]) + 2 * dotsReach(threads) : 0),
+    width: Math.max(Math.max(minWidth, ...lines.map(lineWidth)) + 2 * padX, threads > 1 ? lineWidth(lines[0]) + 2 * (dotsReach(threads) + DOT_CLEAR) : 0),
     height: lines.reduce((h, l) => h + LINE_METRICS[l.style].height, 0) + 2 * padY,
   }
 }
