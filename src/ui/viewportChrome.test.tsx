@@ -305,3 +305,44 @@ describe('useViewportInteractions flyTo', () => {
     expect(result.current.viewport).toEqual(TARGET)
   })
 })
+
+describe('useViewportInteractions fullscreen', () => {
+  const root = document.documentElement
+  afterEach(() => {
+    useViewStore.setState({ fullscreen: false })
+    delete (root as Partial<HTMLElement>).requestFullscreen
+  })
+  const setup = () => {
+    const main = document.createElement('main')
+    main.requestFullscreen = vi.fn().mockResolvedValue(undefined)
+    root.requestFullscreen = vi.fn().mockResolvedValue(undefined)
+    const hook = renderHook(() => useViewportInteractions({ mainRef: { current: main }, autoFit: { x: 0, y: 0, scale: 1 }, wholeFitScale: 0.1, fitKey: 'k' }))
+    return { main, ...hook }
+  }
+
+  it('fullscreens the whole app, so the side panels stay on screen', () => {
+    const { main, result } = setup()
+    act(() => result.current.setFullscreen(true))
+    expect(root.requestFullscreen).toHaveBeenCalledTimes(1)
+    expect(main.requestFullscreen).not.toHaveBeenCalled()
+    expect(result.current.fullscreen).toBe(true)
+  })
+
+  it('leaves fullscreen when the browser does, and on Escape', () => {
+    const { result } = setup()
+    act(() => result.current.setFullscreen(true))
+    act(() => void document.dispatchEvent(new Event('fullscreenchange')))
+    expect(result.current.fullscreen).toBe(false)
+    act(() => result.current.setFullscreen(true))
+    act(() => void document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })))
+    expect(result.current.fullscreen).toBe(false)
+  })
+
+  it('shares the flag through the view store, and clears it when the stage goes away', () => {
+    const { result, unmount } = setup()
+    act(() => result.current.setFullscreen(true))
+    expect(useViewStore.getState().fullscreen).toBe(true)
+    unmount()
+    expect(useViewStore.getState().fullscreen).toBe(false)
+  })
+})

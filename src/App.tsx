@@ -80,6 +80,7 @@ export function App({ boot = {} }: AppProps = {}) {
   const scoped = canScopeExport && exportScope === 'hexagon'
   const focusedFlow = useViewStore((s) => s.focusedFlow)
   const framedFlow = useViewStore((s) => s.framedFlow)
+  const fullscreen = useViewStore((s) => s.fullscreen)
   const frame = activeKind === 'hexagonal' && !scoped && framedFlow !== null && framedFlow === focusedFlow ? flowFrame(map, hexId, framedFlow, model, showGuides) : undefined
   const active =
     activeKind === 'onion'
@@ -140,20 +141,22 @@ export function App({ boot = {} }: AppProps = {}) {
 
   return (
     <>
-      <Toolbar
-        showScope={canScopeExport}
-        onNewDiagram={() => completeGrow(undefined, 'same')}
-        canAddDiagram={freeSides(map, map.hexagons.find((h) => h.id === hexId)!.cell).length > 0}
-        hasPlanned={activeKind === 'hexagonal' && hasPlanned(map)}
-        onNew={() => useViewStore.setState({ choosingArchitecture: true })}
-        onExample={(id) => {
-          const example = EXAMPLES.find((x) => x.id === id)!
-          swap(example.map, `Loaded the ${example.label} example.`)
-        }}
-        onOpen={importFile}
-        onCopyLink={handleCopyLink}
-        onExport={exportAs}
-      />
+      {!fullscreen && (
+        <Toolbar
+          showScope={canScopeExport}
+          onNewDiagram={() => completeGrow(undefined, 'same')}
+          canAddDiagram={freeSides(map, map.hexagons.find((h) => h.id === hexId)!.cell).length > 0}
+          hasPlanned={activeKind === 'hexagonal' && hasPlanned(map)}
+          onNew={() => useViewStore.setState({ choosingArchitecture: true })}
+          onExample={(id) => {
+            const example = EXAMPLES.find((x) => x.id === id)!
+            swap(example.map, `Loaded the ${example.label} example.`)
+          }}
+          onOpen={importFile}
+          onCopyLink={handleCopyLink}
+          onExport={exportAs}
+        />
+      )}
       {activeKind === 'hexagonal' && (
         <HexagonalWorkspace
           legend={legend}

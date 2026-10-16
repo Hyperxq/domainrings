@@ -34,6 +34,8 @@ interface ViewData {
   hoveredFlows: readonly string[]
   /** The step of the focused flow being walked through; null while not presenting. */
   presentStep: number | null
+  /** The whole app is fullscreen: the top toolbar steps aside, the panels and zoom island stay. */
+  fullscreen: boolean
 }
 
 interface ViewStore extends ViewData {
@@ -48,6 +50,7 @@ interface ViewStore extends ViewData {
   focusFlow: (useCaseId: string | null) => void
   hoverFlows: (useCaseIds: readonly string[]) => void
   present: (step: number | null) => void
+  setFullscreen: (next: boolean) => void
   /** Enters link mode on `ref`, or leaves it with `null`. */
   startLinking: (ref: string | null) => void
   /** Names the just-grown hexagon, which completes the add step Undo already covers. */
@@ -69,6 +72,7 @@ const initialView = (): ViewData => ({
   framedFlow: null,
   hoveredFlows: [],
   presentStep: null,
+  fullscreen: false,
 })
 
 export const useViewStore = create<ViewStore>()((set, get) => ({
@@ -98,6 +102,7 @@ export const useViewStore = create<ViewStore>()((set, get) => ({
   focusFlow: (focusedFlow) => set({ focusedFlow, framedFlow: null, presentStep: null }),
   hoverFlows: (ids) => set(({ hoveredFlows }) => (ids.length === hoveredFlows.length && ids.every((id, i) => id === hoveredFlows[i]) ? {} : { hoveredFlows: ids })),
   present: (presentStep) => set({ presentStep }),
+  setFullscreen: (fullscreen) => set({ fullscreen }),
   startLinking: (ref) => {
     if (ref) useNoticeStore.getState().clearStatus()
     set({ linking: ref })
