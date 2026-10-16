@@ -146,3 +146,12 @@ describe('the step card stays clear of the toast', () => {
     expect(bottomOf('.step-card')).toBeGreaterThanOrEqual(bottomOf('.toast') + TOAST_HEIGHT)
   })
 })
+
+describe('thread-coloured connections', () => {
+  const widthOf = (selector: string) => Number(css.slice(css.indexOf(selector)).match(/stroke-width:\s*([\d.]+)/)?.[1])
+
+  it('are drawn thicker than a neutral edge, and the emphasis stays thicker than them', () => {
+    expect(widthOf('.edge-import[data-thread],\n.map-link[data-thread]')).toBeGreaterThan(widthOf('.edge { fill'))
+    expect(widthOf('svg[data-emphasis] .map-link[data-chain] {')).toBeGreaterThan(widthOf('.edge-import[data-thread],\n.map-link[data-thread]'))
+  })
+})

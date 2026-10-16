@@ -137,7 +137,7 @@ export interface LayoutModel {
 export function layoutDiagram(d: Diagram, { mode = 'detailed', threads = [] }: LayoutOptions = {}): LayoutModel {
   const overview = mode === 'overview'
   const config = HEXAGONAL_KIND
-  const frames = boxFrames()
+  const frames = boxFrames((ref) => threads.filter((t) => t.refs.has(ref)).length)
   const wallOf = (p: Port): Wall => p.wall ?? defaultWall(p.side)
   const slots = planChains(d, { port: frames.portFrame, adapter: frames.adapterFrame, leaf: frames.leafFrame })
   const seating = seatUseCases({ d, useCaseFrames: d.useCases.map(frames.useCaseFrame), slots, wallOf })

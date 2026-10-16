@@ -1,14 +1,8 @@
 import type { CSSProperties } from 'react'
 import type { LayoutNode, ThreadMark } from '../layout/layout'
+import { DOT_INSET, DOT_RADIUS, DOT_STEP, MAX_DOTS, NOTE_CLEAR } from '../layout/hexagon/spacing'
 
-/** More threads than this on one box collapse into a "+N" count. */
-export const MAX_DOTS = 4
-const DOT_RADIUS = 4
-const DOT_STEP = 11
-/** How far the first dot sits in from the box's right edge: clear of the rounded corner. */
-const DOT_INSET = 10
-/** The extra room the first dot leaves for a note marker in the same corner. */
-const NOTE_CLEAR = 8
+export { MAX_DOTS }
 const MORE_FONT = 10
 /** The dots sit this far down from the top edge, level with a card's header. */
 const DOT_DROP = 12

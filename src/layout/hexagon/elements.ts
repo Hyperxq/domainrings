@@ -67,7 +67,10 @@ export function planPairs(d: Diagram, elements: Element[], cards: ReadonlySet<st
   const { labels } = HEXAGONAL_KIND
   const byKey = new Map(elements.map((e) => [e.key, e]))
   const useCaseIds = new Set(d.useCases.map((u) => u.id))
-  const ownerOf = (port: Port) => useCasesOf(port).find((id) => useCaseIds.has(id)) ?? `port:${port.id}`
+  const ownersOf = (port: Port) => {
+    const known = useCasesOf(port).filter((id) => useCaseIds.has(id))
+    return known.length ? known : [`port:${port.id}`]
+  }
   const pairs: Pair[] = []
   const link = (from: Element, to: Element, owner: string, label?: string) =>
     pairs.push({ key: `${from.key}->${to.key}`, from: from.key, to: to.key, fromRef: from.ref, toRef: to.ref, owner, ...(label ? { label } : {}) })
@@ -83,11 +86,11 @@ export function planPairs(d: Diagram, elements: Element[], cards: ReadonlySet<st
   }
   for (const port of d.ports) {
     const box = byKey.get(`port:${port.id}`)!
-    const owner = ownerOf(port)
-    for (const adapter of d.adapters.filter((a) => a.portId === port.id)) {
-      link(byKey.get(`adapter:${adapter.id}`)!, box, owner)
-      adapterPairs(adapter.id, owner)
-    }
+    for (const adapter of d.adapters.filter((a) => a.portId === port.id))
+      for (const owner of ownersOf(port)) {
+        link(byKey.get(`adapter:${adapter.id}`)!, box, owner)
+        adapterPairs(adapter.id, owner)
+      }
     for (const id of useCasesOf(port)) {
       const useCase = byKey.get(`useCase:${id}`)
       if (!useCase) continue
@@ -104,5 +107,7 @@ export function planPairs(d: Diagram, elements: Element[], cards: ReadonlySet<st
     named.forEach((id, i) => pairs.push({ key: `${box.key}->aggregate:${id}`, from: box.key, to: `aggregate:${id}`, fromRef: useCase.id, toRef: id, owner: useCase.id, ...(i ? {} : { label: labels.asks }) }))
     if (!named.length) pairs.push({ key: `${box.key}->domain`, from: box.key, to: 'domain', fromRef: useCase.id, owner: useCase.id, label: labels.asks })
   }
-  return pairs
+  // A connection several threads draw gets one line each, told apart by the thread in the key.
+  const drawn = (key: string) => pairs.filter((p) => p.key === key).length
+  return pairs.map((p) => (drawn(p.key) > 1 ? { ...p, key: `${p.key}#${p.owner}` } : p))
 }

@@ -19,7 +19,7 @@ function Defs({ slots }: { slots: number[] }) {
         <path className="arrow-head on-domain" d="M0 0L10 5L0 10z" />
       </marker>
       {slots.map((slot) => (
-        <marker key={slot} id={`arrow-thread-${slot}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <marker key={slot} id={`arrow-thread-${slot}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
           <path className="arrow-head" style={{ fill: `var(--thread-${slot})` }} d="M0 0L10 5L0 10z" />
         </marker>
       ))}

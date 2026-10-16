@@ -7,7 +7,7 @@ const DOTTED = new Set<LayoutNode['kind']>(['actor', 'adapter', 'port', 'useCase
 /**
  * Tags each box with the threads that touch it and each edge with the one thread it belongs to. An edge belongs to a
  * thread when both its ends do (a use case's ask into the domain, when its start does); one shared by several threads
- * stays neutral, since no colour could speak for all of them.
+ * stays neutral, since no colour could speak for all of them, unless its key names the thread it is drawn for.
  */
 export function markThreads(nodes: LayoutNode[], edges: LayoutEdge[], threads: readonly Thread[]) {
   const mark = (t: Thread): ThreadMark => ({ id: t.useCaseId, slot: t.slot })
@@ -18,6 +18,7 @@ export function markThreads(nodes: LayoutNode[], edges: LayoutEdge[], threads: r
   for (const edge of edges) {
     if (edge.from === undefined) continue
     const own = threads.filter((t) => t.refs.has(edge.from!) && (edge.to === undefined || t.refs.has(edge.to)))
-    if (own.length === 1) edge.thread = mark(own[0])
+    const named = own.find((t) => t.useCaseId === edge.key.split('#')[1])
+    if (own.length === 1 || named) edge.thread = mark(named ?? own[0])
   }
 }

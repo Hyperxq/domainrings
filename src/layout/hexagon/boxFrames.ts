@@ -2,15 +2,16 @@ import { HEXAGONAL_KIND } from '../../model/kinds'
 import type { Adapter, Diagram, DomainItem, Endpoint, Port, Side, UseCase } from '../../model/schema'
 import { adapterTag, portTag, USE_CASE_TAG } from '../tags'
 import { LINE_METRICS, lineWidth, noteLines, SIGNATURE_BREAKS, styled, wrapLabel, type LineStyle, type TextLine } from '../text'
-import { USE_CASE_TEXT_WIDTH } from './spacing'
+import { dotsReach, USE_CASE_TEXT_WIDTH } from './spacing'
 
 const PAD_X = 12
 const PAD_Y = 9
 
-export function frame(lines: TextLine[], minWidth = 0, padY = PAD_Y, padX = PAD_X) {
+/** `threads` is how many thread dots the box carries: from two on, its first line keeps clear of them on both sides. */
+export function frame(lines: TextLine[], minWidth = 0, padY = PAD_Y, padX = PAD_X, threads = 0) {
   return {
     lines,
-    width: Math.max(minWidth, ...lines.map(lineWidth)) + 2 * padX,
+    width: Math.max(Math.max(minWidth, ...lines.map(lineWidth)) + 2 * padX, threads > 1 ? lineWidth(lines[0]) + 2 * dotsReach(threads) : 0),
     height: lines.reduce((h, l) => h + LINE_METRICS[l.style].height, 0) + 2 * padY,
   }
 }
@@ -20,11 +21,11 @@ export type Frame = ReturnType<typeof frame>
 export type BoxFrames = ReturnType<typeof boxFrames>
 
 /** Box contents: every size derives from the text a box has to hold, the same in Detailed and Overview. */
-export function boxFrames() {
+export function boxFrames(threadsOf: (ref: string) => number = () => 0) {
   const { labels } = HEXAGONAL_KIND
-  const adapterFrame = (a: Adapter, side: Side) => frame([...styled('eyebrow', adapterTag(side, labels)), ...styled('name', a.name, 18), ...noteLines(a.note)], 110)
-  const portFrame = (p: Port) => frame([...styled('tag', portTag(p.side, labels)), ...styled('name', p.name, 18), ...noteLines(p.note)], 70)
-  const leafFrame = (e: Endpoint, side: Side) => frame([...styled('title', e.name, 16), ...noteLines(e.note, side === 'driven' ? 'mono' : 'muted')], 80)
+  const adapterFrame = (a: Adapter, side: Side) => frame([...styled('eyebrow', adapterTag(side, labels)), ...styled('name', a.name, 18), ...noteLines(a.note)], 110, PAD_Y, PAD_X, threadsOf(a.id))
+  const portFrame = (p: Port) => frame([...styled('tag', portTag(p.side, labels)), ...styled('name', p.name, 18), ...noteLines(p.note)], 70, PAD_Y, PAD_X, threadsOf(p.id))
+  const leafFrame = (e: Endpoint, side: Side) => frame([...styled('title', e.name, 16), ...noteLines(e.note, side === 'driven' ? 'mono' : 'muted')], 80, PAD_Y, PAD_X, threadsOf(e.id))
   // A card names its root in bold; the type header above it and the rows below belong to the card.
   const domainFrame = (i: DomainItem) => frame([...styled('strong', i.name), ...noteLines(i.note)], 0, 2, 0)
   // A use case's box runs radially on the side walls, so its text wraps to a narrow column; a word that cannot wrap is cut.
@@ -34,7 +35,7 @@ export function boxFrames() {
   }
   const useCaseFrame = (u: UseCase) => {
     const [signature, ...steps] = (u.note ?? '').split('\n')
-    return frame([...styled('tag', USE_CASE_TAG), ...narrow('name', u.name), ...narrow('mono', signature, SIGNATURE_BREAKS), ...steps.flatMap((s) => narrow('muted', s))], 120)
+    return frame([...styled('tag', USE_CASE_TAG), ...narrow('name', u.name), ...narrow('mono', signature, SIGNATURE_BREAKS), ...steps.flatMap((s) => narrow('muted', s))], 120, PAD_Y, PAD_X, threadsOf(u.id))
   }
   const compositionFrame = (composition: NonNullable<Diagram['composition']>) => frame([...styled('mono', composition.name), ...noteLines(composition.note)], 120)
   return { adapterFrame, portFrame, leafFrame, domainFrame, useCaseFrame, compositionFrame }

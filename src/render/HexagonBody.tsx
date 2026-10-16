@@ -32,10 +32,10 @@ export function orthogonalPath(points: Point[]): string {
 }
 
 /** An edge is part of the chain when both its ends are. Edge keys are `<node key>-><node key>`, a node key being
- * `<kind>:<ref>`; the use cases' edges to the domain end in the bare `domain`, reached whenever a use case is. */
+ * `<kind>:<ref>`, plus `#<thread>` on a connection several threads draw; the use cases' edges to the domain end in the bare `domain`, reached whenever a use case is. */
 function inChain(edge: LayoutEdge, refs: ReadonlySet<string> | undefined): boolean {
   if (!refs) return false
-  const [from, to] = edge.key.split('->')
+  const [from, to] = edge.key.split('#')[0].split('->')
   const refOf = (nodeKey: string) => nodeKey.slice(nodeKey.indexOf(':') + 1)
   return refs.has(refOf(from)) && (to === 'domain' || refs.has(refOf(to)))
 }
