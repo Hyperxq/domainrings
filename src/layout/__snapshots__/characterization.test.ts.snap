@@ -23913,15 +23913,15 @@ exports[`layoutDiagram — every hexagon of every hexagonal example > project-bu
 exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
 {
   "bounds": {
-    "height": 7581.18518,
-    "width": 9397.143193,
-    "x": -4587.143193,
-    "y": -3936.18518,
+    "height": 7567.239449,
+    "width": 8490.508783,
+    "x": -3697,
+    "y": -3935.687118,
   },
   "contexts": [
     {
       "chip": {
-        "x": -1227,
+        "x": 0,
         "y": -1323,
       },
       "id": "c-exec",
@@ -23929,28 +23929,36 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
       "loops": [
         [
           {
-            "x": -1227,
+            "x": 0,
             "y": -1311,
           },
           {
-            "x": 1231,
-            "y": -1311,
+            "x": 1124.132448,
+            "y": -649.018171,
           },
           {
-            "x": 1231,
-            "y": 1633,
+            "x": 1124.132448,
+            "y": 649.018171,
           },
           {
-            "x": -1227,
-            "y": 1633,
+            "x": 0,
+            "y": 1298.036343,
+          },
+          {
+            "x": -1124.132448,
+            "y": 649.018171,
+          },
+          {
+            "x": -1124.132448,
+            "y": -649.018171,
           },
         ],
       ],
-      "size": 90.061727,
+      "size": 89.895706,
     },
     {
       "chip": {
-        "x": -3717,
+        "x": -2386,
         "y": -1217,
       },
       "id": "c-auth",
@@ -23958,57 +23966,73 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
       "loops": [
         [
           {
-            "x": -3717,
+            "x": -2386,
             "y": -1205,
           },
           {
-            "x": -1247,
-            "y": -1205,
+            "x": -1353.86091,
+            "y": -595.905781,
           },
           {
-            "x": -1247,
-            "y": 1205,
+            "x": -1353.86091,
+            "y": 595.905781,
           },
           {
-            "x": -3717,
-            "y": 1205,
+            "x": -2386,
+            "y": 1191.811563,
+          },
+          {
+            "x": -3418.13909,
+            "y": 595.905781,
+          },
+          {
+            "x": -3418.13909,
+            "y": -595.905781,
           },
         ],
       ],
-      "size": 90.061727,
+      "size": 89.895706,
     },
     {
       "chip": {
-        "x": 1251,
-        "y": -1394,
+        "x": 2539,
+        "y": 1470.110011,
       },
       "id": "c-cat",
       "label": "Catalog (supporting)",
       "loops": [
         [
           {
-            "x": 1251,
+            "x": 2539,
             "y": -1382,
           },
           {
-            "x": 4047,
-            "y": -1382,
+            "x": 3723.908346,
+            "y": -684.107153,
           },
           {
-            "x": 4047,
-            "y": 1382,
+            "x": 3723.908346,
+            "y": 684.107153,
           },
           {
-            "x": 1251,
-            "y": 1382,
+            "x": 2539,
+            "y": 1368.214305,
+          },
+          {
+            "x": 1354.091654,
+            "y": 684.107153,
+          },
+          {
+            "x": 1354.091654,
+            "y": -684.107153,
           },
         ],
       ],
-      "size": 90.061727,
+      "size": 89.895706,
     },
     {
       "chip": {
-        "x": 2549,
+        "x": 3837,
         "y": -3650,
       },
       "id": "c-sel",
@@ -24016,28 +24040,36 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
       "loops": [
         [
           {
-            "x": 2549,
+            "x": 3837,
             "y": -3638,
           },
           {
-            "x": 4810,
-            "y": -3638,
+            "x": 4793.508783,
+            "y": -3072.240603,
           },
           {
-            "x": 4810,
-            "y": -1402,
+            "x": 4793.508783,
+            "y": -1967.759397,
           },
           {
-            "x": 2549,
-            "y": -1402,
+            "x": 3837,
+            "y": -1415.518794,
+          },
+          {
+            "x": 2880.491217,
+            "y": -1967.759397,
+          },
+          {
+            "x": 2880.491217,
+            "y": -3072.240603,
           },
         ],
       ],
-      "size": 90.061727,
+      "size": 89.895706,
     },
     {
       "chip": {
-        "x": 229,
+        "x": 1481,
         "y": -3632,
       },
       "id": "c-launch",
@@ -24045,28 +24077,36 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
       "loops": [
         [
           {
-            "x": 229,
+            "x": 1481,
             "y": -3620,
           },
           {
-            "x": 2529,
-            "y": -3620,
+            "x": 2422.179563,
+            "y": -3063.390274,
           },
           {
-            "x": 2529,
-            "y": -1420,
+            "x": 2422.179563,
+            "y": -1976.609726,
           },
           {
-            "x": 229,
-            "y": -1420,
+            "x": 1481,
+            "y": -1433.219451,
+          },
+          {
+            "x": 539.820437,
+            "y": -1976.609726,
+          },
+          {
+            "x": 539.820437,
+            "y": -3063.390274,
           },
         ],
       ],
-      "size": 90.061727,
+      "size": 89.895706,
     },
     {
       "chip": {
-        "x": -2104,
+        "x": -1909.424053,
         "y": 1641,
       },
       "id": "c-run",
@@ -24074,24 +24114,32 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
       "loops": [
         [
           {
-            "x": -2104,
+            "x": -1237,
             "y": 1653,
           },
           {
-            "x": -370,
-            "y": 1653,
+            "x": -386.084721,
+            "y": 2157.723834,
           },
           {
-            "x": -370,
-            "y": 3645,
+            "x": -386.084721,
+            "y": 3140.276166,
           },
           {
-            "x": -2104,
-            "y": 3645,
+            "x": -1237,
+            "y": 3631.552331,
+          },
+          {
+            "x": -2087.915279,
+            "y": 3140.276166,
+          },
+          {
+            "x": -2087.915279,
+            "y": 2157.723834,
           },
         ],
       ],
-      "size": 90.061727,
+      "size": 89.895706,
     },
   ],
   "hexagons": [
@@ -30916,8 +30964,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
       "id": "link1",
       "label": {
         "at": {
-          "x": 585.847973,
-          "y": -1363.484568,
+          "x": 359.794891,
+          "y": -1425,
         },
         "vertical": false,
       },
@@ -30932,20 +30980,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
           "y": -1425,
         },
         {
-          "x": 1941.589782,
-          "y": -1363.484568,
-        },
-        {
-          "x": -769.893836,
-          "y": -1363.484568,
-        },
-        {
-          "x": -769.893836,
-          "y": -1292.484568,
-        },
-        {
           "x": -1222,
-          "y": -1292.484568,
+          "y": -1425,
         },
         {
           "x": -1222,
@@ -30962,8 +30998,8 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
       "id": "link2",
       "label": {
         "at": {
-          "x": -1252,
-          "y": -646.242284,
+          "x": -1237,
+          "y": -653,
         },
         "vertical": true,
       },
@@ -30978,12 +31014,12 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
           "y": 0,
         },
         {
-          "x": -1252,
-          "y": -1292.484568,
+          "x": -1237,
+          "y": 0,
         },
         {
-          "x": -552.066224,
-          "y": -1292.484568,
+          "x": -1237,
+          "y": -1306,
         },
         {
           "x": -552.066224,
@@ -31009,11 +31045,11 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
         },
         {
           "x": 1226,
-          "y": 1671.515432,
+          "y": 1671.473927,
         },
         {
           "x": -2099,
-          "y": 1671.515432,
+          "y": 1671.473927,
         },
         {
           "x": -2099,
@@ -31038,11 +31074,11 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
           "y": 1658,
         },
         {
-          "x": -1422.340754,
+          "x": -1229,
           "y": 1658,
         },
         {
-          "x": -1422.340754,
+          "x": -1229,
           "y": 1200,
         },
         {
@@ -31098,11 +31134,11 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
           "y": 1200,
         },
         {
-          "x": -1237,
+          "x": -1229,
           "y": 1200,
         },
         {
-          "x": -1237,
+          "x": -1229,
           "y": 1643,
         },
         {
@@ -31133,11 +31169,11 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
         },
         {
           "x": 2524,
-          "y": -1363.484568,
+          "y": -1401,
         },
         {
           "x": 1256,
-          "y": -1363.484568,
+          "y": -1401,
         },
         {
           "x": 1256,
@@ -31193,19 +31229,19 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
         },
         {
           "x": 4305.254391,
-          "y": -3619.484568,
+          "y": -3619.526073,
         },
         {
-          "x": 770.31357,
-          "y": -3619.484568,
+          "x": 2021.335709,
+          "y": -3619.526073,
         },
         {
-          "x": 770.31357,
-          "y": -3601.484568,
+          "x": 2021.335709,
+          "y": -3601.526073,
         },
         {
           "x": 234,
-          "y": -3601.484568,
+          "y": -3601.526073,
         },
         {
           "x": 234,
@@ -31233,11 +31269,11 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
   },
   "title": {
     "key": "map-title",
-    "size": 180.123453,
+    "size": 179.791412,
     "style": "title",
     "text": "Project Builder",
-    "x": -4587.143193,
-    "y": -3756.061727,
+    "x": -3697,
+    "y": -3755.895706,
   },
 }
 `;
@@ -31245,15 +31281,15 @@ exports[`layoutMap — project-builder > all expanded in detailed 1`] = `
 exports[`layoutMap — project-builder > all expanded in overview 1`] = `
 {
   "bounds": {
-    "height": 7589.481476,
-    "width": 9360.092329,
-    "x": -4543.092329,
-    "y": -3936.481476,
+    "height": 7575.535746,
+    "width": 8452.508783,
+    "x": -3652,
+    "y": -3935.983414,
   },
   "contexts": [
     {
       "chip": {
-        "x": -1234,
+        "x": 0,
         "y": -1331,
       },
       "id": "c-exec",
@@ -31261,28 +31297,36 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
       "loops": [
         [
           {
-            "x": -1234,
+            "x": 0,
             "y": -1319,
           },
           {
-            "x": 1238,
-            "y": -1319,
+            "x": 1131.060651,
+            "y": -653.018171,
           },
           {
-            "x": 1238,
-            "y": 1641,
+            "x": 1131.060651,
+            "y": 653.018171,
           },
           {
-            "x": -1234,
-            "y": 1641,
+            "x": 0,
+            "y": 1306.036343,
+          },
+          {
+            "x": -1131.060651,
+            "y": 653.018171,
+          },
+          {
+            "x": -1131.060651,
+            "y": -653.018171,
           },
         ],
       ],
-      "size": 90.160492,
+      "size": 89.994471,
     },
     {
       "chip": {
-        "x": -3672,
+        "x": -2367,
         "y": -1187,
       },
       "id": "c-auth",
@@ -31290,57 +31334,73 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
       "loops": [
         [
           {
-            "x": -3672,
+            "x": -2367,
             "y": -1175,
           },
           {
-            "x": -1254,
-            "y": -1175,
+            "x": -1360.841672,
+            "y": -580.905781,
           },
           {
-            "x": -1254,
-            "y": 1175,
+            "x": -1360.841672,
+            "y": 580.905781,
           },
           {
-            "x": -3672,
-            "y": 1175,
+            "x": -2367,
+            "y": 1161.811563,
+          },
+          {
+            "x": -3373.158328,
+            "y": 580.905781,
+          },
+          {
+            "x": -3373.158328,
+            "y": -580.905781,
           },
         ],
       ],
-      "size": 90.160492,
+      "size": 89.994471,
     },
     {
       "chip": {
-        "x": 1258,
-        "y": -1394,
+        "x": 2546,
+        "y": 1470.208777,
       },
       "id": "c-cat",
       "label": "Catalog (supporting)",
       "loops": [
         [
           {
-            "x": 1258,
+            "x": 2546,
             "y": -1382,
           },
           {
-            "x": 4054,
-            "y": -1382,
+            "x": 3730.908346,
+            "y": -684.107153,
           },
           {
-            "x": 4054,
-            "y": 1382,
+            "x": 3730.908346,
+            "y": 684.107153,
           },
           {
-            "x": 1258,
-            "y": 1382,
+            "x": 2546,
+            "y": 1368.214305,
+          },
+          {
+            "x": 1361.091654,
+            "y": 684.107153,
+          },
+          {
+            "x": 1361.091654,
+            "y": -684.107153,
           },
         ],
       ],
-      "size": 90.160492,
+      "size": 89.994471,
     },
     {
       "chip": {
-        "x": 2556,
+        "x": 3844,
         "y": -3650,
       },
       "id": "c-sel",
@@ -31348,28 +31408,36 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
       "loops": [
         [
           {
-            "x": 2556,
+            "x": 3844,
             "y": -3638,
           },
           {
-            "x": 4817,
-            "y": -3638,
+            "x": 4800.508783,
+            "y": -3072.240603,
           },
           {
-            "x": 4817,
-            "y": -1402,
+            "x": 4800.508783,
+            "y": -1967.759397,
           },
           {
-            "x": 2556,
-            "y": -1402,
+            "x": 3844,
+            "y": -1415.518794,
+          },
+          {
+            "x": 2887.491217,
+            "y": -1967.759397,
+          },
+          {
+            "x": 2887.491217,
+            "y": -3072.240603,
           },
         ],
       ],
-      "size": 90.160492,
+      "size": 89.994471,
     },
     {
       "chip": {
-        "x": 236,
+        "x": 1488,
         "y": -3632,
       },
       "id": "c-launch",
@@ -31377,28 +31445,36 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
       "loops": [
         [
           {
-            "x": 236,
+            "x": 1488,
             "y": -3620,
           },
           {
-            "x": 2536,
-            "y": -3620,
+            "x": 2429.179563,
+            "y": -3063.390274,
           },
           {
-            "x": 2536,
-            "y": -1420,
+            "x": 2429.179563,
+            "y": -1976.609726,
           },
           {
-            "x": 236,
-            "y": -1420,
+            "x": 1488,
+            "y": -1433.219451,
+          },
+          {
+            "x": 546.820437,
+            "y": -1976.609726,
+          },
+          {
+            "x": 546.820437,
+            "y": -3063.390274,
           },
         ],
       ],
-      "size": 90.160492,
+      "size": 89.994471,
     },
     {
       "chip": {
-        "x": -2111,
+        "x": -1917.158868,
         "y": 1649,
       },
       "id": "c-run",
@@ -31406,24 +31482,32 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
       "loops": [
         [
           {
-            "x": -2111,
+            "x": -1244,
             "y": 1661,
           },
           {
-            "x": -377,
-            "y": 1661,
+            "x": -393.084721,
+            "y": 2165.723834,
           },
           {
-            "x": -377,
-            "y": 3653,
+            "x": -393.084721,
+            "y": 3148.276166,
           },
           {
-            "x": -2111,
-            "y": 3653,
+            "x": -1244,
+            "y": 3639.552331,
+          },
+          {
+            "x": -2094.915279,
+            "y": 3148.276166,
+          },
+          {
+            "x": -2094.915279,
+            "y": 2165.723834,
           },
         ],
       ],
-      "size": 90.160492,
+      "size": 89.994471,
     },
   ],
   "hexagons": [
@@ -38112,8 +38196,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
       "id": "link1",
       "label": {
         "at": {
-          "x": 586.092911,
-          "y": -1363.459877,
+          "x": 359.794891,
+          "y": -1425,
         },
         "vertical": false,
       },
@@ -38128,20 +38212,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
           "y": -1425,
         },
         {
-          "x": 1948.589782,
-          "y": -1363.459877,
-        },
-        {
-          "x": -776.403959,
-          "y": -1363.459877,
-        },
-        {
-          "x": -776.403959,
-          "y": -1300.459877,
-        },
-        {
           "x": -1229,
-          "y": -1300.459877,
+          "y": -1425,
         },
         {
           "x": -1229,
@@ -38158,8 +38230,8 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
       "id": "link2",
       "label": {
         "at": {
-          "x": -1259,
-          "y": -650.229938,
+          "x": -1244,
+          "y": -657,
         },
         "vertical": true,
       },
@@ -38174,12 +38246,12 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
           "y": 0,
         },
         {
-          "x": -1259,
-          "y": -1300.459877,
+          "x": -1244,
+          "y": 0,
         },
         {
-          "x": -555.530326,
-          "y": -1300.459877,
+          "x": -1244,
+          "y": -1314,
         },
         {
           "x": -555.530326,
@@ -38205,11 +38277,11 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
         },
         {
           "x": 1233,
-          "y": 1679.540123,
+          "y": 1679.498618,
         },
         {
           "x": -2106,
-          "y": 1679.540123,
+          "y": 1679.498618,
         },
         {
           "x": -2106,
@@ -38234,11 +38306,11 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
           "y": 1666,
         },
         {
-          "x": -1428.605939,
+          "x": -1236,
           "y": 1666,
         },
         {
-          "x": -1428.605939,
+          "x": -1236,
           "y": 1170,
         },
         {
@@ -38294,11 +38366,11 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
           "y": 1170,
         },
         {
-          "x": -1244,
+          "x": -1236,
           "y": 1170,
         },
         {
-          "x": -1244,
+          "x": -1236,
           "y": 1651,
         },
         {
@@ -38329,11 +38401,11 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
         },
         {
           "x": 2531,
-          "y": -1363.459877,
+          "y": -1401,
         },
         {
           "x": 1263,
-          "y": -1363.459877,
+          "y": -1401,
         },
         {
           "x": 1263,
@@ -38389,19 +38461,19 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
         },
         {
           "x": 4312.254391,
-          "y": -3619.459877,
+          "y": -3619.501382,
         },
         {
-          "x": 777.895298,
-          "y": -3619.459877,
+          "x": 2028.917437,
+          "y": -3619.501382,
         },
         {
-          "x": 777.895298,
-          "y": -3601.459877,
+          "x": 2028.917437,
+          "y": -3601.501382,
         },
         {
           "x": 241,
-          "y": -3601.459877,
+          "y": -3601.501382,
         },
         {
           "x": 241,
@@ -38429,11 +38501,11 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
   },
   "title": {
     "key": "map-title",
-    "size": 180.320984,
+    "size": 179.988943,
     "style": "title",
     "text": "Project Builder",
-    "x": -4543.092329,
-    "y": -3756.160492,
+    "x": -3652,
+    "y": -3755.994471,
   },
 }
 `;
@@ -38441,15 +38513,15 @@ exports[`layoutMap — project-builder > all expanded in overview 1`] = `
 exports[`layoutMap — project-builder > current = first hexagon in detailed 1`] = `
 {
   "bounds": {
-    "height": 3081.907576,
-    "width": 4029.97398,
-    "x": -1995.471728,
-    "y": -1448.907576,
+    "height": 3091.907088,
+    "width": 4029.972417,
+    "x": -1995.470165,
+    "y": -1448.907088,
   },
   "contexts": [
     {
       "chip": {
-        "x": -1227,
+        "x": 0,
         "y": -1323,
       },
       "id": "c-exec",
@@ -38457,24 +38529,32 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
       "loops": [
         [
           {
-            "x": -1227,
+            "x": 0,
             "y": -1311,
           },
           {
-            "x": 1231,
-            "y": -1311,
+            "x": 1124.132448,
+            "y": -649.018171,
           },
           {
-            "x": 1231,
-            "y": 1633,
+            "x": 1124.132448,
+            "y": 649.018171,
           },
           {
-            "x": -1227,
-            "y": 1633,
+            "x": 0,
+            "y": 1298.036343,
+          },
+          {
+            "x": -1124.132448,
+            "y": 649.018171,
+          },
+          {
+            "x": -1124.132448,
+            "y": -649.018171,
           },
         ],
       ],
-      "size": 36.635859,
+      "size": 36.635696,
     },
     {
       "chip": {
@@ -38486,10 +38566,6 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
       "loops": [
         [
           {
-            "x": -1829.626689,
-            "y": -110.202058,
-          },
-          {
             "x": -1638.751126,
             "y": -220.404115,
           },
@@ -38509,9 +38585,13 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "x": -1829.626689,
             "y": 110.202058,
           },
+          {
+            "x": -1829.626689,
+            "y": -110.202058,
+          },
         ],
       ],
-      "size": 36.635859,
+      "size": 36.635696,
     },
     {
       "chip": {
@@ -38523,10 +38603,6 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
       "loops": [
         [
           {
-            "x": 1451.875563,
-            "y": -110.202058,
-          },
-          {
             "x": 1642.751126,
             "y": -220.404115,
           },
@@ -38546,9 +38622,13 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "x": 1451.875563,
             "y": 110.202058,
           },
+          {
+            "x": 1451.875563,
+            "y": -110.202058,
+          },
         ],
       ],
-      "size": 36.635859,
+      "size": 36.635696,
     },
     {
       "chip": {
@@ -38560,10 +38640,6 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
       "loops": [
         [
           {
-            "x": 1652.751126,
-            "y": -677.358852,
-          },
-          {
             "x": 1843.626689,
             "y": -787.56091,
           },
@@ -38583,13 +38659,17 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "x": 1652.751126,
             "y": -456.954737,
           },
+          {
+            "x": 1652.751126,
+            "y": -677.358852,
+          },
         ],
       ],
-      "size": 36.635859,
+      "size": 36.635696,
     },
     {
       "chip": {
-        "x": 1551.193167,
+        "x": 1441.875563,
         "y": -847.56091,
       },
       "id": "c-launch",
@@ -38597,10 +38677,6 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
       "loops": [
         [
           {
-            "x": 1251,
-            "y": -677.358852,
-          },
-          {
             "x": 1441.875563,
             "y": -787.56091,
           },
@@ -38620,9 +38696,13 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "x": 1251,
             "y": -456.954737,
           },
+          {
+            "x": 1251,
+            "y": -677.358852,
+          },
         ],
       ],
-      "size": 36.635859,
+      "size": 36.635696,
     },
     {
       "chip": {
@@ -38633,10 +38713,6 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
       "label": "Runner hosting (generic)",
       "loops": [
         [
-          {
-            "x": -1628.751126,
-            "y": 456.954737,
-          },
           {
             "x": -1437.875563,
             "y": 346.752679,
@@ -38657,9 +38733,13 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
             "x": -1628.751126,
             "y": 677.358852,
           },
+          {
+            "x": -1628.751126,
+            "y": 456.954737,
+          },
         ],
       ],
-      "size": 36.635859,
+      "size": 36.635696,
     },
   ],
   "hexagons": [
@@ -45704,10 +45784,10 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
       "id": "link1",
       "label": {
         "at": {
-          "x": 1241,
-          "y": -830.423345,
+          "x": -3.379343,
+          "y": -1305.841076,
         },
-        "vertical": true,
+        "vertical": false,
       },
       "pattern": "customer-supplier",
       "points": [
@@ -45720,16 +45800,16 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
           "y": -354.84669,
         },
         {
-          "x": 1241,
+          "x": 1215.241313,
           "y": -354.84669,
         },
         {
-          "x": 1241,
-          "y": -1306,
+          "x": 1215.241313,
+          "y": -1305.841076,
         },
         {
           "x": -1222,
-          "y": -1306,
+          "y": -1305.841076,
         },
         {
           "x": -1222,
@@ -45793,11 +45873,11 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
         },
         {
           "x": 1226,
-          "y": -1306,
+          "y": 1643,
         },
         {
           "x": -1237,
-          "y": -1306,
+          "y": 1643,
         },
         {
           "x": -1237,
@@ -45826,11 +45906,11 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
           "y": 354.84669,
         },
         {
-          "x": -1285.142556,
+          "x": -1285.143766,
           "y": 354.84669,
         },
         {
-          "x": -1285.142556,
+          "x": -1285.143766,
           "y": 212.310105,
         },
         {
@@ -45856,11 +45936,11 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
           "y": -1306,
         },
         {
-          "x": 1241,
+          "x": 1215.241313,
           "y": -1306,
         },
         {
-          "x": 1241,
+          "x": 1215.241313,
           "y": 0,
         },
         {
@@ -45891,14 +45971,14 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
         },
         {
           "x": -1237,
-          "y": -1305.841035,
+          "y": -1305.841076,
         },
         {
-          "x": 1241,
-          "y": -1305.841035,
+          "x": 1215.241313,
+          "y": -1305.841076,
         },
         {
-          "x": 1241,
+          "x": 1215.241313,
           "y": 0,
         },
         {
@@ -45925,14 +46005,14 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
         },
         {
           "x": 1627.751126,
-          "y": -277.039974,
+          "y": -277.039811,
         },
         {
-          "x": 1404.608802,
-          "y": -277.039974,
+          "x": 1404.60981,
+          "y": -277.039811,
         },
         {
-          "x": 1404.608802,
+          "x": 1404.60981,
           "y": 0,
         },
         {
@@ -46013,11 +46093,11 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
   },
   "title": {
     "key": "map-title",
-    "size": 73.271717,
+    "size": 73.271392,
     "style": "title",
     "text": "Project Builder",
-    "x": -1995.471728,
-    "y": -1375.635859,
+    "x": -1995.470165,
+    "y": -1375.635696,
   },
 }
 `;
@@ -46025,15 +46105,15 @@ exports[`layoutMap — project-builder > current = first hexagon in detailed 1`]
 exports[`layoutMap — project-builder > current = first hexagon in overview 1`] = `
 {
   "bounds": {
-    "height": 3098.494748,
-    "width": 4051.503667,
-    "x": -2006.235563,
-    "y": -1457.494748,
+    "height": 3108.49426,
+    "width": 4051.502104,
+    "x": -2006.234,
+    "y": -1457.49426,
   },
   "contexts": [
     {
       "chip": {
-        "x": -1234,
+        "x": 0,
         "y": -1331,
       },
       "id": "c-exec",
@@ -46041,24 +46121,32 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
       "loops": [
         [
           {
-            "x": -1234,
+            "x": 0,
             "y": -1319,
           },
           {
-            "x": 1238,
-            "y": -1319,
+            "x": 1131.060651,
+            "y": -653.018171,
           },
           {
-            "x": 1238,
-            "y": 1641,
+            "x": 1131.060651,
+            "y": 653.018171,
           },
           {
-            "x": -1234,
-            "y": 1641,
+            "x": 0,
+            "y": 1306.036343,
+          },
+          {
+            "x": -1131.060651,
+            "y": 653.018171,
+          },
+          {
+            "x": -1131.060651,
+            "y": -653.018171,
           },
         ],
       ],
-      "size": 36.831583,
+      "size": 36.83142,
     },
     {
       "chip": {
@@ -46070,10 +46158,6 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
       "loops": [
         [
           {
-            "x": -1839.451078,
-            "y": -110.745612,
-          },
-          {
             "x": -1647.634052,
             "y": -221.491223,
           },
@@ -46093,9 +46177,13 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "x": -1839.451078,
             "y": 110.745612,
           },
+          {
+            "x": -1839.451078,
+            "y": -110.745612,
+          },
         ],
       ],
-      "size": 36.831583,
+      "size": 36.83142,
     },
     {
       "chip": {
@@ -46107,10 +46195,6 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
       "loops": [
         [
           {
-            "x": 1459.817026,
-            "y": -110.745612,
-          },
-          {
             "x": 1651.634052,
             "y": -221.491223,
           },
@@ -46130,9 +46214,13 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "x": 1459.817026,
             "y": 110.745612,
           },
+          {
+            "x": 1459.817026,
+            "y": -110.745612,
+          },
         ],
       ],
-      "size": 36.831583,
+      "size": 36.83142,
     },
     {
       "chip": {
@@ -46144,10 +46232,6 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
       "loops": [
         [
           {
-            "x": 1661.634052,
-            "y": -680.564427,
-          },
-          {
             "x": 1853.451078,
             "y": -791.310039,
           },
@@ -46167,13 +46251,17 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "x": 1661.634052,
             "y": -459.073204,
           },
+          {
+            "x": 1661.634052,
+            "y": -680.564427,
+          },
         ],
       ],
-      "size": 36.831583,
+      "size": 36.83142,
     },
     {
       "chip": {
-        "x": 1559.711037,
+        "x": 1449.817026,
         "y": -851.310039,
       },
       "id": "c-launch",
@@ -46181,10 +46269,6 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
       "loops": [
         [
           {
-            "x": 1258,
-            "y": -680.564427,
-          },
-          {
             "x": 1449.817026,
             "y": -791.310039,
           },
@@ -46204,9 +46288,13 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "x": 1258,
             "y": -459.073204,
           },
+          {
+            "x": 1258,
+            "y": -680.564427,
+          },
         ],
       ],
-      "size": 36.831583,
+      "size": 36.83142,
     },
     {
       "chip": {
@@ -46217,10 +46305,6 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
       "label": "Runner hosting (generic)",
       "loops": [
         [
-          {
-            "x": -1637.634052,
-            "y": 459.073204,
-          },
           {
             "x": -1445.817026,
             "y": 348.327592,
@@ -46241,9 +46325,13 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
             "x": -1637.634052,
             "y": 680.564427,
           },
+          {
+            "x": -1637.634052,
+            "y": 459.073204,
+          },
         ],
       ],
-      "size": 36.831583,
+      "size": 36.83142,
     },
   ],
   "hexagons": [
@@ -53152,10 +53240,10 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
       "id": "link1",
       "label": {
         "at": {
-          "x": 1248,
-          "y": -835.210801,
+          "x": -3.485019,
+          "y": -1313.792145,
         },
-        "vertical": true,
+        "vertical": false,
       },
       "pattern": "customer-supplier",
       "points": [
@@ -53168,16 +53256,16 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
           "y": -356.421603,
         },
         {
-          "x": 1248,
+          "x": 1222.029962,
           "y": -356.421603,
         },
         {
-          "x": 1248,
-          "y": -1314,
+          "x": 1222.029962,
+          "y": -1313.792145,
         },
         {
           "x": -1229,
-          "y": -1314,
+          "y": -1313.792145,
         },
         {
           "x": -1229,
@@ -53241,11 +53329,11 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
         },
         {
           "x": 1233,
-          "y": -1314,
+          "y": 1651,
         },
         {
           "x": -1244,
-          "y": -1314,
+          "y": 1651,
         },
         {
           "x": -1244,
@@ -53274,11 +53362,11 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
           "y": 356.421603,
         },
         {
-          "x": -1292.098563,
+          "x": -1292.099773,
           "y": 356.421603,
         },
         {
-          "x": -1292.098563,
+          "x": -1292.099773,
           "y": 213.397213,
         },
         {
@@ -53304,11 +53392,11 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
           "y": -1314,
         },
         {
-          "x": 1248,
+          "x": 1222.029962,
           "y": -1314,
         },
         {
-          "x": 1248,
+          "x": 1222.029962,
           "y": 0,
         },
         {
@@ -53339,14 +53427,14 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
         },
         {
           "x": -1244,
-          "y": -1313.792104,
+          "y": -1313.792145,
         },
         {
-          "x": 1248,
-          "y": -1313.792104,
+          "x": 1222.029962,
+          "y": -1313.792145,
         },
         {
-          "x": 1248,
+          "x": 1222.029962,
           "y": 0,
         },
         {
@@ -53373,14 +53461,14 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
         },
         {
           "x": 1636.634052,
-          "y": -278.322806,
+          "y": -278.322643,
         },
         {
-          "x": 1412.278239,
-          "y": -278.322806,
+          "x": 1412.279247,
+          "y": -278.322643,
         },
         {
-          "x": 1412.278239,
+          "x": 1412.279247,
           "y": 0,
         },
         {
@@ -53457,11 +53545,11 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
   },
   "title": {
     "key": "map-title",
-    "size": 73.663166,
+    "size": 73.66284,
     "style": "title",
     "text": "Project Builder",
-    "x": -2006.235563,
-    "y": -1383.831583,
+    "x": -2006.234,
+    "y": -1383.83142,
   },
 }
 `;
@@ -53469,15 +53557,15 @@ exports[`layoutMap — project-builder > current = first hexagon in overview 1`]
 exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
 {
   "bounds": {
-    "height": 7581.18518,
-    "width": 9397.143193,
-    "x": -4587.143193,
-    "y": -3936.18518,
+    "height": 7567.239449,
+    "width": 8490.508783,
+    "x": -3697,
+    "y": -3935.687118,
   },
   "contexts": [
     {
       "chip": {
-        "x": -1227,
+        "x": 0,
         "y": -1323,
       },
       "id": "c-exec",
@@ -53485,28 +53573,36 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
       "loops": [
         [
           {
-            "x": -1227,
+            "x": 0,
             "y": -1311,
           },
           {
-            "x": 1231,
-            "y": -1311,
+            "x": 1124.132448,
+            "y": -649.018171,
           },
           {
-            "x": 1231,
-            "y": 1633,
+            "x": 1124.132448,
+            "y": 649.018171,
           },
           {
-            "x": -1227,
-            "y": 1633,
+            "x": 0,
+            "y": 1298.036343,
+          },
+          {
+            "x": -1124.132448,
+            "y": 649.018171,
+          },
+          {
+            "x": -1124.132448,
+            "y": -649.018171,
           },
         ],
       ],
-      "size": 90.061727,
+      "size": 89.895706,
     },
     {
       "chip": {
-        "x": -3717,
+        "x": -2386,
         "y": -1217,
       },
       "id": "c-auth",
@@ -53514,57 +53610,73 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
       "loops": [
         [
           {
-            "x": -3717,
+            "x": -2386,
             "y": -1205,
           },
           {
-            "x": -1247,
-            "y": -1205,
+            "x": -1353.86091,
+            "y": -595.905781,
           },
           {
-            "x": -1247,
-            "y": 1205,
+            "x": -1353.86091,
+            "y": 595.905781,
           },
           {
-            "x": -3717,
-            "y": 1205,
+            "x": -2386,
+            "y": 1191.811563,
+          },
+          {
+            "x": -3418.13909,
+            "y": 595.905781,
+          },
+          {
+            "x": -3418.13909,
+            "y": -595.905781,
           },
         ],
       ],
-      "size": 90.061727,
+      "size": 89.895706,
     },
     {
       "chip": {
-        "x": 1251,
-        "y": -1394,
+        "x": 2539,
+        "y": 1470.110011,
       },
       "id": "c-cat",
       "label": "Catalog (supporting)",
       "loops": [
         [
           {
-            "x": 1251,
+            "x": 2539,
             "y": -1382,
           },
           {
-            "x": 4047,
-            "y": -1382,
+            "x": 3723.908346,
+            "y": -684.107153,
           },
           {
-            "x": 4047,
-            "y": 1382,
+            "x": 3723.908346,
+            "y": 684.107153,
           },
           {
-            "x": 1251,
-            "y": 1382,
+            "x": 2539,
+            "y": 1368.214305,
+          },
+          {
+            "x": 1354.091654,
+            "y": 684.107153,
+          },
+          {
+            "x": 1354.091654,
+            "y": -684.107153,
           },
         ],
       ],
-      "size": 90.061727,
+      "size": 89.895706,
     },
     {
       "chip": {
-        "x": 2549,
+        "x": 3837,
         "y": -3650,
       },
       "id": "c-sel",
@@ -53572,28 +53684,36 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
       "loops": [
         [
           {
-            "x": 2549,
+            "x": 3837,
             "y": -3638,
           },
           {
-            "x": 4810,
-            "y": -3638,
+            "x": 4793.508783,
+            "y": -3072.240603,
           },
           {
-            "x": 4810,
-            "y": -1402,
+            "x": 4793.508783,
+            "y": -1967.759397,
           },
           {
-            "x": 2549,
-            "y": -1402,
+            "x": 3837,
+            "y": -1415.518794,
+          },
+          {
+            "x": 2880.491217,
+            "y": -1967.759397,
+          },
+          {
+            "x": 2880.491217,
+            "y": -3072.240603,
           },
         ],
       ],
-      "size": 90.061727,
+      "size": 89.895706,
     },
     {
       "chip": {
-        "x": 229,
+        "x": 1481,
         "y": -3632,
       },
       "id": "c-launch",
@@ -53601,28 +53721,36 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
       "loops": [
         [
           {
-            "x": 229,
+            "x": 1481,
             "y": -3620,
           },
           {
-            "x": 2529,
-            "y": -3620,
+            "x": 2422.179563,
+            "y": -3063.390274,
           },
           {
-            "x": 2529,
-            "y": -1420,
+            "x": 2422.179563,
+            "y": -1976.609726,
           },
           {
-            "x": 229,
-            "y": -1420,
+            "x": 1481,
+            "y": -1433.219451,
+          },
+          {
+            "x": 539.820437,
+            "y": -1976.609726,
+          },
+          {
+            "x": 539.820437,
+            "y": -3063.390274,
           },
         ],
       ],
-      "size": 90.061727,
+      "size": 89.895706,
     },
     {
       "chip": {
-        "x": -2104,
+        "x": -1909.424053,
         "y": 1641,
       },
       "id": "c-run",
@@ -53630,24 +53758,32 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
       "loops": [
         [
           {
-            "x": -2104,
+            "x": -1237,
             "y": 1653,
           },
           {
-            "x": -370,
-            "y": 1653,
+            "x": -386.084721,
+            "y": 2157.723834,
           },
           {
-            "x": -370,
-            "y": 3645,
+            "x": -386.084721,
+            "y": 3140.276166,
           },
           {
-            "x": -2104,
-            "y": 3645,
+            "x": -1237,
+            "y": 3631.552331,
+          },
+          {
+            "x": -2087.915279,
+            "y": 3140.276166,
+          },
+          {
+            "x": -2087.915279,
+            "y": 2157.723834,
           },
         ],
       ],
-      "size": 90.061727,
+      "size": 89.895706,
     },
   ],
   "hexagons": [
@@ -60472,8 +60608,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
       "id": "link1",
       "label": {
         "at": {
-          "x": 585.847973,
-          "y": -1363.484568,
+          "x": 359.794891,
+          "y": -1425,
         },
         "vertical": false,
       },
@@ -60488,20 +60624,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
           "y": -1425,
         },
         {
-          "x": 1941.589782,
-          "y": -1363.484568,
-        },
-        {
-          "x": -769.893836,
-          "y": -1363.484568,
-        },
-        {
-          "x": -769.893836,
-          "y": -1292.484568,
-        },
-        {
           "x": -1222,
-          "y": -1292.484568,
+          "y": -1425,
         },
         {
           "x": -1222,
@@ -60518,8 +60642,8 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
       "id": "link2",
       "label": {
         "at": {
-          "x": -1252,
-          "y": -646.242284,
+          "x": -1237,
+          "y": -653,
         },
         "vertical": true,
       },
@@ -60534,12 +60658,12 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
           "y": 0,
         },
         {
-          "x": -1252,
-          "y": -1292.484568,
+          "x": -1237,
+          "y": 0,
         },
         {
-          "x": -552.066224,
-          "y": -1292.484568,
+          "x": -1237,
+          "y": -1306,
         },
         {
           "x": -552.066224,
@@ -60565,11 +60689,11 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
         },
         {
           "x": 1226,
-          "y": 1671.515432,
+          "y": 1671.473927,
         },
         {
           "x": -2099,
-          "y": 1671.515432,
+          "y": 1671.473927,
         },
         {
           "x": -2099,
@@ -60594,11 +60718,11 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
           "y": 1658,
         },
         {
-          "x": -1422.340754,
+          "x": -1229,
           "y": 1658,
         },
         {
-          "x": -1422.340754,
+          "x": -1229,
           "y": 1200,
         },
         {
@@ -60654,11 +60778,11 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
           "y": 1200,
         },
         {
-          "x": -1237,
+          "x": -1229,
           "y": 1200,
         },
         {
-          "x": -1237,
+          "x": -1229,
           "y": 1643,
         },
         {
@@ -60689,11 +60813,11 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
         },
         {
           "x": 2524,
-          "y": -1363.484568,
+          "y": -1401,
         },
         {
           "x": 1256,
-          "y": -1363.484568,
+          "y": -1401,
         },
         {
           "x": 1256,
@@ -60749,19 +60873,19 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
         },
         {
           "x": 4305.254391,
-          "y": -3619.484568,
+          "y": -3619.526073,
         },
         {
-          "x": 770.31357,
-          "y": -3619.484568,
+          "x": 2021.335709,
+          "y": -3619.526073,
         },
         {
-          "x": 770.31357,
-          "y": -3601.484568,
+          "x": 2021.335709,
+          "y": -3601.526073,
         },
         {
           "x": 234,
-          "y": -3601.484568,
+          "y": -3601.526073,
         },
         {
           "x": 234,
@@ -60789,11 +60913,11 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
   },
   "title": {
     "key": "map-title",
-    "size": 180.123453,
+    "size": 179.791412,
     "style": "title",
     "text": "Project Builder",
-    "x": -4587.143193,
-    "y": -3756.061727,
+    "x": -3697,
+    "y": -3755.895706,
   },
 }
 `;
@@ -60801,15 +60925,15 @@ exports[`layoutMap — project-builder > no current hexagon in detailed 1`] = `
 exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
 {
   "bounds": {
-    "height": 7589.481476,
-    "width": 9360.092329,
-    "x": -4543.092329,
-    "y": -3936.481476,
+    "height": 7575.535746,
+    "width": 8452.508783,
+    "x": -3652,
+    "y": -3935.983414,
   },
   "contexts": [
     {
       "chip": {
-        "x": -1234,
+        "x": 0,
         "y": -1331,
       },
       "id": "c-exec",
@@ -60817,28 +60941,36 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
       "loops": [
         [
           {
-            "x": -1234,
+            "x": 0,
             "y": -1319,
           },
           {
-            "x": 1238,
-            "y": -1319,
+            "x": 1131.060651,
+            "y": -653.018171,
           },
           {
-            "x": 1238,
-            "y": 1641,
+            "x": 1131.060651,
+            "y": 653.018171,
           },
           {
-            "x": -1234,
-            "y": 1641,
+            "x": 0,
+            "y": 1306.036343,
+          },
+          {
+            "x": -1131.060651,
+            "y": 653.018171,
+          },
+          {
+            "x": -1131.060651,
+            "y": -653.018171,
           },
         ],
       ],
-      "size": 90.160492,
+      "size": 89.994471,
     },
     {
       "chip": {
-        "x": -3672,
+        "x": -2367,
         "y": -1187,
       },
       "id": "c-auth",
@@ -60846,57 +60978,73 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
       "loops": [
         [
           {
-            "x": -3672,
+            "x": -2367,
             "y": -1175,
           },
           {
-            "x": -1254,
-            "y": -1175,
+            "x": -1360.841672,
+            "y": -580.905781,
           },
           {
-            "x": -1254,
-            "y": 1175,
+            "x": -1360.841672,
+            "y": 580.905781,
           },
           {
-            "x": -3672,
-            "y": 1175,
+            "x": -2367,
+            "y": 1161.811563,
+          },
+          {
+            "x": -3373.158328,
+            "y": 580.905781,
+          },
+          {
+            "x": -3373.158328,
+            "y": -580.905781,
           },
         ],
       ],
-      "size": 90.160492,
+      "size": 89.994471,
     },
     {
       "chip": {
-        "x": 1258,
-        "y": -1394,
+        "x": 2546,
+        "y": 1470.208777,
       },
       "id": "c-cat",
       "label": "Catalog (supporting)",
       "loops": [
         [
           {
-            "x": 1258,
+            "x": 2546,
             "y": -1382,
           },
           {
-            "x": 4054,
-            "y": -1382,
+            "x": 3730.908346,
+            "y": -684.107153,
           },
           {
-            "x": 4054,
-            "y": 1382,
+            "x": 3730.908346,
+            "y": 684.107153,
           },
           {
-            "x": 1258,
-            "y": 1382,
+            "x": 2546,
+            "y": 1368.214305,
+          },
+          {
+            "x": 1361.091654,
+            "y": 684.107153,
+          },
+          {
+            "x": 1361.091654,
+            "y": -684.107153,
           },
         ],
       ],
-      "size": 90.160492,
+      "size": 89.994471,
     },
     {
       "chip": {
-        "x": 2556,
+        "x": 3844,
         "y": -3650,
       },
       "id": "c-sel",
@@ -60904,28 +61052,36 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
       "loops": [
         [
           {
-            "x": 2556,
+            "x": 3844,
             "y": -3638,
           },
           {
-            "x": 4817,
-            "y": -3638,
+            "x": 4800.508783,
+            "y": -3072.240603,
           },
           {
-            "x": 4817,
-            "y": -1402,
+            "x": 4800.508783,
+            "y": -1967.759397,
           },
           {
-            "x": 2556,
-            "y": -1402,
+            "x": 3844,
+            "y": -1415.518794,
+          },
+          {
+            "x": 2887.491217,
+            "y": -1967.759397,
+          },
+          {
+            "x": 2887.491217,
+            "y": -3072.240603,
           },
         ],
       ],
-      "size": 90.160492,
+      "size": 89.994471,
     },
     {
       "chip": {
-        "x": 236,
+        "x": 1488,
         "y": -3632,
       },
       "id": "c-launch",
@@ -60933,28 +61089,36 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
       "loops": [
         [
           {
-            "x": 236,
+            "x": 1488,
             "y": -3620,
           },
           {
-            "x": 2536,
-            "y": -3620,
+            "x": 2429.179563,
+            "y": -3063.390274,
           },
           {
-            "x": 2536,
-            "y": -1420,
+            "x": 2429.179563,
+            "y": -1976.609726,
           },
           {
-            "x": 236,
-            "y": -1420,
+            "x": 1488,
+            "y": -1433.219451,
+          },
+          {
+            "x": 546.820437,
+            "y": -1976.609726,
+          },
+          {
+            "x": 546.820437,
+            "y": -3063.390274,
           },
         ],
       ],
-      "size": 90.160492,
+      "size": 89.994471,
     },
     {
       "chip": {
-        "x": -2111,
+        "x": -1917.158868,
         "y": 1649,
       },
       "id": "c-run",
@@ -60962,24 +61126,32 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
       "loops": [
         [
           {
-            "x": -2111,
+            "x": -1244,
             "y": 1661,
           },
           {
-            "x": -377,
-            "y": 1661,
+            "x": -393.084721,
+            "y": 2165.723834,
           },
           {
-            "x": -377,
-            "y": 3653,
+            "x": -393.084721,
+            "y": 3148.276166,
           },
           {
-            "x": -2111,
-            "y": 3653,
+            "x": -1244,
+            "y": 3639.552331,
+          },
+          {
+            "x": -2094.915279,
+            "y": 3148.276166,
+          },
+          {
+            "x": -2094.915279,
+            "y": 2165.723834,
           },
         ],
       ],
-      "size": 90.160492,
+      "size": 89.994471,
     },
   ],
   "hexagons": [
@@ -67668,8 +67840,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
       "id": "link1",
       "label": {
         "at": {
-          "x": 586.092911,
-          "y": -1363.459877,
+          "x": 359.794891,
+          "y": -1425,
         },
         "vertical": false,
       },
@@ -67684,20 +67856,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
           "y": -1425,
         },
         {
-          "x": 1948.589782,
-          "y": -1363.459877,
-        },
-        {
-          "x": -776.403959,
-          "y": -1363.459877,
-        },
-        {
-          "x": -776.403959,
-          "y": -1300.459877,
-        },
-        {
           "x": -1229,
-          "y": -1300.459877,
+          "y": -1425,
         },
         {
           "x": -1229,
@@ -67714,8 +67874,8 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
       "id": "link2",
       "label": {
         "at": {
-          "x": -1259,
-          "y": -650.229938,
+          "x": -1244,
+          "y": -657,
         },
         "vertical": true,
       },
@@ -67730,12 +67890,12 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
           "y": 0,
         },
         {
-          "x": -1259,
-          "y": -1300.459877,
+          "x": -1244,
+          "y": 0,
         },
         {
-          "x": -555.530326,
-          "y": -1300.459877,
+          "x": -1244,
+          "y": -1314,
         },
         {
           "x": -555.530326,
@@ -67761,11 +67921,11 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
         },
         {
           "x": 1233,
-          "y": 1679.540123,
+          "y": 1679.498618,
         },
         {
           "x": -2106,
-          "y": 1679.540123,
+          "y": 1679.498618,
         },
         {
           "x": -2106,
@@ -67790,11 +67950,11 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
           "y": 1666,
         },
         {
-          "x": -1428.605939,
+          "x": -1236,
           "y": 1666,
         },
         {
-          "x": -1428.605939,
+          "x": -1236,
           "y": 1170,
         },
         {
@@ -67850,11 +68010,11 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
           "y": 1170,
         },
         {
-          "x": -1244,
+          "x": -1236,
           "y": 1170,
         },
         {
-          "x": -1244,
+          "x": -1236,
           "y": 1651,
         },
         {
@@ -67885,11 +68045,11 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
         },
         {
           "x": 2531,
-          "y": -1363.459877,
+          "y": -1401,
         },
         {
           "x": 1263,
-          "y": -1363.459877,
+          "y": -1401,
         },
         {
           "x": 1263,
@@ -67945,19 +68105,19 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
         },
         {
           "x": 4312.254391,
-          "y": -3619.459877,
+          "y": -3619.501382,
         },
         {
-          "x": 777.895298,
-          "y": -3619.459877,
+          "x": 2028.917437,
+          "y": -3619.501382,
         },
         {
-          "x": 777.895298,
-          "y": -3601.459877,
+          "x": 2028.917437,
+          "y": -3601.501382,
         },
         {
           "x": 241,
-          "y": -3601.459877,
+          "y": -3601.501382,
         },
         {
           "x": 241,
@@ -67985,11 +68145,11 @@ exports[`layoutMap — project-builder > no current hexagon in overview 1`] = `
   },
   "title": {
     "key": "map-title",
-    "size": 180.320984,
+    "size": 179.988943,
     "style": "title",
     "text": "Project Builder",
-    "x": -4543.092329,
-    "y": -3756.160492,
+    "x": -3652,
+    "y": -3755.994471,
   },
 }
 `;

@@ -674,12 +674,12 @@ describe('Stage — the whole-map auto view survives a canvas focus switch (FIT-
   })
 
   it('a switch on a two-hexagon map keeps the zoom and pans the current hexagon into the area the side panel leaves', () => {
-    const restore = stubFixedSize(700, 920)
+    const restore = stubFixedSize(700, 940)
     try {
       useMapStore.getState().replace(twoHexMap())
       const { container } = render(<Harness />)
       fireEvent.click(hexGroup(container, 'h2'))
-      const size = { width: 700, height: 920 }
+      const size = { width: 700, height: 940 }
       const before = viewportOf(container)
       const model = layoutMap(useMapStore.getState().map)
       const h2 = hexagonBounds(model.hexagons.find((h) => h.id === 'h2')!)

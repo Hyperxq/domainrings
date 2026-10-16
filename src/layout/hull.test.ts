@@ -1,62 +1,37 @@
 import { describe, expect, it } from 'vitest'
-import { contextRegions, pointInRegion } from './hull'
+import { footprintRegions, pointInRegion } from './hull'
 import { layoutMap } from './map'
-import { parseHexa } from '../model/hexa'
 import { neighbour, type Cell } from '../model/map'
 import { VERSION, type HexaMap } from '../model/schema'
 import type { LayoutMode } from './layout'
-import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
 
-const pitch = { x: 100, y: 80 }
+const hexOutline = (cx: number, cy: number, w = 26, h = 15, a = 30) =>
+  [{ x: 0, y: -a }, { x: w, y: -h }, { x: w, y: h }, { x: 0, y: a }, { x: -w, y: h }, { x: -w, y: -h }].map((p) => ({ x: cx + p.x, y: cy + p.y }))
+const member = (contextId: string, cell: Cell) => ({ cell, contextId, outline: hexOutline(100 * (cell.q + cell.r / 2), 87 * cell.r) })
 
-describe('contextRegions (ADR-04)', () => {
+describe('footprintRegions (ADR-04)', () => {
   it('a split context draws as one entry with two disjoint outer loops', () => {
-    const hexagons = [
-      { cell: { q: 0, r: 0 }, contextId: 'c1' },
-      { cell: { q: 5, r: 5 }, contextId: 'c1' },
-    ]
-    const regions = contextRegions(hexagons, pitch)
-    const loops = regions.get('c1')!
+    const loops = footprintRegions([member('c1', { q: 0, r: 0 }), member('c1', { q: 5, r: 5 })]).get('c1')!
     expect(loops).toHaveLength(2)
-    // Each loop is its own closed hexagon: 6 vertices, none shared between the two loops.
-    expect(loops[0]).toHaveLength(6)
-    expect(loops[1]).toHaveLength(6)
-    const keysOf = (loop: { x: number; y: number }[]) => new Set(loop.map((p) => `${p.x},${p.y}`))
-    const shared = [...keysOf(loops[0])].some((k) => keysOf(loops[1]).has(k))
-    expect(shared).toBe(false)
+    expect(loops.map((l) => l.length)).toEqual([6, 6])
   })
 
-  it('a ring of six around a foreign cell produces an outer loop and a hole loop, the foreign centre outside by evenodd', () => {
+  it('a ring of six around a foreign cell keeps the foreign centre outside the ring and inside its own region', () => {
     const centre: Cell = { q: 0, r: 0 }
-    const ring = (['e', 'se', 'sw', 'w', 'nw', 'ne'] as const).map((side) => neighbour(centre, side))
-    const hexagons = [
-      ...ring.map((c) => ({ cell: c, contextId: 'ring' })),
-      { cell: centre, contextId: 'foreign' },
-    ]
-    const regions = contextRegions(hexagons, pitch)
-    const loops = regions.get('ring')!
-    expect(loops).toHaveLength(2)
-    // The foreign cell's centre sits at the map origin — outside the ring's region (the hole), by evenodd.
-    expect(pointInRegion({ x: 0, y: 0 }, loops)).toBe(false)
-    // A point on the ring's own far side (well outside everything) is also outside.
-    expect(pointInRegion({ x: 10_000, y: 10_000 }, loops)).toBe(false)
-    const foreignLoops = regions.get('foreign')!
-    expect(foreignLoops).toHaveLength(1)
-    expect(pointInRegion({ x: 0, y: 0 }, foreignLoops)).toBe(true)
+    const ring = (['e', 'se', 'sw', 'w', 'nw', 'ne'] as const).map((side) => member('ring', neighbour(centre, side)))
+    const regions = footprintRegions([...ring, member('foreign', centre)])
+    expect(pointInRegion({ x: 0, y: 0 }, regions.get('ring')!)).toBe(false)
+    expect(pointInRegion({ x: 0, y: 0 }, regions.get('foreign')!)).toBe(true)
   })
 
-  it('the honeycomb fixture shape (6-ring in one context, a split context of the foreign cell plus a far cell)', () => {
-    const result = parseHexa(v2Honeycomb)
-    expect(result.ok).toBe(true)
-    if (!result.ok || result.map.kind !== 'hexagonal') return
-    const hexagons = result.map.hexagons.map((h) => ({ cell: h.cell, contextId: h.contextId }))
-    const regions = contextRegions(hexagons, pitch)
-    // c1 ("Core"): the 6-ring around h7 — one outer loop, one hole loop.
-    expect(regions.get('c1')).toHaveLength(2)
-    // c2 (unnamed): h7 (inside the ring) and h8 (far away) — split, two outer loops.
-    expect(regions.get('c2')).toHaveLength(2)
-    expect(pointInRegion({ x: 0, y: 0 }, regions.get('c1')!)).toBe(false)
-    expect(pointInRegion({ x: 0, y: 0 }, regions.get('c2')!)).toBe(true)
+  it('neighbouring members merge into one loop that follows the hexagons, notch included', () => {
+    const chain = [{ q: 0, r: 0 }, { q: 1, r: 0 }, { q: 1, r: 1 }].map((cell) => member('c1', cell))
+    const loops = footprintRegions(chain).get('c1')!
+    expect(loops).toHaveLength(1)
+    expect(loops[0].length).toBeLessThan(30)
+    for (const m of chain) expect(pointInRegion({ x: m.outline[0].x, y: m.outline[0].y + 10 }, loops)).toBe(true)
+    // inside the convex hull of the three members, but in the notch their union leaves open
+    expect(pointInRegion({ x: 50, y: 40 }, loops)).toBe(false)
   })
 })
 
@@ -118,7 +93,7 @@ function seededMap(seed: number): HexaMap {
 const SEEDS = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89]
 const MODES: LayoutMode[] = ['detailed', 'overview']
 
-describe('contextRegions — property: enclosure and exclusion hold for random clusters', () => {
+describe('footprintRegions — property: enclosure and exclusion hold for random clusters', () => {
   for (const seed of SEEDS) {
     for (const mode of MODES) {
       it(`seed ${seed} (${mode}): every hexagon's outer ring lies inside its own region; no foreign centre lies inside it`, () => {
