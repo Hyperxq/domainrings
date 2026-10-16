@@ -7,6 +7,7 @@ import { currentHexagon, layoutMap } from '../layout/map'
 import { legendFor } from '../layout/legend'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
 import { flowFrame } from './flowFrame'
+import { flowOf } from '../model/flow'
 import { toMap } from '../model/hexa'
 import { contextName, diagramOf, freeSides, neighbour, SIDE_ORDER } from '../model/map'
 import { withoutPlanned } from '../model/planned'
@@ -2304,17 +2305,108 @@ describe('Stage — flying to a picked flow', () => {
     frames(400)
     expectViewport(container, picked)
   })
+})
 
-  it('leaves the camera to the walkthrough when a flow starts presenting', () => {
+describe('Stage — presenting a flow up close', () => {
+  const SCREEN = { width: 2000, height: 800 }
+  const originalMatchMedia = window.matchMedia
+  let restoreSize: () => void
+  const frames = (ms: number) => act(() => void vi.advanceTimersByTime(ms))
+  const { focusFlow, present } = useViewStore.getState()
+  const layout = () => layoutMap(useMapStore.getState().map, { current: 'h1' })
+  const stepBox = (index: number) => {
+    const step = flowOf(useMapStore.getState().map, 'h1', 'uc-submit').steps[index]
+    const at = layout().hexagons.find((h) => h.id === step.hexId)!
+    const kind = { actor: 'actor', aggregate: 'domainItem', useCase: 'useCase' }[step.role as string]!
+    return translatedNodeBox(at.model.nodes.find((n) => n.ref === step.id && n.kind === kind)!, at.centre)
+  }
+  const free = (container: HTMLElement) => visibleRect(viewportOf(container), SCREEN, islandInset(SCREEN, true, false, null, false))
+  const expectCentredOn = (container: HTMLElement, box: Box) => {
+    expect(free(container).x + free(container).width / 2).toBeCloseTo(box.x + box.width / 2, 6)
+    expect(free(container).y + free(container).height / 2).toBeCloseTo(box.y + box.height / 2, 6)
+  }
+  const USE_CASE_STEP = 3
+  const COMPACT_STEP = 8
+  beforeEach(() => {
+    vi.useFakeTimers()
+    window.matchMedia = ((media: string) => ({ matches: false, media, addEventListener() {}, removeEventListener() {} })) as unknown as typeof matchMedia
+    restoreSize = stubFixedSize(SCREEN.width, SCREEN.height)
+    useMapStore.getState().replace(manyHexagonMap(6))
     usePreferencesStore.setState({ viewOnly: true })
+  })
+  afterEach(() => {
+    restoreSize()
+    window.matchMedia = originalMatchMedia
+    vi.useRealTimers()
+  })
+
+  it('eases in on the first step and centres it, instead of flying to the whole flow', () => {
     const { container } = render(<Harness />)
     const before = viewportOf(container)
     act(() => {
-      useViewStore.getState().focusFlow('uc-submit')
-      useViewStore.getState().present(0)
+      focusFlow('uc-submit')
+      present(0)
     })
-    frames(400)
-    expectViewport(container, before)
+    frames(48)
+    const early = viewportOf(container)
+    frames(800)
+    const { scale } = viewportOf(container)
+    expect(early.scale).toBeGreaterThan(before.scale)
+    expect(early.scale).toBeLessThan(scale)
+    expect(scale).toBeLessThanOrEqual(ELEMENT_FOCUS_SCALE)
+    expectCentredOn(container, stepBox(0))
+  })
+
+  it('moves on to the next step with the same close view', () => {
+    const { container } = render(<Harness />)
+    act(() => {
+      focusFlow('uc-submit')
+      present(0)
+    })
+    frames(800)
+    const first = viewportOf(container)
+    act(() => present(USE_CASE_STEP))
+    frames(800)
+    expect(viewportOf(container).x).not.toBeCloseTo(first.x, 3)
+    expectCentredOn(container, stepBox(USE_CASE_STEP))
+  })
+
+  it('frames the whole hexagon of a step that is drawn compact', () => {
+    const { container } = render(<Harness />)
+    act(() => {
+      focusFlow('uc-submit')
+      present(COMPACT_STEP)
+    })
+    frames(800)
+    const h2 = layout().hexagons.find((h) => h.id === 'h2')!
+    expect(h2.compact).toBeTruthy()
+    expectViewport(container, fitTo(hexagonBounds(h2), SCREEN.width, SCREEN.height, islandInset(SCREEN, true, false, null, false), 0))
+  })
+
+  it('flies back to the flow frame when presenting stops and the flow stays picked', () => {
+    const { container } = render(<Harness />)
+    act(() => focusFlow('uc-submit'))
+    frames(800)
+    const flowView = viewportOf(container)
+    act(() => present(USE_CASE_STEP))
+    frames(800)
+    expect(viewportOf(container).scale).toBeGreaterThan(flowView.scale)
+    act(() => present(null))
+    frames(800)
+    expectViewport(container, flowView)
+  })
+
+  it('does not move the camera when the flow is cleared while presenting', () => {
+    const { container } = render(<Harness />)
+    act(() => {
+      focusFlow('uc-submit')
+      present(USE_CASE_STEP)
+    })
+    frames(800)
+    const close = viewportOf(container)
+    act(() => focusFlow(null))
+    frames(800)
+    expectViewport(container, close)
   })
 })
 
