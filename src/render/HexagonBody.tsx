@@ -177,7 +177,7 @@ export function CompactBody({ compact, title, linkTargets, chain }: { compact: C
   return (
     <>
       <path className="ring ring-outer" d={bandPath('hexagon', outline)} />
-      <text className="compact-title" data-hexagon-title="" y={-size * 0.4} fontSize={size}>{label}</text>
+      <text className="compact-title" data-hexagon-title="" data-full-title={title === label ? undefined : title} y={-size * 0.4} fontSize={size}>{label}</text>
       <text className="compact-count" y={size * 0.8} fontSize={size * 0.85}>{elements} {elements === 1 ? 'element' : 'elements'}</text>
       {compact.ports.map((port) => {
         const target = linkTargets.has(port.id)

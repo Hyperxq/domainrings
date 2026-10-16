@@ -384,6 +384,14 @@ describe('MapDiagram — compact neighbours', () => {
     expect(container.querySelector('[data-hex="h2"]')!.querySelectorAll('.node').length).toBeGreaterThan(0)
   })
 
+  it('carries the full title of a compact hexagon only when its label was shortened', () => {
+    const map = manyHexagonMap(5)
+    map.hexagons[0].title = 'A hexagon title far too long for its silhouette'
+    const { container } = renderSvg(map, { focus: 'h2' })
+    expect(container.querySelector('[data-hex="h1"] .compact-title')?.getAttribute('data-full-title')).toBe('A hexagon title far too long for its silhouette')
+    expect(container.querySelector('[data-hex="h3"] .compact-title')?.hasAttribute('data-full-title')).toBe(false)
+  })
+
   it('names the compact hexagon after its title and keeps it one focusable control', () => {
     const { container } = renderSvg(manyHexagonMap(5), { focus: 'h2' })
     const compact = container.querySelector('[data-hex="h3"]')!

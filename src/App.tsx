@@ -15,6 +15,7 @@ import type { CleanFile, OnionFile } from './model/schema'
 import { useMapStore } from './model/store'
 import { ArchitectureChoiceDialog } from './ui/ArchitectureChoiceDialog'
 import { flowFrame } from './ui/flowFrame'
+import { canvasBounds } from './ui/viewport'
 import { useExport } from './ui/useExport'
 import { useOpenDocument } from './ui/useOpenDocument'
 import { useHistoryStore } from './ui/state/historyStore'
@@ -86,7 +87,7 @@ export function App({ boot = {} }: AppProps = {}) {
       ? { file: onionMap, bounds: onionModel!.bounds, title: onionMap.title, scoped: false, legend: legendInExport }
       : activeKind === 'clean'
         ? { file: cleanMap, bounds: cleanModel!.bounds, title: cleanMap.title, scoped: false, legend: legendInExport }
-        : { file: map, frame, bounds: frame?.bounds ?? (scoped ? withGuides(hexagonBounds(currentHexagon(model, hexId)), [currentHexagon(model, hexId)], showGuides) : withGuides(model.bounds, model.hexagons, showGuides)), title: scoped ? diagram.title || UNTITLED_HEXAGON : map.title, scoped, legend: legendInExport }
+        : { file: map, frame, bounds: frame?.bounds ?? (scoped ? withGuides(hexagonBounds(currentHexagon(model, hexId)), [currentHexagon(model, hexId)], showGuides) : withGuides(canvasBounds(model), model.hexagons, showGuides)), title: scoped ? diagram.title || UNTITLED_HEXAGON : map.title, scoped, legend: legendInExport }
   const undoLast = useUndoHistory({
     activeFile: active.file,
     hexId,
