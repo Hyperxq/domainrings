@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { hexagonBounds, withGuides } from './layout/lattice'
+import { hexagonBounds } from './layout/lattice'
 import { currentHexagon, layoutMap } from './layout/map'
 import { legendFor, legendForClean, legendForOnion } from './layout/legend'
 import { layoutClean } from './layout/clean'
@@ -67,7 +67,6 @@ export function App({ boot = {} }: AppProps = {}) {
   const multiHexagon = map.hexagons.length > 1
   const mode = usePreferencesStore((s) => s.mode)
   const legendInExport = usePreferencesStore((s) => s.legendInExport)
-  const showGuides = usePreferencesStore((s) => s.guides)
   const expanded = useViewStore((s) => s.expanded)
   const model = layoutMap(shown, { mode, current: hexId, expanded })
   const notice = useNoticeStore((s) => s.notice)
@@ -81,13 +80,13 @@ export function App({ boot = {} }: AppProps = {}) {
   const scoped = canScopeExport && exportScope === 'hexagon'
   const focusedFlow = useViewStore((s) => s.focusedFlow)
   const framedFlow = useViewStore((s) => s.framedFlow)
-  const frame = activeKind === 'hexagonal' && !scoped && framedFlow !== null && framedFlow === focusedFlow ? flowFrame(map, hexId, framedFlow, model, showGuides) : undefined
+  const frame = activeKind === 'hexagonal' && !scoped && framedFlow !== null && framedFlow === focusedFlow ? flowFrame(map, hexId, framedFlow, model) : undefined
   const active =
     activeKind === 'onion'
       ? { file: onionMap, bounds: onionModel!.bounds, title: onionMap.title, scoped: false, legend: legendInExport }
       : activeKind === 'clean'
         ? { file: cleanMap, bounds: cleanModel!.bounds, title: cleanMap.title, scoped: false, legend: legendInExport }
-        : { file: map, frame, bounds: frame?.bounds ?? (scoped ? withGuides(hexagonBounds(currentHexagon(model, hexId)), [currentHexagon(model, hexId)], showGuides) : withGuides(canvasBounds(model), model.hexagons, showGuides)), title: scoped ? diagram.title || UNTITLED_HEXAGON : map.title, scoped, legend: legendInExport }
+        : { file: map, frame, bounds: frame?.bounds ?? (scoped ? hexagonBounds(currentHexagon(model, hexId)) : canvasBounds(model)), title: scoped ? diagram.title || UNTITLED_HEXAGON : map.title, scoped, legend: legendInExport }
   const undoLast = useUndoHistory({
     activeFile: active.file,
     hexId,

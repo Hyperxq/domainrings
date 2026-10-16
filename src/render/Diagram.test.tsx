@@ -57,6 +57,7 @@ describe('MapDiagram — corridor guides', () => {
     expect(corridors.length).toBeGreaterThanOrEqual(2)
     expect(container.querySelectorAll('line.guide')).toHaveLength(guides.length)
     expect(container.querySelectorAll('path.guide')).toHaveLength(corridors.length)
+    expect(container.querySelectorAll('.guide:not([data-guide])')).toHaveLength(0)
   })
 
   it('draws no guide at all when guides are off', () => {

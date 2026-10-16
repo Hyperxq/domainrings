@@ -31,7 +31,9 @@ function mapCanvas() {
   h1Marker.textContent = 'H1 marker'
   const cue = document.createElementNS(NS, 'path')
   cue.setAttribute('data-cue', '')
-  h1.append(h1Marker, cue)
+  const guide = document.createElementNS(NS, 'line')
+  guide.setAttribute('data-guide', '')
+  h1.append(h1Marker, cue, guide)
 
   const h2 = document.createElementNS(NS, 'g')
   h2.setAttribute('data-hex', 'h2')
@@ -128,7 +130,7 @@ describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {
     expect(markup).toContain('H1 marker')
     expect(markup).toContain('H2 marker')
     expect(markup).toContain('Map title')
-    expect(markup).not.toMatch(/data-hex|aria-current|data-cue|data-map-link|data-map-title|data-hover/)
+    expect(markup).not.toMatch(/data-hex|aria-current|data-cue|data-guide|<line|data-map-link|data-map-title|data-hover/)
   })
 
   const withOutline = () => {

@@ -1,5 +1,5 @@
 import { unionBox, type Box } from '../layout/geometry'
-import { hexagonBounds, withGuides } from '../layout/lattice'
+import { hexagonBounds } from '../layout/lattice'
 import type { MapLayout } from '../layout/map'
 import { CHIP_LABEL, measure } from '../layout/text'
 import { flowChain, flowOf } from '../model/flow'
@@ -8,7 +8,7 @@ import type { HexaMap } from '../model/schema'
 /** What an image export keeps for a flow frame: the hexagons holding the flow's steps, the map links joining two
  * of them, the contexts whose hexagons are all framed, and the box around all of it. `undefined` when the owner
  * has no such use case. */
-export function flowFrame(map: HexaMap, ownerId: string, useCaseId: string, { hexagons, contexts }: Pick<MapLayout, 'hexagons' | 'contexts'>, guides: boolean) {
+export function flowFrame(map: HexaMap, ownerId: string, useCaseId: string, { hexagons, contexts }: Pick<MapLayout, 'hexagons' | 'contexts'>) {
   const owner = map.hexagons.find((h) => h.id === ownerId)
   if (!owner?.useCases.some((u) => u.id === useCaseId)) return undefined
   const { elements, links } = flowChain(map, flowOf(map, ownerId, useCaseId))
@@ -33,6 +33,6 @@ export function flowFrame(map: HexaMap, ownerId: string, useCaseId: string, { he
     only: new Set(framed.map((h) => h.id)),
     links,
     contexts: new Set(whole.map((c) => c.id)),
-    bounds: unionBox([withGuides(own, framed, guides), ...hullBoxes, ...chipBoxes]),
+    bounds: unionBox([own, ...hullBoxes, ...chipBoxes]),
   }
 }
