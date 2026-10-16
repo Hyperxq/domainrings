@@ -60,6 +60,12 @@ describe('PresentPanel', () => {
     expect(stepNo()).toBeNull()
   })
 
+  it('keeps a long step name whole in its tooltip, since the row cuts it short', () => {
+    present()
+    render(<PresentPanel />)
+    for (const name of document.querySelectorAll('.present-name')) expect(name.getAttribute('title')).toBe(name.textContent)
+  })
+
   it('heads the flow with its name, lists every step with number, name and a role tag, and marks the current one', () => {
     present()
     render(<PresentPanel />)

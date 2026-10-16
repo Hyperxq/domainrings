@@ -162,3 +162,10 @@ describe('step card placement', () => {
     expect(desktop).toMatch(/:has\(\.present-panel\.is-collapsed\)\s+\.step-card\s*\{[^}]*left:\s*50%/)
   })
 })
+
+describe('present step rows', () => {
+  it('let a long name shrink and end in an ellipsis instead of widening the panel', () => {
+    expect(css).toMatch(/\.present-steps button \{[^}]*grid-template-columns:\s*22px minmax\(0, 1fr\) auto/)
+    expect(css).toMatch(/\.present-name \{[^}]*text-overflow:\s*ellipsis/)
+  })
+})

@@ -731,8 +731,9 @@ a.icon-button { color: inherit; text-decoration: none; }
 .present-description { margin: 0 0 12px; color: var(--muted); font-size: 12.5px; }
 .present-steps { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .present-steps li { border: 1px solid transparent; border-radius: 8px; }
-.present-steps button { display: grid; grid-template-columns: 22px 1fr auto; column-gap: 6px; align-items: baseline; width: 100%; padding: 6px 8px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.present-steps button { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; column-gap: 6px; align-items: baseline; width: 100%; padding: 6px 8px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 .present-steps button:hover { background: var(--hover); }
+.present-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .present-steps [aria-current='step'] { padding-bottom: 6px; border-color: var(--thread, var(--teal)); background: color-mix(in srgb, var(--thread, var(--teal)) 14%, transparent); }
 .present-steps [aria-current='step'] button:hover { background: none; }
 .present-steps [aria-current='step'] .present-name { font-family: var(--font-mono); font-weight: 700; }
