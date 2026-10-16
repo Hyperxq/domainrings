@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { footprintRegions, pointInRegion } from './hull'
 import { layoutMap } from './map'
+import { chipBox } from './contextChips'
+import { canvasBounds, contains } from '../ui/viewport'
 import { neighbour, type Cell } from '../model/map'
 import { VERSION, type HexaMap } from '../model/schema'
 import type { LayoutMode } from './layout'
@@ -61,6 +63,43 @@ describe('footprintRegions where outlines touch', () => {
     expect(loops.flat().length).toBeGreaterThanOrEqual(7)
     expect(pointInRegion({ x: 5, y: 5 }, loops)).toBe(true)
     expect(pointInRegion({ x: 18, y: 5 }, loops)).toBe(true)
+  })
+})
+
+describe('footprintRegions with float hexagon coordinates', () => {
+  const R = 33.3
+  const W = (R * Math.sqrt(3)) / 2
+  const hex = (cx: number, cy: number) =>
+    [-90, -30, 30, 90, 150, 210].map((deg) => ({ x: cx + R * Math.cos((deg * Math.PI) / 180), y: cy + R * Math.sin((deg * Math.PI) / 180) }))
+  const apart = (outline: { x: number; y: number }[], q: number) => ({ cell: { q, r: 0 }, contextId: 'c1', outline })
+  const area = (loop: { x: number; y: number }[]) => Math.abs(loop.reduce((sum, p, i) => sum + p.x * loop[(i + 1) % loop.length].y - loop[(i + 1) % loop.length].x * p.y, 0) / 2)
+
+  it.each([false, true])('two hexagons sharing a float edge merge into one 10-vertex loop (swapped: %s)', (swapped) => {
+    const pair = [apart(hex(0.1, 0.3), 0), apart(hex(0.1 + 2 * W, 0.3), 5)]
+    const loops = footprintRegions(swapped ? pair.reverse() : pair).get('c1')!
+    expect(loops).toHaveLength(1)
+    expect(loops[0]).toHaveLength(10)
+    expect(area(loops[0])).toBeCloseTo(2 * area(hex(0, 0)), 3)
+  })
+
+  it.each([false, true])('three mutually touching hexagons merge into one loop (swapped: %s)', (swapped) => {
+    const trio = [apart(hex(0, 0), 0), apart(hex(2 * W, 0), 5), apart(hex(W, 1.5 * R), 9)]
+    const loops = footprintRegions(swapped ? trio.reverse() : trio).get('c1')!
+    expect(loops).toHaveLength(1)
+    expect(area(loops[0])).toBeCloseTo(3 * area(hex(0, 0)), 3)
+  })
+
+  // The crossing points sit on a 0.005 grid edge, so the two edges' float noise rounds to different vertex keys.
+  const [a, b] = [(5 + 0.5) / 100 + 1, (36 + 0.5) / 100 + 1]
+  const bar = [{ x: 0, y: 0 }, { x: a, y: 0 }, { x: a, y: 10 }, { x: 0, y: 10 }]
+  const slab = [{ x: a - 2, y: b - 1.5 }, { x: a + 2.74, y: b - 1.35 }, { x: a + 2.2, y: b + 1.5 }, { x: a - 1.4, y: b + 1.8 }]
+
+  it('keeps closed loops and islands, and never covers a foreign centre, when a chain cannot close', () => {
+    const foreign = { cell: { q: 3, r: 0 }, contextId: 'other', outline: [{ x: 1.4, y: 7.9 }, { x: 1.6, y: 7.9 }, { x: 1.6, y: 8.1 }, { x: 1.4, y: 8.1 }] }
+    const loops = footprintRegions([apart(bar, 0), apart(slab, 1), apart(hex(500, 500), 9), foreign]).get('c1')!
+    expect(pointInRegion({ x: 500, y: 500 }, loops)).toBe(true)
+    expect(pointInRegion({ x: 1.5, y: 8 }, loops)).toBe(false)
+    expect(pointInRegion({ x: 0.5, y: 9 }, loops)).toBe(true)
   })
 })
 
@@ -150,4 +189,25 @@ describe('footprintRegions — property: enclosure and exclusion hold for random
       })
     }
   }
+})
+
+describe('canvasBounds — the unscoped map export frame', () => {
+  const pointBox = (p: { x: number; y: number }) => ({ ...p, width: 0, height: 0 })
+
+  it.each(SEEDS)('seed %i: holds every context hull and chip', (seed) => {
+    const model = layoutMap(seededMap(seed), { mode: 'overview' })
+    const { x, y, width, height } = canvasBounds(model)
+    const frame = { x: x - 1e-6, y: y - 1e-6, width: width + 2e-6, height: height + 2e-6 } // float slack
+    for (const region of model.contexts) {
+      for (const p of region.loops.flat()) expect(contains(frame, pointBox(p))).toBe(true)
+      expect(contains(frame, chipBox(region.chip, region.label, region.size))).toBe(true)
+    }
+  })
+
+  it('holds the outline of a single context', () => {
+    const map = seededMap(3)
+    const model = layoutMap({ ...map, contexts: [{ id: 'c1' }], hexagons: map.hexagons.map((h) => ({ ...h, contextId: 'c1' })) }, { mode: 'overview' })
+    expect(model.outline).toBeDefined()
+    for (const p of model.outline!.flat()) expect(contains(canvasBounds(model), pointBox(p))).toBe(true)
+  })
 })
