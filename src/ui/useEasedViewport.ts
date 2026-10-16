@@ -12,10 +12,11 @@ const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(pre
 
 /** Scale interpolates log-linearly so a zoom reads as a constant-speed zoom, not one that rushes at the end. The
  * origin follows the one diagram point both views put at the same screen spot, so a zoom heads straight at it instead
- * of sliding sideways (a linear origin against a log scale swings the view). Equal scales have no such point: a pan. */
+ * of sliding sideways (a linear origin against a log scale swings the view). Equal scales have no such point: a pan.
+ * Scales a rounding error apart count as equal, since their pivot lies so far out that the subtraction loses the view. */
 const between = (from: Viewport, to: Viewport, t: number): Viewport => {
   const scale = from.scale * (to.scale / from.scale) ** t
-  if (from.scale === to.scale) return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t, scale }
+  if (Math.abs(to.scale - from.scale) <= from.scale * 1e-9) return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t, scale }
   const pivot = (a: number, b: number) => (b * to.scale - a * from.scale) / (to.scale - from.scale)
   const along = (a: number, b: number) => pivot(a, b) - ((pivot(a, b) - a) * from.scale) / scale
   return { x: along(from.x, to.x), y: along(from.y, to.y), scale }

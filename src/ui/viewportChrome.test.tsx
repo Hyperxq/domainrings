@@ -338,6 +338,20 @@ describe('useViewportInteractions fullscreen', () => {
     expect(result.current.fullscreen).toBe(false)
   })
 
+  it('drops the flag when the browser refuses fullscreen, so the toolbar is never hidden for nothing', async () => {
+    const { result } = setup()
+    root.requestFullscreen = vi.fn().mockRejectedValue(new Error('denied'))
+    await act(async () => result.current.setFullscreen(true))
+    expect(result.current.fullscreen).toBe(false)
+  })
+
+  it('drops the flag when the browser has no fullscreen at all', () => {
+    const { result } = setup()
+    delete (root as Partial<HTMLElement>).requestFullscreen
+    act(() => result.current.setFullscreen(true))
+    expect(result.current.fullscreen).toBe(false)
+  })
+
   it('shares the flag through the view store, and clears it when the stage goes away', () => {
     const { result, unmount } = setup()
     act(() => result.current.setFullscreen(true))

@@ -3680,7 +3680,12 @@ describe('copy PNG to the clipboard', () => {
 })
 
 describe('fullscreen', () => {
-  afterEach(() => useViewStore.setState({ fullscreen: false }))
+  // jsdom has no Fullscreen API, and a browser without one never hides the toolbar.
+  beforeEach(() => void (document.documentElement.requestFullscreen = vi.fn().mockResolvedValue(undefined)))
+  afterEach(() => {
+    useViewStore.setState({ fullscreen: false })
+    delete (document.documentElement as Partial<HTMLElement>).requestFullscreen
+  })
 
   it('hides the top toolbar and keeps the zoom island with the exit button', () => {
     render(<App />)

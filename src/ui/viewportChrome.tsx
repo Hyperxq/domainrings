@@ -219,8 +219,10 @@ export function useViewportInteractions({
 
   useEffect(() => {
     if (!fullscreen) return
-    // The root, not the stage: the panels and the zoom island live outside it and would vanish.
-    document.documentElement.requestFullscreen?.().catch(() => {})
+    // The root, not the stage: the panels and the zoom island live outside it and would vanish. A refusal drops the
+    // flag, or the toolbar would stay hidden in a fullscreen that never happened.
+    if (!document.documentElement.requestFullscreen) return void setFullscreen(false)
+    document.documentElement.requestFullscreen().catch(() => setFullscreen(false))
     const onChange = () => !document.fullscreenElement && setFullscreen(false)
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setFullscreen(false)
     document.addEventListener('fullscreenchange', onChange)
