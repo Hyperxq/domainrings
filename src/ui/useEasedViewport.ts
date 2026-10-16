@@ -2,17 +2,26 @@ import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import type { Viewport } from './viewport'
 
 export const EASE_MS = 250
+/** The longest ease: a far zoom gets more time than a short one, but never feels like a wait. */
+const MAX_EASE_MS = 700
 
 const easeOut = (t: number) => 1 - (1 - t) ** 3
 const same = (a: Viewport, b: Viewport) => a.x === b.x && a.y === b.y && a.scale === b.scale
 const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
 
-/** Scale interpolates log-linearly so a zoom reads as a constant-speed zoom, not one that rushes at the end. */
-const between = (from: Viewport, to: Viewport, t: number): Viewport => ({
-  x: from.x + (to.x - from.x) * t,
-  y: from.y + (to.y - from.y) * t,
-  scale: from.scale * (to.scale / from.scale) ** t,
-})
+/** Scale interpolates log-linearly so a zoom reads as a constant-speed zoom, not one that rushes at the end. The
+ * origin follows the one diagram point both views put at the same screen spot, so a zoom heads straight at it instead
+ * of sliding sideways (a linear origin against a log scale swings the view). Equal scales have no such point: a pan. */
+const between = (from: Viewport, to: Viewport, t: number): Viewport => {
+  const scale = from.scale * (to.scale / from.scale) ** t
+  if (from.scale === to.scale) return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t, scale }
+  const pivot = (a: number, b: number) => (b * to.scale - a * from.scale) / (to.scale - from.scale)
+  const along = (a: number, b: number) => pivot(a, b) - ((pivot(a, b) - a) * from.scale) / scale
+  return { x: along(from.x, to.x), y: along(from.y, to.y), scale }
+}
+
+/** One EASE_MS per doubling or halving of the scale past the first, capped at MAX_EASE_MS. */
+const durationOf = (from: Viewport, to: Viewport) => Math.min(MAX_EASE_MS, EASE_MS * Math.max(1, Math.abs(Math.log2(to.scale / from.scale))))
 
 /** The viewport to draw: eases from the view on screen to `target` whenever the target moves, unless `animate` is
  * off (a manual pan or zoom must track the pointer) or the user prefers reduced motion. A change of `settleKey`
@@ -45,9 +54,10 @@ export function useEasedViewport(target: Viewport, animate: boolean, settleKey =
     setShown(from)
     let frame = 0
     let start: number | null = null
+    const duration = durationOf(from, target)
     const step = (now: number) => {
       start ??= now
-      const t = Math.min(1, (now - start) / EASE_MS)
+      const t = Math.min(1, (now - start) / duration)
       const next = t >= 1 ? target : between(from, target, easeOut(t))
       onScreen.current = next
       setShown(next)

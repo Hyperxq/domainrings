@@ -287,7 +287,8 @@ describe('useViewportInteractions flyTo', () => {
     act(() => result.current.flyTo(TARGET))
     frames(64)
     expect(result.current.viewport).not.toEqual(TARGET)
-    frames(EASE_MS)
+    // A 4x zoom gets two EASE_MS.
+    frames(EASE_MS * 2)
     expect(result.current.viewport).toEqual(TARGET)
   })
 

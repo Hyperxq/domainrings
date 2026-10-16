@@ -51,6 +51,30 @@ describe('useEasedViewport', () => {
     expect(result.current.viewport).toEqual(B)
   })
 
+  // A 4x zoom about the diagram point (200, 100): that point sits at screen (200, 100) at both ends.
+  const CLOSE: Viewport = { x: 150, y: 75, scale: 4 }
+  const screenOf = (v: Viewport, p: { x: number; y: number }) => ({ x: (p.x - v.x) * v.scale, y: (p.y - v.y) * v.scale })
+
+  it('zooms straight in: the point that stays put between both views stays put all the way', () => {
+    const { result, rerender } = render({ target: A })
+    rerender({ target: CLOSE })
+    for (let i = 0; i < 5; i++) {
+      frames(48)
+      const at = screenOf(result.current.viewport, { x: 200, y: 100 })
+      expect(at.x).toBeCloseTo(200, 6)
+      expect(at.y).toBeCloseTo(100, 6)
+    }
+  })
+
+  it('gives a large zoom more time, so it does not lunge', () => {
+    const { result, rerender } = render({ target: A })
+    rerender({ target: CLOSE })
+    frames(EASE_MS + 32)
+    expect(result.current.viewport).not.toEqual(CLOSE)
+    frames(EASE_MS + 32)
+    expect(result.current.viewport).toEqual(CLOSE)
+  })
+
   it('retargets from the displayed view when the target moves mid-ease', () => {
     const { result, rerender } = render({ target: A })
     rerender({ target: B })
