@@ -357,11 +357,11 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
       </p>
 
       <Affordances points={visiblePoints} toScreen={toScreen} onPick={pick} onLayer={setHovered} />
-      {!viewOnly && <GrowButtons model={model} hex={hex} scale={viewport.scale} mapToScreen={mapToScreen} title={title} contextLabel={contextLabel} onGrow={onGrow} />}
+      {!viewOnly && zoomLevel(viewport.scale) !== 'far' && <GrowButtons model={model} hex={hex} scale={viewport.scale} mapToScreen={mapToScreen} title={title} contextLabel={contextLabel} onGrow={onGrow} />}
       <HexagonTitles model={model} mapToScreen={mapToScreen} scale={viewport.scale} />
       <BoxLabels model={model} map={map} hexId={hexId} forced={[selected, hoveredRef]} mapToScreen={mapToScreen} scale={viewport.scale} size={size} />
       <MapTitle model={model} mapToScreen={mapToScreen} scale={viewport.scale} />
-      <ExpandToggles model={model} currentId={hexId} mapToScreen={mapToScreen} onToggle={onToggleExpanded} />
+      {zoomLevel(viewport.scale) !== 'far' && <ExpandToggles model={model} currentId={hexId} mapToScreen={mapToScreen} onToggle={onToggleExpanded} />}
       {/* After the canvas controls so a name is never covered; it takes no pointer, so the controls stay clickable. */}
       <ContextReveals contexts={model.contexts} reveals={reveal.reveals} mapToScreen={mapToScreen} scale={viewport.scale} />
       {note && <NotePopover mainRef={mainRef} hexId={hexId} refId={note.ref} text={note.text} />}

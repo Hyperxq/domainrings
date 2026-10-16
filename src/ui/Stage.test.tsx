@@ -1980,6 +1980,17 @@ describe('Stage — hexagon titles stay readable when zoomed out', () => {
       })
     })
 
+    it.each([[1000, 600], [800, 500]])('leaves a gap between the map title and every hexagon title when far out (%i x %i)', (w, h) => {
+      withSize(w, h, () => {
+        largeMap('Propylaea · Growth')
+        const { container } = render(<Harness />)
+        expect(zoomLevel(viewportOf(container).scale)).toBe('far')
+        const mapTitle = rectOf(container.querySelector<HTMLElement>('[data-map-title-overlay]')!)
+        const padded = { x: mapTitle.x - 3, y: mapTitle.y - 3, width: mapTitle.width + 6, height: mapTitle.height + 6 }
+        for (const t of titleOverlays(container)) expect(overlap(padded, rectOf(t))).toBe(false)
+      })
+    })
+
     it('keeps a compact hexagon\'s name, cut with an ellipsis from the full one to fit its width', () => {
       withSize(1400, 800, () => {
         largeMap('Map', 'Analytics events and everything around them')
@@ -2128,6 +2139,7 @@ describe('Stage — box names stay readable when zoomed out', () => {
     expect(css).toMatch(/\.canvas:not\(\.exporting\) \.note-marker\s*\{\s*r:\s*max\(2\.5px,\s*calc\(3px \/ var\(--zoom\)\)\)/)
   })
 
+  // Larger stages label so many boxes that the one hide rule passes jsdom's 2048-character selector limit and is silently ignored.
   it('keeps the aggregate named in the overview, by its label or else its own SVG text', () => {
     const restore = stubFixedSize(1400, 800)
     try {
@@ -2365,6 +2377,25 @@ describe('Stage — detail follows the zoom level', () => {
     const mid = at(1400, 800, 'mid', manyHexagonMap(5))
     try {
       withStyles(() => expect(getComputedStyle(mid.container.querySelector('.chip')!).display).toBe('none'))
+    } finally {
+      mid.restore()
+    }
+  })
+
+  it('far: the editing buttons and the compact element counts are left out; mid has them', () => {
+    const far = at(1000, 600, 'far', manyHexagonMap(5))
+    try {
+      expect(far.container.querySelector('.side-plus, .expand-toggle')).toBeNull()
+      withStyles(() => expect(getComputedStyle(far.container.querySelector('.compact-count')!).display).toBe('none'))
+    } finally {
+      far.restore()
+      cleanup()
+    }
+    const mid = at(1400, 800, 'mid', manyHexagonMap(5))
+    try {
+      expect(mid.container.querySelector('.side-plus')).not.toBeNull()
+      expect(mid.container.querySelector('.expand-toggle')).not.toBeNull()
+      withStyles(() => expect(getComputedStyle(mid.container.querySelector('.compact-count')!).display).not.toBe('none'))
     } finally {
       mid.restore()
     }

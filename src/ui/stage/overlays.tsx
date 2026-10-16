@@ -176,7 +176,8 @@ export function MapTitle({ model, mapToScreen, scale }: { model: MapLayout; mapT
   const at = mapToScreen({ x: title.x, y: title.y })
   const titles = hexagonTitleOverlays(model, mapToScreen, scale).map((t) => t.rect)
   const rect = { x: at.x, y: at.y - TITLE_HEIGHT, width: labelTextWidth(title.text, TITLE_FLOOR_PX), height: TITLE_HEIGHT }
-  for (let hit = titles.find((t) => touches(rect, t)); hit; hit = titles.find((t) => touches(rect, t))) rect.y = hit.y - TITLE_GAP - TITLE_HEIGHT
+  const padded = () => ({ x: rect.x - TITLE_GAP, y: rect.y - TITLE_GAP, width: rect.width + 2 * TITLE_GAP, height: rect.height + 2 * TITLE_GAP })
+  for (let hit = titles.find((t) => touches(padded(), t)); hit; hit = titles.find((t) => touches(padded(), t))) rect.y = hit.y - TITLE_GAP - TITLE_HEIGHT
   return (
     <span className="hexagon-title" data-map-title-overlay="" aria-hidden="true" style={{ left: at.x, top: rect.y + TITLE_HEIGHT, fontSize: TITLE_FLOOR_PX, transform: 'translate(0, -100%)', textAlign: 'left' }}>
       {title.text}
