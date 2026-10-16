@@ -2,12 +2,11 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createRef } from 'react'
 import { Stage } from './Stage'
-import { unionBox } from '../layout/geometry'
 import { hexagonBounds } from '../layout/lattice'
 import { currentHexagon, layoutMap } from '../layout/map'
 import { legendFor } from '../layout/legend'
 import { EXAMPLE_DIAGRAM, STRESS_DIAGRAM } from '../model/example'
-import { flowChain, flowOf } from '../model/flow'
+import { flowFrame } from './flowFrame'
 import { toMap } from '../model/hexa'
 import { contextName, diagramOf, freeSides, neighbour, SIDE_ORDER } from '../model/map'
 import { withoutPlanned } from '../model/planned'
@@ -2259,11 +2258,9 @@ describe('Stage — flying to a picked flow', () => {
   const originalMatchMedia = window.matchMedia
   let restoreSize: () => void
   const frames = (ms: number) => act(() => void vi.advanceTimersByTime(ms))
-  const flowBounds = () => {
+  const frameBounds = (guides: boolean) => {
     const map = useMapStore.getState().map
-    const model = layoutMap(map, { current: 'h1' })
-    const { elements } = flowChain(map, flowOf(map, 'h1', 'uc-submit'))
-    return unionBox(model.hexagons.filter((h) => elements.has(h.id)).map(hexagonBounds))
+    return flowFrame(map, 'h1', 'uc-submit', layoutMap(map, { current: 'h1' }), guides)!.bounds
   }
   beforeEach(() => {
     vi.useFakeTimers()
@@ -2284,10 +2281,18 @@ describe('Stage — flying to a picked flow', () => {
     frames(48)
     expect(viewportOf(container)).not.toEqual(before)
     frames(400)
-    const flow = flowBounds()
-    const fit = fitTo(flow, SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false, null, true), 0)
+    const fit = fitTo(frameBounds(usePreferencesStore.getState().guides), SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false, null, true), 0)
     expect(fit.scale).toBeGreaterThan(before.scale)
     expectViewport(container, fit)
+  })
+
+  it('frames what a flow export frames: with guides shown, the corridor guides and whole contexts too', () => {
+    usePreferencesStore.setState({ guides: true })
+    const { container } = render(<Harness />)
+    act(() => useViewStore.getState().focusFlow('uc-submit'))
+    frames(400)
+    expect(frameBounds(true)).not.toEqual(frameBounds(false))
+    expectViewport(container, fitTo(frameBounds(true), SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false, null, true), 0))
   })
 
   it('does not move the camera when the flow is unpicked', () => {
