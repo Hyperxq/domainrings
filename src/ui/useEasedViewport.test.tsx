@@ -35,11 +35,22 @@ describe('useEasedViewport', () => {
     expect(result.current.viewport.x).toBeLessThan(B.x)
   })
 
-  it('eases out: past the halfway point of the time it has covered more than half the distance', () => {
+  it('eases in: the first frame barely moves, so a pan never starts with a jolt', () => {
+    const PAN: Viewport = { x: 100, y: 0, scale: 1 }
     const { result, rerender } = render({ target: A })
-    rerender({ target: B })
+    rerender({ target: PAN })
+    frames(32)
+    expect(result.current.viewport.x).toBeGreaterThan(0)
+    expect(result.current.viewport.x).toBeLessThan(5)
+  })
+
+  it('eases in and out: around halfway in time it is around halfway there', () => {
+    const PAN: Viewport = { x: 100, y: 0, scale: 1 }
+    const { result, rerender } = render({ target: A })
+    rerender({ target: PAN })
     frames(EASE_MS / 2)
-    expect(result.current.viewport.x).toBeGreaterThan(B.x / 2)
+    expect(result.current.viewport.x).toBeGreaterThan(30)
+    expect(result.current.viewport.x).toBeLessThan(70)
   })
 
   it('reaches the target after the duration and stays there', () => {
@@ -49,6 +60,30 @@ describe('useEasedViewport', () => {
     expect(result.current.viewport).toEqual(B)
     frames(100)
     expect(result.current.viewport).toEqual(B)
+  })
+
+  // A 4x zoom about the diagram point (200, 100): that point sits at screen (200, 100) at both ends.
+  const CLOSE: Viewport = { x: 150, y: 75, scale: 4 }
+  const screenOf = (v: Viewport, p: { x: number; y: number }) => ({ x: (p.x - v.x) * v.scale, y: (p.y - v.y) * v.scale })
+
+  it('zooms straight in: the point that stays put between both views stays put all the way', () => {
+    const { result, rerender } = render({ target: A })
+    rerender({ target: CLOSE })
+    for (let i = 0; i < 5; i++) {
+      frames(48)
+      const at = screenOf(result.current.viewport, { x: 200, y: 100 })
+      expect(at.x).toBeCloseTo(200, 6)
+      expect(at.y).toBeCloseTo(100, 6)
+    }
+  })
+
+  it('gives a large zoom more time, so it does not lunge', () => {
+    const { result, rerender } = render({ target: A })
+    rerender({ target: CLOSE })
+    frames(EASE_MS + 32)
+    expect(result.current.viewport).not.toEqual(CLOSE)
+    frames(EASE_MS + 32)
+    expect(result.current.viewport).toEqual(CLOSE)
   })
 
   it('retargets from the displayed view when the target moves mid-ease', () => {
