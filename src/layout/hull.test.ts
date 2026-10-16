@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { contextRegions, honeycombRegions, pointInRegion } from './hull'
+import { contextRegions, pointInRegion } from './hull'
 import { layoutMap } from './map'
 import { parseHexa } from '../model/hexa'
 import { neighbour, type Cell } from '../model/map'
@@ -57,48 +57,6 @@ describe('contextRegions (ADR-04)', () => {
     expect(regions.get('c2')).toHaveLength(2)
     expect(pointInRegion({ x: 0, y: 0 }, regions.get('c1')!)).toBe(false)
     expect(pointInRegion({ x: 0, y: 0 }, regions.get('c2')!)).toBe(true)
-  })
-})
-
-const rect = (x: number, y: number, width: number, height: number) => [{ x, y }, { x: x + width, y }, { x: x + width, y: y + height }, { x, y: y + height }]
-const RADIUS = 10
-
-describe('honeycombRegions', () => {
-  const big = rect(0, 0, 200, 120)
-  const small = rect(260, 40, 40, 40)
-
-  it('encloses every corner of a footprint and traces nothing but lattice tile edges', () => {
-    const loops = honeycombRegions([{ contextId: 'a', footprint: big }], RADIUS).get('a')!
-    for (const corner of big) expect(pointInRegion(corner, loops)).toBe(true)
-    for (const loop of loops) loop.forEach((p, i) => expect(Math.hypot(loop[(i + 1) % loop.length].x - p.x, loop[(i + 1) % loop.length].y - p.y)).toBeCloseTo(RADIUS))
-  })
-
-  it('stands off a footprint by no more than a tile and a half', () => {
-    const loops = honeycombRegions([{ contextId: 'a', footprint: big }], RADIUS).get('a')!
-    for (const p of [{ x: -2.5 * RADIUS, y: 60 }, { x: 100, y: -2.5 * RADIUS }, { x: 200 + 2.5 * RADIUS, y: 60 }, { x: 100, y: 120 + 2.5 * RADIUS }]) expect(pointInRegion(p, loops)).toBe(false)
-  })
-
-  it('bridges the gap between two footprints of one context that sit a tile or two apart', () => {
-    expect(honeycombRegions([{ contextId: 'a', footprint: big }, { contextId: 'a', footprint: rect(230, 40, 40, 40) }], RADIUS).get('a')).toHaveLength(1)
-  })
-
-  it('keeps footprints a wide gap apart as separate loops', () => {
-    expect(honeycombRegions([{ contextId: 'a', footprint: big }, { contextId: 'a', footprint: small }], RADIUS).get('a')).toHaveLength(2)
-  })
-
-  it('coarsens its tiles on a footprint too large to trace at the requested size', () => {
-    const loops = honeycombRegions([{ contextId: 'a', footprint: rect(0, 0, 1e6, 1e6) }], RADIUS).get('a')!
-    expect(loops.flat().length).toBeLessThan(10_000)
-    expect(pointInRegion({ x: 5e5, y: 5e5 }, loops)).toBe(true)
-  })
-
-  it('leaves a foreign footprint outside, with the shared tiles going to the nearer one', () => {
-    const regions = honeycombRegions([{ contextId: 'a', footprint: big }, { contextId: 'b', footprint: rect(225, 0, 100, 120) }], RADIUS)
-    for (const corner of rect(225, 0, 100, 120)) {
-      expect(pointInRegion(corner, regions.get('a')!)).toBe(false)
-      expect(pointInRegion(corner, regions.get('b')!)).toBe(true)
-    }
-    for (const corner of big) expect(pointInRegion(corner, regions.get('a')!)).toBe(true)
   })
 })
 

@@ -93,55 +93,58 @@ export function pointInRegion(point: Point, loops: readonly Point[][]): boolean 
   return inside
 }
 
-/** The most tiles `honeycombRegions` lays over the footprints; bounds the memory a huge hexagon can cost. */
-const MAX_TILES = 200_000
+function convexHull(points: readonly Point[]): Point[] {
+  const cross = (o: Point, a: Point, b: Point) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+  const chain = (sorted: Point[]) => {
+    const half: Point[] = []
+    for (const p of sorted) {
+      while (half.length >= 2 && cross(half[half.length - 2], half[half.length - 1], p) <= 0) half.pop()
+      half.push(p)
+    }
+    return half.slice(0, -1)
+  }
+  const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y)
+  return [...chain(sorted), ...chain([...sorted].reverse())]
+}
 
-/** Opposite walls: a tile with the same context on both is a gap one tile wide. */
-const OPPOSITE: readonly (readonly [Wall, Wall])[] = [['e', 'w'], ['ne', 'sw'], ['nw', 'se']]
+/** Whether two convex polygons overlap (separating-axis test over both sets of edge normals). */
+function convexOverlap(a: readonly Point[], b: readonly Point[]): boolean {
+  const separated = (from: readonly Point[]) =>
+    from.some((p, i) => {
+      const q = from[(i + 1) % from.length]
+      const [nx, ny] = [q.y - p.y, p.x - q.x]
+      const range = (poly: readonly Point[]) => poly.map((v) => nx * v.x + ny * v.y)
+      return Math.max(...range(a)) < Math.min(...range(b)) || Math.max(...range(b)) < Math.min(...range(a))
+    })
+  return !separated(a) && !separated(b)
+}
 
-/** How far `p` lies outside a convex clockwise (on screen) polygon; negative inside, where it is only a depth. */
-function outside(p: Point, polygon: readonly Point[]): number {
-  const edges = polygon.map((a, i) => ({ a, b: polygon[(i + 1) % polygon.length] }))
-  const depth = Math.max(...edges.map(({ a, b }) => ((b.y - a.y) * (p.x - a.x) - (b.x - a.x) * (p.y - a.y)) / Math.hypot(b.x - a.x, b.y - a.y)))
-  if (depth <= 0) return depth
-  return Math.min(
-    ...edges.map(({ a, b }) => {
-      const t = Math.max(0, Math.min(1, ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / ((b.x - a.x) ** 2 + (b.y - a.y) ** 2)))
-      return Math.hypot(p.x - a.x - t * (b.x - a.x), p.y - a.y - t * (b.y - a.y))
-    }),
-  )
+/** `items` grouped into runs of lattice-adjacent cells. */
+function adjacentGroups<T extends { cell: Cell }>(items: readonly T[]): T[][] {
+  let groups: T[][] = []
+  for (const item of items) {
+    const touching = groups.filter((group) => group.some((m) => EDGE_WALL.some((wall) => cellKey(neighbour(m.cell, wall)) === cellKey(item.cell))))
+    groups = [...groups.filter((group) => !touching.includes(group)), [item, ...touching.flat()]]
+  }
+  return groups
 }
 
 /**
- * Per-context honeycomb contours around footprints that no longer sit on the lattice: a pointy-top tile of the given
- * circumradius `tile` belongs to the context whose footprint its centre lies within one radius of, the nearest when two
- * contexts claim it, so every footprint is wholly covered and the outline stands off it by up to two radii. Tiles
- * left between two claimed tiles of one context are filled, so neighbouring footprints of a context share one loop.
- * The tiles grow when the footprints are so large that tracing them at `tile` would take more than `MAX_TILES`.
+ * Per-context boundary loops hugging each hexagon's own `outline` rather than its lattice tile, for a map whose
+ * hexagons no longer sit on the lattice. A run of adjacent same-context hexagons shares one convex loop, unless
+ * that loop would reach another context's hexagon — then each keeps its own; outlines of different hexagons
+ * never overlap, so the loops never punch holes in each other under an evenodd fill.
  */
-export function honeycombRegions(footprints: readonly { contextId: string; footprint: readonly Point[] }[], tile: number): Map<string, Point[][]> {
-  const area = footprints.reduce((sum, { footprint }) => sum + (Math.max(...footprint.map((p) => p.x)) - Math.min(...footprint.map((p) => p.x))) * (Math.max(...footprint.map((p) => p.y)) - Math.min(...footprint.map((p) => p.y))), 0)
-  const radius = Math.max(tile, Math.sqrt(area / (MAX_TILES * 1.5 * Math.sqrt(3))))
-  const pitch = { x: Math.sqrt(3) * radius, y: 1.5 * radius }
-  const claimed = new Map<string, { cell: Cell; contextId: string; distance: number }>()
-  for (const { contextId, footprint } of footprints) {
-    const [xs, ys] = [footprint.map((p) => p.x), footprint.map((p) => p.y)]
-    for (let r = Math.floor((Math.min(...ys) - radius) / pitch.y); r <= Math.ceil((Math.max(...ys) + radius) / pitch.y); r++) {
-      for (let q = Math.floor((Math.min(...xs) - radius) / pitch.x - r / 2); q <= Math.ceil((Math.max(...xs) + radius) / pitch.x - r / 2); q++) {
-        const distance = outside({ x: pitch.x * (q + r / 2), y: pitch.y * r }, footprint)
-        const key = cellKey({ q, r })
-        if (distance <= radius && distance < (claimed.get(key)?.distance ?? Infinity)) claimed.set(key, { cell: { q, r }, contextId, distance })
-      }
-    }
+export function footprintRegions(hexagons: readonly { cell: Cell; contextId: string; outline: Point[] }[]): Map<string, Point[][]> {
+  const result = new Map<string, Point[][]>()
+  for (const contextId of new Set(hexagons.map((h) => h.contextId))) {
+    const foreign = hexagons.filter((h) => h.contextId !== contextId)
+    const loops = adjacentGroups(hexagons.filter((h) => h.contextId === contextId)).flatMap((group) => {
+      const hull = convexHull(group.flatMap((h) => h.outline))
+      const reachesForeign = foreign.some((f) => convexOverlap(hull, convexHull(f.outline)))
+      return reachesForeign ? group.map((h) => convexHull(h.outline)) : [hull]
+    })
+    result.set(contextId, loops)
   }
-  const owner = (cell: Cell) => claimed.get(cellKey(cell))?.contextId
-  const gaps = [...claimed.values()].flatMap(({ cell }) => EDGE_WALL.map((wall) => neighbour(cell, wall))).filter((cell) => !claimed.has(cellKey(cell)))
-  const filled = new Map<string, { cell: Cell; contextId: string }>()
-  for (const cell of gaps) {
-    for (const [a, b] of OPPOSITE) {
-      const contextId = owner(neighbour(cell, a))
-      if (contextId && contextId === owner(neighbour(cell, b)) && !filled.has(cellKey(cell))) filled.set(cellKey(cell), { cell, contextId })
-    }
-  }
-  return contextRegions([...claimed.values(), ...filled.values()], pitch)
+  return result
 }
