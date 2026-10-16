@@ -821,11 +821,13 @@ const contextMap = (cells: Array<[string, number, number]>, contexts = ['c1', 'c
 /** Three contexts over five hexagons, packed so one context's tiles sit right above another's. */
 const HONEYCOMB = contextMap([['c1', 0, 0], ['c1', 1, 0], ['c2', 0, 1], ['c3', 1, 1], ['c3', -1, 2]])
 
+const DIFFERENT_SIZES_MAP: HexaMap = {
+  ...HONEYCOMB,
+  hexagons: HONEYCOMB.hexagons.map((h, i): Hexagon => (i % 2 ? { ...h, ...(({ version: _v, kind: _k, ...rest }) => rest)(STRESS_DIAGRAM) } : h)),
+}
+
 describe('layoutMap — context hulls on a map of full hexagons', () => {
-  const DIFFERENT_SIZES: HexaMap = {
-    ...HONEYCOMB,
-    hexagons: HONEYCOMB.hexagons.map((h, i): Hexagon => (i % 2 ? { ...h, ...(({ version: _v, kind: _k, ...rest }) => rest)(STRESS_DIAGRAM) } : h)),
-  }
+  const DIFFERENT_SIZES = DIFFERENT_SIZES_MAP
   it.each(MODES.flatMap((mode) => [[mode, HONEYCOMB], [mode, DIFFERENT_SIZES]] as const))('%s: each hull encloses its own hexagons and none of another context’s', (mode, map) => {
     const { contexts, hexagons } = layoutMap(map, { mode })
     expect(contexts).toHaveLength(3)
@@ -836,6 +838,15 @@ describe('layoutMap — context hulls on a map of full hexagons', () => {
         expect(pointInRegion(centre, context.loops), `${context.id} vs ${h.id}`).toBe(h.contextId === context.id)
       }
     }
+  })
+})
+
+describe('layoutMap — context hulls are honeycomb contours', () => {
+  it.each(MODES.flatMap((mode) => [[mode, HONEYCOMB], [mode, DIFFERENT_SIZES_MAP]] as const))('%s: every hull edge is one tile edge, whatever the size of the hexagon it outlines', (mode, map) => {
+    const { contexts } = layoutMap(map, { mode })
+    const lengths = contexts.flatMap((c) => c.loops.flatMap((loop) => loop.map((p, i) => Math.hypot(loop[(i + 1) % loop.length].x - p.x, loop[(i + 1) % loop.length].y - p.y))))
+    expect(lengths.length).toBeGreaterThan(0)
+    for (const length of lengths) expect(length).toBeCloseTo(MAP_GAP / 4)
   })
 })
 

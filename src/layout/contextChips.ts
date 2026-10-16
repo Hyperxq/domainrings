@@ -3,13 +3,13 @@ import type { HexaMap } from '../model/schema'
 import { CHIP_FLOOR_PX, CHIP_GAP, CHIP_LINE, REFERENCE_STAGE } from './chipFit'
 import { MAP_GAP } from './gap'
 import { unionBox, type Box, type Point } from './geometry'
-import { footprintRegions, pointInRegion } from './hull'
+import { honeycombRegions, pointInRegion } from './hull'
 import { hexagonBounds } from './lattice'
 import type { MapContextLayout, MapHexagonLayout } from './map'
 import { CHIP_LABEL, measure } from './text'
 
-/** How far a context's hull stands off the footprints of the hexagons it outlines. */
-const HULL_PAD = MAP_GAP / 3
+/** The circumradius of the honeycomb tiles a context's hull is traced along: it stands off the hexagons it outlines by up to two of them. */
+const HULL_TILE = MAP_GAP / 4
 /** How far from its region a chip on a crowded map may sit, nearest first. */
 const CHIP_REACHES = [1, 2, 3, 4, 5, 6, 7].map((k) => k * CHIP_GAP)
 /** How far a chip on a crowded map may slide sideways along its region, as fractions of its text width. */
@@ -33,7 +33,7 @@ function chipAnchor(loops: Point[][], all: Point[][][], hexagons: Box[], text?: 
     text ? [p, { x: p.x - text.width / 2, y: p.y - text.size }, { x: p.x + text.width / 2, y: p.y - text.size }, { x: p.x - text.width / 2, y: p.y }, { x: p.x + text.width / 2, y: p.y }, { x: p.x, y: p.y - text.size }] : [p]
   const inText = (v: Point, p: Point) => text !== undefined && Math.abs(v.x - p.x) <= text.width / 2 && v.y >= p.y - text.size && v.y <= p.y
   const clear = (p: Point) =>
-    !probes(p).some((q) => all.some((region) => pointInRegion(q, region))) && !all.some((region) => region.flat().some((v) => inText(v, p))) && !keepOut.some((b) => inBox(p, b))
+    !keepOut.some((b) => inBox(p, b)) && !all.some((region) => region.flat().some((v) => inText(v, p))) && !probes(p).some((q) => all.some((region) => pointInRegion(q, region)))
   const byHeight = (a: Point, b: Point) => a.y - b.y || a.x - b.x
   const vertices = loops.flat().sort(byHeight)
   const edgeSpots = (gap: number) =>
@@ -71,18 +71,18 @@ export function chipBox(chip: Point, label: string, size: number): Box {
   return { x: chip.x - measure(label, { ...CHIP_LABEL, size }) / 2, y: chip.y - size, width: measure(label, { ...CHIP_LABEL, size }), height: size * CHIP_LINE }
 }
 
-/** The corners of the area a context's hull keeps around `hex`: the silhouette's own hexagon when compact, else its box. */
+/** The corners of the area a context's contour has to cover for `hex`: the silhouette's own hexagon when compact, else its box. */
 function footprint(hex: MapHexagonLayout): Point[] {
   if (hex.compact) {
-    const radius = hex.compact.radius + HULL_PAD / (Math.sqrt(3) / 2)
+    const { radius } = hex.compact
     return Array.from({ length: 6 }, (_, i): Point => ({ x: hex.centre.x + radius * Math.cos(-Math.PI / 2 + (i * Math.PI) / 3), y: hex.centre.y + radius * Math.sin(-Math.PI / 2 + (i * Math.PI) / 3) }))
   }
   const box = hexagonBounds(hex)
   return [
-    { x: box.x - HULL_PAD, y: box.y - HULL_PAD },
-    { x: box.x + box.width + HULL_PAD, y: box.y - HULL_PAD },
-    { x: box.x + box.width + HULL_PAD, y: box.y + box.height + HULL_PAD },
-    { x: box.x - HULL_PAD, y: box.y + box.height + HULL_PAD },
+    { x: box.x, y: box.y },
+    { x: box.x + box.width, y: box.y },
+    { x: box.x + box.width, y: box.y + box.height },
+    { x: box.x, y: box.y + box.height },
   ]
 }
 
@@ -99,9 +99,7 @@ export function layContexts(
   const occupied = occupiedContexts(map)
   const contexts: MapContextLayout[] = []
   if (occupied.length && (occupied.length >= 2 || hexagons.length > 1)) {
-    // Each hull hugs its hexagons' own footprints, and a compact map's chip must keep its whole text (not just its
-    // baseline point) off every hexagon.
-    const regions = footprintRegions(hexagons.map((h) => ({ cell: h.cell, contextId: h.contextId, outline: footprint(h) })))
+    const regions = honeycombRegions(hexagons.map((h) => ({ contextId: h.contextId, footprint: footprint(h) })), HULL_TILE)
     if (occupied.length === 1) return { contexts, outline: regions.get(occupied[0].id), bounds }
     for (const context of map.contexts) {
       const loops = regions.get(context.id) ?? []
