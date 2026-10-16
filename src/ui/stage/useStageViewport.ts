@@ -78,5 +78,7 @@ export function useStageViewport({
     const next = panInto(heading.current, visibleRect(heading.current, effectiveSize, inset), box)
     if (next && (next.x !== heading.current.x || next.y !== heading.current.y)) setView(next)
   }
-  return { ...interactions, size, centre, panTo }
+  /** Eases the view to the scale and place that fit `box` in the free area, however far out that is. */
+  const flyToBox = (box: Box) => interactions.flyTo(fitTo(box, effectiveSize.width, effectiveSize.height, inset, 0))
+  return { ...interactions, size, centre, panTo, flyToBox }
 }

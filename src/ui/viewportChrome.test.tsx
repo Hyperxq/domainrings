@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
 import { useRef, useState } from 'react'
 import { useElementSize, useFreezeWhilePanelOpen, useViewportInteractions, ZoomControls } from './viewportChrome'
+import { EASE_MS } from './useEasedViewport'
 import { zoomAt, type Viewport } from './viewport'
 
 import { useViewStore } from './state/viewStore'
@@ -256,5 +257,50 @@ describe('useElementSize', () => {
     } finally {
       globalThis.ResizeObserver = original
     }
+  })
+})
+
+describe('useViewportInteractions flyTo', () => {
+  const AUTO: Viewport = { x: 0, y: 0, scale: 1 }
+  const TARGET: Viewport = { x: 100, y: 50, scale: 0.5 }
+  beforeEach(() => {
+    vi.useFakeTimers()
+    window.matchMedia = ((media: string) => ({ matches: false, media })) as unknown as typeof matchMedia
+  })
+  afterEach(() => vi.useRealTimers())
+  const setup = () => renderHook(() => useViewportInteractions({ mainRef: { current: null }, autoFit: AUTO, wholeFitScale: 0.1, fitKey: 'k' }))
+  const frames = (ms: number) => act(() => void vi.advanceTimersByTime(ms))
+
+  it('eases to the target instead of jumping, and lands exactly on it', () => {
+    const { result } = setup()
+    act(() => result.current.flyTo(TARGET))
+    frames(64)
+    expect(result.current.viewport.x).toBeGreaterThan(AUTO.x)
+    expect(result.current.viewport.x).toBeLessThan(TARGET.x)
+    frames(EASE_MS)
+    expect(result.current.viewport).toEqual(TARGET)
+  })
+
+  it('eases from a manual view as well', () => {
+    const { result } = setup()
+    act(() => result.current.setView({ x: 10, y: 10, scale: 2 }))
+    act(() => result.current.flyTo(TARGET))
+    frames(64)
+    expect(result.current.viewport).not.toEqual(TARGET)
+    frames(EASE_MS)
+    expect(result.current.viewport).toEqual(TARGET)
+  })
+
+  it('leaves a plain setView instant', () => {
+    const { result } = setup()
+    act(() => result.current.setView(TARGET))
+    expect(result.current.viewport).toEqual(TARGET)
+  })
+
+  it('snaps under prefers-reduced-motion', () => {
+    window.matchMedia = ((media: string) => ({ matches: media.includes('prefers-reduced-motion'), media })) as unknown as typeof matchMedia
+    const { result } = setup()
+    act(() => result.current.flyTo(TARGET))
+    expect(result.current.viewport).toEqual(TARGET)
   })
 })
