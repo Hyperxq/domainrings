@@ -49,9 +49,17 @@ function chipAnchor(loops: Point[][], all: Point[][][], hexagons: Box[], text?: 
         }),
       )
       .sort(byHeight)
+  const above = (dx: number, gap: number) => vertices.map((v): Point => ({ x: v.x + dx, y: v.y - gap })).find(clear) ?? edgeSpots(gap).map((p): Point => ({ x: p.x + dx, y: p.y })).find(clear)
   for (const dx of text ? CHIP_SLIDES.map((k) => k * text.width) : [0]) {
     for (const gap of text ? CHIP_REACHES : [CHIP_GAP]) {
-      const spot = vertices.map((v): Point => ({ x: v.x + dx, y: v.y - gap })).find(clear) ?? edgeSpots(gap).map((p): Point => ({ x: p.x + dx, y: p.y })).find(clear)
+      const spot = above(dx, gap)
+      if (spot) return spot
+    }
+  }
+  // A full hexagon's box can stand off its ring by more than the fixed reaches, since the region hugs the ring.
+  if (text) {
+    for (const gap of [text.size / 2, text.size]) {
+      const spot = above(0, gap)
       if (spot) return spot
     }
   }
@@ -71,19 +79,27 @@ export function chipBox(chip: Point, label: string, size: number): Box {
   return { x: chip.x - measure(label, { ...CHIP_LABEL, size }) / 2, y: chip.y - size, width: measure(label, { ...CHIP_LABEL, size }), height: size * CHIP_LINE }
 }
 
-/** The corners of the area a context's hull keeps around `hex`: the silhouette's own hexagon when compact, else its box. */
-function footprint(hex: MapHexagonLayout): Point[] {
-  if (hex.compact) {
-    const radius = hex.compact.radius + HULL_PAD / (Math.sqrt(3) / 2)
-    return Array.from({ length: 6 }, (_, i): Point => ({ x: hex.centre.x + radius * Math.cos(-Math.PI / 2 + (i * Math.PI) / 3), y: hex.centre.y + radius * Math.sin(-Math.PI / 2 + (i * Math.PI) / 3) }))
+/** The corners of the area a context's hull keeps around `hex`: its outer ring's own hexagon (the silhouette's when
+ * compact), stood off by `HULL_PAD`. */
+export function footprint(hex: MapHexagonLayout): Point[] {
+  const { halfWidth, straight, apex } = hex.compact
+    ? { halfWidth: (hex.compact.radius * Math.sqrt(3)) / 2, straight: hex.compact.radius / 2, apex: hex.compact.radius }
+    : hex.model.rings[0] ?? { halfWidth: 0, straight: 0, apex: 0 }
+  if (!halfWidth) {
+    // No ring to follow (nothing to hug), so the hexagon's own box stands in.
+    const { x, y, width, height } = hexagonBounds(hex)
+    return [{ x: x - HULL_PAD, y: y - HULL_PAD }, { x: x + width + HULL_PAD, y: y - HULL_PAD }, { x: x + width + HULL_PAD, y: y + height + HULL_PAD }, { x: x - HULL_PAD, y: y + height + HULL_PAD }]
   }
-  const box = hexagonBounds(hex)
-  return [
-    { x: box.x - HULL_PAD, y: box.y - HULL_PAD },
-    { x: box.x + box.width + HULL_PAD, y: box.y - HULL_PAD },
-    { x: box.x + box.width + HULL_PAD, y: box.y + box.height + HULL_PAD },
-    { x: box.x - HULL_PAD, y: box.y + box.height + HULL_PAD },
-  ]
+  // Moving the slanted sides out by HULL_PAD shifts the apex and the shoulders along the vertical sides by a multiple of it.
+  const slant = Math.hypot(halfWidth, apex - straight)
+  const w = halfWidth + HULL_PAD
+  const h = straight + (HULL_PAD * (slant - (apex - straight))) / halfWidth
+  const a = apex + (HULL_PAD * slant) / halfWidth
+  // The top apex also reaches the box's own top, which can stand past the ring: a chip anchored on it then sits above
+  // the lane links take over the box instead of in it.
+  const top = Math.min(hex.centre.y - a, hexagonBounds(hex).y - HULL_PAD)
+  const at = (x: number, y: number): Point => ({ x: hex.centre.x + x, y: hex.centre.y + y })
+  return [{ x: hex.centre.x, y: top }, at(w, -h), at(w, h), at(0, a), at(-w, h), at(-w, -h)]
 }
 
 /** The context regions and their name chips, from two occupied contexts up; `bounds` grows to hold them. A lone
@@ -111,7 +127,7 @@ export function layContexts(
     const placeChips = (size: number) => {
       const taken: Box[] = []
       for (const c of contexts) {
-        c.chip = chipAnchor(c.loops, [...regions.values()], [...boxes, ...taken], compacting ? { width: measure(c.label, { ...CHIP_LABEL, size }), size } : undefined)
+        c.chip = chipAnchor(c.loops, [...regions.values()], [...boxes, ...taken], { width: measure(c.label, { ...CHIP_LABEL, size }), size })
         if (compacting) taken.push(chipBox(c.chip, c.label, size))
       }
     }

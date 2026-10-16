@@ -112,6 +112,7 @@ export const MapDiagram = memo(function MapDiagram({ map, legend, showGuides, fo
             data-chain={chained ? '' : undefined}
           >
             {!isCurrent && <title>{title}</title>}
+            {isCurrent && map.hexagons.length > 1 && <HexCue model={hex.model} />}
             {hex.compact ? (
               <CompactBody compact={hex.compact} title={title} linkTargets={crossLinkTargets.get(hex.id) ?? NO_TARGETS} chain={chained} />
             ) : (
@@ -126,7 +127,6 @@ export const MapDiagram = memo(function MapDiagram({ map, legend, showGuides, fo
                 planned={planned.get(hex.id)!}
               />
             )}
-            {isCurrent && map.hexagons.length > 1 && <HexCue model={hex.model} />}
           </g>
         )
       })}

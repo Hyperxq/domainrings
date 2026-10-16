@@ -1,62 +1,105 @@
 import { describe, expect, it } from 'vitest'
-import { contextRegions, pointInRegion } from './hull'
+import { footprintRegions, pointInRegion } from './hull'
 import { layoutMap } from './map'
-import { parseHexa } from '../model/hexa'
+import { chipBox } from './contextChips'
+import { canvasBounds, contains } from '../ui/viewport'
 import { neighbour, type Cell } from '../model/map'
 import { VERSION, type HexaMap } from '../model/schema'
 import type { LayoutMode } from './layout'
-import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
 
-const pitch = { x: 100, y: 80 }
+const hexOutline = (cx: number, cy: number, w = 26, h = 15, a = 30) =>
+  [{ x: 0, y: -a }, { x: w, y: -h }, { x: w, y: h }, { x: 0, y: a }, { x: -w, y: h }, { x: -w, y: -h }].map((p) => ({ x: cx + p.x, y: cy + p.y }))
+const member = (contextId: string, cell: Cell) => ({ cell, contextId, outline: hexOutline(100 * (cell.q + cell.r / 2), 87 * cell.r) })
 
-describe('contextRegions (ADR-04)', () => {
+describe('footprintRegions (ADR-04)', () => {
   it('a split context draws as one entry with two disjoint outer loops', () => {
-    const hexagons = [
-      { cell: { q: 0, r: 0 }, contextId: 'c1' },
-      { cell: { q: 5, r: 5 }, contextId: 'c1' },
-    ]
-    const regions = contextRegions(hexagons, pitch)
-    const loops = regions.get('c1')!
+    const loops = footprintRegions([member('c1', { q: 0, r: 0 }), member('c1', { q: 5, r: 5 })]).get('c1')!
     expect(loops).toHaveLength(2)
-    // Each loop is its own closed hexagon: 6 vertices, none shared between the two loops.
-    expect(loops[0]).toHaveLength(6)
-    expect(loops[1]).toHaveLength(6)
-    const keysOf = (loop: { x: number; y: number }[]) => new Set(loop.map((p) => `${p.x},${p.y}`))
-    const shared = [...keysOf(loops[0])].some((k) => keysOf(loops[1]).has(k))
-    expect(shared).toBe(false)
+    expect(loops.map((l) => l.length)).toEqual([6, 6])
   })
 
-  it('a ring of six around a foreign cell produces an outer loop and a hole loop, the foreign centre outside by evenodd', () => {
+  it('a ring of six around a foreign cell keeps the foreign centre outside the ring and inside its own region', () => {
     const centre: Cell = { q: 0, r: 0 }
-    const ring = (['e', 'se', 'sw', 'w', 'nw', 'ne'] as const).map((side) => neighbour(centre, side))
-    const hexagons = [
-      ...ring.map((c) => ({ cell: c, contextId: 'ring' })),
-      { cell: centre, contextId: 'foreign' },
-    ]
-    const regions = contextRegions(hexagons, pitch)
-    const loops = regions.get('ring')!
-    expect(loops).toHaveLength(2)
-    // The foreign cell's centre sits at the map origin — outside the ring's region (the hole), by evenodd.
-    expect(pointInRegion({ x: 0, y: 0 }, loops)).toBe(false)
-    // A point on the ring's own far side (well outside everything) is also outside.
-    expect(pointInRegion({ x: 10_000, y: 10_000 }, loops)).toBe(false)
-    const foreignLoops = regions.get('foreign')!
-    expect(foreignLoops).toHaveLength(1)
-    expect(pointInRegion({ x: 0, y: 0 }, foreignLoops)).toBe(true)
+    const ring = (['e', 'se', 'sw', 'w', 'nw', 'ne'] as const).map((side) => member('ring', neighbour(centre, side)))
+    const regions = footprintRegions([...ring, member('foreign', centre)])
+    expect(pointInRegion({ x: 0, y: 0 }, regions.get('ring')!)).toBe(false)
+    expect(pointInRegion({ x: 0, y: 0 }, regions.get('foreign')!)).toBe(true)
   })
 
-  it('the honeycomb fixture shape (6-ring in one context, a split context of the foreign cell plus a far cell)', () => {
-    const result = parseHexa(v2Honeycomb)
-    expect(result.ok).toBe(true)
-    if (!result.ok || result.map.kind !== 'hexagonal') return
-    const hexagons = result.map.hexagons.map((h) => ({ cell: h.cell, contextId: h.contextId }))
-    const regions = contextRegions(hexagons, pitch)
-    // c1 ("Core"): the 6-ring around h7 — one outer loop, one hole loop.
-    expect(regions.get('c1')).toHaveLength(2)
-    // c2 (unnamed): h7 (inside the ring) and h8 (far away) — split, two outer loops.
-    expect(regions.get('c2')).toHaveLength(2)
-    expect(pointInRegion({ x: 0, y: 0 }, regions.get('c1')!)).toBe(false)
-    expect(pointInRegion({ x: 0, y: 0 }, regions.get('c2')!)).toBe(true)
+  it('neighbouring members merge into one loop that follows the hexagons, notch included', () => {
+    const chain = [{ q: 0, r: 0 }, { q: 1, r: 0 }, { q: 1, r: 1 }].map((cell) => member('c1', cell))
+    const loops = footprintRegions(chain).get('c1')!
+    expect(loops).toHaveLength(1)
+    expect(loops[0].length).toBeLessThan(30)
+    for (const m of chain) expect(pointInRegion({ x: m.outline[0].x, y: m.outline[0].y + 10 }, loops)).toBe(true)
+    // inside the convex hull of the three members, but in the notch their union leaves open
+    expect(pointInRegion({ x: 50, y: 40 }, loops)).toBe(false)
+  })
+})
+
+describe('footprintRegions where outlines touch', () => {
+  const square = (x: number, y: number, size = 10) => [{ x, y }, { x: x + size, y }, { x: x + size, y: y + size }, { x, y: y + size }]
+  const apart = (contextId: string, outline: { x: number; y: number }[], q: number) => ({ cell: { q, r: 0 }, contextId, outline })
+
+  it.each([false, true])('two outlines sharing an edge merge into one loop with no seam left behind (swapped: %s)', (swapped) => {
+    const pair = [apart('c1', square(0, 0), 0), apart('c1', square(10, 0), 5)]
+    const loops = footprintRegions(swapped ? pair.reverse() : pair).get('c1')!
+    expect(loops).toHaveLength(1)
+    expect(loops[0]).toHaveLength(4)
+    expect(pointInRegion({ x: 5, y: 5 }, loops)).toBe(true)
+    expect(pointInRegion({ x: 15, y: 5 }, loops)).toBe(true)
+    expect(Math.max(...loops[0].map((p) => p.x))).toBe(20)
+  })
+
+  it('outlines meeting at a single vertex keep both whole', () => {
+    const loops = footprintRegions([apart('c1', square(0, 0), 0), apart('c1', square(10, 10), 5)]).get('c1')!
+    expect(loops).toHaveLength(2)
+    expect(loops.map((l) => l.length)).toEqual([4, 4])
+  })
+
+  it('an outline touched by a vertex on its side stays whole', () => {
+    const triangle = [{ x: 10, y: 5 }, { x: 20, y: 0 }, { x: 20, y: 10 }]
+    const loops = footprintRegions([apart('c1', square(0, 0), 0), apart('c1', triangle, 5)]).get('c1')!
+    expect(loops.flat().length).toBeGreaterThanOrEqual(7)
+    expect(pointInRegion({ x: 5, y: 5 }, loops)).toBe(true)
+    expect(pointInRegion({ x: 18, y: 5 }, loops)).toBe(true)
+  })
+})
+
+describe('footprintRegions with float hexagon coordinates', () => {
+  const R = 33.3
+  const W = (R * Math.sqrt(3)) / 2
+  const hex = (cx: number, cy: number) =>
+    [-90, -30, 30, 90, 150, 210].map((deg) => ({ x: cx + R * Math.cos((deg * Math.PI) / 180), y: cy + R * Math.sin((deg * Math.PI) / 180) }))
+  const apart = (outline: { x: number; y: number }[], q: number) => ({ cell: { q, r: 0 }, contextId: 'c1', outline })
+  const area = (loop: { x: number; y: number }[]) => Math.abs(loop.reduce((sum, p, i) => sum + p.x * loop[(i + 1) % loop.length].y - loop[(i + 1) % loop.length].x * p.y, 0) / 2)
+
+  it.each([false, true])('two hexagons sharing a float edge merge into one 10-vertex loop (swapped: %s)', (swapped) => {
+    const pair = [apart(hex(0.1, 0.3), 0), apart(hex(0.1 + 2 * W, 0.3), 5)]
+    const loops = footprintRegions(swapped ? pair.reverse() : pair).get('c1')!
+    expect(loops).toHaveLength(1)
+    expect(loops[0]).toHaveLength(10)
+    expect(area(loops[0])).toBeCloseTo(2 * area(hex(0, 0)), 3)
+  })
+
+  it.each([false, true])('three mutually touching hexagons merge into one loop (swapped: %s)', (swapped) => {
+    const trio = [apart(hex(0, 0), 0), apart(hex(2 * W, 0), 5), apart(hex(W, 1.5 * R), 9)]
+    const loops = footprintRegions(swapped ? trio.reverse() : trio).get('c1')!
+    expect(loops).toHaveLength(1)
+    expect(area(loops[0])).toBeCloseTo(3 * area(hex(0, 0)), 3)
+  })
+
+  // The crossing points sit on a 0.005 grid edge, so the two edges' float noise rounds to different vertex keys.
+  const [a, b] = [(5 + 0.5) / 100 + 1, (36 + 0.5) / 100 + 1]
+  const bar = [{ x: 0, y: 0 }, { x: a, y: 0 }, { x: a, y: 10 }, { x: 0, y: 10 }]
+  const slab = [{ x: a - 2, y: b - 1.5 }, { x: a + 2.74, y: b - 1.35 }, { x: a + 2.2, y: b + 1.5 }, { x: a - 1.4, y: b + 1.8 }]
+
+  it('keeps closed loops and islands, and never covers a foreign centre, when a chain cannot close', () => {
+    const foreign = { cell: { q: 3, r: 0 }, contextId: 'other', outline: [{ x: 1.4, y: 7.9 }, { x: 1.6, y: 7.9 }, { x: 1.6, y: 8.1 }, { x: 1.4, y: 8.1 }] }
+    const loops = footprintRegions([apart(bar, 0), apart(slab, 1), apart(hex(500, 500), 9), foreign]).get('c1')!
+    expect(pointInRegion({ x: 500, y: 500 }, loops)).toBe(true)
+    expect(pointInRegion({ x: 1.5, y: 8 }, loops)).toBe(false)
+    expect(pointInRegion({ x: 0.5, y: 9 }, loops)).toBe(true)
   })
 })
 
@@ -118,7 +161,7 @@ function seededMap(seed: number): HexaMap {
 const SEEDS = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89]
 const MODES: LayoutMode[] = ['detailed', 'overview']
 
-describe('contextRegions — property: enclosure and exclusion hold for random clusters', () => {
+describe('footprintRegions — property: enclosure and exclusion hold for random clusters', () => {
   for (const seed of SEEDS) {
     for (const mode of MODES) {
       it(`seed ${seed} (${mode}): every hexagon's outer ring lies inside its own region; no foreign centre lies inside it`, () => {
@@ -146,4 +189,25 @@ describe('contextRegions — property: enclosure and exclusion hold for random c
       })
     }
   }
+})
+
+describe('canvasBounds — the unscoped map export frame', () => {
+  const pointBox = (p: { x: number; y: number }) => ({ ...p, width: 0, height: 0 })
+
+  it.each(SEEDS)('seed %i: holds every context hull and chip', (seed) => {
+    const model = layoutMap(seededMap(seed), { mode: 'overview' })
+    const { x, y, width, height } = canvasBounds(model)
+    const frame = { x: x - 1e-6, y: y - 1e-6, width: width + 2e-6, height: height + 2e-6 } // float slack
+    for (const region of model.contexts) {
+      for (const p of region.loops.flat()) expect(contains(frame, pointBox(p))).toBe(true)
+      expect(contains(frame, chipBox(region.chip, region.label, region.size))).toBe(true)
+    }
+  })
+
+  it('holds the outline of a single context', () => {
+    const map = seededMap(3)
+    const model = layoutMap({ ...map, contexts: [{ id: 'c1' }], hexagons: map.hexagons.map((h) => ({ ...h, contextId: 'c1' })) }, { mode: 'overview' })
+    expect(model.outline).toBeDefined()
+    for (const p of model.outline!.flat()) expect(contains(canvasBounds(model), pointBox(p))).toBe(true)
+  })
 })

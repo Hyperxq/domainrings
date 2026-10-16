@@ -14,6 +14,11 @@ describe('hiddenTextRule', () => {
     expect(rule).toBe('.canvas:not(.exporting) [data-hex="h1"] .node-useCase[data-ref="uc-1"] text,.canvas:not(.exporting) [data-hex="h2"] .node-port[data-ref="p-1"] text{display:none}')
   })
 
+  it('hides the card header of a labelled domain item, which the label sits over', () => {
+    const rule = hiddenTextRule([{ hexagonId: 'h1', kind: 'domainItem', ref: 'fb' }])
+    expect(rule).toBe('.canvas:not(.exporting) [data-hex="h1"] :is(.node-domainItem,.node-aggregate)[data-ref="fb"] text{display:none}')
+  })
+
   it('keeps an id with quotes or backslashes inside its string', () => {
     document.body.innerHTML = '<div class="canvas"><svg><g data-hex="h&quot;1"><g class="node node-port" data-ref="a\\b&quot;]x"><text>t</text></g></g></svg></div>'
     const style = document.head.appendChild(document.createElement('style'))

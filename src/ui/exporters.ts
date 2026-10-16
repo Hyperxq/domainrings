@@ -67,7 +67,7 @@ const CANVAS_ONLY = ['class', 'style', 'tabindex', 'role', 'aria-label', 'data-r
 // Map-scoping attributes (SEAM-07): stripped in a SECOND pass, after the `only` filter and the cue removal have
 // used `data-hex`/`data-map-link`/`data-map-title`/`data-hull`/`data-chip`/`data-hulls`/`data-link-pattern` as
 // selectors — stripping them earlier would leave nothing to select.
-const SCOPE_ONLY = ['data-hex', 'aria-current', 'aria-hidden', 'data-map-link', 'data-map-title', 'data-hover', 'data-hull', 'data-chip', 'data-hulls', 'data-link-pattern', 'data-hexagon-title']
+const SCOPE_ONLY = ['data-hex', 'aria-current', 'aria-hidden', 'data-map-link', 'data-map-title', 'data-hover', 'data-hull', 'data-chip', 'data-hulls', 'data-link-pattern', 'data-hexagon-title', 'data-full-title', 'data-outline']
 
 export async function svgMarkup(svg: SVGSVGElement, bounds: Box, title: string, options: ExportOptions): Promise<string> {
   // Exports ignore hover: drop it from the svg root and from whichever hexagon group carries it (CANVAS-03 scopes
@@ -104,7 +104,8 @@ export async function svgMarkup(svg: SVGSVGElement, bounds: Box, title: string, 
     hexGroups.forEach((g) => {
       if (!only.has(g.getAttribute('data-hex')!)) g.remove()
     })
-    clone.querySelectorAll(links ? '[data-map-title]' : '[data-map-link], [data-map-title], [data-hulls], [data-chip], [data-link-pattern]').forEach((el) => el.remove())
+    // The map's single-context outline wraps every hexagon, so it has no place round a subset.
+    clone.querySelectorAll(links ? '[data-map-title], [data-outline]' : '[data-map-link], [data-map-title], [data-hulls], [data-chip], [data-link-pattern], [data-outline]').forEach((el) => el.remove())
     if (links) {
       clone.querySelectorAll('[data-hull], [data-chip]').forEach((el) => {
         if (!contexts?.has(el.getAttribute('data-hull') ?? el.getAttribute('data-chip')!)) el.remove()
@@ -114,10 +115,13 @@ export async function svgMarkup(svg: SVGSVGElement, bounds: Box, title: string, 
       })
     }
   }
-  // The current-hexagon cue is a canvas-only affordance, never part of an export, in either scope. So are Onion's
+  // A compact hexagon's title is cut to fit its silhouette on the canvas; the file has no hover or overlay to show the
+  // rest, so it carries the full name.
+  clone.querySelectorAll('[data-full-title]').forEach((el) => (el.textContent = el.getAttribute('data-full-title')))
+  // The current-hexagon cue and the corridor guides are canvas-only affordances, never part of an export, in either scope. So are Onion's
   // ring/endpoint "+" glyphs and its "Depend on…" chip — they share the svg with the diagram (no separate screen-space
   // overlay layer like Hexagonal's own insertion affordances), so removal is the only way to keep them out of the file.
-  clone.querySelectorAll('[data-cue], [data-plus], [data-note-marker], [data-outline]').forEach((el) => el.remove())
+  clone.querySelectorAll('[data-cue], [data-guide], [data-plus], [data-note-marker]').forEach((el) => el.remove())
   // A non-current hexagon's native tooltip (its <title>, for the "make current" affordance) is canvas-only
   // too: left in, it would leak as a stray tooltip over a map-scope export (EXPORT-01.2).
   clone.querySelectorAll('[data-hex] > title').forEach((el) => el.remove())

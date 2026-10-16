@@ -175,6 +175,34 @@ describe('labels that cannot be placed', () => {
   })
 })
 
+describe('a label on the domain', () => {
+  it('carries the on-domain class when its edge runs wholly on the domain', () => {
+    const [onDomain, onBand] = [{ ...edge(0), intoDomain: 0 }, edge(1000)]
+    placeEdgeLabels([onDomain, onBand], [])
+    const model = { ...layoutDiagram(EXAMPLE_DIAGRAM), edges: [onDomain, onBand] }
+    const { container } = render(
+      <svg>
+        <HexagonBody model={model} showGuides={false} selected={null} linkTargets={new Set()} chain={undefined} interactive notes={new Map()} planned={new Set()} />
+      </svg>,
+    )
+    expect([...container.querySelectorAll('text.edge-label')].map((t) => t.classList.contains('on-domain'))).toEqual([true, false])
+  })
+})
+
+describe('a label that sits on the domain fill', () => {
+  it('carries on-domain even when its edge only enters the domain partway', () => {
+    const model = layoutDiagram(EXAMPLE_DIAGRAM)
+    const far = { x: 0, y: model.bounds.y - 50 }
+    const partial = (labelAt: Point): LayoutEdge => ({ ...edge(0), intoDomain: 1, points: [{ x: 0, y: -400 }, { x: 0, y: 0 }], labelAt })
+    const { container } = render(
+      <svg>
+        <HexagonBody model={{ ...model, edges: [partial({ x: 0, y: 0 }), partial(far)] }} showGuides={false} selected={null} linkTargets={new Set()} chain={undefined} interactive notes={new Map()} planned={new Set()} />
+      </svg>,
+    )
+    expect([...container.querySelectorAll('text.edge-label')].map((t) => t.classList.contains('on-domain'))).toEqual([true, false])
+  })
+})
+
 describe('what a label says', () => {
   const diagram = (verb?: string): Diagram => ({
     version: 1,

@@ -31,7 +31,9 @@ function mapCanvas() {
   h1Marker.textContent = 'H1 marker'
   const cue = document.createElementNS(NS, 'path')
   cue.setAttribute('data-cue', '')
-  h1.append(h1Marker, cue)
+  const guide = document.createElementNS(NS, 'line')
+  guide.setAttribute('data-guide', '')
+  h1.append(h1Marker, cue, guide)
 
   const h2 = document.createElementNS(NS, 'g')
   h2.setAttribute('data-hex', 'h2')
@@ -128,18 +130,41 @@ describe('svgMarkup export scope (SEAM-07, EXPORT-01/02)', () => {
     expect(markup).toContain('H1 marker')
     expect(markup).toContain('H2 marker')
     expect(markup).toContain('Map title')
-    expect(markup).not.toMatch(/data-hex|aria-current|data-cue|data-map-link|data-map-title|data-hover/)
+    expect(markup).not.toMatch(/data-hex|aria-current|data-cue|data-guide|<line|data-map-link|data-map-title|data-hover/)
   })
 
-  it('leaves the canvas-only single-context outline out of an export', async () => {
+  const withOutline = () => {
     const svg = mapCanvas()
     const outline = document.createElementNS(NS, 'path')
     outline.setAttribute('data-outline', '')
     outline.setAttribute('class', 'hull')
+    outline.setAttribute('style', 'stroke: rgb(1, 2, 3); stroke-dasharray: 4 4')
     outline.setAttribute('d', 'M0 0L10 0L10 10Z')
     svg.prepend(outline)
+    return svg
+  }
+
+  it('keeps the single-context outline in a map export, with its paint inlined', async () => {
+    const markup = await svgMarkup(withOutline(), bounds, 'Map title', { legend: false, legendHeight: 0 })
+    expect(markup).toContain('M0 0L10 0L10 10Z')
+    expect(markup).toMatch(/<path[^>]*stroke="rgb\(1, 2, 3\)"[^>]*d="M0 0L10 0L10 10Z"|<path[^>]*d="M0 0L10 0L10 10Z"[^>]*stroke="rgb\(1, 2, 3\)"/)
+    expect(markup).not.toMatch(/data-outline|class=/)
+  })
+
+  it('leaves the outline out of a scope showing only some of the hexagons', async () => {
+    const markup = await svgMarkup(withOutline(), bounds, 'H2', { legend: false, legendHeight: 0, only: new Set(['h2']) })
+    expect(markup).not.toContain('M0 0L10 0L10 10Z')
+  })
+
+  it('writes a compact hexagon’s full title in place of the one cut to fit its silhouette', async () => {
+    const svg = mapCanvas()
+    const text = document.createElementNS(NS, 'text')
+    text.setAttribute('data-full-title', 'Analytics events')
+    text.textContent = 'Analytics e…'
+    svg.querySelector('[data-hex="h1"]')!.appendChild(text)
     const markup = await svgMarkup(svg, bounds, 'Map title', { legend: false, legendHeight: 0 })
-    expect(markup).not.toMatch(/data-outline|M0 0L10 0/)
+    expect(markup).toContain('>Analytics events<')
+    expect(markup).not.toMatch(/Analytics e…|data-full-title/)
   })
 
   it('leaves the note markers out of an export', async () => {

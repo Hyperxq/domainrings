@@ -1,5 +1,5 @@
 import type { CompactLayout } from '../layout/compactHexagon'
-import type { LayoutEdge, LayoutModel, LayoutNode, LayoutText } from '../layout/layout'
+import type { LayoutEdge, LayoutModel, LayoutNode, LayoutRing, LayoutText } from '../layout/layout'
 import type { Point } from '../layout/geometry'
 import { EDGE_LABEL, LINE_METRICS, SUBTITLE, TAG_GAP, TITLE } from '../layout/text'
 import { bandPath } from './band'
@@ -61,10 +61,15 @@ function Edge({ edge, chained }: { edge: LayoutEdge; chained: boolean }) {
   )
 }
 
-function EdgeLabel({ edge, chained }: { edge: LayoutEdge; chained: boolean }) {
+/** Inside the pointy-top hexagon: the slanted caps run from (±halfWidth, straight) to the apex. */
+const inRing = (p: Point, r: Pick<LayoutRing, 'halfWidth' | 'straight' | 'apex'>) =>
+  Math.abs(p.x) <= r.halfWidth && Math.abs(p.y) <= r.apex - (Math.abs(p.x) * (r.apex - r.straight)) / r.halfWidth
+
+// The label's own spot decides its ink: an edge that enters the domain partway can still carry its label on the fill.
+function EdgeLabel({ edge, chained, domain }: { edge: LayoutEdge; chained: boolean; domain?: LayoutRing }) {
   if (!edge.label || !edge.labelAt) return null
   return (
-    <text className="edge-label" data-chain={chained ? '' : undefined} x={edge.labelAt.x} y={edge.labelAt.y} fontSize={EDGE_LABEL.size}>
+    <text className={`edge-label${edge.intoDomain === 0 || (domain && inRing(edge.labelAt, domain)) ? ' on-domain' : ''}`} data-chain={chained ? '' : undefined} x={edge.labelAt.x} y={edge.labelAt.y} fontSize={EDGE_LABEL.size}>
       {edge.label}
     </text>
   )
@@ -160,11 +165,11 @@ export function HexagonBody({ model, showGuides, selected, linkTargets, chain, i
     <>
       {model.rings.map((ring, i) => <Ring key={ring.key} ring={ring} shape={model.shape} inner={model.rings[i + 1]} interactive={interactive} />)}
       {model.region && <path className="domain-region" d={bandPath(model.shape, model.region)} aria-hidden="true" />}
-      {showGuides && model.guides.map((g, k) => <line key={k} className="guide" x1={g.from.x} y1={g.from.y} x2={g.to.x} y2={g.to.y} />)}
-      {showGuides && model.corridors.map((c, k) => <path key={`corridor-${k}`} className="guide" fill="none" d={bandPath(model.shape, c)} aria-hidden="true" />)}
+      {showGuides && model.guides.map((g, k) => <line key={k} className="guide" data-guide="" x1={g.from.x} y1={g.from.y} x2={g.to.x} y2={g.to.y} />)}
+      {showGuides && model.corridors.map((c, k) => <path key={`corridor-${k}`} className="guide" data-guide="" fill="none" d={bandPath(model.shape, c)} aria-hidden="true" />)}
       {model.edges.map((edge) => <Edge key={edge.key} edge={edge} chained={inChain(edge, chain)} />)}
       {model.nodes.map((node) => <Node key={node.key} node={node} selected={node.ref === selected} target={linkTargets.has(node.ref)} chained={!!chain?.has(node.ref)} interactive={interactive} noted={notes.has(node.ref)} planned={planned.has(node.ref)} />)}
-      {model.edges.map((edge) => <EdgeLabel key={edge.key} edge={edge} chained={inChain(edge, chain)} />)}
+      {model.edges.map((edge) => <EdgeLabel key={edge.key} edge={edge} chained={inChain(edge, chain)} domain={model.rings.find((r) => r.role === 'domain')} />)}
       {model.texts.map((text) => <Heading key={text.key} text={text} />)}
     </>
   )
@@ -177,7 +182,7 @@ export function CompactBody({ compact, title, linkTargets, chain }: { compact: C
   return (
     <>
       <path className="ring ring-outer" d={bandPath('hexagon', outline)} />
-      <text className="compact-title" data-hexagon-title="" y={-size * 0.4} fontSize={size}>{label}</text>
+      <text className="compact-title" data-hexagon-title="" data-full-title={title === label ? undefined : title} y={-size * 0.4} fontSize={size}>{label}</text>
       <text className="compact-count" y={size * 0.8} fontSize={size * 0.85}>{elements} {elements === 1 ? 'element' : 'elements'}</text>
       {compact.ports.map((port) => {
         const target = linkTargets.has(port.id)

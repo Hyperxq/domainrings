@@ -22,8 +22,8 @@ import type { Box, Point } from '../layout/geometry'
 import { readFileSync } from 'node:fs'
 import { translatedNodeBox } from '../layout/linkEnds'
 import { boxObstacles } from '../layout/boxLabels'
-import { centreZones } from './stage/labelCulling'
-import { boxLabelsOverlaid } from './stage/overlays'
+import { centreZones, touches } from './stage/labelCulling'
+import { boxLabelsOverlaid, zoomLevel } from './stage/overlays'
 import { labelTextWidth } from './stage/labelWidth'
 import v2Honeycomb from '../model/fixtures/v2-honeycomb.hexa?raw'
 import twoHexagonSample from '../model/fixtures/two-hexagon-sample.hexa?raw'
@@ -677,12 +677,12 @@ describe('Stage — the whole-map auto view survives a canvas focus switch (FIT-
   })
 
   it('a switch on a two-hexagon map keeps the zoom and pans the current hexagon into the area the side panel leaves', () => {
-    const restore = stubFixedSize(700, 920)
+    const restore = stubFixedSize(700, 940)
     try {
       useMapStore.getState().replace(twoHexMap())
       const { container } = render(<Harness />)
       fireEvent.click(hexGroup(container, 'h2'))
-      const size = { width: 700, height: 920 }
+      const size = { width: 700, height: 940 }
       const before = viewportOf(container)
       const model = layoutMap(useMapStore.getState().map)
       const h2 = hexagonBounds(model.hexagons.find((h) => h.id === 'h2')!)
@@ -1956,6 +1956,65 @@ describe('Stage — hexagon titles stay readable when zoomed out', () => {
     })
   })
 
+  describe('on a large map', () => {
+    const font = 12
+    type Rect = { x: number; y: number; width: number; height: number }
+    // The overlays are positioned by their left/top and a transform: left-anchored with the box above the point, or centred on it.
+    const rectOf = (el: HTMLElement): Rect => {
+      const width = Math.min(labelTextWidth(el.textContent!, font), parseFloat(el.style.maxWidth || 'Infinity'))
+      const x = parseFloat(el.style.left)
+      return { x: el.style.transform.startsWith('translate(0') ? x : x - width / 2, y: parseFloat(el.style.top) - font * 1.3, width, height: font * 1.3 }
+    }
+    const overlap = (a: Rect, b: Rect) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+    const largeMap = (title: string, hexTitle?: string) => {
+      const map = manyHexagonMap(5)
+      map.title = title
+      if (hexTitle) map.hexagons[3] = { ...map.hexagons[3], title: hexTitle }
+      useMapStore.getState().replace(map)
+    }
+
+    it('keeps the map title and every hexagon title apart', () => {
+      withSize(1400, 800, () => {
+        largeMap('Propylaea · Growth')
+        const { container } = render(<Harness />)
+        const all = [...titleOverlays(container), ...container.querySelectorAll<HTMLElement>('[data-map-title-overlay]')]
+        expect(all.length).toBeGreaterThan(1)
+        for (const [i, a] of all.entries()) for (const b of all.slice(i + 1)) expect(overlap(rectOf(a), rectOf(b))).toBe(false)
+      })
+    })
+
+    it.each([[1000, 600], [800, 500]])('leaves a gap between the map title and every hexagon title when far out (%i x %i)', (w, h) => {
+      withSize(w, h, () => {
+        largeMap('Propylaea · Growth')
+        const { container } = render(<Harness />)
+        expect(zoomLevel(viewportOf(container).scale)).toBe('far')
+        const mapTitle = rectOf(container.querySelector<HTMLElement>('[data-map-title-overlay]')!)
+        const padded = { x: mapTitle.x - 3, y: mapTitle.y - 3, width: mapTitle.width + 6, height: mapTitle.height + 6 }
+        for (const t of titleOverlays(container)) expect(overlap(padded, rectOf(t))).toBe(false)
+      })
+    })
+
+    it('keeps a compact hexagon\'s name, cut with an ellipsis from the full one to fit its width', () => {
+      withSize(1400, 800, () => {
+        largeMap('Map', 'Analytics events and everything around them')
+        const { container } = render(<Harness />)
+        expect(zoomLevel(viewportOf(container).scale)).toBe('mid')
+        const label = container.querySelector<HTMLElement>('[data-hexagon-title-overlay="h4"]')!
+        expect(label.textContent!.endsWith('…')).toBe(true)
+        expect('Analytics events and everything around them'.startsWith(label.textContent!.slice(0, -1))).toBe(true)
+        expect(rectOf(label).width).toBeLessThanOrEqual(parseFloat(label.style.maxWidth))
+      })
+    })
+
+    it('shows a compact hexagon\'s whole name once it fits', () => {
+      withSize(1800, 1100, () => {
+        largeMap('Map', 'Analytics')
+        const { container } = render(<Harness />)
+        expect(container.querySelector('[data-hexagon-title-overlay="h4"]')?.textContent).toBe('Analytics')
+      })
+    })
+  })
+
   it('hides the SVG map title only on the canvas, never in an export', () => {
     expect(readFileSync('src/styles.css', 'utf8')).toMatch(/\.canvas\.map-title-overlaid:not\(\.exporting\) \[data-map-title\]\s*\{\s*display:\s*none/)
   })
@@ -1982,7 +2041,7 @@ describe('Stage — box names stay readable when zoomed out', () => {
   }
 
   it('names the boxes once a 14px name would render at under half size', () => {
-    withSize(700, 360, () => {
+    withSize(1400, 900, () => {
       const { container } = render(<Harness />)
       expect(viewportOf(container).scale).toBeLessThan(0.5)
       const shown = labels(container)
@@ -2010,7 +2069,7 @@ describe('Stage — box names stay readable when zoomed out', () => {
   })
 
   it('shows no two labels on top of each other', () => {
-    withSize(700, 360, () => {
+    withSize(1400, 900, () => {
       const { container } = render(<Harness />)
       const rects = labels(container).map((l) => {
         const [x, y] = [parseFloat(l.style.left), parseFloat(l.style.top)]
@@ -2045,7 +2104,7 @@ describe('Stage — box names stay readable when zoomed out', () => {
   })
 
   it('always shows the label of the hovered box, even where another label wins the spot', () => {
-    withSize(700, 360, () => {
+    withSize(1400, 900, () => {
       const { container } = render(<Harness />)
       const shown = new Set(labels(container).map((l) => l.textContent))
       const hidden = [...container.querySelectorAll<SVGGElement>('[data-hex="h1"] .node-domainItem')].find((n) => !shown.has(n.textContent!.trim()))
@@ -2056,7 +2115,7 @@ describe('Stage — box names stay readable when zoomed out', () => {
   })
 
   it('hides the SVG text of exactly the boxes whose label is shown, so none goes blank', () => {
-    withSize(700, 360, () => {
+    withSize(1400, 900, () => {
       const { container } = render(<Harness />)
       const css = readFileSync('src/styles.css', 'utf8')
       const style = document.createElement('style')
@@ -2083,8 +2142,9 @@ describe('Stage — box names stay readable when zoomed out', () => {
     expect(css).toMatch(/\.canvas:not\(\.exporting\) \.note-marker\s*\{\s*r:\s*max\(2\.5px,\s*calc\(3px \/ var\(--zoom\)\)\)/)
   })
 
+  // Larger stages label so many boxes that the one hide rule passes jsdom's 2048-character selector limit and is silently ignored.
   it('keeps the aggregate named in the overview, by its label or else its own SVG text', () => {
-    const restore = stubFixedSize(700, 360)
+    const restore = stubFixedSize(1400, 800)
     try {
       useMapStore.getState().replace(twoHexMap())
       usePreferencesStore.setState({ mode: 'overview' })
@@ -2093,6 +2153,7 @@ describe('Stage — box names stay readable when zoomed out', () => {
       style.textContent = readFileSync('src/styles.css', 'utf8')
       document.head.appendChild(style)
       try {
+        expect(zoomLevel(viewportOf(container).scale)).toBe('mid')
         const labelled = labels(container).some((l) => l.dataset.boxLabel === 'h1:domainItem:d-feedback')
         const text = container.querySelector('[data-hex="h1"] .node-domainItem[data-ref="d-feedback"] text')!
         expect(labelled || getComputedStyle(text).display !== 'none').toBe(true)
@@ -2106,14 +2167,14 @@ describe('Stage — box names stay readable when zoomed out', () => {
   })
 
   it('hands the zoom to CSS on the canvas', () => {
-    withSize(700, 360, () => {
+    withSize(1400, 900, () => {
       const { container } = render(<Harness />)
       expect(Number((svg(container) as SVGElement).style.getPropertyValue('--zoom'))).toBeCloseTo(viewportOf(container).scale, 3)
     })
   })
 
   it('leaves compact hexagons to their own title', () => {
-    const restore = stubFixedSize(700, 360)
+    const restore = stubFixedSize(1400, 900)
     try {
       useMapStore.getState().replace(manyHexagonMap(5))
       const { container } = render(<Harness />)
@@ -2254,14 +2315,132 @@ describe('Stage — an element that gets hidden while selected or hovered', () =
   })
 })
 
+describe('Stage — detail follows the zoom level', () => {
+  const css = readFileSync('src/styles.css', 'utf8')
+  const boxLabels = (container: HTMLElement) => container.querySelectorAll('[data-box-label]')
+  const titles = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>('[data-hexagon-title-overlay]')]
+  const at = (width: number, height: number, level: 'far' | 'mid' | 'near', map: HexaMap = twoHexMap()) => {
+    const restore = stubFixedSize(width, height)
+    useMapStore.getState().replace(map)
+    const rendered = render(<Harness />)
+    expect(zoomLevel(viewportOf(rendered.container).scale)).toBe(level)
+    return { ...rendered, restore }
+  }
+  const withStyles = (run: () => void) => {
+    const style = document.createElement('style')
+    style.textContent = css
+    document.head.appendChild(style)
+    try {
+      run()
+    } finally {
+      style.remove()
+    }
+  }
+
+  it('cuts the levels at a quarter and a half', () => {
+    expect([0.24, 0.25, 0.49, 0.5].map(zoomLevel)).toEqual(['far', 'mid', 'mid', 'near'])
+  })
+
+  it('far: no box labels, and the canvas is marked far', () => {
+    const { container, restore } = at(300, 160, 'far')
+    try {
+      expect(boxLabels(container)).toHaveLength(0)
+      expect(svg(container).classList.contains('zoom-far')).toBe(true)
+    } finally {
+      restore()
+    }
+  })
+
+  it('far: hexagon names are not cut to the hexagon width, and none overlap', () => {
+    const map = manyHexagonMap(5)
+    map.hexagons[3] = { ...map.hexagons[3], title: 'Analytics events' }
+    const { container, restore } = at(1000, 600, 'far', map)
+    try {
+      expect(container.querySelector('[data-hexagon-title-overlay="h4"]')?.textContent).toBe('Analytics events')
+      const rects = titles(container).map((el) => {
+        const width = labelTextWidth(el.textContent!, 12)
+        const x = parseFloat(el.style.left)
+        return { x: el.style.transform.startsWith('translate(0') ? x : x - width / 2, y: parseFloat(el.style.top) - 15.6, width, height: 15.6 }
+      })
+      expect(rects.length).toBeGreaterThan(1)
+      for (const [i, a] of rects.entries()) for (const b of rects.slice(i + 1)) expect(touches(a, b)).toBe(false)
+    } finally {
+      restore()
+    }
+  })
+
+  it('far: the context name shows on the canvas; mid keeps it hidden', () => {
+    const far = at(600, 300, 'far', manyHexagonMap(5))
+    try {
+      withStyles(() => expect(getComputedStyle(far.container.querySelector('.chip')!).display).not.toBe('none'))
+    } finally {
+      far.restore()
+      cleanup()
+    }
+    const mid = at(1400, 800, 'mid', manyHexagonMap(5))
+    try {
+      withStyles(() => expect(getComputedStyle(mid.container.querySelector('.chip')!).display).toBe('none'))
+    } finally {
+      mid.restore()
+    }
+  })
+
+  it('far: the editing buttons and the compact element counts are left out; mid has them', () => {
+    const far = at(1000, 600, 'far', manyHexagonMap(5))
+    try {
+      expect(far.container.querySelector('.side-plus, .expand-toggle')).toBeNull()
+      withStyles(() => expect(getComputedStyle(far.container.querySelector('.compact-count')!).display).toBe('none'))
+    } finally {
+      far.restore()
+      cleanup()
+    }
+    const mid = at(1400, 800, 'mid', manyHexagonMap(5))
+    try {
+      expect(mid.container.querySelector('.side-plus')).not.toBeNull()
+      expect(mid.container.querySelector('.expand-toggle')).not.toBeNull()
+      withStyles(() => expect(getComputedStyle(mid.container.querySelector('.compact-count')!).display).not.toBe('none'))
+    } finally {
+      mid.restore()
+    }
+  })
+
+  it('mid: box labels are drawn, and none sits on a hexagon title', () => {
+    const { container, restore } = at(1400, 900, 'mid')
+    try {
+      expect(boxLabels(container).length).toBeGreaterThan(0)
+      expect(svg(container).classList.contains('zoom-mid')).toBe(true)
+      const rect = (el: HTMLElement, font: number, centred: boolean) => {
+        const width = labelTextWidth(el.textContent!, font)
+        const [x, y] = [parseFloat(el.style.left), parseFloat(el.style.top)]
+        return { x: centred ? x - width / 2 : x, y: centred ? y - font * 0.65 : y - font * 1.3, width, height: font * 1.3 }
+      }
+      for (const title of titles(container))
+        for (const label of container.querySelectorAll<HTMLElement>('[data-box-label]')) expect(touches(rect(title, 12, title.style.transform === ''), rect(label, 11, true))).toBe(false)
+    } finally {
+      restore()
+    }
+  })
+
+  it('near: the canvas is marked near, and only the live canvas fades the context outline and name', () => {
+    const { container, restore } = at(9000, 6000, 'near', linkedTwoHexMap())
+    try {
+      expect(svg(container).classList.contains('zoom-near')).toBe(true)
+      expect(css).toMatch(/\.canvas\.zoom-near:not\(\.exporting\)[^{]*\.hull[^{]*\{[^}]*opacity/)
+      expect(css).toMatch(/\.canvas\.zoom-near:not\(\.exporting\)[^{]*\.chip[^{]*\{[^}]*opacity/)
+    } finally {
+      restore()
+    }
+  })
+})
+
 describe('Stage — flying to a picked flow', () => {
   const SCREEN = { width: 2000, height: 800 }
   const originalMatchMedia = window.matchMedia
   let restoreSize: () => void
   const frames = (ms: number) => act(() => void vi.advanceTimersByTime(ms))
-  const frameBounds = (guides: boolean) => {
+  const frameBounds = () => {
     const map = useMapStore.getState().map
-    return flowFrame(map, 'h1', 'uc-submit', layoutMap(map, { current: 'h1' }), guides)!.bounds
+    return flowFrame(map, 'h1', 'uc-submit', layoutMap(map, { current: 'h1' }))!.bounds
   }
   beforeEach(() => {
     vi.useFakeTimers()
@@ -2282,18 +2461,17 @@ describe('Stage — flying to a picked flow', () => {
     frames(48)
     expect(viewportOf(container)).not.toEqual(before)
     frames(400)
-    const fit = fitTo(frameBounds(usePreferencesStore.getState().guides), SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false, null, true), 0)
+    const fit = fitTo(frameBounds(), SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false, null, true), 0)
     expect(fit.scale).toBeGreaterThan(before.scale)
     expectViewport(container, fit)
   })
 
-  it('frames what a flow export frames: with guides shown, the corridor guides and whole contexts too', () => {
+  it('frames what a flow export frames, whether or not the corridor guides are shown', () => {
     usePreferencesStore.setState({ guides: true })
     const { container } = render(<Harness />)
     act(() => useViewStore.getState().focusFlow('uc-submit'))
     frames(400)
-    expect(frameBounds(true)).not.toEqual(frameBounds(false))
-    expectViewport(container, fitTo(frameBounds(true), SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false, null, true), 0))
+    expectViewport(container, fitTo(frameBounds(), SCREEN.width, SCREEN.height, islandInset(SCREEN, false, false, null, true), 0))
   })
 
   it('does not move the camera when the flow is unpicked', () => {

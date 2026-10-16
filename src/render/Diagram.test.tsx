@@ -57,6 +57,7 @@ describe('MapDiagram — corridor guides', () => {
     expect(corridors.length).toBeGreaterThanOrEqual(2)
     expect(container.querySelectorAll('line.guide')).toHaveLength(guides.length)
     expect(container.querySelectorAll('path.guide')).toHaveLength(corridors.length)
+    expect(container.querySelectorAll('.guide:not([data-guide])')).toHaveLength(0)
   })
 
   it('draws no guide at all when guides are off', () => {
@@ -208,6 +209,14 @@ describe('MapDiagram — current-hexagon scoping (FOCUS-01, CANVAS-03, EDIT-01)'
     const cues = container.querySelectorAll('[data-cue]')
     expect(cues).toHaveLength(1)
     expect(cues[0].closest('[data-hex]')!.getAttribute('data-hex')).toBe('h2')
+  })
+
+  it('draws the cue before the hexagon body, so the body covers it', () => {
+    const { container } = renderSvg(twoHexagonMap(), { focus: 'h2' })
+    const group = container.querySelector('[data-hex="h2"]')!
+    const cue = group.querySelector('[data-cue]')!
+    expect(cue.compareDocumentPosition(group.querySelector('.ring')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(cue.compareDocumentPosition(group.querySelector('.node')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('scopes selection and link targets to the current group, even when another hexagon shares the item id', () => {
@@ -374,6 +383,14 @@ describe('MapDiagram — compact neighbours', () => {
     expect(compact.querySelectorAll('path.ring')).toHaveLength(1)
     expect(compact.querySelectorAll('.node:not(.compact-port), .edge, [data-band]')).toHaveLength(0)
     expect(container.querySelector('[data-hex="h2"]')!.querySelectorAll('.node').length).toBeGreaterThan(0)
+  })
+
+  it('carries the full title of a compact hexagon only when its label was shortened', () => {
+    const map = manyHexagonMap(5)
+    map.hexagons[0].title = 'A hexagon title far too long for its silhouette'
+    const { container } = renderSvg(map, { focus: 'h2' })
+    expect(container.querySelector('[data-hex="h1"] .compact-title')?.getAttribute('data-full-title')).toBe('A hexagon title far too long for its silhouette')
+    expect(container.querySelector('[data-hex="h3"] .compact-title')?.hasAttribute('data-full-title')).toBe(false)
   })
 
   it('names the compact hexagon after its title and keeps it one focusable control', () => {

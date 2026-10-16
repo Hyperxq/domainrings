@@ -19,7 +19,7 @@ const map: HexaMap = {
   ],
 }
 const layout = layoutMap(map, { mode: 'detailed', current: 'h1', expanded: new Set() })
-const frame = (useCaseId: string, guides = false, owner = 'h1') => flowFrame(map, owner, useCaseId, layout, guides)
+const frame = (useCaseId: string, owner = 'h1') => flowFrame(map, owner, useCaseId, layout)
 
 describe('flowFrame', () => {
   it('holds exactly the hexagons the flow touches and the links between them', () => {
@@ -36,15 +36,9 @@ describe('flowFrame', () => {
   })
 
   it('frames just the one hexagon of a flow that stays inside it', () => {
-    const framed = flowFrame({ ...map, links: TWO_SLICES_MAP.links }, 'h3', 'uc-bill', layout, false)!
+    const framed = flowFrame({ ...map, links: TWO_SLICES_MAP.links }, 'h3', 'uc-bill', layout)!
     expect([...framed.only]).toEqual(['h3'])
     expect(framed.links.size).toBe(0)
-  })
-
-  it('grows the frame to hold the corridor guides when they are shown', () => {
-    const plain = frame('uc-place')!.bounds
-    const guided = frame('uc-place', true)!.bounds
-    expect(guided.width * guided.height).toBeGreaterThanOrEqual(plain.width * plain.height)
   })
 
   it('has no frame for an unknown flow', () => {
@@ -59,7 +53,7 @@ describe('flowFrame', () => {
     })
     const framed = (m: HexaMap) => {
       const laid = layoutMap(m, { mode: 'detailed', current: 'h1', expanded: new Set() })
-      return { laid, result: flowFrame(m, 'h1', 'uc-place', laid, false)! }
+      return { laid, result: flowFrame(m, 'h1', 'uc-place', laid)! }
     }
 
     it('keeps a context whose hexagons are all framed, and grows the frame to hold its hull and chip', () => {
@@ -90,7 +84,7 @@ describe('flowFrame', () => {
     it('ignores a context with no hexagons instead of counting it as whole', () => {
       const { laid } = framed(inContexts(['c1', 'c1', 'c2']))
       const empty = { ...laid.contexts[0], id: 'c-empty', loops: [] }
-      const result = flowFrame(inContexts(['c1', 'c1', 'c2']), 'h1', 'uc-place', { ...laid, contexts: [...laid.contexts, empty] }, false)!
+      const result = flowFrame(inContexts(['c1', 'c1', 'c2']), 'h1', 'uc-place', { ...laid, contexts: [...laid.contexts, empty] })!
       expect(result.contexts.has('c-empty')).toBe(false)
       expect(Number.isFinite(result.bounds.width) && Number.isFinite(result.bounds.height)).toBe(true)
     })

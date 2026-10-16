@@ -23,7 +23,7 @@ import { flowFrame } from './flowFrame'
 import { useInspectedFlow } from './FlowInspector'
 import { StepCard, usePresentation } from './PresentPanel'
 import { NotePopover } from './stage/NotePopover'
-import { BoxLabels, ContextReveals, ExpandToggles, GrowButtons, HexagonTitles, LinkChip, MapTitle, mapTitleOverlaid, titlesOverlaid } from './stage/overlays'
+import { BoxLabels, ContextReveals, ExpandToggles, GrowButtons, HexagonTitles, LinkChip, MapTitle, mapTitleOverlaid, titlesOverlaid, zoomLevel } from './stage/overlays'
 import { useCanvasShortcuts } from './stage/useCanvasShortcuts'
 import { useContextReveal } from './stage/useContextReveal'
 import { useHexagonFocus } from './stage/useHexagonFocus'
@@ -191,7 +191,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
     if (!focusedFlow || !measured || presenting) return
     const owner = hexagonOf(focusedFlow)
     if (!owner) return
-    const frame = flowFrame(map, owner, focusedFlow, model, showGuides)
+    const frame = flowFrame(map, owner, focusedFlow, model)
     if (frame?.only.size) flyToBox(frame.bounds)
     // Re-fires on the pick and the walkthrough alone: the map, layout and view move on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -259,7 +259,7 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
     >
       <svg
         ref={svgRef}
-        className={['canvas', titlesOverlaid(viewport.scale) && 'titles-overlaid', model.title && mapTitleOverlaid(model.title, viewport.scale) && 'map-title-overlaid'].filter(Boolean).join(' ')}
+        className={['canvas', `zoom-${zoomLevel(viewport.scale)}`, titlesOverlaid(viewport.scale) && 'titles-overlaid', model.title && mapTitleOverlaid(model.title, viewport.scale) && 'map-title-overlaid'].filter(Boolean).join(' ')}
         style={{ '--zoom': viewport.scale } as CSSProperties}
         role="figure"
         aria-label={title || 'Architecture diagram'}
@@ -379,11 +379,11 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
       </p>
 
       <Affordances points={visiblePoints} toScreen={toScreen} onPick={pick} onLayer={setHovered} />
-      {!viewOnly && <GrowButtons model={model} hex={hex} scale={viewport.scale} mapToScreen={mapToScreen} title={title} contextLabel={contextLabel} onGrow={onGrow} />}
+      {!viewOnly && zoomLevel(viewport.scale) !== 'far' && <GrowButtons model={model} hex={hex} scale={viewport.scale} mapToScreen={mapToScreen} title={title} contextLabel={contextLabel} onGrow={onGrow} />}
       <HexagonTitles model={model} mapToScreen={mapToScreen} scale={viewport.scale} />
       <BoxLabels model={model} map={map} hexId={hexId} forced={[selected, hoveredRef]} mapToScreen={mapToScreen} scale={viewport.scale} size={size} />
       <MapTitle model={model} mapToScreen={mapToScreen} scale={viewport.scale} />
-      <ExpandToggles model={model} currentId={hexId} mapToScreen={mapToScreen} onToggle={onToggleExpanded} />
+      {zoomLevel(viewport.scale) !== 'far' && <ExpandToggles model={model} currentId={hexId} mapToScreen={mapToScreen} onToggle={onToggleExpanded} />}
       {/* After the canvas controls so a name is never covered; it takes no pointer, so the controls stay clickable. */}
       <ContextReveals contexts={model.contexts} reveals={reveal.reveals} mapToScreen={mapToScreen} scale={viewport.scale} />
       {note && <NotePopover mainRef={mainRef} hexId={hexId} refId={note.ref} text={note.text} />}
