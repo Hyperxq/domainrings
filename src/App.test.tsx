@@ -2659,6 +2659,27 @@ describe('copy and open a stored share link', () => {
     expect(location.hash).toBe('')
   })
 
+  it('shares a map over the #m= budget through the store, and refuses it when the store is down', async () => {
+    const randomNote = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(20000))))
+    const base = twoHexMap()
+    const inflated = base.hexagons[0].useCases.map((u, i) => (i === 0 ? { ...u, note: randomNote } : u))
+    const big = { ...base, hexagons: [{ ...base.hexagons[0], useCases: inflated }, base.hexagons[1]] }
+    installShareStore()
+    const writeText = stubClipboard()
+    useMapStore.getState().replace(big)
+    render(<App />)
+
+    const url = await copyLink(writeText)
+    expect(url).toContain(STORED_HASH_PREFIX)
+    const result = parseHexa((await fetchStoredPayload(url.slice(url.indexOf(STORED_HASH_PREFIX) + STORED_HASH_PREFIX.length)))!)
+    expect(result.ok && result.map).toEqual(big)
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Share store unavailable.', { status: 503 })))
+    choose('Share', 'Copy link')
+    await vi.waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Use Save'))
+    expect(writeText).toHaveBeenCalledTimes(1)
+  })
+
   it('reports a #s= link whose map cannot be fetched, and leaves the map alone', async () => {
     installShareStore()
     const before = useMapStore.getState().map

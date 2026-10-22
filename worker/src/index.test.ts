@@ -46,6 +46,16 @@ describe('share store Worker', () => {
     expect((await post('abc', { DB: failing })).status).toBe(503)
   })
 
+  it('answers an uncached 503 when the database refuses the read (free-plan quota reached)', async () => {
+    const failing = { prepare: () => ({ bind: () => ({ run: async () => undefined, first: () => Promise.reject(new Error('D1_ERROR: limit')) }) }) }
+
+    const read = await worker.fetch(new Request(`${STORE}/AAAAAAAAAAA`), { DB: failing })
+
+    expect(read.status).toBe(503)
+    expect(read.headers.get('Cache-Control')).toBe('no-store')
+    expect(read.headers.get('Access-Control-Allow-Origin')).toBe('*')
+  })
+
   it('answers 429 once the per-client rate limit is spent', async () => {
     const db = memoryShareDb()
     const limiter = { limit: async () => ({ success: false }) }

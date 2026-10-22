@@ -57,7 +57,12 @@ async function create(request: Request, env: Env): Promise<Response> {
 
 async function read(id: string, env: Env): Promise<Response> {
   if (!ID_PATTERN.test(id)) return reply(404, 'Not found.')
-  const row = await env.DB.prepare('SELECT data FROM shares WHERE id = ?').bind(id).first<{ data: string }>()
+  let row: { data: string } | null
+  try {
+    row = await env.DB.prepare('SELECT data FROM shares WHERE id = ?').bind(id).first<{ data: string }>()
+  } catch {
+    return reply(503, 'Share store unavailable.')
+  }
   if (!row) return reply(404, 'Not found.')
   // An id is never rewritten, so its payload can be cached for good.
   return reply(200, row.data, { 'Content-Type': 'text/plain', 'Cache-Control': 'public, max-age=31536000, immutable' })

@@ -8,7 +8,8 @@ export const SHARE_LINK_MAX_CHARS = 8000 // full-link budget — ADR-01
 // A stored link: `#s=<id>,<key>`. The key only ever lives in the fragment, which browsers never send, so the
 // share store holds ciphertext it cannot read.
 export const STORED_HASH_PREFIX = '#s='
-const UPLOAD_TIMEOUT_MS = 3000
+// Covers a Worker cold start plus a 48 KB upload on a slow mobile link; past it the self-contained link is used.
+const UPLOAD_TIMEOUT_MS = 5000
 const DOWNLOAD_TIMEOUT_MS = 10000
 const IV_BYTES = 12
 
