@@ -2612,9 +2612,9 @@ describe('copy and open a stored share link', () => {
 
   it('starts the clipboard write inside the click, before the upload answers, where ClipboardItem exists', async () => {
     installShareStore()
-    const items: Record<string, Promise<string>>[] = []
+    const items: Record<string, Promise<Blob>>[] = []
     vi.stubGlobal('ClipboardItem', class {
-      constructor(data: Record<string, Promise<string>>) {
+      constructor(data: Record<string, Promise<Blob>>) {
         items.push(data)
       }
     })
@@ -2626,7 +2626,9 @@ describe('copy and open a stored share link', () => {
     choose('Share', 'Copy link')
 
     expect(write).toHaveBeenCalledTimes(1)
-    await expect(items[0]['text/plain']).resolves.toMatch(new RegExp(`${STORED_HASH_PREFIX}[A-Za-z0-9_-]{11},`))
+    const blob = await items[0]['text/plain']
+    expect(blob.type).toBe('text/plain')
+    expect(await blob.text()).toMatch(new RegExp(`${STORED_HASH_PREFIX}[A-Za-z0-9_-]{11},`))
     await vi.waitFor(() => expect(toastEl()!.textContent).toContain('Copied'))
   })
 
@@ -2680,16 +2682,17 @@ describe('copy and open a stored share link', () => {
     expect(writeText).toHaveBeenCalledTimes(1)
   })
 
-  it('reports a #s= link whose map cannot be fetched, and leaves the map alone', async () => {
+  it('reports a #s= link whose map cannot be fetched, leaves the map alone, and keeps the link for a reload', async () => {
     installShareStore()
     const before = useMapStore.getState().map
-    location.hash = `${STORED_HASH_PREFIX}AAAAAAAAAAA,AAAAAAAAAAAAAAAAAAAAAA`
+    const hash = `${STORED_HASH_PREFIX}AAAAAAAAAAA,AAAAAAAAAAAAAAAAAAAAAA`
+    location.hash = hash
 
     render(<App />)
-    await vi.waitFor(() => expect(screen.getByRole('alert').textContent).toContain('This link could not be read.'))
+    await vi.waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Reload the page to try again.'))
 
     expect(useMapStore.getState().map).toBe(before)
-    expect(location.hash).toBe('')
+    expect(location.hash).toBe(hash)
   })
 })
 

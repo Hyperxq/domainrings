@@ -61,8 +61,13 @@ export function useShareLink(actions: ShareLinkActions) {
         const text = prefix === SHARE_HASH_PREFIX ? await decodeSharePayload(payload) : await fetchStoredPayload(payload)
         if (!isLatest()) return
         if (text === undefined) {
-          showError('This link could not be read.')
-          return finishLink()
+          if (prefix === SHARE_HASH_PREFIX) {
+            showError('This link could not be read.')
+            return finishLink()
+          }
+          // A stored link can fail for a passing reason (timeout, daily quota), so it stays for a reload to retry.
+          showError('This link could not be opened. Reload the page to try again.')
+          return
         }
         await openLinkedText(text, new URLSearchParams(options.join('&')), isLatest)
         return isLatest() ? finishLink() : undefined

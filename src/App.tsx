@@ -43,11 +43,12 @@ interface AppProps {
 }
 
 // Safari revokes clipboard access once the click's activation expires, which a share-store upload can outlast; a
-// ClipboardItem holding a promise starts the write inside the click and fills it in when the link is ready.
+// ClipboardItem holding a promise starts the write inside the click and fills it in when the link is ready. Some
+// browsers only accept a Blob there, not a string.
 const writeClipboardLater = (text: Promise<string>): Promise<void> =>
   typeof ClipboardItem === 'undefined'
     ? text.then((t) => navigator.clipboard.writeText(t))
-    : navigator.clipboard.write([new ClipboardItem({ 'text/plain': text })])
+    : navigator.clipboard.write([new ClipboardItem({ 'text/plain': text.then((t) => new Blob([t], { type: 'text/plain' })) })])
 
 export function App({ boot = {} }: AppProps = {}) {
   // The sole branch point (ADR-02): both stores are read unconditionally — the inactive one never mutates,
