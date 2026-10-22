@@ -2605,7 +2605,8 @@ describe('copy and open a stored share link', () => {
     const url = await copyLink(writeText)
 
     expect(url).toMatch(new RegExp(`${STORED_HASH_PREFIX}[A-Za-z0-9_-]{11},[A-Za-z0-9_-]{22}$`))
-    const result = parseHexa((await fetchStoredPayload(url.slice(url.indexOf(STORED_HASH_PREFIX) + STORED_HASH_PREFIX.length)))!)
+    const stored = await fetchStoredPayload(url.slice(url.indexOf(STORED_HASH_PREFIX) + STORED_HASH_PREFIX.length))
+    const result = parseHexa('text' in stored ? stored.text : '')
     expect(result.ok && result.map).toEqual(twoHexMap())
     expect(toastEl()!.textContent).toContain('Copied')
   })
@@ -2673,7 +2674,8 @@ describe('copy and open a stored share link', () => {
 
     const url = await copyLink(writeText)
     expect(url).toContain(STORED_HASH_PREFIX)
-    const result = parseHexa((await fetchStoredPayload(url.slice(url.indexOf(STORED_HASH_PREFIX) + STORED_HASH_PREFIX.length)))!)
+    const stored = await fetchStoredPayload(url.slice(url.indexOf(STORED_HASH_PREFIX) + STORED_HASH_PREFIX.length))
+    const result = parseHexa('text' in stored ? stored.text : '')
     expect(result.ok && result.map).toEqual(big)
 
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Share store unavailable.', { status: 503 })))
@@ -2682,8 +2684,21 @@ describe('copy and open a stored share link', () => {
     expect(writeText).toHaveBeenCalledTimes(1)
   })
 
-  it('reports a #s= link whose map cannot be fetched, leaves the map alone, and keeps the link for a reload', async () => {
+  it('reports a #s= link the store does not hold as unreadable, leaves the map alone, and clears the hash', async () => {
     installShareStore()
+    const before = useMapStore.getState().map
+    location.hash = `${STORED_HASH_PREFIX}AAAAAAAAAAA,AAAAAAAAAAAAAAAAAAAAAA`
+
+    render(<App />)
+    await vi.waitFor(() => expect(screen.getByRole('alert').textContent).toContain('This link could not be read.'))
+
+    expect(useMapStore.getState().map).toBe(before)
+    expect(location.hash).toBe('')
+  })
+
+  it('keeps a #s= link for a reload when the store is temporarily unavailable', async () => {
+    vi.stubEnv('VITE_SHARE_API_URL', SHARE_STORE_URL)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Share store unavailable.', { status: 503 })))
     const before = useMapStore.getState().map
     const hash = `${STORED_HASH_PREFIX}AAAAAAAAAAA,AAAAAAAAAAAAAAAAAAAAAA`
     location.hash = hash

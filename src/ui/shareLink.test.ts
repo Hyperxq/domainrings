@@ -56,10 +56,10 @@ describe('storeSharePayload / fetchStoredPayload (stored links)', () => {
     const map = toMap(EXAMPLE_DIAGRAM)
 
     const token = await storeSharePayload(map)
-    const text = await fetchStoredPayload(token!)
+    const stored = await fetchStoredPayload(token!)
 
     expect(token).toMatch(/^[A-Za-z0-9_-]{11},[A-Za-z0-9_-]{22}$/)
-    expect(text).toBe(toHexa(map))
+    expect(stored).toEqual({ text: toHexa(map) })
     expect([...rows.values()].join()).not.toContain(map.title)
   })
 
@@ -92,7 +92,7 @@ describe('storeSharePayload / fetchStoredPayload (stored links)', () => {
     const fetchSpy = vi.fn().mockRejectedValue(new DOMException('The operation timed out.', 'TimeoutError'))
     vi.stubGlobal('fetch', fetchSpy)
 
-    await expect(fetchStoredPayload('AAAAAAAAAAA,AAAAAAAAAAAAAAAAAAAAAA')).resolves.toBeUndefined()
+    await expect(fetchStoredPayload('AAAAAAAAAAA,AAAAAAAAAAAAAAAAAAAAAA')).resolves.toEqual({ failure: 'unavailable' })
     expect(fetchSpy.mock.calls[0][1].signal).toBeDefined()
   })
 
@@ -102,8 +102,15 @@ describe('storeSharePayload / fetchStoredPayload (stored links)', () => {
     const [id] = token.split(',')
     const otherKey = (await storeSharePayload(toMap(EXAMPLE_DIAGRAM)))!.split(',')[1]
 
-    await expect(fetchStoredPayload(`AAAAAAAAAAA,${otherKey}`)).resolves.toBeUndefined()
-    await expect(fetchStoredPayload(`${id},${otherKey}`)).resolves.toBeUndefined()
-    await expect(fetchStoredPayload(id)).resolves.toBeUndefined()
+    await expect(fetchStoredPayload(`AAAAAAAAAAA,${otherKey}`)).resolves.toEqual({ failure: 'broken' })
+    await expect(fetchStoredPayload(`${id},${otherKey}`)).resolves.toEqual({ failure: 'broken' })
+    await expect(fetchStoredPayload(id)).resolves.toEqual({ failure: 'broken' })
+  })
+
+  it('reports a store over quota as unavailable, not broken', async () => {
+    vi.stubEnv('VITE_SHARE_API_URL', SHARE_STORE_URL)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Share store unavailable.', { status: 503 })))
+
+    await expect(fetchStoredPayload('AAAAAAAAAAA,AAAAAAAAAAAAAAAAAAAAAA')).resolves.toEqual({ failure: 'unavailable' })
   })
 })

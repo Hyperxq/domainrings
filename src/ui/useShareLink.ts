@@ -58,16 +58,17 @@ export function useShareLink(actions: ShareLinkActions) {
         // The payload is base64url (plus a ',' in a stored link), which never contains '&', so anything after it is
         // link options.
         const [payload, ...options] = location.hash.slice(prefix.length).split('&')
-        const text = prefix === SHARE_HASH_PREFIX ? await decodeSharePayload(payload) : await fetchStoredPayload(payload)
+        const read = prefix === SHARE_HASH_PREFIX ? { text: await decodeSharePayload(payload) } : await fetchStoredPayload(payload)
         if (!isLatest()) return
+        const text = 'text' in read ? read.text : undefined
         if (text === undefined) {
-          if (prefix === SHARE_HASH_PREFIX) {
-            showError('This link could not be read.')
-            return finishLink()
+          if ('failure' in read && read.failure === 'unavailable') {
+            // A passing failure (timeout, daily quota): the link stays for a reload to retry.
+            showError('This link could not be opened. Reload the page to try again.')
+            return
           }
-          // A stored link can fail for a passing reason (timeout, daily quota), so it stays for a reload to retry.
-          showError('This link could not be opened. Reload the page to try again.')
-          return
+          showError('This link could not be read.')
+          return finishLink()
         }
         await openLinkedText(text, new URLSearchParams(options.join('&')), isLatest)
         return isLatest() ? finishLink() : undefined

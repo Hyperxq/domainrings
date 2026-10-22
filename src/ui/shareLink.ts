@@ -88,19 +88,28 @@ export async function storeSharePayload(file: StoredFile): Promise<string | unde
   }
 }
 
-/** `undefined` means the stored map could not be fetched or decrypted — unknown id, wrong key, store down. */
-export async function fetchStoredPayload(token: string): Promise<string | undefined> {
+/** `broken` never opens (malformed token, unknown id, wrong key, no store in this build); `unavailable` may open
+ * on a later try (timeout, network error, store over quota). */
+export type StoredPayload = { text: string } | { failure: 'broken' | 'unavailable' }
+
+export async function fetchStoredPayload(token: string): Promise<StoredPayload> {
   const store = shareStore()
   const [id, key] = token.split(',')
-  if (!store || !id || !key) return undefined
+  if (!store || !id || !key) return { failure: 'broken' }
+  let response: Response
   try {
-    const response = await fetch(`${store}/${encodeURIComponent(id)}`, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) })
-    if (!response.ok) return undefined
+    response = await fetch(`${store}/${encodeURIComponent(id)}`, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) })
+  } catch {
+    return { failure: 'unavailable' }
+  }
+  if (response.status === 404) return { failure: 'broken' }
+  if (!response.ok) return { failure: 'unavailable' }
+  try {
     const sealed = fromBase64Url(await response.text())
     const cryptoKey = await crypto.subtle.importKey('raw', fromBase64Url(key), 'AES-GCM', false, ['decrypt'])
     const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: sealed.slice(0, IV_BYTES) }, cryptoKey, sealed.slice(IV_BYTES))
-    return await inflate(new Uint8Array(plain))
+    return { text: await inflate(new Uint8Array(plain)) }
   } catch {
-    return undefined
+    return { failure: 'broken' }
   }
 }
