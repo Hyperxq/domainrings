@@ -80,6 +80,22 @@ describe('storeSharePayload / fetchStoredPayload (stored links)', () => {
     await expect(storeSharePayload(toMap(EXAMPLE_DIAGRAM))).resolves.toBeUndefined()
   })
 
+  it('treats a store reply without a usable id as a failure', async () => {
+    vi.stubEnv('VITE_SHARE_API_URL', SHARE_STORE_URL)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ id: '../x' }, { status: 201 })))
+
+    await expect(storeSharePayload(toMap(EXAMPLE_DIAGRAM))).resolves.toBeUndefined()
+  })
+
+  it('gives up on a stored link whose store stops answering', async () => {
+    vi.stubEnv('VITE_SHARE_API_URL', SHARE_STORE_URL)
+    const fetchSpy = vi.fn().mockRejectedValue(new DOMException('The operation timed out.', 'TimeoutError'))
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await expect(fetchStoredPayload('AAAAAAAAAAA,AAAAAAAAAAAAAAAAAAAAAA')).resolves.toBeUndefined()
+    expect(fetchSpy.mock.calls[0][1].signal).toBeDefined()
+  })
+
   it('returns undefined for an unknown id or the wrong key', async () => {
     installShareStore()
     const token = (await storeSharePayload(toMap(EXAMPLE_DIAGRAM)))!

@@ -42,6 +42,13 @@ interface AppProps {
   boot?: { kind?: StoredFile['kind'] }
 }
 
+// Safari revokes clipboard access once the click's activation expires, which a share-store upload can outlast; a
+// ClipboardItem holding a promise starts the write inside the click and fills it in when the link is ready.
+const writeClipboardLater = (text: Promise<string>): Promise<void> =>
+  typeof ClipboardItem === 'undefined'
+    ? text.then((t) => navigator.clipboard.writeText(t))
+    : navigator.clipboard.write([new ClipboardItem({ 'text/plain': text })])
+
 export function App({ boot = {} }: AppProps = {}) {
   // The sole branch point (ADR-02): both stores are read unconditionally — the inactive one never mutates,
   // since its UI never mounts — and `activeKind` (flipped by the chooser and by swap()) decides which renders.
@@ -126,16 +133,23 @@ export function App({ boot = {} }: AppProps = {}) {
 
   // REQ-05/06: the ACTIVE document's whole file (`active.file`, the same single resolution `exportAs` uses) —
   // not always the Hexagonal map, and never scoped to one hexagon, which "Copy link" never promises.
-  const handleCopyLink = async () => {
+  /** `undefined` when the store is unavailable and the self-contained link is over budget. */
+  const shareLinkFor = async (): Promise<string | undefined> => {
     const stored = await storeSharePayload(active.file)
-    const url = stored
-      ? shareLinkURL(location.origin, location.pathname, stored, STORED_HASH_PREFIX)
-      : shareLinkURL(location.origin, location.pathname, await encodeSharePayload(active.file))
-    if (!stored && isOversizedShareLink(url)) {
+    if (stored) return shareLinkURL(location.origin, location.pathname, stored, STORED_HASH_PREFIX)
+    const url = shareLinkURL(location.origin, location.pathname, await encodeSharePayload(active.file))
+    return isOversizedShareLink(url) ? undefined : url
+  }
+
+  const handleCopyLink = async () => {
+    const link = shareLinkFor()
+    try {
+      await writeClipboardLater(link.then((url) => url ?? Promise.reject(new Error('Link over budget'))))
+    } catch (error) {
+      if ((await link) !== undefined) throw error
       show({ tone: 'error', message: 'This map is too large for a link. Use Save to share it as .hexa instead.' })
       return
     }
-    await navigator.clipboard.writeText(url)
     show({ tone: 'status', message: 'Copied a link to this map.' })
   }
 

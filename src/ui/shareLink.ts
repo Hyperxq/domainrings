@@ -9,6 +9,7 @@ export const SHARE_LINK_MAX_CHARS = 8000 // full-link budget — ADR-01
 // share store holds ciphertext it cannot read.
 export const STORED_HASH_PREFIX = '#s='
 const UPLOAD_TIMEOUT_MS = 3000
+const DOWNLOAD_TIMEOUT_MS = 10000
 const IV_BYTES = 12
 
 export function isOversizedShareLink(url: string): boolean {
@@ -64,8 +65,8 @@ export async function decodeSharePayload(payload: string): Promise<string | unde
 
 const shareStore = (): string | undefined => (import.meta.env.VITE_SHARE_API_URL as string | undefined)?.replace(/\/+$/, '')
 
-/** The `<id>,<key>` that follows `#s=`, or `undefined` when no store is configured or it does not answer in time —
- * the caller then falls back to a self-contained link. */
+/** The `<id>,<key>` that follows `#s=`, or `undefined` when no store is configured, it refuses the map or it does
+ * not answer in time — the caller then falls back to a self-contained link. */
 export async function storeSharePayload(file: StoredFile): Promise<string | undefined> {
   const store = shareStore()
   if (!store) return undefined
@@ -78,7 +79,8 @@ export async function storeSharePayload(file: StoredFile): Promise<string | unde
     sealed.set(cipher, IV_BYTES)
     const response = await fetch(`${store}/`, { method: 'POST', body: toBase64Url(sealed), signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS) })
     if (!response.ok) return undefined
-    const { id } = (await response.json()) as { id: string }
+    const { id } = (await response.json()) as { id?: unknown }
+    if (typeof id !== 'string' || !/^[A-Za-z0-9_-]+$/.test(id)) return undefined
     return `${id},${toBase64Url(new Uint8Array(await crypto.subtle.exportKey('raw', key)))}`
   } catch {
     return undefined
@@ -91,7 +93,7 @@ export async function fetchStoredPayload(token: string): Promise<string | undefi
   const [id, key] = token.split(',')
   if (!store || !id || !key) return undefined
   try {
-    const response = await fetch(`${store}/${encodeURIComponent(id)}`)
+    const response = await fetch(`${store}/${encodeURIComponent(id)}`, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) })
     if (!response.ok) return undefined
     const sealed = fromBase64Url(await response.text())
     const cryptoKey = await crypto.subtle.importKey('raw', fromBase64Url(key), 'AES-GCM', false, ['decrypt'])

@@ -33,7 +33,9 @@ describe('share store Worker', () => {
     const db = memoryShareDb()
 
     expect((await post('a'.repeat(MAX_SHARE_CHARS + 1), { DB: db })).status).toBe(413)
-    expect((await post('', { DB: db })).status).toBe(413)
+    expect((await post('a'.repeat(MAX_SHARE_CHARS), { DB: db })).status).toBe(201)
+    db.rows.clear()
+    expect((await post('', { DB: db })).status).toBe(400)
     expect((await post('{"title":"plain"}', { DB: db })).status).toBe(400)
     expect(db.rows.size).toBe(0)
   })

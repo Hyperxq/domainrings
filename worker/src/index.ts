@@ -20,13 +20,30 @@ const reply = (status: number, body: string | null, headers: Record<string, stri
 
 const newId = () => btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(8)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 
+/** Stops reading past `max` bytes, so a body sent without Content-Length cannot be buffered whole first. */
+async function readCapped(request: Request, max: number): Promise<string | undefined> {
+  const reader = request.body?.getReader()
+  if (!reader) return ''
+  const decoder = new TextDecoder()
+  let text = ''
+  let size = 0
+  for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
+    size += chunk.value.byteLength
+    if (size > max) {
+      await reader.cancel()
+      return undefined
+    }
+    text += decoder.decode(chunk.value, { stream: true })
+  }
+  return text + decoder.decode()
+}
+
 async function create(request: Request, env: Env): Promise<Response> {
   const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown'
   if (env.SHARE_LIMITER && !(await env.SHARE_LIMITER.limit({ key: ip })).success) return reply(429, 'Too many shares, try again in a minute.')
-  if (Number(request.headers.get('Content-Length') ?? 0) > MAX_SHARE_CHARS) return reply(413, 'Payload too large.')
-  const payload = await request.text()
-  if (payload.length === 0 || payload.length > MAX_SHARE_CHARS) return reply(413, 'Payload too large.')
-  if (!PAYLOAD_PATTERN.test(payload)) return reply(400, 'Payload must be base64url.')
+  const payload = await readCapped(request, MAX_SHARE_CHARS)
+  if (payload === undefined) return reply(413, 'Payload too large.')
+  if (!PAYLOAD_PATTERN.test(payload)) return reply(400, 'Payload must be non-empty base64url.')
   const id = newId()
   try {
     await env.DB.prepare('INSERT INTO shares (id, data) VALUES (?, ?)').bind(id, payload).run()

@@ -2610,6 +2610,26 @@ describe('copy and open a stored share link', () => {
     expect(toastEl()!.textContent).toContain('Copied')
   })
 
+  it('starts the clipboard write inside the click, before the upload answers, where ClipboardItem exists', async () => {
+    installShareStore()
+    const items: Record<string, Promise<string>>[] = []
+    vi.stubGlobal('ClipboardItem', class {
+      constructor(data: Record<string, Promise<string>>) {
+        items.push(data)
+      }
+    })
+    const write = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { write }, configurable: true })
+    useMapStore.getState().replace(twoHexMap())
+    render(<App />)
+
+    choose('Share', 'Copy link')
+
+    expect(write).toHaveBeenCalledTimes(1)
+    await expect(items[0]['text/plain']).resolves.toMatch(new RegExp(`${STORED_HASH_PREFIX}[A-Za-z0-9_-]{11},`))
+    await vi.waitFor(() => expect(toastEl()!.textContent).toContain('Copied'))
+  })
+
   it('falls back to the self-contained #m= link when the share store is down', async () => {
     vi.stubEnv('VITE_SHARE_API_URL', SHARE_STORE_URL)
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Share store unavailable.', { status: 503 })))

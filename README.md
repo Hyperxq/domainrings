@@ -101,6 +101,8 @@ npx wrangler d1 migrations apply domainrings-share --remote
 npx wrangler deploy                              # prints the Worker URL
 ```
 
+A `#s=` link does not record which store holds it: give the Worker a custom domain before sharing links and keep it, since links made against a URL stop opening once the build points elsewhere.
+
 Then build the app with `VITE_SHARE_API_URL=<Worker URL>` (the Pages workflow reads the `SHARE_API_URL` repository variable).
 
 ## License
