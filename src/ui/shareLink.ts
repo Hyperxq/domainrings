@@ -5,13 +5,20 @@ import type { StoredFile } from '../model/fileFormat'
 // text. No model knowledge here: parseHexa remains the single validation gateway for the decoded text.
 export const SHARE_HASH_PREFIX = '#m='
 export const SHARE_LINK_MAX_CHARS = 8000 // full-link budget — ADR-01
+// A stored link: `#s=<id>,<key>`. The key only ever lives in the fragment, which browsers never send, so the
+// share store holds ciphertext it cannot read.
+export const STORED_HASH_PREFIX = '#s='
+// Covers a Worker cold start plus a 48 KB upload on a slow mobile link; past it the self-contained link is used.
+const UPLOAD_TIMEOUT_MS = 5000
+const DOWNLOAD_TIMEOUT_MS = 10000
+const IV_BYTES = 12
 
 export function isOversizedShareLink(url: string): boolean {
   return url.length > SHARE_LINK_MAX_CHARS
 }
 
-export function shareLinkURL(origin: string, pathname: string, payload: string): string {
-  return `${origin}${pathname}${SHARE_HASH_PREFIX}${payload}`
+export function shareLinkURL(origin: string, pathname: string, payload: string, prefix = SHARE_HASH_PREFIX): string {
+  return `${origin}${pathname}${prefix}${payload}`
 }
 
 const toBase64Url = (bytes: Uint8Array): string => {
@@ -38,18 +45,71 @@ const streamOf = (bytes: Uint8Array<ArrayBuffer>): ReadableStream<Uint8Array<Arr
     },
   })
 
+const deflate = async (text: string): Promise<Uint8Array<ArrayBuffer>> =>
+  new Uint8Array(await new Response(streamOf(new TextEncoder().encode(text)).pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer())
+
+const inflate = (bytes: Uint8Array<ArrayBuffer>): Promise<string> =>
+  new Response(streamOf(bytes).pipeThrough(new DecompressionStream('deflate-raw'))).text()
+
 export async function encodeSharePayload(file: StoredFile): Promise<string> {
-  const compressed = streamOf(new TextEncoder().encode(toHexa(file))).pipeThrough(new CompressionStream('deflate-raw'))
-  const bytes = new Uint8Array(await new Response(compressed).arrayBuffer())
-  return toBase64Url(bytes)
+  return toBase64Url(await deflate(toHexa(file)))
 }
 
 /** `undefined` means the payload could not be decoded — malformed base64url or a corrupt deflate stream. */
 export async function decodeSharePayload(payload: string): Promise<string | undefined> {
   try {
-    const decompressed = streamOf(fromBase64Url(payload)).pipeThrough(new DecompressionStream('deflate-raw'))
-    return await new Response(decompressed).text()
+    return await inflate(fromBase64Url(payload))
   } catch {
     return undefined
+  }
+}
+
+const shareStore = (): string | undefined => (import.meta.env.VITE_SHARE_API_URL as string | undefined)?.replace(/\/+$/, '')
+
+/** The `<id>,<key>` that follows `#s=`, or `undefined` when no store is configured, it refuses the map or it does
+ * not answer in time — the caller then falls back to a self-contained link. */
+export async function storeSharePayload(file: StoredFile): Promise<string | undefined> {
+  const store = shareStore()
+  if (!store) return undefined
+  try {
+    const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 128 }, true, ['encrypt'])
+    const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES))
+    const cipher = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, await deflate(toHexa(file))))
+    const sealed = new Uint8Array(IV_BYTES + cipher.length)
+    sealed.set(iv)
+    sealed.set(cipher, IV_BYTES)
+    const response = await fetch(`${store}/`, { method: 'POST', body: toBase64Url(sealed), signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS) })
+    if (!response.ok) return undefined
+    const { id } = (await response.json()) as { id?: unknown }
+    if (typeof id !== 'string' || !/^[A-Za-z0-9_-]+$/.test(id)) return undefined
+    return `${id},${toBase64Url(new Uint8Array(await crypto.subtle.exportKey('raw', key)))}`
+  } catch {
+    return undefined
+  }
+}
+
+/** `broken` never opens (malformed token, unknown id, wrong key, no store in this build); `unavailable` may open
+ * on a later try (timeout, network error, store over quota). */
+export type StoredPayload = { text: string } | { failure: 'broken' | 'unavailable' }
+
+export async function fetchStoredPayload(token: string): Promise<StoredPayload> {
+  const store = shareStore()
+  const [id, key] = token.split(',')
+  if (!store || !id || !key) return { failure: 'broken' }
+  let response: Response
+  try {
+    response = await fetch(`${store}/${encodeURIComponent(id)}`, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) })
+  } catch {
+    return { failure: 'unavailable' }
+  }
+  if (response.status === 404) return { failure: 'broken' }
+  if (!response.ok) return { failure: 'unavailable' }
+  try {
+    const sealed = fromBase64Url(await response.text())
+    const cryptoKey = await crypto.subtle.importKey('raw', fromBase64Url(key), 'AES-GCM', false, ['decrypt'])
+    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: sealed.slice(0, IV_BYTES) }, cryptoKey, sealed.slice(IV_BYTES))
+    return { text: await inflate(new Uint8Array(plain)) }
+  } catch {
+    return { failure: 'broken' }
   }
 }

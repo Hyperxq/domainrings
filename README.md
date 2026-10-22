@@ -25,7 +25,7 @@ Draw a Hexagonal, Onion or Clean architecture as a model; the layout is drawn fo
 | Undo | **Undo** on the message that appears, or Ctrl+Z / Cmd+Z. |
 | Open / save | **File → Open .hexa…** (Ctrl/Cmd+O), **File → Save .hexa** (Ctrl/Cmd+S). |
 | Export image | **Share → Download PNG**, **Download SVG**, or **Copy image** (Ctrl/Cmd+C). |
-| Share | **Share → Copy link**: the link contains the whole map. |
+| Share | **Share → Copy link**: a short link to the map, encrypted in your browser before it is stored. If the share store is unavailable, the link contains the whole map instead. |
 | Theme, palette | **View options** (sliders icon): Light / Dark / System, and the palettes. Exports use what is on screen. |
 
 Other **View options** switches: Corridor guides, Dim other flows on hover, Dependents, Legend in exports, Planned (shown only when the map has planned items).
@@ -86,6 +86,24 @@ npm run dev        # http://localhost:5173
 npm test
 npm run typecheck
 ```
+
+## Short share links
+
+**Copy link** uploads the map, encrypted with AES-GCM in the browser, to a small Cloudflare Worker backed by D1 ([worker/](worker/)), and copies `#s=<id>,<key>`. The key stays in the link's fragment, which browsers never send, so the store only holds ciphertext. When `VITE_SHARE_API_URL` is unset or the store fails, the app copies the self-contained `#m=` link as before.
+
+On the Workers Free plan the store cannot bill: past the daily D1 quota, writes fail and the app falls back to `#m=`. To deploy it:
+
+```sh
+cd worker
+npx wrangler login
+npx wrangler d1 create domainrings-share        # paste the printed database_id into wrangler.jsonc
+npx wrangler d1 migrations apply domainrings-share --remote
+npx wrangler deploy                              # prints the Worker URL
+```
+
+A `#s=` link does not record which store holds it: give the Worker a custom domain before sharing links and keep it, since links made against a URL stop opening once the build points elsewhere.
+
+Then build the app with `VITE_SHARE_API_URL=<Worker URL>` (the Pages workflow reads the `SHARE_API_URL` repository variable).
 
 ## License
 

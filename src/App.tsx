@@ -23,7 +23,7 @@ import { useNoticeStore } from './ui/state/noticeStore'
 import { useUndoHistory } from './ui/useUndoHistory'
 import { usePreferencesStore } from './ui/state/preferencesStore'
 import { useViewStore } from './ui/state/viewStore'
-import { encodeSharePayload, isOversizedShareLink, shareLinkURL } from './ui/shareLink'
+import { encodeSharePayload, isOversizedShareLink, shareLinkURL, storeSharePayload, STORED_HASH_PREFIX } from './ui/shareLink'
 import { useShareLink } from './ui/useShareLink'
 import { LinkLoader } from './ui/LinkLoader'
 import type { UndoSnapshot } from './ui/notice'
@@ -41,6 +41,14 @@ const { show } = useNoticeStore.getState()
 interface AppProps {
   boot?: { kind?: StoredFile['kind'] }
 }
+
+// Safari revokes clipboard access once the click's activation expires, which a share-store upload can outlast; a
+// ClipboardItem holding a promise starts the write inside the click and fills it in when the link is ready. Some
+// browsers only accept a Blob there, not a string.
+const writeClipboardLater = (text: Promise<string>): Promise<void> =>
+  typeof ClipboardItem === 'undefined'
+    ? text.then((t) => navigator.clipboard.writeText(t))
+    : navigator.clipboard.write([new ClipboardItem({ 'text/plain': text.then((t) => new Blob([t], { type: 'text/plain' })) })])
 
 export function App({ boot = {} }: AppProps = {}) {
   // The sole branch point (ADR-02): both stores are read unconditionally — the inactive one never mutates,
@@ -126,13 +134,23 @@ export function App({ boot = {} }: AppProps = {}) {
 
   // REQ-05/06: the ACTIVE document's whole file (`active.file`, the same single resolution `exportAs` uses) —
   // not always the Hexagonal map, and never scoped to one hexagon, which "Copy link" never promises.
-  const handleCopyLink = async () => {
+  /** `undefined` when the store is unavailable and the self-contained link is over budget. */
+  const shareLinkFor = async (): Promise<string | undefined> => {
+    const stored = await storeSharePayload(active.file)
+    if (stored) return shareLinkURL(location.origin, location.pathname, stored, STORED_HASH_PREFIX)
     const url = shareLinkURL(location.origin, location.pathname, await encodeSharePayload(active.file))
-    if (isOversizedShareLink(url)) {
+    return isOversizedShareLink(url) ? undefined : url
+  }
+
+  const handleCopyLink = async () => {
+    const link = shareLinkFor()
+    try {
+      await writeClipboardLater(link.then((url) => url ?? Promise.reject(new Error('Link over budget'))))
+    } catch (error) {
+      if ((await link) !== undefined) throw error
       show({ tone: 'error', message: 'This map is too large for a link. Use Save to share it as .hexa instead.' })
       return
     }
-    await navigator.clipboard.writeText(url)
     show({ tone: 'status', message: 'Copied a link to this map.' })
   }
 

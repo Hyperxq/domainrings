@@ -32,8 +32,8 @@ import { fileSlug } from './ui/exporters'
 import { useNoticeStore } from './ui/state/noticeStore'
 import { usePreferencesStore } from './ui/state/preferencesStore'
 import { useViewStore } from './ui/state/viewStore'
-import { decodeSharePayload, encodeSharePayload, SHARE_HASH_PREFIX } from './ui/shareLink'
-import { card, currentDiagram, hexGroup, installCompressionStreamPolyfill, installDialogPolyfill, linkedTwoHexMap, manyHexagonMap, twoHexagonMap, twoHexMap } from './test/fixtures'
+import { decodeSharePayload, encodeSharePayload, fetchStoredPayload, SHARE_HASH_PREFIX, STORED_HASH_PREFIX, storeSharePayload } from './ui/shareLink'
+import { card, currentDiagram, hexGroup, installCompressionStreamPolyfill, installDialogPolyfill, installShareStore, SHARE_STORE_URL, linkedTwoHexMap, manyHexagonMap, twoHexagonMap, twoHexMap } from './test/fixtures'
 import v1Minimal from './model/fixtures/v1-minimal.hexa?raw'
 import v1Maximal from './model/fixtures/v1-maximal.hexa?raw'
 import v2EmptyContext from './model/fixtures/v2-empty-context.hexa?raw'
@@ -2572,6 +2572,142 @@ describe('copy the current map as a link (REQ-05, REQ-06)', () => {
     const decoded = await decodeSharePayload(url.slice(url.indexOf(SHARE_HASH_PREFIX) + SHARE_HASH_PREFIX.length))
     const result = parseHexa(decoded!)
     expect(result.ok && result.map).toEqual(useCleanStore.getState().map)
+  })
+})
+
+describe('copy and open a stored share link', () => {
+  const stubClipboard = () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    return writeText
+  }
+  const copyLink = async (writeText: ReturnType<typeof stubClipboard>) => {
+    choose('Share', 'Copy link')
+    await act(async () => {
+      await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+    })
+    return writeText.mock.calls[0][0] as string
+  }
+
+  beforeEach(installCompressionStreamPolyfill)
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
+    history.replaceState(null, '', '/')
+  })
+
+  it('copies a short #s= link when the share store answers', async () => {
+    installShareStore()
+    const writeText = stubClipboard()
+    useMapStore.getState().replace(twoHexMap())
+    render(<App />)
+
+    const url = await copyLink(writeText)
+
+    expect(url).toMatch(new RegExp(`${STORED_HASH_PREFIX}[A-Za-z0-9_-]{11},[A-Za-z0-9_-]{22}$`))
+    const stored = await fetchStoredPayload(url.slice(url.indexOf(STORED_HASH_PREFIX) + STORED_HASH_PREFIX.length))
+    const result = parseHexa('text' in stored ? stored.text : '')
+    expect(result.ok && result.map).toEqual(twoHexMap())
+    expect(toastEl()!.textContent).toContain('Copied')
+  })
+
+  it('starts the clipboard write inside the click, before the upload answers, where ClipboardItem exists', async () => {
+    installShareStore()
+    const items: Record<string, Promise<Blob>>[] = []
+    vi.stubGlobal('ClipboardItem', class {
+      constructor(data: Record<string, Promise<Blob>>) {
+        items.push(data)
+      }
+    })
+    const write = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { write }, configurable: true })
+    useMapStore.getState().replace(twoHexMap())
+    render(<App />)
+
+    choose('Share', 'Copy link')
+
+    expect(write).toHaveBeenCalledTimes(1)
+    const blob = await items[0]['text/plain']
+    expect(blob.type).toBe('text/plain')
+    expect(await blob.text()).toMatch(new RegExp(`${STORED_HASH_PREFIX}[A-Za-z0-9_-]{11},`))
+    await vi.waitFor(() => expect(toastEl()!.textContent).toContain('Copied'))
+  })
+
+  it('falls back to the self-contained #m= link when the share store is down', async () => {
+    vi.stubEnv('VITE_SHARE_API_URL', SHARE_STORE_URL)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Share store unavailable.', { status: 503 })))
+    const writeText = stubClipboard()
+    useMapStore.getState().replace(twoHexMap())
+    render(<App />)
+
+    const url = await copyLink(writeText)
+
+    expect(url).toContain(SHARE_HASH_PREFIX)
+    const result = parseHexa((await decodeSharePayload(url.slice(url.indexOf(SHARE_HASH_PREFIX) + SHARE_HASH_PREFIX.length)))!)
+    expect(result.ok && result.map).toEqual(twoHexMap())
+  })
+
+  it('opens a #s= link: replaces the map, keeps the link options, and clears the hash', async () => {
+    installShareStore()
+    const shared = toMap(STRESS_DIAGRAM)
+    location.hash = `${STORED_HASH_PREFIX}${await storeSharePayload(shared)}&view=detailed`
+
+    render(<App />)
+    await act(async () => {
+      await vi.waitFor(() => expect(useMapStore.getState().map).toStrictEqual(shared))
+    })
+
+    expect(toastEl()!.textContent).toContain('Opened from a link.')
+    expect(usePreferencesStore.getState().mode).toBe('detailed')
+    expect(location.hash).toBe('')
+  })
+
+  it('shares a map over the #m= budget through the store, and refuses it when the store is down', async () => {
+    const randomNote = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(20000))))
+    const base = twoHexMap()
+    const inflated = base.hexagons[0].useCases.map((u, i) => (i === 0 ? { ...u, note: randomNote } : u))
+    const big = { ...base, hexagons: [{ ...base.hexagons[0], useCases: inflated }, base.hexagons[1]] }
+    installShareStore()
+    const writeText = stubClipboard()
+    useMapStore.getState().replace(big)
+    render(<App />)
+
+    const url = await copyLink(writeText)
+    expect(url).toContain(STORED_HASH_PREFIX)
+    const stored = await fetchStoredPayload(url.slice(url.indexOf(STORED_HASH_PREFIX) + STORED_HASH_PREFIX.length))
+    const result = parseHexa('text' in stored ? stored.text : '')
+    expect(result.ok && result.map).toEqual(big)
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Share store unavailable.', { status: 503 })))
+    choose('Share', 'Copy link')
+    await vi.waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Use Save'))
+    expect(writeText).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports a #s= link the store does not hold as unreadable, leaves the map alone, and clears the hash', async () => {
+    installShareStore()
+    const before = useMapStore.getState().map
+    location.hash = `${STORED_HASH_PREFIX}AAAAAAAAAAA,AAAAAAAAAAAAAAAAAAAAAA`
+
+    render(<App />)
+    await vi.waitFor(() => expect(screen.getByRole('alert').textContent).toContain('This link could not be read.'))
+
+    expect(useMapStore.getState().map).toBe(before)
+    expect(location.hash).toBe('')
+  })
+
+  it('keeps a #s= link for a reload when the store is temporarily unavailable', async () => {
+    vi.stubEnv('VITE_SHARE_API_URL', SHARE_STORE_URL)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Share store unavailable.', { status: 503 })))
+    const before = useMapStore.getState().map
+    const hash = `${STORED_HASH_PREFIX}AAAAAAAAAAA,AAAAAAAAAAAAAAAAAAAAAA`
+    location.hash = hash
+
+    render(<App />)
+    await vi.waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Reload the page to try again.'))
+
+    expect(useMapStore.getState().map).toBe(before)
+    expect(location.hash).toBe(hash)
   })
 })
 

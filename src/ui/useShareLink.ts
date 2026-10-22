@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { StoredFile } from '../model/fileFormat'
-import { decodeSharePayload, SHARE_HASH_PREFIX } from './shareLink'
+import { decodeSharePayload, fetchStoredPayload, SHARE_HASH_PREFIX, STORED_HASH_PREFIX } from './shareLink'
 import { useNoticeStore } from './state/noticeStore'
 import { openForReading } from './state/preferencesStore'
 import { useViewStore } from './state/viewStore'
@@ -17,6 +17,8 @@ interface ShareLinkActions {
 }
 
 const finishLink = () => history.replaceState(null, '', location.pathname)
+
+const shareHashPrefix = (hash: string) => [SHARE_HASH_PREFIX, STORED_HASH_PREFIX].find((prefix) => hash.startsWith(prefix))
 
 /** REQ-01/02/03/04: a share link in the address is consumed on mount, and again whenever a share hash is pasted
  * into the open tab. `opening` is true while a link that takes a noticeable time is being resolved. */
@@ -51,12 +53,20 @@ export function useShareLink(actions: ShareLinkActions) {
       useViewStore.setState({ framedFlow: options.get('frame') === 'flow' ? flow : null })
     }
     const resolveLink = async (isLatest: () => boolean) => {
-      if (location.hash.startsWith(SHARE_HASH_PREFIX)) {
-        // The payload is base64url, which never contains '&', so anything after it is link options.
-        const [payload, ...options] = location.hash.slice(SHARE_HASH_PREFIX.length).split('&')
-        const text = await decodeSharePayload(payload)
+      const prefix = shareHashPrefix(location.hash)
+      if (prefix) {
+        // The payload is base64url (plus a ',' in a stored link), which never contains '&', so anything after it is
+        // link options.
+        const [payload, ...options] = location.hash.slice(prefix.length).split('&')
+        const read = prefix === SHARE_HASH_PREFIX ? { text: await decodeSharePayload(payload) } : await fetchStoredPayload(payload)
         if (!isLatest()) return
+        const text = 'text' in read ? read.text : undefined
         if (text === undefined) {
+          if ('failure' in read && read.failure === 'unavailable') {
+            // A passing failure (timeout, daily quota): the link stays for a reload to retry.
+            showError('This link could not be opened. Reload the page to try again.')
+            return
+          }
           showError('This link could not be read.')
           return finishLink()
         }
@@ -104,7 +114,7 @@ export function useShareLink(actions: ShareLinkActions) {
       void openLink()
     }
     const onHashChange = () => {
-      if (location.hash.startsWith(SHARE_HASH_PREFIX) && location.hash !== inFlight.current) void openLink()
+      if (shareHashPrefix(location.hash) && location.hash !== inFlight.current) void openLink()
     }
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
