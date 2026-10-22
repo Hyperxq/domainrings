@@ -5,6 +5,7 @@ import { diagramOf } from '../model/map'
 import { EXAMPLE_DIAGRAM } from '../model/example'
 import { useMapStore } from '../model/store'
 import { VERSION, type HexaMap, type Link } from '../model/schema'
+import shareWorker from '../../worker/src/index'
 
 /** One context, cells {0,0}/{1,0}: h1's driven port links to h2's driving port — the shape of the shipped example. */
 export function twoHexagonMap(): HexaMap {
@@ -62,4 +63,30 @@ export function installDialogPolyfill() {
 export function installCompressionStreamPolyfill() {
   vi.stubGlobal('CompressionStream', CompressionStream)
   vi.stubGlobal('DecompressionStream', DecompressionStream)
+}
+
+/** An in-memory D1 stand-in: only the two statements the share Worker issues. */
+export function memoryShareDb(rows = new Map<string, string>()) {
+  return {
+    rows,
+    prepare: () => ({
+      bind: (...values: unknown[]) => ({
+        run: async () => {
+          rows.set(values[0] as string, values[1] as string)
+        },
+        first: async <T,>() => (rows.has(values[0] as string) ? ({ data: rows.get(values[0] as string) } as T) : null),
+      }),
+    }),
+  }
+}
+
+export const SHARE_STORE_URL = 'https://share.example.test'
+
+/** Points the app at a share store and routes its requests to the real Worker over an in-memory database. */
+export function installShareStore() {
+  const db = memoryShareDb()
+  vi.stubEnv('VITE_SHARE_API_URL', SHARE_STORE_URL)
+  const fetchSpy = vi.fn((input: RequestInfo | URL, init?: RequestInit) => shareWorker.fetch(new Request(input, init), { DB: db }))
+  vi.stubGlobal('fetch', fetchSpy)
+  return { rows: db.rows, fetchSpy }
 }

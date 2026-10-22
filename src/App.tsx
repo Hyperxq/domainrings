@@ -23,7 +23,7 @@ import { useNoticeStore } from './ui/state/noticeStore'
 import { useUndoHistory } from './ui/useUndoHistory'
 import { usePreferencesStore } from './ui/state/preferencesStore'
 import { useViewStore } from './ui/state/viewStore'
-import { encodeSharePayload, isOversizedShareLink, shareLinkURL } from './ui/shareLink'
+import { encodeSharePayload, isOversizedShareLink, shareLinkURL, storeSharePayload, STORED_HASH_PREFIX } from './ui/shareLink'
 import { useShareLink } from './ui/useShareLink'
 import { LinkLoader } from './ui/LinkLoader'
 import type { UndoSnapshot } from './ui/notice'
@@ -127,8 +127,11 @@ export function App({ boot = {} }: AppProps = {}) {
   // REQ-05/06: the ACTIVE document's whole file (`active.file`, the same single resolution `exportAs` uses) —
   // not always the Hexagonal map, and never scoped to one hexagon, which "Copy link" never promises.
   const handleCopyLink = async () => {
-    const url = shareLinkURL(location.origin, location.pathname, await encodeSharePayload(active.file))
-    if (isOversizedShareLink(url)) {
+    const stored = await storeSharePayload(active.file)
+    const url = stored
+      ? shareLinkURL(location.origin, location.pathname, stored, STORED_HASH_PREFIX)
+      : shareLinkURL(location.origin, location.pathname, await encodeSharePayload(active.file))
+    if (!stored && isOversizedShareLink(url)) {
       show({ tone: 'error', message: 'This map is too large for a link. Use Save to share it as .hexa instead.' })
       return
     }

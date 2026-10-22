@@ -1,0 +1,23 @@
+{
+  "name": "domainrings-share",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-22",
+  // Serves GET /<id> from the edge without running the Worker or reading D1.
+  "cache": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "domainrings-share",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // Per Cloudflare location, not global: it slows one client down, the free plan's quotas cap the total.
+  "ratelimits": [
+    {
+      "name": "SHARE_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 10, "period": 60 }
+    }
+  ]
+}
