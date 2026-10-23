@@ -202,12 +202,12 @@ export function Stage({ model, map, hexId, diagram, legend, revision, title, svg
   const chain = useMemo(
     () =>
       shownFlows.length
-        ? unionChain(shownFlows.map((id) => flowChain(map, flowOf(map, hexagonOf(id)!, id))))
+        ? unionChain(shownFlows.map((id) => flowChain(map, flowOf(map, hexagonOf(id)!, id, { through: presenting }))))
         : highlight && !linking && selected
           ? dependencyChain(map, hexId, selected, new Set(model.hexagons.filter((h) => !h.compact).map((h) => h.id)), dependents ? 'dependents' : 'dependencies')
           : undefined,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [shownFlows.join(' '), highlight, linking, selected, map, hexId, model, dependents],
+    [shownFlows.join(' '), highlight, linking, selected, map, hexId, model, dependents, presenting],
   )
   const nameOf = (ref: string) => {
     const collection = collectionOf(diagram, ref)

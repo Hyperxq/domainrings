@@ -146,7 +146,7 @@ describe('presenting a flow', () => {
       expect(shows(box('act-web')) && shows(box('ext-orders-db'))).toBe(false)
       start(0)
       expect(shows(box('act-web'))).toBe(true)
-      act(() => useViewStore.getState().present(16))
+      act(() => useViewStore.getState().present(31))
       expect(shows(box('ext-orders-db'))).toBe(true)
     })
   })

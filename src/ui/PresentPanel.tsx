@@ -32,7 +32,7 @@ export function usePresentation() {
     const diagram = diagramOf(map, hexId)
     const useCase = useCaseId && presentStep !== null ? diagram.useCases.find((u) => u.id === useCaseId) : undefined
     if (!useCase) return null
-    const flow = flowOf(map, hexId, useCase.id)
+    const flow = flowOf(map, hexId, useCase.id, { through: true })
     const index = Math.min(presentStep!, flow.steps.length - 1)
     return { flow, name: useCase.name, index, step: flow.steps[index], style: threadStyle(threadSlots(diagram).get(useCase.id)!) }
   }, [map, hexId, useCaseId, presentStep])

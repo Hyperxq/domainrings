@@ -117,6 +117,45 @@ describe('flowOf on small maps', () => {
   })
 })
 
+describe('flowOf through linked hexagons', () => {
+  const map = mapOf(
+    [
+      hexagon('h1', {
+        useCases: [{ id: 'buy', name: 'Buy', stepNotes: { pay: 'charge the card' } }],
+        ports: [{ id: 'order', name: 'order', side: 'driving', useCaseId: 'buy' }, { id: 'pay', name: 'pay', side: 'driven', useCaseId: 'buy' }],
+      }),
+      hexagon('h2', {
+        domain: [{ id: 'agg', name: 'Payment', type: 'aggregate' }],
+        useCases: [{ id: 'u', name: 'Charge', aggregateIds: ['agg'], stepNotes: { refund: 'undo on failure' } }],
+        ports: [{ id: 'in1', name: 'in1', side: 'driving', useCaseId: 'u' }, { id: 'refund', name: 'refund', side: 'driven', useCaseId: 'u' }],
+      }),
+    ],
+    [
+      { id: 'l1', from: { hexagonId: 'h1', portId: 'pay' }, to: { hexagonId: 'h2', portId: 'in1' } },
+      { id: 'l2', from: { hexagonId: 'h2', portId: 'refund' }, to: { hexagonId: 'h1', portId: 'order' } },
+    ],
+  )
+  const walk = (flow: Flow) => flow.steps.map((s) => [s.role, s.hexId, s.name, s.note])
+
+  it('stops at the linked driving port unless asked to go through', () => {
+    expect(walk(flowOf(map, 'h1', 'buy')).at(-1)).toEqual(['linkedPort', 'h2', 'in1', undefined])
+  })
+
+  it('walks the linked use case, with its own notes, and stops where the walk would loop', () => {
+    expect(walk(flowOf(map, 'h1', 'buy', { through: true }))).toEqual([
+      ['linkedPort', 'h2', 'refund', undefined],
+      ['drivingPort', 'h1', 'order', undefined],
+      ['useCase', 'h1', 'Buy', undefined],
+      ['drivenPort', 'h1', 'pay', 'charge the card'],
+      ['linkedPort', 'h2', 'in1', undefined],
+      ['useCase', 'h2', 'Charge', undefined],
+      ['aggregate', 'h2', 'Payment', undefined],
+      ['drivenPort', 'h2', 'refund', 'undo on failure'],
+      ['linkedPort', 'h1', 'order', undefined],
+    ])
+  })
+})
+
 describe('the fields flows add to a file', () => {
   const doc = mapOf([
     hexagon('h1', {

@@ -42,64 +42,75 @@ const portAt = (map: HexaMap, end: { hexagonId: string; portId: string }) => map
 const titleOf = (map: HexaMap, hexId: string) => map.hexagons.find((h) => h.id === hexId)!.title
 
 /** The flow of use case `useCaseId` in hexagon `hexId`; ports without a use case belong to no flow. Notes keyed by
- * an element since deleted are ignored. */
-export function flowOf(map: HexaMap, hexId: string, useCaseId: string): Flow {
-  const d: Diagram = diagramOf(map, hexId)
-  const useCase = d.useCases.find((u) => u.id === useCaseId)!
-  const flow: Flow = { useCaseId, description: useCase.description, steps: [], starters: [], destinations: [], gaps: [] }
-  const step = (role: FlowRole, item: { id: string; name: string; verb?: string }, at = hexId) =>
-    flow.steps.push({ role, hexId: at, id: item.id, name: item.name, ...(at === hexId && useCase.stepNotes?.[item.id] ? { note: useCase.stepNotes[item.id] } : {}), ...(item.verb ? { verb: item.verb } : {}) })
-  const gap = (kind: FlowGap['kind'], id: string) => flow.gaps.push({ kind, hexId, id })
-  const portsOf = (side: Port['side']) => d.ports.filter((p) => p.side === side && useCasesOf(p).includes(useCaseId))
+ * an element since deleted are ignored. `through` carries on past a linked hexagon's driving port into the use
+ * cases behind it, from their use case on, each walked once so a link back ends the walk instead of looping. */
+export function flowOf(map: HexaMap, hexId: string, useCaseId: string, { through = false } = {}): Flow {
+  const root = diagramOf(map, hexId).useCases.find((u) => u.id === useCaseId)!
+  const flow: Flow = { useCaseId, description: root.description, steps: [], starters: [], destinations: [], gaps: [] }
+  const walked = new Set<string>()
+  const walk = (hexId: string, useCaseId: string, entered: boolean) => {
+    walked.add(`${hexId} ${useCaseId}`)
+    const d: Diagram = diagramOf(map, hexId)
+    const useCase = d.useCases.find((u) => u.id === useCaseId)!
+    const step = (role: FlowRole, item: { id: string; name: string; verb?: string }, at = hexId) =>
+      flow.steps.push({ role, hexId: at, id: item.id, name: item.name, ...(at === hexId && useCase.stepNotes?.[item.id] ? { note: useCase.stepNotes[item.id] } : {}), ...(item.verb ? { verb: item.verb } : {}) })
+    const gap = (kind: FlowGap['kind'], id: string) => flow.gaps.push({ kind, hexId, id })
+    const portsOf = (side: Port['side']) => d.ports.filter((p) => p.side === side && useCasesOf(p).includes(useCaseId))
 
-  for (const port of portsOf('driving')) {
-    const callers = map.links.filter((l) => l.to.hexagonId === hexId && l.to.portId === port.id && portAt(map, l.from))
-    for (const { from } of callers) {
-      step('linkedPort', portAt(map, from)!, from.hexagonId)
-      flow.starters.push(titleOf(map, from.hexagonId))
-    }
-    const adapters = d.adapters.filter((a) => a.portId === port.id)
-    if (!adapters.length && !callers.length) gap('noAdapter', port.id)
-    for (const adapter of adapters) {
-      const actors = d.actors.filter((a) => a.adapterId === adapter.id)
-      if (!actors.length) gap('noActor', adapter.id)
-      for (const actor of actors) {
-        step('actor', actor)
-        flow.starters.push(actor.name)
+    // Entered across a link, the linked port already stands for the entry.
+    for (const port of entered ? [] : portsOf('driving')) {
+      const callers = map.links.filter((l) => l.to.hexagonId === hexId && l.to.portId === port.id && portAt(map, l.from))
+      for (const { from } of callers) {
+        step('linkedPort', portAt(map, from)!, from.hexagonId)
+        flow.starters.push(titleOf(map, from.hexagonId))
       }
-      step('adapter', adapter)
+      const adapters = d.adapters.filter((a) => a.portId === port.id)
+      if (!adapters.length && !callers.length) gap('noAdapter', port.id)
+      for (const adapter of adapters) {
+        const actors = d.actors.filter((a) => a.adapterId === adapter.id)
+        if (!actors.length) gap('noActor', adapter.id)
+        for (const actor of actors) {
+          step('actor', actor)
+          flow.starters.push(actor.name)
+        }
+        step('adapter', adapter)
+      }
+      step('drivingPort', port)
     }
-    step('drivingPort', port)
-  }
 
-  step('useCase', useCase)
-  for (const id of useCase.aggregateIds ?? []) {
-    const aggregate = d.domain.find((i) => i.id === id)
-    if (aggregate) step('aggregate', aggregate)
-  }
+    step('useCase', useCase)
+    for (const id of useCase.aggregateIds ?? []) {
+      const aggregate = d.domain.find((i) => i.id === id)
+      if (aggregate) step('aggregate', aggregate)
+    }
 
-  for (const port of portsOf('driven')) {
-    step('drivenPort', port)
-    const adapters = d.adapters.filter((a) => a.portId === port.id)
-    const calls = map.links.filter((l) => l.from.hexagonId === hexId && l.from.portId === port.id && portAt(map, l.to))
-    if (!adapters.length && !calls.length) gap('noAdapter', port.id)
-    for (const adapter of adapters) {
-      step('drivenAdapter', adapter)
-      const externals = d.externals.filter((e) => e.adapterId === adapter.id)
-      if (!externals.length && !calls.length) gap('noDestination', adapter.id)
-      for (const external of externals) {
-        step('external', external)
-        flow.destinations.push(external.name)
+    for (const port of portsOf('driven')) {
+      step('drivenPort', port)
+      const adapters = d.adapters.filter((a) => a.portId === port.id)
+      const calls = map.links.filter((l) => l.from.hexagonId === hexId && l.from.portId === port.id && portAt(map, l.to))
+      if (!adapters.length && !calls.length) gap('noAdapter', port.id)
+      for (const adapter of adapters) {
+        step('drivenAdapter', adapter)
+        const externals = d.externals.filter((e) => e.adapterId === adapter.id)
+        if (!externals.length && !calls.length) gap('noDestination', adapter.id)
+        for (const external of externals) {
+          step('external', external)
+          flow.destinations.push(external.name)
+        }
+      }
+      for (const { to } of calls) {
+        const target = diagramOf(map, to.hexagonId)
+        const callee = portAt(map, to)!
+        step('linkedPort', callee, to.hexagonId)
+        flow.steps.at(-1)!.useCaseName = target.useCases.find((u) => u.id === useCasesOf(callee)[0])?.name
+        flow.destinations.push(titleOf(map, to.hexagonId))
+        if (!through) continue
+        for (const id of useCasesOf(callee))
+          if (target.useCases.some((u) => u.id === id) && !walked.has(`${to.hexagonId} ${id}`)) walk(to.hexagonId, id, true)
       }
     }
-    for (const { to } of calls) {
-      const target = diagramOf(map, to.hexagonId)
-      const callee = portAt(map, to)!
-      step('linkedPort', callee, to.hexagonId)
-      flow.steps.at(-1)!.useCaseName = target.useCases.find((u) => u.id === useCasesOf(callee)[0])?.name
-      flow.destinations.push(titleOf(map, to.hexagonId))
-    }
   }
+  walk(hexId, useCaseId, false)
   return flow
 }
 
