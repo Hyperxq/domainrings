@@ -103,6 +103,17 @@ describe('presenting a flow', () => {
     expect(screen.getByText('STEP 8 · LINKED PORT')).toBeTruthy()
   })
 
+  it('draws every hexagon the walk passes through in full while presenting, and only then', () => {
+    const { container } = render(<App />)
+    const drawn = () => !!container.querySelector('[data-hex="h2"] [data-ref="uc-charge"]')
+    expect(drawn()).toBe(false)
+    start()
+    expect(drawn()).toBe(true)
+    expect(useViewStore.getState().expanded.size).toBe(0)
+    act(() => useViewStore.getState().present(null))
+    expect(drawn()).toBe(false)
+  })
+
   it('stops presenting when the author switches to Edit', () => {
     const { container } = render(<App />)
     start()

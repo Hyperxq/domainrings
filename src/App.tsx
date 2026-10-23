@@ -31,6 +31,7 @@ import { CleanWorkspace } from './ui/CleanWorkspace'
 import { HexagonalWorkspace } from './ui/HexagonalWorkspace'
 import { NoticeColumn } from './ui/NoticeColumn'
 import { OnionWorkspace } from './ui/OnionWorkspace'
+import { usePresentation } from './ui/PresentPanel'
 import { Toast } from './ui/Toast'
 import { Toolbar } from './ui/Toolbar'
 import { useHexagonalCommands } from './ui/useHexagonalCommands'
@@ -75,7 +76,14 @@ export function App({ boot = {} }: AppProps = {}) {
   const multiHexagon = map.hexagons.length > 1
   const mode = usePreferencesStore((s) => s.mode)
   const legendInExport = usePreferencesStore((s) => s.legendInExport)
-  const expanded = useViewStore((s) => s.expanded)
+  const authorExpanded = useViewStore((s) => s.expanded)
+  // A walkthrough draws in full every hexagon it passes through, so each step has an element to light; the author's
+  // own choice is left as it was for when it ends.
+  const presentation = usePresentation()
+  const expanded = useMemo(
+    () => (presentation ? new Set([...authorExpanded, ...presentation.flow.steps.map((s) => s.hexId)]) : authorExpanded),
+    [presentation, authorExpanded],
+  )
   const model = layoutMap(shown, { mode, current: hexId, expanded })
   const notice = useNoticeStore((s) => s.notice)
   const exportScope = useViewStore((s) => s.exportScope)
