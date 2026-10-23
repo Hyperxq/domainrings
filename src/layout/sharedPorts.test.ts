@@ -7,7 +7,7 @@ import { DOT_CLEAR, dotsReach } from './hexagon/spacing'
 import { lineWidth } from './text'
 
 // Matches `.map-link[data-thread]` in styles.css.
-const THREAD_STROKE = 2.4
+const THREAD_STROKE = 2.9
 const both = ['uc-assign', 'uc-track']
 const shared = {
   app: 'domainrings',

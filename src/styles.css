@@ -141,7 +141,7 @@ svg[data-emphasis] .map-link:not([data-chain]),
 svg[data-emphasis] [data-hex][data-chain] .node:not([data-chain]) { opacity: var(--dim-node); }
 svg[data-emphasis] [data-hex][data-chain] :is(.edge, .edge-label):not([data-chain]) { opacity: var(--dim-edge); }
 svg[data-emphasis] .edge[data-chain],
-svg[data-emphasis] .map-link[data-chain] { stroke-width: 3.2; }
+svg[data-emphasis] .map-link[data-chain] { stroke-width: 3.8; }
 svg[data-emphasis] .node[data-chain] .box { stroke-width: 2.8; }
 svg[data-emphasis] .compact-port[data-chain] circle { stroke-width: 3; }
 /* Dependents keep that weight and dim the same way; a dash-dot pattern no other stroke uses sets them apart from the
@@ -287,7 +287,7 @@ svg[data-emphasis='dependents'] .compact-port[data-chain] circle { stroke-dashar
 .stroke-dotted { stroke: var(--muted); stroke-width: 1.6; stroke-dasharray: 2 3; }
 .canvas .line-strong { font-family: var(--font-mono); font-weight: 600; }
 
-.edge { fill: none; stroke-width: 1.6; stroke-linejoin: round; }
+.edge { fill: none; stroke-width: 2.2; stroke-linejoin: round; }
 .edge-import { stroke: var(--ink); }
 .edge-wiring { stroke: var(--muted); stroke-dasharray: 4 4; }
 /* The wiring is layout, but the canvas draws it only while its root is hovered, focused or selected. An export inlines
@@ -295,7 +295,7 @@ svg[data-emphasis='dependents'] .compact-port[data-chain] circle { stroke-dashar
 .canvas [data-hex]:not(:has(.node-composition:is(:hover, :focus-visible, [data-selected]))) .edge-wiring { display: none; }
 /* A use case's own connections wear its thread colour (--thread-<slot>, per theme in the palette). Text never does. */
 .edge-import[data-thread],
-.map-link[data-thread] { stroke: var(--thread); stroke-width: 2.4; }
+.map-link[data-thread] { stroke: var(--thread); stroke-width: 2.9; }
 /* A dot is a surface-ringed disc: the ring is the stroke painted under the fill, so it reads on any box fill. */
 .legend-thread-dot { fill: var(--thread); }
 .thread-dot { fill: var(--thread); stroke: var(--card); stroke-width: 4; paint-order: stroke; }
@@ -304,7 +304,7 @@ svg[data-emphasis='dependents'] .compact-port[data-chain] circle { stroke-dashar
    the <line> it replaced) is filled by default, so `fill: none` is load-bearing, not decorative. The entrance is
    the same fade-in every other mounted affordance uses (`enter`) — it does not need to distinguish "loaded from
    file" vs "created via UI", both are a mount. */
-.map-link { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 6 4; animation: enter var(--motion-base) var(--motion-ease); }
+.map-link { fill: none; stroke: var(--muted); stroke-width: 2; stroke-dasharray: 6 4; animation: enter var(--motion-base) var(--motion-ease); }
 /* A dash breaks a thread colour into short ticks that read as a different hue; the dash stays the mark of a neutral or planned link. */
 .map-link[data-thread]:not(.planned) { stroke-dasharray: none; }
 /* Planned (not built yet): dashed and faded, still readable. A planned hexagon fades its rings only, so its built
