@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { EXAMPLES } from './example'
-import { flowChain, flowOf, flowsOf, type Flow } from './flow'
+import { flowChain, flowOf, flowsOf, subflowAt, type Flow } from './flow'
 import { parseHexa, toHexa } from './hexa'
 import { VERSION, type Diagram, type HexaMap } from './schema'
 
@@ -153,6 +153,25 @@ describe('flowOf through linked hexagons', () => {
       ['drivenPort', 'h2', 'refund', 'undo on failure'],
       ['linkedPort', 'h1', 'order', undefined],
     ])
+  })
+})
+
+describe('subflowAt', () => {
+  const flow = flowOf(example('hexagonal-advanced'), 'h1', 'uc-place', { through: true })
+  const at = (name: string) => flow.steps.findIndex((s) => s.name === name)
+
+  it('spans a linked use case from its linked port to the step after it, from any step inside', () => {
+    const sub = subflowAt(flow, at('chargePayment'))!
+    expect(flow.steps[sub.from]).toMatchObject({ role: 'linkedPort', name: 'chargePayment', useCaseName: 'ChargePayment' })
+    expect(flow.steps[sub.end].name).toBe('ShipmentRequester')
+    expect(subflowAt(flow, at('ChargePayment'))).toEqual(sub)
+    expect(subflowAt(flow, sub.end - 1)).toEqual(sub)
+  })
+
+  it('has none outside a linked use case, nor in one the flow ends with', () => {
+    expect(subflowAt(flow, at('PlaceOrder'))).toBeUndefined()
+    expect(subflowAt(flow, flow.steps.length - 1)).toBeUndefined()
+    expect(subflowAt(flowOf(example('hexagonal-advanced'), 'h1', 'uc-place'), at('chargePayment'))).toBeUndefined()
   })
 })
 

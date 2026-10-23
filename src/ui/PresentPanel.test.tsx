@@ -82,7 +82,7 @@ describe('PresentPanel', () => {
     expect(rows[8].textContent).toMatch(/9.*ChargePayment.*use case/)
     expect(rows[31].textContent).toMatch(/Postgres.*external/)
     expect(current()).toBe(rows[0])
-    expect(screen.getByText('Step 1 of 32 · ← → move · Esc exits')).toBeTruthy()
+    expect(screen.getByText('Step 1 of 32 · ← → move · Shift+→ skips · Esc exits')).toBeTruthy()
   })
 
   it('moves between steps with Next and Back, which stop at the ends', () => {
@@ -93,7 +93,7 @@ describe('PresentPanel', () => {
     expect(back.disabled).toBe(true)
     fireEvent.click(next)
     expect(stepNo()).toBe(1)
-    expect(screen.getByText('Step 2 of 32 · ← → move · Esc exits')).toBeTruthy()
+    expect(screen.getByText('Step 2 of 32 · ← → move · Shift+→ skips · Esc exits')).toBeTruthy()
     fireEvent.click(back)
     expect(stepNo()).toBe(0)
     present(31)
@@ -120,6 +120,21 @@ describe('PresentPanel', () => {
     fireEvent.keyDown(document.body, { key: 'ArrowRight' })
     expect(stepNo()).toBe(31)
     field.remove()
+  })
+
+  it('skips the linked use case the current step is in, by button or Shift+→, and offers it only there', () => {
+    present(7)
+    render(<PresentPanel />)
+    const skip = () => screen.getByRole('button', { name: 'Skip ChargePayment' }) as HTMLButtonElement
+    fireEvent.click(skip())
+    expect(current().textContent).toMatch(/ShipmentRequester.*driven port/)
+    expect(screen.getByRole('button', { name: /^Skip/ }).hasAttribute('disabled')).toBe(true)
+    present(9)
+    fireEvent.keyDown(document.body, { key: 'ArrowRight', shiftKey: true })
+    expect(current().textContent).toMatch(/ShipmentRequester.*driven port/)
+    present(3)
+    fireEvent.keyDown(document.body, { key: 'ArrowRight', shiftKey: true })
+    expect(stepNo()).toBe(3)
   })
 
   it('leaves a key whose default was already prevented to whoever prevented it', () => {

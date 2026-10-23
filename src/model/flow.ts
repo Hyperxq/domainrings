@@ -35,6 +35,9 @@ export interface Flow {
   /** Names of where it ends: external systems, and hexagons it calls across a link. */
   destinations: string[]
   gaps: FlowGap[]
+  /** Each linked port walked on through, as step indexes: `from` is the linked port, `end` the first step after
+   * the use cases behind it. Empty unless the flow was walked `through`. */
+  subflows: { from: number; end: number }[]
 }
 
 const portAt = (map: HexaMap, end: { hexagonId: string; portId: string }) => map.hexagons.find((h) => h.id === end.hexagonId)?.ports.find((p) => p.id === end.portId)
@@ -46,7 +49,7 @@ const titleOf = (map: HexaMap, hexId: string) => map.hexagons.find((h) => h.id =
  * cases behind it, from their use case on, each walked once so a link back ends the walk instead of looping. */
 export function flowOf(map: HexaMap, hexId: string, useCaseId: string, { through = false } = {}): Flow {
   const root = diagramOf(map, hexId).useCases.find((u) => u.id === useCaseId)!
-  const flow: Flow = { useCaseId, description: root.description, steps: [], starters: [], destinations: [], gaps: [] }
+  const flow: Flow = { useCaseId, description: root.description, steps: [], starters: [], destinations: [], gaps: [], subflows: [] }
   const walked = new Set<string>()
   const walk = (hexId: string, useCaseId: string, entered: boolean) => {
     walked.add(`${hexId} ${useCaseId}`)
@@ -105,14 +108,20 @@ export function flowOf(map: HexaMap, hexId: string, useCaseId: string, { through
         flow.steps.at(-1)!.useCaseName = target.useCases.find((u) => u.id === useCasesOf(callee)[0])?.name
         flow.destinations.push(titleOf(map, to.hexagonId))
         if (!through) continue
+        const from = flow.steps.length - 1
         for (const id of useCasesOf(callee))
           if (target.useCases.some((u) => u.id === id) && !walked.has(`${to.hexagonId} ${id}`)) walk(to.hexagonId, id, true)
+        if (flow.steps.length > from + 1) flow.subflows.push({ from, end: flow.steps.length })
       }
     }
   }
   walk(hexId, useCaseId, false)
   return flow
 }
+
+/** The innermost subflow holding step `index` that has a step after it to skip to. */
+export const subflowAt = (flow: Flow, index: number) =>
+  flow.subflows.filter((s) => s.from <= index && index < s.end && s.end < flow.steps.length).sort((a, b) => a.end - a.from - (b.end - b.from))[0]
 
 /** One flow per use case of the hexagon, in its order. */
 export const flowsOf = (map: HexaMap, hexId: string): Flow[] => diagramOf(map, hexId).useCases.map((u) => flowOf(map, hexId, u.id))

@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { flowOf, type FlowRole } from '../model/flow'
+import { flowOf, subflowAt, type FlowRole } from '../model/flow'
 import { diagramOf } from '../model/map'
 import { withoutPlannedUseCases } from '../model/planned'
 import { useMapStore } from '../model/store'
@@ -46,18 +46,20 @@ export function PresentPanel() {
   const count = presenting?.flow.steps.length ?? 0
   const index = presenting?.index ?? 0
   const open = useViewStore((s) => s.editorOpen)
+  const subflow = presenting && subflowAt(presenting.flow, index)
   useEffect(() => {
     if (!presenting) return
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return
       if (e.key === 'Escape') return present(null)
       if (typing(e.target) || e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.key === 'ArrowRight' && e.shiftKey) return subflow && present(subflow.end)
       if (e.key === 'ArrowRight') present(Math.min(index + 1, count - 1))
       if (e.key === 'ArrowLeft') present(Math.max(index - 1, 0))
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [presenting, index, count])
+  }, [presenting, index, count, subflow])
   if (!presenting) return null
   const { flow, name, style } = presenting
 
@@ -94,6 +96,11 @@ export function PresentPanel() {
         </ol>
       </div>
       <footer className="present-foot" hidden={!open}>
+        {flow.subflows.length > 0 && (
+          <button type="button" className="text-button present-skip" disabled={!subflow} title="Jump past the linked use case this step is in (Shift+→)" onClick={() => subflow && present(subflow.end)}>
+            Skip {subflow ? flow.steps[subflow.from].useCaseName ?? flow.steps[subflow.from].name : 'linked flow'}
+          </button>
+        )}
         <button type="button" className="text-button" disabled={index === 0} onClick={() => present(index - 1)}>
           ← Back
         </button>
@@ -106,7 +113,7 @@ export function PresentPanel() {
             Next →
           </button>
         )}
-        <p>Step {index + 1} of {count} · ← → move · Esc exits</p>
+        <p>Step {index + 1} of {count} · ← → move{flow.subflows.length > 0 && ' · Shift+→ skips'} · Esc exits</p>
       </footer>
     </aside>
   )
