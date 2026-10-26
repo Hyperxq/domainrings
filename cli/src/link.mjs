@@ -1,8 +1,13 @@
+import { webcrypto } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { deflateRawSync } from 'node:zlib'
 
 export const DEFAULT_BASE_URL = 'https://diagrams.pbuilder.dev/'
+export const DEFAULT_STORE_URL = 'https://share.pbuilder.dev'
 export const MAX_CHARS = 8000
+// Same budget as the app's Copy link (src/ui/shareLink.ts): past it the self-contained link is used.
+const UPLOAD_TIMEOUT_MS = 5000
+const IV_BYTES = 12
 
 const KINDS = ['hexagonal', 'onion', 'clean']
 
@@ -42,7 +47,7 @@ export function resolveFlow(map, flow, hexagonId) {
   throw new Error(`No flow "${flow}"${scope}. Available flows:\n${inScope.map(describe).join('\n') || '  (none)'}`)
 }
 
-export function shareLink(map, { baseUrl = DEFAULT_BASE_URL, flow, frame = false } = {}) {
+function linkTo(baseUrl, hash, flow, frame) {
   let base
   try {
     base = new URL(baseUrl)
@@ -51,7 +56,34 @@ export function shareLink(map, { baseUrl = DEFAULT_BASE_URL, flow, frame = false
   }
   base.hash = ''
   const options = flow ? `&flow=${encodeURIComponent(flow.useCaseId)}&hex=${encodeURIComponent(flow.hexagonId)}${frame ? '&frame=flow' : ''}` : ''
-  return `${base.href}#m=${deflateRawSync(JSON.stringify(map)).toString('base64url')}${options}`
+  return `${base.href}${hash}${options}`
+}
+
+export function shareLink(map, { baseUrl = DEFAULT_BASE_URL, flow, frame = false } = {}) {
+  return linkTo(baseUrl, `#m=${deflateRawSync(JSON.stringify(map)).toString('base64url')}`, flow, frame)
+}
+
+export function storedLink(token, { baseUrl = DEFAULT_BASE_URL, flow } = {}) {
+  return linkTo(baseUrl, `#s=${token}`, flow, false)
+}
+
+/** Mirrors the app's storeSharePayload, which this published package cannot import; src/cli.test.ts pins the two
+ * together by opening a CLI-stored map with the app's fetchStoredPayload. The key never leaves the token. */
+export async function storeMap(map, { store, timeoutMs = UPLOAD_TIMEOUT_MS }) {
+  try {
+    const key = await webcrypto.subtle.generateKey({ name: 'AES-GCM', length: 128 }, true, ['encrypt'])
+    const iv = webcrypto.getRandomValues(new Uint8Array(IV_BYTES))
+    const cipher = await webcrypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, deflateRawSync(JSON.stringify(map)))
+    const sealed = Buffer.concat([iv, new Uint8Array(cipher)])
+    const response = await fetch(`${store.replace(/\/+$/, '')}/`, { method: 'POST', body: sealed.toString('base64url'), signal: AbortSignal.timeout(timeoutMs) })
+    if (!response.ok) return { failure: `the share store answered ${response.status}` }
+    const { id } = await response.json()
+    if (typeof id !== 'string' || !/^[A-Za-z0-9_-]+$/.test(id)) return { failure: 'the share store answered without a usable id' }
+    return { token: `${id},${Buffer.from(await webcrypto.subtle.exportKey('raw', key)).toString('base64url')}` }
+  } catch (error) {
+    if (error?.name === 'TimeoutError') return { failure: `the share store did not answer within ${timeoutMs} ms` }
+    return { failure: `could not reach the share store (${error?.cause?.code ?? error?.message})` }
+  }
 }
 
 // Windows: `cmd /c start` would split the url at `&`; rundll32 takes it as one argument.
