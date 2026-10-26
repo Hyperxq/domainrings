@@ -7,11 +7,20 @@ Command line for [domainrings](https://diagrams.pbuilder.dev) maps (`.hexa` file
 ```sh
 npx @pbuilder/domainrings link map.hexa
 npx @pbuilder/domainrings link map.hexa --flow PlaceOrder --open
+npx @pbuilder/domainrings link map.hexa --full
 ```
 
-Prints a share link. `--flow` takes a use case id or name (hexagonal maps only) and opens the map with that flow
-focused; add `--hex <hexagonId>` when the same flow exists in several hexagons. `--open` also opens the link in the
-default browser. `--base-url` points at another deployment, for example `http://localhost:5173/`.
+Prints a short share link, `#s=<id>,<key>`, like the app's **Copy link**: the map is encrypted with AES-GCM on your
+machine and only the ciphertext goes to the share store (`https://share.pbuilder.dev`); the key stays in the link's
+fragment. If the store refuses the map, is down or does not answer within 5 seconds, the command prints the
+self-contained `#m=` link instead and says why on stderr. `--full` always prints the `#m=` link and never contacts the
+store, for offline use.
+
+`--flow` takes a use case id or name (hexagonal maps only) and opens the map with that flow focused; add
+`--hex <hexagonId>` when the same flow exists in several hexagons. `--open` also opens the link in the default browser.
+`--base-url` points at another deployment, for example `http://localhost:5173/`. A short link only opens on a
+deployment that reads the same store, so with `--base-url` pass that deployment's store as `--store <url>`; without
+it the command prints the `#m=` link.
 
 ## render
 

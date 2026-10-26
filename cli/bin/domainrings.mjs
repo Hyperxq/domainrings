@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process'
 import { parseArgs } from 'node:util'
-import { MAX_CHARS, openerCommand, readMap, resolveFlow, shareLink } from '../src/link.mjs'
+import { DEFAULT_STORE_URL, MAX_CHARS, openerCommand, readMap, resolveFlow, shareLink, storedLink, storeMap } from '../src/link.mjs'
 
 const USAGE = `Usage:
-  domainrings link <file.hexa> [--flow <id|name>] [--hex <hexagonId>] [--open] [--base-url <url>]
+  domainrings link <file.hexa> [--flow <id|name>] [--hex <hexagonId>] [--open] [--full] [--base-url <url>] [--store <url>]
   domainrings render <file.hexa> [--flow <id|name|all>] [--hex <id>] [--out <dir>] [--format png|svg] [--palette <default|purple|terracotta|cool>] [--theme <dark|light>] [--base-url <url>]`
 
 const fail = (message) => {
@@ -15,12 +15,20 @@ const fail = (message) => {
 const [command, ...rest] = process.argv.slice(2)
 const commands = {
   link: {
-    options: { flow: { type: 'string' }, hex: { type: 'string' }, open: { type: 'boolean' }, 'base-url': { type: 'string' } },
+    options: { flow: { type: 'string' }, hex: { type: 'string' }, open: { type: 'boolean' }, full: { type: 'boolean' }, 'base-url': { type: 'string' }, store: { type: 'string' } },
     async run([file], values) {
       const map = readMap(file)
       const flow = values.flow === undefined ? undefined : resolveFlow(map, values.flow, values.hex)
       if (flow === undefined && values.hex !== undefined) throw new Error('--hex needs --flow.')
-      const link = shareLink(map, { baseUrl: values['base-url'], flow })
+      const baseUrl = values['base-url']
+      // A short link only opens on a deployment that reads the same store, so another --base-url needs its own --store.
+      const store = values.store ?? (baseUrl === undefined ? DEFAULT_STORE_URL : undefined)
+      let stored
+      if (!values.full) {
+        stored = store ? await storeMap(map, { store }) : { failure: 'no share store for this --base-url (pass --store <url>)' }
+        if (stored.failure) console.error(`Short link unavailable: ${stored.failure}. Printing the full #m= link instead.`)
+      }
+      const link = stored?.token ? storedLink(stored.token, { baseUrl, flow }) : shareLink(map, { baseUrl, flow })
       console.log(link)
       if (link.length > MAX_CHARS) {
         console.error(`Warning: the link is ${link.length} characters, over the app's ${MAX_CHARS}-character budget. It may not survive chat apps or browsers; share the .hexa file instead (open it with "Open…").`)

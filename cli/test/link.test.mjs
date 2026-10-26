@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest'
-import { openerCommand, resolveFlow, shareLink } from '../src/link.mjs'
+import { createServer } from 'node:http'
+import { webcrypto } from 'node:crypto'
+import { inflateRawSync } from 'node:zlib'
+import { afterEach, describe, expect, it } from 'vitest'
+import { openerCommand, resolveFlow, shareLink, storedLink, storeMap } from '../src/link.mjs'
 
 const hexagon = (id, title, useCases) => ({ id, title, useCases })
 const map = {
@@ -60,6 +63,57 @@ describe('shareLink', () => {
 
   it('rejects an address that is not a URL', () => {
     expect(() => shareLink(map, { baseUrl: 'not a url' })).toThrow(/--base-url/)
+  })
+})
+
+describe('storedLink', () => {
+  it('puts the token after #s= and keeps the flow options', () => {
+    expect(storedLink('abc,key', { flow: { hexagonId: 'h 1', useCaseId: 'place' } })).toBe('https://diagrams.pbuilder.dev/#s=abc,key&flow=place&hex=h%201')
+  })
+})
+
+describe('storeMap', () => {
+  let server
+  afterEach(() => server?.close())
+
+  const store = (handler) =>
+    new Promise((resolve) => {
+      server = createServer(handler).listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}/`))
+    })
+
+  it('posts the encrypted map and returns the id with a key only the token holds', async () => {
+    let body = ''
+    const url = await store((request, response) => {
+      request.on('data', (chunk) => (body += chunk))
+      request.on('end', () => response.writeHead(201, { 'Content-Type': 'application/json' }).end('{"id":"abc_-1"}'))
+    })
+    const { token } = await storeMap(map, { store: url })
+    const [id, key] = token.split(',')
+    expect(id).toBe('abc_-1')
+    expect(body).toMatch(/^[\w-]+$/)
+    const sealed = Buffer.from(body, 'base64url')
+    const cryptoKey = await webcrypto.subtle.importKey('raw', Buffer.from(key, 'base64url'), 'AES-GCM', false, ['decrypt'])
+    const plain = await webcrypto.subtle.decrypt({ name: 'AES-GCM', iv: sealed.subarray(0, 12) }, cryptoKey, sealed.subarray(12))
+    expect(JSON.parse(inflateRawSync(Buffer.from(plain)).toString())).toEqual(map)
+  })
+
+  it.each([429, 503, 413])('reports a store that answers %i', async (status) => {
+    const url = await store((_, response) => response.writeHead(status).end())
+    expect(await storeMap(map, { store: url })).toEqual({ failure: expect.stringContaining(String(status)) })
+  })
+
+  it('reports an id it cannot put in a link', async () => {
+    const url = await store((_, response) => response.writeHead(201).end('{"id":"a/b"}'))
+    expect(await storeMap(map, { store: url })).toHaveProperty('failure')
+  })
+
+  it('gives up on a store that does not answer in time', async () => {
+    const url = await store(() => {})
+    expect(await storeMap(map, { store: url, timeoutMs: 50 })).toEqual({ failure: expect.stringMatching(/5?0 ?ms|time/) })
+  })
+
+  it('reports a store it cannot reach', async () => {
+    expect(await storeMap(map, { store: 'http://127.0.0.1:1/' })).toHaveProperty('failure')
   })
 })
 
